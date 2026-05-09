@@ -3,10 +3,20 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
-import { FileText, FileVideo2, Folder, Search } from 'lucide-react'
+import { FileText, FileVideo2, Folder, Loader2, Search, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import type { Project, ProjectStatus } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -38,6 +48,41 @@ export default function ProjectsPage() {
   const [brokenPreviewIds, setBrokenPreviewIds] = React.useState<Record<string, true>>({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+
+  const [assetToDelete, setAssetToDelete] = React.useState<{ projectId: string; assetId: string } | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const handleDeleteSourceAsset = async () => {
+    if (!assetToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const { projectId, assetId } = assetToDelete
+      const res = await fetch(`/api/assets/${assetId}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete asset')
+      }
+
+      toast.success('Source file deleted')
+      
+      // Update local state to clear the sourceAssetId for this project
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId ? { ...p, sourceAssetId: undefined } : p
+        )
+      )
+      setAssetToDelete(null)
+    } catch (err: any) {
+      console.error('[PROJECTS_DELETE_ASSET]', err)
+      toast.error('Could not delete file', {
+        description: err.message || 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -110,7 +155,8 @@ export default function ProjectsPage() {
   const isDataEmpty = !isLoading && projects.length === 0
 
   return (
-    <PrometheusShell>
+    <>
+      <PrometheusShell>
       <div className="h-full px-3 py-3 md:px-4 md:py-4">
         <div className="mx-auto h-full max-w-[1500px] overflow-hidden rounded-[30px] border border-white/18 bg-[linear-gradient(145deg,rgba(255,255,255,0.09)_0%,rgba(255,255,255,0.03)_30%,rgba(7,7,12,0.76)_100%)] shadow-[0_48px_120px_-64px_rgba(0,0,0,0.94),inset_0_1px_0_rgba(255,255,255,0.24)] backdrop-blur-3xl">
           <section className="h-full min-h-[calc(100vh-124px)] bg-[radial-gradient(130%_90%_at_80%_0%,rgba(183,123,255,0.18)_0%,rgba(92,70,140,0.08)_34%,rgba(0,0,0,0)_66%)] px-4 py-5 md:px-6">
@@ -177,58 +223,76 @@ export default function ProjectsPage() {
               ) : (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredProjects.map((project) => (
-                    <button
+                    <div
                       key={project.id}
-                      type="button"
-                      onClick={() => openProjectEditor(project.id)}
-                      className="group rounded-[22px] border border-white/15 bg-[linear-gradient(152deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_30%,rgba(7,7,11,0.78)_100%)] p-3 text-left shadow-[0_28px_54px_-34px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/26"
+                      className="group relative rounded-[22px] border border-white/15 bg-[linear-gradient(152deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_30%,rgba(7,7,11,0.78)_100%)] p-3 shadow-[0_28px_54px_-34px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/26"
                     >
-                      <div className="relative h-[132px]">
-                        <div className="absolute left-5 top-0 h-7 w-24 rounded-t-[12px] border border-white/20 border-b-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0.08)_100%)]" />
-                        <div className="absolute inset-x-0 bottom-0 top-5 overflow-hidden rounded-2xl border border-white/16 bg-[linear-gradient(168deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.03)_72%)]">
-                          {project.thumbnailUrl && !brokenPreviewIds[project.id] ? (
-                            project.previewKind === 'video' ? (
-                              <video
-                                src={project.thumbnailUrl}
-                                muted
-                                loop
-                                autoPlay
-                                playsInline
-                                preload="metadata"
-                                className="h-full w-full object-cover opacity-[0.85] transition-transform duration-300 group-hover:scale-[1.04]"
-                                onError={() =>
-                                  setBrokenPreviewIds((prev) => ({
-                                    ...prev,
-                                    [project.id]: true,
-                                  }))
-                                }
-                              />
+                      {project.sourceAssetId && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setAssetToDelete({ projectId: project.id, assetId: project.sourceAssetId! })
+                          }}
+                          className="absolute right-5 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/0 backdrop-blur-md transition-all group-hover:text-white/40 hover:border-rose-500/40 hover:bg-rose-900/40 hover:!text-rose-400"
+                          title="Delete source file from storage"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => openProjectEditor(project.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="relative h-[132px]">
+                          <div className="absolute left-5 top-0 h-7 w-24 rounded-t-[12px] border border-white/20 border-b-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0.08)_100%)]" />
+                          <div className="absolute inset-x-0 bottom-0 top-5 overflow-hidden rounded-2xl border border-white/16 bg-[linear-gradient(168deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.03)_72%)]">
+                            {project.thumbnailUrl && !brokenPreviewIds[project.id] ? (
+                              project.previewKind === 'video' ? (
+                                <video
+                                  src={project.thumbnailUrl}
+                                  muted
+                                  loop
+                                  autoPlay
+                                  playsInline
+                                  preload="metadata"
+                                  className="h-full w-full object-cover opacity-[0.85] transition-transform duration-300 group-hover:scale-[1.04]"
+                                  onError={() =>
+                                    setBrokenPreviewIds((prev) => ({
+                                      ...prev,
+                                      [project.id]: true,
+                                    }))
+                                  }
+                                />
+                              ) : (
+                                <img
+                                  src={project.thumbnailUrl}
+                                  alt={project.title}
+                                  className="h-full w-full object-cover opacity-[0.85] transition-transform duration-300 group-hover:scale-[1.04]"
+                                  onError={() =>
+                                    setBrokenPreviewIds((prev) => ({
+                                      ...prev,
+                                      [project.id]: true,
+                                    }))
+                                  }
+                                />
+                              )
                             ) : (
-                              <img
-                                src={project.thumbnailUrl}
-                                alt={project.title}
-                                className="h-full w-full object-cover opacity-[0.85] transition-transform duration-300 group-hover:scale-[1.04]"
-                                onError={() =>
-                                  setBrokenPreviewIds((prev) => ({
-                                    ...prev,
-                                    [project.id]: true,
-                                  }))
-                                }
-                              />
-                            )
-                          ) : (
-                            <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0)_52%),linear-gradient(165deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.02)_68%)]">
-                              <Folder className="size-11 text-white/74" />
-                            </div>
-                          )}
-                          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(0,0,0,0)_28%,rgba(0,0,0,0.38)_100%)]" />
+                              <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0)_52%),linear-gradient(165deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.02)_68%)]">
+                                <Folder className="size-11 text-white/74" />
+                              </div>
+                            )}
+                            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(0,0,0,0)_28%,rgba(0,0,0,0.38)_100%)]" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="pt-2">
-                        <div className="truncate text-lg text-white/94">{project.title}</div>
-                        <div className="text-sm capitalize text-white/58">{project.status} folder</div>
-                      </div>
-                    </button>
+                        <div className="pt-2">
+                          <div className="truncate text-lg text-white/94">{project.title}</div>
+                          <div className="text-sm capitalize text-white/58">{project.status} folder</div>
+                        </div>
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -238,29 +302,49 @@ export default function ProjectsPage() {
               <h3 className="text-3xl font-semibold tracking-tight text-white/95">Recently Updated</h3>
               <div className="mt-4 overflow-x-auto rounded-2xl border border-white/12 bg-[linear-gradient(160deg,rgba(255,255,255,0.08)_0%,rgba(8,8,12,0.8)_100%)] backdrop-blur-xl">
                 <div className="min-w-[640px]">
-                  <div className="grid grid-cols-[minmax(0,1.35fr)_240px_140px] border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.12em] text-white/44">
+                  <div className="grid grid-cols-[minmax(0,1.35fr)_240px_140px_100px] border-b border-white/10 px-4 py-3 text-xs uppercase tracking-[0.12em] text-white/44">
                     <div>File</div>
                     <div>Owner</div>
                     <div>Status</div>
+                    <div className="text-right">Actions</div>
                   </div>
                   {filteredProjects.slice(0, 6).map((project, index) => (
-                    <button
+                    <div
                       key={`${project.id}-row`}
-                      type="button"
-                      onClick={() => openProjectEditor(project.id)}
-                      className="grid w-full grid-cols-[minmax(0,1.35fr)_240px_140px] items-center px-4 py-3 text-left transition-colors hover:bg-white/[0.06]"
+                      className="grid w-full grid-cols-[minmax(0,1.35fr)_240px_140px_100px] items-center px-4 py-3 text-left transition-colors hover:bg-white/[0.04]"
                     >
-                      <div className="flex min-w-0 items-center gap-2 text-white/86">
+                      <button
+                        type="button"
+                        onClick={() => openProjectEditor(project.id)}
+                        className="flex min-w-0 items-center gap-2 text-white/86 transition-colors hover:text-white"
+                      >
                         {project.previewKind === 'video' ? (
                           <FileVideo2 className="size-4 shrink-0 text-violet-200/90" />
                         ) : (
                           <FileText className="size-4 shrink-0 text-white/70" />
                         )}
                         <span className="truncate">{project.title}.mp4</span>
-                      </div>
+                      </button>
                       <div className="text-sm text-white/58">{OWNER_EMAILS[index % OWNER_EMAILS.length]}</div>
                       <div className="text-sm capitalize text-white/66">{project.status}</div>
-                    </button>
+                      <div className="flex justify-end">
+                        {project.sourceAssetId ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setAssetToDelete({ projectId: project.id, assetId: project.sourceAssetId! })
+                            }}
+                            className="group flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/40 transition-all hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400"
+                            title="Delete source file from storage"
+                          >
+                            <Trash2 className="size-3.5 transition-transform group-hover:scale-110" />
+                          </button>
+                        ) : (
+                          <div className="text-[10px] uppercase tracking-wider text-white/20">No Source</div>
+                        )}
+                      </div>
+                    </div>
                   ))}
                   {!isLoading && filteredProjects.length === 0 ? (
                     <div className="px-4 py-8 text-sm text-white/56">No uploaded files yet.</div>
@@ -277,5 +361,42 @@ export default function ProjectsPage() {
         </div>
       </div>
     </PrometheusShell>
+
+    <Dialog open={!!assetToDelete} onOpenChange={(open) => !open && setAssetToDelete(null)}>
+      <DialogContent className="border-white/10 bg-[#0a0a0d] text-white">
+        <DialogHeader>
+          <DialogTitle>Delete source file?</DialogTitle>
+          <DialogDescription className="text-white/60">
+            This removes the uploaded source file from storage. The project will remain, but its source media will be missing.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="ghost"
+            onClick={() => setAssetToDelete(null)}
+            disabled={isDeleting}
+            className="text-white/70 hover:bg-white/5 hover:text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDeleteSourceAsset}
+            disabled={isDeleting}
+            className="bg-rose-600 text-white hover:bg-rose-700"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete File'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
