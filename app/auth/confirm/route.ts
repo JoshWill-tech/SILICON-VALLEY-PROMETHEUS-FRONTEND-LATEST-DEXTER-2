@@ -1,11 +1,12 @@
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { normalizeNextPath } from '@/lib/auth/redirect'
+import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/server'
 
 function buildRedirect(request: NextRequest, pathname: string, error?: string, nextPath?: string, email?: string) {
-  const url = new URL(pathname, request.nextUrl.origin)
+  const origin = getSiteOrigin(request)
+  const url = new URL(pathname, origin)
 
   if (error) {
     url.searchParams.set('error', error)

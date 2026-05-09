@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Film,
   FolderOpen,
+  Download,
   ImageIcon,
   Layers3,
   MessageSquare,
@@ -87,6 +88,15 @@ import { getSessionSourcePreview, setSessionSourcePreview } from '@/lib/source-p
 import { createSourceAssetObjectUrl, getStoredSourceAssetFile } from '@/lib/source-asset-store'
 import { STYLE_TEMPLATES, type StyleTemplate } from '@/lib/styles/style-templates'
 import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import type { FrameAssistSubmission, FrameSuggestion, QueuedPreviewRevisionState } from '@/lib/editorial-frame/types'
 import type {
   AnimationPlan,
@@ -103,6 +113,7 @@ import type {
   StagedMusicTrack,
   ViralClipTargetPlatform,
   CinematicAssetRegistry,
+  ProjectExport,
 } from '@/lib/types'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 
@@ -3305,6 +3316,10 @@ export default function EditorPage() {
   const [bottomMode, setBottomMode] = React.useState<BottomMode>('Original')
   const [activeWorkspaceTab, setActiveWorkspaceTab] = React.useState<HeaderNavMode>('Motion')
   const [isAiLampOpen, setIsAiLampOpen] = React.useState(false)
+  const [isExporting, setIsExporting] = React.useState(false)
+  const [isDownloading, setIsDownloading] = React.useState(false)
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = React.useState(false)
+  const [latestExport, setLatestExport] = React.useState<ProjectExport | null>(null)
   const [selectedEditorMusicTrackId, setSelectedEditorMusicTrackId] = React.useState<string | null>(null)
   const [viralClipTargetPlatform, setViralClipTargetPlatform] =
     React.useState<ViralClipTargetPlatform>(VIRAL_CLIP_PLATFORM_DEFAULT)
@@ -3396,6 +3411,21 @@ export default function EditorPage() {
   React.useEffect(() => {
     const savedTrackId = readLocalStorageJSON<string | null>(selectedEditorMusicStorageKey(projectId))
     setSelectedEditorMusicTrackId(typeof savedTrackId === 'string' ? savedTrackId : null)
+  }, [projectId])
+
+  React.useEffect(() => {
+    const loadLatestExport = async () => {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/exports/latest`)
+        const data = await res.json()
+        if (res.ok && data.export) {
+          setLatestExport(data.export)
+        }
+      } catch (err) {
+        console.warn('Failed to load latest export:', err)
+      }
+    }
+    void loadLatestExport()
   }, [projectId])
 
   React.useEffect(() => {
@@ -4030,6 +4060,86 @@ export default function EditorPage() {
     videoContext.summary,
   ])
 
+  const handlePrepareExport = React.useCallback(async () => {
+    if (isExporting) return
+
+    setIsExporting(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/exports`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          preset: 'default',
+          metadata: {
+            source: 'editor_prepare_export',
+          },
+        }),
+      })
+
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to initialize export')
+      }
+
+      setLatestExport(payload.export || null)
+
+      toast.success('Export job queued', {
+        description: 'Your project is saved and ready. Rendering will be enabled next.',
+        duration: 5000,
+      })
+    } catch (err: any) {
+      console.error('Export error:', err)
+      toast.error('Could not queue export', {
+        description: err.message || 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }, [projectId, isExporting])
+
+  const handleDownload = React.useCallback(() => {
+    if (!latestExport) return
+    setIsDownloadDialogOpen(true)
+  }, [latestExport])
+
+  const handleConfirmDownload = React.useCallback(async () => {
+    if (!latestExport || isDownloading) return
+
+    setIsDownloadDialogOpen(false)
+    setIsDownloading(true)
+    try {
+      const res = await fetch(`/api/exports/${latestExport.id}/download-url`)
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to get download URL')
+      }
+
+      // Create a temporary link to trigger the download
+      const link = document.createElement('a')
+      link.href = data.downloadUrl
+      // Try to suggest a nice filename
+      const filename = latestExport.storagePath?.split('/').pop() || `export-${latestExport.id.slice(0, 8)}.mp4`
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      toast.success('Download started', {
+        description: 'Your cinematic export is being delivered to your browser.',
+      })
+    } catch (err: any) {
+      console.error('Download error:', err)
+      toast.error('Could not download file', {
+        description: err.message || 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [latestExport, isDownloading])
+
   const handleRestoreLandscapePreview = React.useCallback(() => {
     setIsLockedViralClipTriggerHovered(false)
     setViralClipSplitPreviewActive(false)
@@ -4632,12 +4742,13 @@ export default function EditorPage() {
                 viewport={{ once: false, amount: 0.45 }}
               >
                 {isDeferredChromeReady ? (
-                  <CinematicExportCluster onExport={() => {
-                    toast.success('Export pipeline coming next', {
-                      description: 'Your project is saved and ready. Exports will be available once render jobs are enabled.',
-                      duration: 5000,
-                    })
-                  }} />
+                  <CinematicExportCluster 
+                    onExport={handlePrepareExport}
+                    isExporting={isExporting}
+                    isCompleted={latestExport?.status === 'completed'}
+                    onDownload={handleDownload}
+                    isDownloading={isDownloading}
+                  />
                 ) : (
                   <div className="h-[52px] w-[220px] rounded-full border border-white/8 bg-white/[0.03]" />
                 )}
@@ -5408,6 +5519,60 @@ export default function EditorPage() {
         description="Call up a directed AI lane for this project without leaving the chamber. Pick the route you want, and Prometheus will move the edit, music, or chat flow forward from there."
         actions={aiLampActions}
       />
+
+      <Dialog open={isDownloadDialogOpen} onOpenChange={setIsDownloadDialogOpen}>
+        <DialogContent className="max-w-[480px] border-white/12 bg-[#0e1016]/95 text-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
+          <div className="pointer-events-none absolute -inset-px rounded-2xl bg-[radial-gradient(circle_at_32%_22%,rgba(155,142,255,0.14)_0%,rgba(155,142,255,0)_42%)]" />
+          
+          <DialogHeader className="relative">
+            <div className="mb-4 inline-flex size-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <Download className="size-6 text-[#9ff6e3]" />
+            </div>
+            <DialogTitle className="text-2xl font-medium tracking-tight">Prepare final download?</DialogTitle>
+            <DialogDescription className="text-[15px] leading-relaxed text-white/60">
+              Your export is ready. This prototype download uses the current source-backed export proof. Real rendered edits will replace this in the render worker phase.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative mx-6 mt-4 space-y-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/40">Project</span>
+              <span className="font-medium text-white/90">{project?.title ?? 'Untitled'}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/40">Status</span>
+              <span className="inline-flex items-center gap-1.5 text-emerald-400">
+                <CheckCircle2 className="size-3.5" />
+                Completed
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/40">Type</span>
+              <span className="text-white/80">MP4 Video</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-white/40">Security</span>
+              <span className="text-white/50">Signed R2 Link</span>
+            </div>
+          </div>
+
+          <DialogFooter className="relative mt-6 gap-3 px-6 pb-6">
+            <Button
+              variant="ghost"
+              onClick={() => setIsDownloadDialogOpen(false)}
+              className="h-11 flex-1 rounded-xl border border-white/8 bg-white/5 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDownload}
+              className="h-11 flex-1 rounded-xl bg-white text-sm font-medium text-black transition-all hover:bg-white/90 hover:shadow-[0_0_20px_rgba(255,255,255,0.15)] active:scale-[0.98]"
+            >
+              Download MP4
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div
         ref={setChatComposerPortal}
         aria-hidden

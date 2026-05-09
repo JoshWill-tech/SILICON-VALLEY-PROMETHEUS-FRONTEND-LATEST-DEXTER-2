@@ -5,7 +5,7 @@ import { AppleIcon, GithubIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
-import { normalizeNextPath } from '@/lib/auth/redirect'
+import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/client'
 
 import { GoogleIcon } from './auth-visuals'
@@ -58,7 +58,8 @@ export function SocialAuthButtons() {
 
       try {
         const supabase = createClient()
-        const redirectTo = new URL('/auth/confirm', window.location.origin)
+        const origin = getSiteOrigin()
+        const redirectTo = new URL('/auth/confirm', origin)
 
         if (nextPath !== '/') {
           redirectTo.searchParams.set('next', nextPath)

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUpRight, Check, ChevronDown, Download, Link2, Plus, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Check, ChevronDown, Download, Link2, Loader2, Plus, Sparkles } from 'lucide-react'
 
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,10 @@ import { cn } from '@/lib/utils'
 interface CinematicExportClusterProps {
   className?: string
   onExport: () => void
+  isExporting?: boolean
+  isCompleted?: boolean
+  onDownload?: () => void
+  isDownloading?: boolean
 }
 
 interface PlatformOption {
@@ -126,7 +130,14 @@ function PlatformLogo({ platformId, className }: { platformId: string; className
   }
 }
 
-export function CinematicExportCluster({ className, onExport }: CinematicExportClusterProps) {
+export function CinematicExportCluster({ 
+  className, 
+  onExport, 
+  isExporting,
+  isCompleted,
+  onDownload,
+  isDownloading
+}: CinematicExportClusterProps) {
   const prefersReducedMotion = useStableReducedMotion()
   const closeTimerRef = React.useRef<number | null>(null)
   const spotlightTimerRef = React.useRef<number | null>(null)
@@ -402,21 +413,66 @@ export function CinematicExportCluster({ className, onExport }: CinematicExportC
           className="relative z-10 h-7 w-px rounded-full bg-[linear-gradient(180deg,rgba(120,111,103,0)_0%,rgba(120,111,103,0.42)_50%,rgba(120,111,103,0)_100%)]"
         />
 
-        <motion.button
-          type="button"
-          onClick={onExport}
-          aria-label="Export pipeline coming next"
-          title="Export will be available once render jobs are enabled"
-          className="relative z-10 inline-flex h-12 min-w-[3rem] sm:min-w-[8.5rem] items-center justify-center sm:justify-between gap-2 sm:gap-3 rounded-full px-3 sm:pl-3.5 sm:pr-4 text-[15px] font-medium tracking-[-0.015em] text-[#16131a] transition-[color,transform] duration-300 hover:translate-x-[1px] hover:text-black focus-visible:outline-none"
-          whileHover={prefersReducedMotion ? undefined : { x: 1 }}
-          whileTap={prefersReducedMotion ? undefined : { scale: 0.985 }}
-        >
-          <span className="inline-flex items-center gap-2.5">
-            <Sparkles className="size-[15px]" />
-            <span className="hidden sm:inline">Prepare Export</span>
-          </span>
-          <ChevronDown className="hidden sm:block size-[15px] text-[#5e5854]" />
-        </motion.button>
+        {isCompleted ? (
+          <motion.button
+            type="button"
+            onClick={onDownload}
+            disabled={isDownloading}
+            className={cn(
+              "relative z-10 inline-flex h-12 min-w-[3rem] sm:min-w-[8.5rem] items-center justify-center sm:justify-between gap-2 sm:gap-3 rounded-full px-3 sm:pl-3.5 sm:pr-4 text-[15px] font-medium tracking-[-0.015em] text-white bg-[#16131a] transition-all duration-300 hover:bg-black focus-visible:outline-none shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]",
+              isDownloading && "opacity-70 cursor-not-allowed"
+            )}
+            initial={{ opacity: 0, x: 8, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.985 }}
+          >
+            <span className="inline-flex items-center gap-2.5">
+              {isDownloading ? (
+                <Loader2 className="size-[15px] animate-spin text-[#9ff6e3]" />
+              ) : (
+                <div className="relative flex items-center justify-center">
+                  <Sparkles className="absolute -right-1 -top-1 size-2.5 text-[#9ff6e3] animate-pulse" />
+                  <Download className="size-[15px] text-[#9ff6e3]" />
+                </div>
+              )}
+              <span className="hidden sm:inline">
+                {isDownloading ? "Preparing secure link..." : "Prepare Download"}
+              </span>
+            </span>
+            {!isDownloading && (
+              <div className="hidden sm:flex size-5 items-center justify-center rounded-full bg-white/10 ml-1">
+                <Check className="size-3 text-[#9ff6e3]" />
+              </div>
+            )}
+          </motion.button>
+        ) : (
+          <motion.button
+            type="button"
+            onClick={onExport}
+            disabled={isExporting}
+            aria-label={isExporting ? "Export in progress" : "Open export options"}
+            title={isExporting ? "Your export is being initialized" : "Prepare project for cinematic export"}
+            className={cn(
+              "relative z-10 inline-flex h-12 min-w-[3rem] sm:min-w-[8.5rem] items-center justify-center sm:justify-between gap-2 sm:gap-3 rounded-full px-3 sm:pl-3.5 sm:pr-4 text-[15px] font-medium tracking-[-0.015em] text-[#16131a] transition-[color,transform,opacity] duration-300 hover:translate-x-[1px] hover:text-black focus-visible:outline-none",
+              isExporting && "opacity-70 cursor-not-allowed"
+            )}
+            whileHover={prefersReducedMotion || isExporting ? undefined : { x: 1 }}
+            whileTap={prefersReducedMotion || isExporting ? undefined : { scale: 0.985 }}
+          >
+            <span className="inline-flex items-center gap-2.5">
+              {isExporting ? (
+                <Loader2 className="size-[15px] animate-spin" />
+              ) : (
+                <Sparkles className="size-[15px]" />
+              )}
+              <span className="hidden sm:inline">
+                {isExporting ? "Queuing..." : "Prepare Export"}
+              </span>
+            </span>
+            {!isExporting && <ChevronDown className="hidden sm:block size-[15px] text-[#5e5854]" />}
+          </motion.button>
+        )}
       </div>
 
       <AnimatePresence>
