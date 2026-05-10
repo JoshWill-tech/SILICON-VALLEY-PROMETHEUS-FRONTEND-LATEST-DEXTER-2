@@ -66,7 +66,9 @@ export default function ProjectsPage() {
   const [error, setError] = React.useState<string | null>(null)
 
   const [assetToDelete, setAssetToDelete] = React.useState<{ projectId: string; assetId: string } | null>(null)
+  const [projectToRemove, setProjectToRemove] = React.useState<Project | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
+  const [isRemoving, setIsRemoving] = React.useState(false)
   const [downloadingExportId, setDownloadingExportId] = React.useState<string | null>(null)
 
   const handleDownload = async (exportId: string, fileName?: string) => {
@@ -95,6 +97,33 @@ export default function ProjectsPage() {
       })
     } finally {
       setDownloadingExportId(null)
+    }
+  }
+
+  const handleRemoveProject = async () => {
+    if (!projectToRemove) return
+
+    setIsRemoving(true)
+    try {
+      const res = await fetch(`/api/projects/${projectToRemove.id}`, { method: 'DELETE' })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to remove project')
+      }
+
+      toast.success('Project removed from workspace')
+      
+      // Update local state to remove the project
+      setProjects((prev) => prev.filter((p) => p.id !== projectToRemove.id))
+      setProjectToRemove(null)
+    } catch (err: any) {
+      console.error('[PROJECTS_REMOVE]', err)
+      toast.error('Could not remove project', {
+        description: err.message || 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsRemoving(false)
     }
   }
 
@@ -199,16 +228,60 @@ export default function ProjectsPage() {
     fetchLatestExports()
   }, [projects, isLoading])
 
-  const filteredProjects = React.useMemo(() => {
+  const { filteredProjects, counts } = React.useMemo(() => {
     const safeQuery = query.trim().toLowerCase()
-    return projects
-      .filter((project) => {
-        if (statusFilter !== 'all' && project.status !== statusFilter) return false
-        if (!safeQuery) return true
-        return project.title.toLowerCase().includes(safeQuery)
-      })
-      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-  }, [projects, query, statusFilter])
+    
+    const allFilteredByQuery = projects.filter(p => 
+      !safeQuery || p.title.toLowerCase().includes(safeQuery)
+    )
+
+    const results = allFilteredByQuery.filter((project) => {
+      if (statusFilter === 'all') return true
+      
+      const latestExport = latestExports[project.id]
+      const isProcessing = latestExport?.status === 'pending' || latestExport?.status === 'processing'
+      const isExported = latestExport?.status === 'completed'
+      const isReady = !!project.sourceAssetId && !isProcessing && !isExported
+
+      if (statusFilter === 'draft') {
+        return !isExported
+      }
+      if (statusFilter === 'processing') {
+        return isProcessing
+      }
+      if (statusFilter === 'ready') {
+        return isReady
+      }
+      if (statusFilter === 'exported') {
+        return isExported
+      }
+      
+      return true
+    }).sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+
+    // Calculate counts based on the query-filtered list
+    const counts = {
+      all: allFilteredByQuery.length,
+      draft: allFilteredByQuery.filter(p => {
+        const lx = latestExports[p.id]
+        return lx?.status !== 'completed'
+      }).length,
+      processing: allFilteredByQuery.filter(p => {
+        const lx = latestExports[p.id]
+        return lx?.status === 'pending' || lx?.status === 'processing'
+      }).length,
+      ready: allFilteredByQuery.filter(p => {
+        const lx = latestExports[p.id]
+        return !!p.sourceAssetId && lx?.status !== 'pending' && lx?.status !== 'processing' && lx?.status !== 'completed'
+      }).length,
+      exported: allFilteredByQuery.filter(p => {
+        const lx = latestExports[p.id]
+        return lx?.status === 'completed'
+      }).length,
+    }
+
+    return { filteredProjects: results, counts }
+  }, [projects, query, statusFilter, latestExports])
 
   React.useEffect(() => {
     if (!SHOULD_PREFETCH_PROJECT_EDITORS || isLoading) return
@@ -256,21 +329,30 @@ export default function ProjectsPage() {
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {STATUS_FILTERS.map((filter) => (
-                  <button
-                    key={filter.value}
-                    type="button"
-                    onClick={() => setStatusFilter(filter.value)}
-                    className={cn(
-                      'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                      statusFilter === filter.value
-                        ? 'border-white/28 bg-white/[0.14] text-white'
-                        : 'border-white/14 bg-white/[0.03] text-white/62 hover:border-white/24 hover:text-white'
-                    )}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
+                {STATUS_FILTERS.map((filter) => {
+                  const count = counts[filter.value as keyof typeof counts] ?? 0
+                  return (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setStatusFilter(filter.value)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                        statusFilter === filter.value
+                          ? 'border-white/28 bg-white/[0.14] text-white'
+                          : 'border-white/14 bg-white/[0.03] text-white/62 hover:border-white/24 hover:text-white'
+                      )}
+                    >
+                      {filter.label}
+                      <span className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px]",
+                        statusFilter === filter.value ? "bg-white/20 text-white" : "bg-white/5 text-white/40"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -292,8 +374,26 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               ) : isEmpty ? (
-                <div className="mt-4 rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-10 text-center text-white/62">
-                  {isDataEmpty ? 'No projects found. Create your first project in the Studio!' : 'No projects match this filter.'}
+                <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-16 text-center text-white/62">
+                  <div className="flex size-16 items-center justify-center rounded-full bg-white/5 mb-4">
+                    <Search className="size-8 text-white/20" />
+                  </div>
+                  <div className="text-lg font-medium text-white/80">
+                    {isDataEmpty 
+                      ? 'No projects found' 
+                      : statusFilter === 'processing' 
+                        ? 'No exports are processing right now'
+                        : statusFilter === 'ready'
+                          ? 'No projects are ready for export yet'
+                          : statusFilter === 'exported'
+                            ? 'No completed exports yet'
+                            : 'No projects match this filter'}
+                  </div>
+                  <p className="mt-2 max-w-[300px] text-sm text-white/40">
+                    {isDataEmpty 
+                      ? 'Create your first project in the Studio to get started.' 
+                      : 'Try adjusting your search query or switching filters.'}
+                  </p>
                 </div>
               ) : (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -306,7 +406,7 @@ export default function ProjectsPage() {
                         key={project.id}
                         className="group relative flex flex-col rounded-[22px] border border-white/15 bg-[linear-gradient(152deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_30%,rgba(7,7,11,0.78)_100%)] p-3 shadow-[0_28px_54px_-34px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/26"
                       >
-                        {project.sourceAssetId && (
+                        {project.sourceAssetId ? (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -315,6 +415,18 @@ export default function ProjectsPage() {
                             }}
                             className="absolute right-5 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/0 backdrop-blur-md transition-all group-hover:text-white/40 hover:border-rose-500/40 hover:bg-rose-900/40 hover:!text-rose-400"
                             title="Delete source file from storage"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setProjectToRemove(project)
+                            }}
+                            className="absolute right-5 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/0 backdrop-blur-md transition-all group-hover:text-white/40 hover:border-white/30 hover:bg-white/10 hover:!text-white/90"
+                            title="Remove project folder"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -542,7 +654,17 @@ export default function ProjectsPage() {
                               <Trash2 className="size-3.5 transition-transform group-hover:scale-110" />
                             </button>
                           ) : (
-                            <div className="text-[10px] uppercase tracking-wider text-white/20">Empty</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setProjectToRemove(project)
+                              }}
+                              className="group flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/40 transition-all hover:border-white/30 hover:bg-white/10 hover:text-white/90"
+                              title="Remove project folder"
+                            >
+                              <Trash2 className="size-3.5 transition-transform group-hover:scale-110" />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -594,6 +716,47 @@ export default function ProjectsPage() {
               </>
             ) : (
               'Delete File'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!projectToRemove} onOpenChange={(open) => !open && setProjectToRemove(null)}>
+      <DialogContent className="border-white/10 bg-[#0a0a0d] text-white">
+        <DialogHeader>
+          <DialogTitle>Remove this project?</DialogTitle>
+          <DialogDescription className="text-white/60">
+            This project has no source media attached. Removing it will clear it from your workspace. This action cannot be undone.
+            {latestExports[projectToRemove?.id || ''] && (
+              <span className="mt-2 block text-amber-300/80">
+                Note: Linked export records will also be removed.
+              </span>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="ghost"
+            onClick={() => setProjectToRemove(null)}
+            disabled={isRemoving}
+            className="text-white/70 hover:bg-white/5 hover:text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleRemoveProject}
+            disabled={isRemoving}
+            className="bg-white text-black hover:bg-white/90"
+          >
+            {isRemoving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Removing...
+              </>
+            ) : (
+              'Remove Project'
             )}
           </Button>
         </DialogFooter>
