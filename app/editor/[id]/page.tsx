@@ -3319,7 +3319,58 @@ export default function EditorPage() {
   const [isExporting, setIsExporting] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = React.useState(false)
+  const [isEditingTitle, setIsEditingTitle] = React.useState(false)
+  const [tempTitle, setTempTitle] = React.useState('')
+  const titleInputRef = React.useRef<HTMLInputElement | null>(null)
   const [latestExport, setLatestExport] = React.useState<ProjectExport | null>(null)
+
+  const handleTitleStartEdit = () => {
+    setTempTitle(project?.title || '')
+    setIsEditingTitle(true)
+  }
+
+  const handleTitleSave = async () => {
+    if (!project) return
+    const nextTitle = tempTitle.trim()
+    if (!nextTitle || nextTitle === project.title) {
+      setIsEditingTitle(false)
+      return
+    }
+
+    // Small validation
+    if (nextTitle.length > 100) {
+      toast.error('Title is too long')
+      return
+    }
+
+    try {
+      setSaveStatus('saving')
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update title')
+      
+      const { project: updatedProject } = await res.json()
+      setProject(updatedProject)
+      upsertProject(updatedProject)
+      setSaveStatus('saved')
+      toast.success('Project renamed')
+    } catch (err) {
+      console.error('Title update failed:', err)
+      setSaveStatus('error')
+      toast.error('Failed to rename project')
+    } finally {
+      setIsEditingTitle(false)
+    }
+  }
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleTitleSave()
+    if (e.key === 'Escape') setIsEditingTitle(false)
+  }
   const [selectedEditorMusicTrackId, setSelectedEditorMusicTrackId] = React.useState<string | null>(null)
   const [viralClipTargetPlatform, setViralClipTargetPlatform] =
     React.useState<ViralClipTargetPlatform>(VIRAL_CLIP_PLATFORM_DEFAULT)
@@ -3383,6 +3434,13 @@ export default function EditorPage() {
     refreshBackendHealth: refreshViralClipBackendHealth,
     refreshResult: refreshViralClipResult,
   } = viralClipJob
+
+  React.useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+    }
+  }, [isEditingTitle])
 
   React.useEffect(() => {
     clearPendingEditorNavigation(`/editor/${projectId}`)
@@ -4117,11 +4175,12 @@ export default function EditorPage() {
         throw new Error(data.error || 'Failed to get download URL')
       }
 
+      const downloadUrl = data.download?.url || data.downloadUrl
+      const filename = data.download?.filename || latestExport.storagePath?.split('/').pop() || `export-${latestExport.id.slice(0, 8)}.mp4`
+
       // Create a temporary link to trigger the download
       const link = document.createElement('a')
-      link.href = data.downloadUrl
-      // Try to suggest a nice filename
-      const filename = latestExport.storagePath?.split('/').pop() || `export-${latestExport.id.slice(0, 8)}.mp4`
+      link.href = downloadUrl
       link.setAttribute('download', filename)
       document.body.appendChild(link)
       link.click()
@@ -4696,13 +4755,33 @@ export default function EditorPage() {
                 viewport={{ once: false, amount: 0.45 }}
                 className="min-w-0"
               >
-                <TextReveal
-                  as="div"
-                  text={project?.title ?? 'Loading project...'}
-                  split="words"
-                  delay={0.08}
-                  className="editor-display truncate text-[1.45rem] leading-tight text-white"
-                />
+                <div className="group relative">
+                  {isEditingTitle ? (
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      value={tempTitle}
+                      onChange={(e) => setTempTitle(e.target.value)}
+                      onBlur={handleTitleSave}
+                      onKeyDown={handleTitleKeyDown}
+                      className="editor-display w-full bg-transparent text-[1.45rem] leading-tight text-white outline-none"
+                    />
+                  ) : (
+                    <div 
+                      className="cursor-pointer transition-opacity hover:opacity-80"
+                      onClick={handleTitleStartEdit}
+                      title="Click to rename project"
+                    >
+                      <TextReveal
+                        as="div"
+                        text={project?.title ?? 'Loading project...'}
+                        split="words"
+                        delay={0.08}
+                        className="editor-display truncate text-[1.45rem] leading-tight text-white"
+                      />
+                    </div>
+                  )}
+                </div>
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-white/42">
                   <span className={cn(
                     "inline-flex items-center gap-2 transition-colors",

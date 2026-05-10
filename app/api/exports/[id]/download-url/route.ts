@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ExportService } from '@/lib/exports/service'
+import { ProjectService } from '@/lib/projects/service'
 import { getPresignedGetUrl } from '@/lib/r2/presigned-url'
+import { sanitizeFilename } from '@/lib/utils'
 
 export async function GET(
   req: NextRequest,
@@ -19,11 +21,29 @@ export async function GET(
       )
     }
 
-    // 2. Generate presigned GET URL for the final MP4
-    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
-    const downloadUrl = await getPresignedGetUrl(bucket, projectExport.storagePath)
+    // 2. Fetch project to get title for filename
+    let filename = `export-${exportId.slice(0, 8)}.mp4`
+    try {
+      const project = await ProjectService.getProject(projectExport.projectId)
+      if (project?.title) {
+        filename = `${sanitizeFilename(project.title)}.mp4`
+      }
+    } catch (err) {
+      console.warn('[EXPORT_DOWNLOAD_URL] Could not fetch project title, using fallback filename', err)
+    }
 
-    return NextResponse.json({ downloadUrl })
+    // 3. Generate presigned GET URL for the final MP4
+    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+    const downloadUrl = await getPresignedGetUrl(bucket, projectExport.storagePath, filename)
+
+    return NextResponse.json({ 
+      downloadUrl, // Keep for backward compatibility if needed during migration
+      download: {
+        url: downloadUrl,
+        filename,
+        expiresIn: 3600
+      }
+    })
   } catch (error: any) {
     console.error('[EXPORT_DOWNLOAD_URL_GET]', error)
 
