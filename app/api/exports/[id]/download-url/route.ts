@@ -21,6 +21,7 @@ export async function GET(
       )
     }
 
+<<<<<<< HEAD
     // 2. Fetch project to get title for filename
     let filename = `export-${exportId.slice(0, 8)}.mp4`
     try {
@@ -42,6 +43,25 @@ export async function GET(
         url: downloadUrl,
         filename,
         expiresIn: 3600
+=======
+    // 2. Generate presigned GET URL for the final MP4
+    const project = await ExportService.getExportProject(exportId)
+    const sanitizedTitle = (project?.title || 'export').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    const filename = `${sanitizedTitle}-${exportId.slice(0, 8)}.mp4`
+
+    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+    const downloadUrl = await getPresignedGetUrl(
+      bucket, 
+      projectExport.storagePath,
+      `attachment; filename="${filename}"`
+    )
+
+    return NextResponse.json({ 
+      downloadUrl,
+      download: {
+        url: downloadUrl,
+        filename
+>>>>>>> feat/render-worker-proof
       }
     })
   } catch (error: any) {

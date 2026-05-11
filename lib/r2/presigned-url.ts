@@ -15,11 +15,19 @@ export async function getPresignedPutUrl(bucket: string, key: string, contentTyp
   return url;
 }
 
+<<<<<<< HEAD
 export async function getPresignedGetUrl(bucket: string, key: string, filename?: string) {
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: key,
     ResponseContentDisposition: filename ? `attachment; filename="${filename}"` : undefined,
+=======
+export async function getPresignedGetUrl(bucket: string, key: string, responseContentDisposition?: string) {
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ResponseContentDisposition: responseContentDisposition,
+>>>>>>> feat/render-worker-proof
   });
 
   const url = await getSignedUrl(r2Client, command, { expiresIn: EXPIRE_IN_SECONDS });
