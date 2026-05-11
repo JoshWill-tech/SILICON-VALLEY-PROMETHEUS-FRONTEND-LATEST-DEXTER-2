@@ -50,6 +50,7 @@ import { EditorLoadingScreen } from '@/components/editor/editor-loading-screen'
 import { InfinityTrailLoader } from '@/components/editor/infinity-trail-loader'
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
 import { ViralClipTrigger } from '@/components/editor/viral-clip-trigger'
+import { CommandOverlayShell } from '@/components/editor/command-overlay-shell'
 import { useSourceStage } from '@/hooks/use-source-stage'
 import { useViralClipJob } from '@/hooks/use-viral-clip-job'
 import { WorkspaceNavBar, type WorkspaceNavItem } from '@/components/ui/anime-navbar'
@@ -97,7 +98,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import type { FrameAssistSubmission, FrameSuggestion, QueuedPreviewRevisionState } from '@/lib/editorial-frame/types'
+import type { CreativeMetadata, FrameAssistSubmission, FrameSuggestion, QueuedPreviewRevisionState } from '@/lib/editorial-frame/types'
 import type {
   AnimationPlan,
   MusicPreference,
@@ -1057,6 +1058,7 @@ function FloatingChatComposer({
   reduceMotion,
   isOpen,
   onOpenChange,
+  onOpenCommandOverlay,
   queuedPreviewRevision,
   onClearQueuedPreview,
 }: {
@@ -1069,6 +1071,7 @@ function FloatingChatComposer({
   reduceMotion: boolean
   isOpen: boolean
   onOpenChange: (nextOpen: boolean) => void
+  onOpenCommandOverlay?: () => void
   queuedPreviewRevision?: QueuedPreviewRevisionState | null
   onClearQueuedPreview?: () => void
 }) {
@@ -1679,6 +1682,19 @@ function FloatingChatComposer({
                     >
                       <Film className="size-2.5" />
                     </motion.button>
+
+                    <div className="mx-0.5 h-3 w-px bg-white/10" />
+
+                    <motion.button
+                      type="button"
+                      onClick={() => onOpenCommandOverlay?.()}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#7ff2d4]/20 bg-[#7ff2d4]/5 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[#7ff2d4] transition-colors hover:bg-[#7ff2d4]/10"
+                      whileHover={reduceMotion ? undefined : { y: -0.5, scale: 1.02 }}
+                      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                    >
+                      <Sparkles className="size-2.5" />
+                      Creative Direction
+                    </motion.button>
                   </div>
 
                   <motion.button
@@ -1819,6 +1835,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [draft, setDraft] = React.useState('')
   const [pendingReplies, setPendingReplies] = React.useState(0)
   const [isComposerOpen, setIsComposerOpen] = React.useState(false)
+  const [isCommandOverlayOpen, setIsCommandOverlayOpen] = React.useState(false)
   const [queuedPreviewRevision, setQueuedPreviewRevision] = React.useState<QueuedPreviewRevisionState | null>(null)
   const [musicPreference, setMusicPreference] = React.useState<MusicPreference>(() =>
     createDefaultMusicPreference(),
@@ -2838,22 +2855,27 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   )
 
   const handleSubmit = React.useCallback(
-    async (submission: FrameAssistSubmission) => {
+    async (submission: FrameAssistSubmission, metadata?: CreativeMetadata) => {
       const nextValue = submission.rawText.trim()
       if (!nextValue) return
 
-      if (submission.revisionRequest.frameTarget) {
+      const enrichedRevisionRequest = {
+        ...submission.revisionRequest,
+        metadata: metadata || submission.revisionRequest.metadata
+      }
+
+      if (enrichedRevisionRequest.frameTarget) {
         const previewRequestToken = `preview-queue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         queuedPreviewRequestTokenRef.current = previewRequestToken
         setQueuedPreviewRevision({
           requestId: previewRequestToken,
-          request: submission.revisionRequest,
+          request: enrichedRevisionRequest,
           queuedAt: new Date().toISOString(),
           etaMs: 2200,
           status: 'queueing',
         })
 
-        void queuePreviewRevisionRequest(submission.revisionRequest)
+        void queuePreviewRevisionRequest(enrichedRevisionRequest)
           .then((queuedState) => {
             if (queuedPreviewRequestTokenRef.current !== previewRequestToken) return
             setQueuedPreviewRevision(queuedState)
@@ -2862,7 +2884,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
             if (queuedPreviewRequestTokenRef.current !== previewRequestToken) return
             setQueuedPreviewRevision({
               requestId: `${previewRequestToken}-fallback`,
-              request: submission.revisionRequest,
+              request: enrichedRevisionRequest,
               queuedAt: new Date().toISOString(),
               etaMs: 2200,
               status: 'queued',
@@ -2871,7 +2893,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       }
 
       void submitMessage(nextValue, {
-        revisionRequest: submission.revisionRequest,
+        revisionRequest: enrichedRevisionRequest,
       })
       setDraft('')
     },
@@ -3224,24 +3246,54 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         : null}
 
       {composerPortalTarget
-          ? createPortal(
-            <FloatingChatComposer
-              projectId={projectId}
-              draft={draft}
-              onDraftChange={setDraft}
-              onSubmit={handleSubmit}
-              onStop={stopPendingReplies}
-              loading={pendingReplies > 0}
-              reduceMotion={reduceMotion}
-              isOpen={isComposerOpen}
-              onOpenChange={setIsComposerOpen}
-              queuedPreviewRevision={queuedPreviewRevision}
-              onClearQueuedPreview={clearQueuedPreviewRevision}
-            />,
-            composerPortalTarget,
-          )
-        : null}
-    </div>
+           ? createPortal(
+              <>
+                <FloatingChatComposer
+                  projectId={projectId}
+                  draft={draft}
+                  onDraftChange={setDraft}
+                  onSubmit={handleSubmit}
+                  onStop={stopPendingReplies}
+                  loading={pendingReplies > 0}
+                  reduceMotion={reduceMotion}
+                  isOpen={isComposerOpen}
+                  onOpenChange={setIsComposerOpen}
+                  onOpenCommandOverlay={() => setIsCommandOverlayOpen(true)}
+                  queuedPreviewRevision={queuedPreviewRevision}
+                  onClearQueuedPreview={clearQueuedPreviewRevision}
+                />
+
+                <CommandOverlayShell 
+                  open={isCommandOverlayOpen}
+                  onOpenChange={setIsCommandOverlayOpen}
+                  initialPrompt={draft}
+                  onSubmit={(data) => {
+                    setDraft(data.prompt)
+                    // Construct a submission-like object for the manual overlay submit
+                    const submission: FrameAssistSubmission = {
+                      rawText: data.prompt,
+                      analysis: parseFrameReference(data.prompt, data.prompt.length),
+                      revisionRequest: {
+                        rawText: data.prompt,
+                        displayText: data.prompt,
+                        instructionText: data.prompt,
+                        frameTarget: null,
+                        matchedRegionId: null,
+                        matchedRegionLabel: null,
+                        selectedRegionMetadata: null,
+                        previewThumbnailUrl: null,
+                        attachments: [],
+                        intent: 'generic_revision',
+                        metadata: data.metadata,
+                      }
+                    }
+                    void handleSubmit(submission, data.metadata)
+                  }}
+                />
+              </>,
+              composerPortalTarget,
+            )
+          : null}    </div>
   )
 })
 

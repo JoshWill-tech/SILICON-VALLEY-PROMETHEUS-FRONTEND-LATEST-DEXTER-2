@@ -98,6 +98,16 @@ export interface FrameAssistAttachment {
   url?: string | null
 }
 
+export interface CreativeMetadata {
+  mood?: string
+  platform?: string
+  audience?: string
+  styleId?: string
+  intensity?: 'subtle' | 'balanced' | 'bold' | 'maximum'
+  rememberPreference?: boolean
+  optionalNotes?: string
+}
+
 export interface EditorialRevisionRequest {
   rawText: string
   displayText: string
@@ -109,6 +119,7 @@ export interface EditorialRevisionRequest {
   previewThumbnailUrl: string | null
   attachments: FrameAssistAttachment[]
   intent: RevisionIntent
+  metadata?: CreativeMetadata
 }
 
 export interface QueuedPreviewRevisionState {
