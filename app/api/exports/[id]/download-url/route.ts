@@ -20,10 +20,24 @@ export async function GET(
     }
 
     // 2. Generate presigned GET URL for the final MP4
-    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
-    const downloadUrl = await getPresignedGetUrl(bucket, projectExport.storagePath)
+    const project = await ExportService.getExportProject(exportId)
+    const sanitizedTitle = (project?.title || 'export').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    const filename = `${sanitizedTitle}-${exportId.slice(0, 8)}.mp4`
 
-    return NextResponse.json({ downloadUrl })
+    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+    const downloadUrl = await getPresignedGetUrl(
+      bucket, 
+      projectExport.storagePath,
+      `attachment; filename="${filename}"`
+    )
+
+    return NextResponse.json({ 
+      downloadUrl,
+      download: {
+        url: downloadUrl,
+        filename
+      }
+    })
   } catch (error: any) {
     console.error('[EXPORT_DOWNLOAD_URL_GET]', error)
 

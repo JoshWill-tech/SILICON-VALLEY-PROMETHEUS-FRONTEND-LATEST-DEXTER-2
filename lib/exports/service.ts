@@ -141,6 +141,35 @@ export const ExportService = {
 
     if (error) throw error
     return (data || []).map(mapProjectExportFromDb)
+  },
+
+  async getExportProject(exportId: string): Promise<{ id: string; title: string } | null> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: exportData, error: exportError } = await supabase
+      .from('project_exports')
+      .select('project_id')
+      .eq('id', exportId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (exportError || !exportData) return null
+
+    const { data: projectData, error: projectError } = await supabase
+      .from('projects')
+      .select('id, title')
+      .eq('id', exportData.project_id)
+      .single()
+
+    if (projectError || !projectData) return null
+
+    return {
+      id: projectData.id,
+      title: projectData.title
+    }
   }
 }
 

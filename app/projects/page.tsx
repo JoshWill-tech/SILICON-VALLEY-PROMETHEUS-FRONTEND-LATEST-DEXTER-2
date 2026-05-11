@@ -16,7 +16,8 @@ import {
   FileQuestion,
   Sparkles,
   CheckCircle2,
-  Clock
+  Clock,
+  PenSquare
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -67,11 +68,14 @@ export default function ProjectsPage() {
 
   const [assetToDelete, setAssetToDelete] = React.useState<{ projectId: string; assetId: string } | null>(null)
   const [projectToRemove, setProjectToRemove] = React.useState<Project | null>(null)
+  const [projectToRename, setProjectToRename] = React.useState<Project | null>(null)
+  const [tempRenameTitle, setTempRenameTitle] = React.useState('')
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [isRemoving, setIsRemoving] = React.useState(false)
+  const [isRenaming, setIsRenaming] = React.useState(false)
   const [downloadingExportId, setDownloadingExportId] = React.useState<string | null>(null)
 
-  const handleDownload = async (exportId: string, fileName?: string) => {
+  const handleDownload = async (exportId: string, _titleFallback?: string) => {
     setDownloadingExportId(exportId)
     try {
       const res = await fetch(`/api/exports/${exportId}/download-url`)
@@ -81,10 +85,13 @@ export default function ProjectsPage() {
         throw new Error(data.error || 'Failed to get download link')
       }
 
+      const downloadUrl = data.download?.url || data.downloadUrl
+      const filename = data.download?.filename || _titleFallback || `export-${exportId}.mp4`
+
       // Trigger browser download
       const link = document.createElement('a')
-      link.href = data.downloadUrl
-      link.download = fileName || `export-${exportId}.mp4`
+      link.href = downloadUrl
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -97,6 +104,41 @@ export default function ProjectsPage() {
       })
     } finally {
       setDownloadingExportId(null)
+    }
+  }
+
+  const handleRenameProject = async () => {
+    if (!projectToRename) return
+    const nextTitle = tempRenameTitle.trim()
+    if (!nextTitle || nextTitle === projectToRename.title) {
+      setProjectToRename(null)
+      return
+    }
+
+    setIsRenaming(true)
+    try {
+      const res = await fetch(`/api/projects/${projectToRename.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      })
+
+      if (!res.ok) throw new Error('Failed to rename project')
+
+      toast.success('Project renamed')
+      
+      // Update local state
+      setProjects((prev) => 
+        prev.map((p) => p.id === projectToRename.id ? { ...p, title: nextTitle } : p)
+      )
+      setProjectToRename(null)
+    } catch (err: any) {
+      console.error('[PROJECTS_RENAME]', err)
+      toast.error('Could not rename project', {
+        description: err.message || 'An unexpected error occurred.',
+      })
+    } finally {
+      setIsRenaming(false)
     }
   }
 
@@ -475,8 +517,20 @@ export default function ProjectsPage() {
                         </div>
 
                         <div className="flex-1 pt-2">
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center justify-between gap-2">
                             <div className="truncate text-lg text-white/94" title={project.title}>{project.title}</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setTempRenameTitle(project.title)
+                                setProjectToRename(project)
+                              }}
+                              className="shrink-0 rounded-md p-1 text-white/20 transition-colors hover:bg-white/5 hover:text-white/60"
+                              title="Rename project"
+                            >
+                              <PenSquare className="size-3.5" />
+                            </button>
                           </div>
                           
                           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -640,7 +694,20 @@ export default function ProjectsPage() {
                           )}
                         </div>
 
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setTempRenameTitle(project.title)
+                              setProjectToRename(project)
+                            }}
+                            className="group flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-white/40 transition-all hover:border-white/30 hover:bg-white/10 hover:text-white/90"
+                            title="Rename project"
+                          >
+                            <PenSquare className="size-3.5 transition-transform group-hover:scale-110" />
+                          </button>
+
                           {project.sourceAssetId ? (
                             <button
                               type="button"
@@ -757,6 +824,51 @@ export default function ProjectsPage() {
               </>
             ) : (
               'Remove Project'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!projectToRename} onOpenChange={(open) => !open && setProjectToRename(null)}>
+      <DialogContent className="border-white/10 bg-[#0a0a0d] text-white">
+        <DialogHeader>
+          <DialogTitle>Rename project</DialogTitle>
+          <DialogDescription className="text-white/60">
+            Enter a new display name for this project.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Input
+            value={tempRenameTitle}
+            onChange={(e) => setTempRenameTitle(e.target.value)}
+            placeholder="New project title"
+            className="border-white/10 bg-white/5 text-white"
+            onKeyDown={(e) => e.key === 'Enter' && handleRenameProject()}
+            autoFocus
+          />
+        </div>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="ghost"
+            onClick={() => setProjectToRename(null)}
+            disabled={isRenaming}
+            className="text-white/70 hover:bg-white/5 hover:text-white"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRenameProject}
+            disabled={isRenaming}
+            className="bg-white text-black hover:bg-white/90"
+          >
+            {isRenaming ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Renaming...
+              </>
+            ) : (
+              'Save name'
             )}
           </Button>
         </DialogFooter>
