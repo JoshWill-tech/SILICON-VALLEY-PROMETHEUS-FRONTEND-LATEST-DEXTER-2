@@ -21,27 +21,23 @@ export async function GET(
       )
     }
 
-    // 2. Fetch project to get title for filename
-    let filename = `export-${exportId.slice(0, 8)}.mp4`
-    try {
-      const project = await ProjectService.getProject(projectExport.projectId)
-      if (project?.title) {
-        filename = `${sanitizeFilename(project.title)}.mp4`
-      }
-    } catch (err) {
-      console.warn('[EXPORT_DOWNLOAD_URL] Could not fetch project title, using fallback filename', err)
-    }
+    // 2. Generate presigned GET URL for the final MP4
+    const project = await ExportService.getExportProject(exportId)
+    const sanitizedTitle = (project?.title || 'export').replace(/[^a-z0-9]/gi, '-').toLowerCase()
+    const filename = `${sanitizedTitle}-${exportId.slice(0, 8)}.mp4`
 
-    // 3. Generate presigned GET URL for the final MP4
     const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
-    const downloadUrl = await getPresignedGetUrl(bucket, projectExport.storagePath, filename)
+    const downloadUrl = await getPresignedGetUrl(
+      bucket, 
+      projectExport.storagePath,
+      filename
+    )
 
     return NextResponse.json({ 
-      downloadUrl, // Keep for backward compatibility if needed during migration
+      downloadUrl,
       download: {
         url: downloadUrl,
-        filename,
-        expiresIn: 3600
+        filename
       }
     })
   } catch (error: any) {

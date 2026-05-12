@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "5e7e8b057984553ab544d38b93d22e342406fe0bc4dfaa16c259d3eac4500d7f"
+    },
+    "docs-retrieval": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "808e487dc0514843373a8aa4d5a473bccd6831daf9ea31a2d042e953a7fd4c81"
+    },
+    "penpot-uiux-design": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/penpot-uiux-design/SKILL.md",
+      "computedHash": "cd29e08bb7d2d4b9212582bcd9b70823619fbc6397078b8ba853962054ba4230"
+    },
+    "prometheus-launch-discipline": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "f506426913fb052031068eaeec7331d39d9d4a0aa44d4e3a529f468862ddd64e"
+    },
+    "repo-map": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "758be673f162769d509f2218b2f294b0c4cef5d76658a1c2bda2229f4996e5c1"
+    },
+    "systems-debugging": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "d90b5cb35376932964bac9940600490d29e98cdbd1eca53d00c1e302aba05e6e"
+    },
+    "test-generation": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "67489721b88464babb267071bd96e591436bdfed0f96605e61a90596cd52f305"
+    },
+    "tool-routing": {
+      "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
+      "sourceType": "local",
+      "computedHash": "da5a9e7657ad5c2c1c8037eee04ad80b2c36154754c89be8790a34e3b1018796"
+    }
+  }
+}

@@ -98,6 +98,27 @@ export interface FrameAssistAttachment {
   url?: string | null
 }
 
+export interface CreativeMetadata {
+  mood?: string
+  platform?: string
+  audience?: string
+  goals?: string[]
+  focusAreas?: string[]
+  energy?: string
+  styleId?: string
+  intensity?: 'subtle' | 'balanced' | 'bold' | 'maximum'
+  rememberPreference?: boolean
+  optionalNotes?: string
+  pacing?: string
+  captionStyle?: string
+  musicEnergy?: string
+  motionIntensity?: string
+  tone?: string
+  bigVision?: string
+  editorialQuestions?: string[]
+  proTipShown?: string
+}
+
 export interface EditorialRevisionRequest {
   rawText: string
   displayText: string
@@ -109,6 +130,7 @@ export interface EditorialRevisionRequest {
   previewThumbnailUrl: string | null
   attachments: FrameAssistAttachment[]
   intent: RevisionIntent
+  metadata?: CreativeMetadata
 }
 
 export interface QueuedPreviewRevisionState {
