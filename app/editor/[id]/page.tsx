@@ -3361,6 +3361,16 @@ export default function EditorPage() {
   const [handoffPreview, setHandoffPreview] = React.useState<SessionPreviewState | null>(null)
   const [sourceAssetLabel, setSourceAssetLabel] = React.useState<string | null>(null)
   const [isPreviewMediaReady, setIsPreviewMediaReady] = React.useState(false)
+
+  // Preview Feedback UX Shell State
+  const [showPreviewFeedback, setShowPreviewFeedback] = React.useState(false)
+
+  // React to preview readiness
+  React.useEffect(() => {
+    if (isPreviewMediaReady && !showPreviewFeedback) {
+      setShowPreviewFeedback(true)
+    }
+  }, [isPreviewMediaReady, showPreviewFeedback])
   const [isPreviewLoadingVisible, setIsPreviewLoadingVisible] = React.useState(false)
   const [isPreviewMuted, setIsPreviewMuted] = React.useState(true)
   const [isInlineSourceDragOver, setIsInlineSourceDragOver] = React.useState(false)
