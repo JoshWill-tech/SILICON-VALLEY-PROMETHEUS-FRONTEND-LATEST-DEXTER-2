@@ -11,6 +11,12 @@
       "sourceType": "local",
       "computedHash": "808e487dc0514843373a8aa4d5a473bccd6831daf9ea31a2d042e953a7fd4c81"
     },
+    "penpot-uiux-design": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/penpot-uiux-design/SKILL.md",
+      "computedHash": "cd29e08bb7d2d4b9212582bcd9b70823619fbc6397078b8ba853962054ba4230"
+    },
     "prometheus-launch-discipline": {
       "source": "/workspaces/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER/.gemini/skills",
       "sourceType": "local",
