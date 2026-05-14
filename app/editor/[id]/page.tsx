@@ -46,6 +46,8 @@ import { EditorialComposerFrameAssist } from '@/components/editor/editorial-comp
 import { FrameComposerDraftMirror } from '@/components/editor/frame-composer-draft-mirror'
 import { StagedMusicRail } from '@/components/editor/staged-music-rail'
 import { CinematicExportCluster } from '@/components/editor/cinematic-export-cluster'
+import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell'
+import { PreviewGenerationState } from '@/components/editor/preview-generation-state'
 import { EditorLoadingScreen } from '@/components/editor/editor-loading-screen'
 import { InfinityTrailLoader } from '@/components/editor/infinity-trail-loader'
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
@@ -3361,10 +3363,21 @@ export default function EditorPage() {
   const [handoffPreview, setHandoffPreview] = React.useState<SessionPreviewState | null>(null)
   const [sourceAssetLabel, setSourceAssetLabel] = React.useState<string | null>(null)
   const [isPreviewMediaReady, setIsPreviewMediaReady] = React.useState(false)
+
+  // Preview Feedback UX Shell State
+  const [isPreviewBriefGenerating, setIsPreviewBriefGenerating] = React.useState(false)
+  const [showPreviewFeedback, setShowPreviewFeedback] = React.useState(false)
+
+  // React to preview readiness
+  React.useEffect(() => {
+    if (isPreviewMediaReady && !showPreviewFeedback && !isPreviewBriefGenerating) {
+      setShowPreviewFeedback(true)
+    }
+  }, [isPreviewMediaReady, showPreviewFeedback, isPreviewBriefGenerating])
   const [isPreviewLoadingVisible, setIsPreviewLoadingVisible] = React.useState(false)
   const [isPreviewMuted, setIsPreviewMuted] = React.useState(true)
   const [isInlineSourceDragOver, setIsInlineSourceDragOver] = React.useState(false)
-  const [previewFramePreset, setPreviewFramePreset] = React.useState<PreviewFramePreset>('source')
+  const [previewFramePreset, setPreviewFramePreset] = React.useState<PreviewFramePreset>('16:9')
   const [bottomMode, setBottomMode] = React.useState<BottomMode>('Original')
   const [activeWorkspaceTab, setActiveWorkspaceTab] = React.useState<HeaderNavMode>('Motion')
   const [isAiLampOpen, setIsAiLampOpen] = React.useState(false)
@@ -5158,6 +5171,28 @@ export default function EditorPage() {
                                   </div>
                                 )}
                               </CinematicPreviewRuntime>
+
+                              <PreviewGenerationState 
+                                isVisible={isPreviewBriefGenerating}
+                                onComplete={() => {
+                                  setIsPreviewBriefGenerating(false)
+                                  setShowPreviewFeedback(true)
+                                }}
+                              />
+
+                              <PreviewFeedbackShell
+                                previewId={undefined}
+                                projectId={projectId}
+                                show={showPreviewFeedback}
+                                onDismiss={() => setShowPreviewFeedback(false)}
+                                onSubmitPayload={(payload) => {
+                                  console.debug('Preview Feedback Submitted:', payload)
+                                  if (payload.sentiment === 'try_again') {
+                                    // Local only, no backend mutation
+                                    console.debug('Try again requested')
+                                  }
+                                }}
+                              />
 
                               {showInlinePreviewStatus ? (
                                 <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
