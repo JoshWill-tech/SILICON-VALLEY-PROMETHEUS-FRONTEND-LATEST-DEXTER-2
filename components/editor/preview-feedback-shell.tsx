@@ -6,7 +6,7 @@ import { X, CheckCircle2, RefreshCw, MessageSquareDashed, Clock, Send, ChevronRi
 import { cn } from '@/lib/utils'
 
 export type FeedbackSentiment = 'liked' | 'disliked' | 'try_again'
-export type FeedbackState = 'idle' | 'prompt' | 'liked' | 'critique' | 'submitted' | 'try_again' | 'dismissed'
+export type FeedbackState = 'idle' | 'prompt' | 'liked' | 'critique' | 'summary' | 'submitted' | 'try_again' | 'dismissed'
 
 export interface PreviewFeedbackPayload {
   previewId?: string
@@ -189,6 +189,10 @@ export function PreviewFeedbackShell({
     if (!selectedQuestions.includes(q)) {
       setSelectedQuestions((prev) => [...prev, q])
     }
+  }
+
+  const handleReviewSummary = () => {
+    setState('summary')
   }
 
   const submitCritique = () => {
@@ -597,13 +601,128 @@ export function PreviewFeedbackShell({
                       Cancel
                     </button>
                     <button
-                      onClick={submitCritique}
+                      onClick={handleReviewSummary}
                       disabled={selectedCategories.length === 0 && !freeformFeedback.trim() && desiredChanges.length === 0 && nextVersionTone.length === 0 && selectedQuestions.length === 0}
                       className="flex items-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-black transition-all hover:bg-white/90 disabled:opacity-50 disabled:hover:bg-white"
                     >
-                      Send revision notes
-                      <Send className="size-4" />
+                      Review summary
+                      <ChevronRight className="size-4" />
                     </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {state === 'summary' && (
+                <motion.div
+                  key="state-summary"
+                  initial={{ opacity: 0, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, filter: 'blur(4px)', position: 'absolute' }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col"
+                >
+                  <div className="space-y-1.5 text-center px-4 pt-2 pb-6">
+                    <p className="text-xl font-semibold text-white/90">Revision brief ready</p>
+                    <p className="text-sm text-white/50 leading-relaxed">Prometheus will use this to guide the next pass.</p>
+                  </div>
+
+                  <div className="flex-1 space-y-6">
+                    {selectedCategories.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What felt wrong</h5>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedCategories.map(cat => (
+                            <span key={cat} className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-1 text-xs text-white/70">{cat}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {desiredChanges.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What should change</h5>
+                        <div className="flex flex-wrap gap-1.5">
+                          {desiredChanges.map(change => (
+                            <span key={change} className="rounded-md border border-indigo-500/10 bg-indigo-500/5 px-2.5 py-1 text-xs text-indigo-200/80">{change}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {(selectedLocations.length > 0 || timestampNote) && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Where it happened</h5>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedLocations.map(loc => (
+                            <span key={loc} className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-1 text-xs text-white/70">{loc}</span>
+                          ))}
+                          {timestampNote && (
+                            <span className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/90">
+                              <Clock className="size-3" /> {timestampNote}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {nextVersionTone.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Desired next-version tone</h5>
+                        <div className="flex flex-wrap gap-1.5">
+                          {nextVersionTone.map(tone => (
+                            <span key={tone} className="rounded-md border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-xs text-purple-200/80">{tone}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedQuestions.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Selected editor questions</h5>
+                        <ul className="space-y-1.5">
+                          {selectedQuestions.map(q => (
+                            <li key={q} className="flex items-start gap-2 text-xs text-white/60">
+                              <span className="mt-1.5 size-1 shrink-0 rounded-full bg-blue-500/50" />
+                              {q}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {freeformFeedback && (
+                      <div className="space-y-2">
+                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Final notes</h5>
+                        <div className="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-sm text-white/70 italic">
+                          &quot;{freeformFeedback}&quot;
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="sticky bottom-0 -mx-6 -mb-6 mt-8 flex items-center justify-between border-t border-white/5 bg-[#09090c]/95 px-6 py-4 backdrop-blur-xl">
+                    <button
+                      onClick={() => setState('prompt')}
+                      className="rounded-xl px-4 py-2.5 text-sm font-medium text-white/40 transition-colors hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setState('critique')}
+                        className="rounded-xl px-5 py-2.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                      >
+                        Edit feedback
+                      </button>
+                      <button
+                        onClick={submitCritique}
+                        className="flex items-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-semibold text-black transition-all hover:bg-white/90 active:scale-95"
+                      >
+                        Confirm revision brief
+                        <Send className="size-4" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               )}
