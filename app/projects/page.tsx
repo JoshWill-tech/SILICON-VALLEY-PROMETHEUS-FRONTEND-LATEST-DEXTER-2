@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { formatDistanceToNow } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { 
   FileText, 
   FileVideo2, 
@@ -54,6 +54,27 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'exported', label: 'Exported' },
 ]
 const SHOULD_PREFETCH_PROJECT_EDITORS = process.env.NODE_ENV === 'production'
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds == null || isNaN(seconds)) return 'Duration unavailable'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `Duration ${m}:${s.toString().padStart(2, '0')}`
+}
+
+function getUploadDateString(isoString: string) {
+  try {
+    const date = new Date(isoString)
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    if (diffInHours < 24) {
+      return `Uploaded ${formatDistanceToNow(date, { addSuffix: true })}`
+    }
+    return format(date, "'Uploaded' MMM d, yyyy '·' h:mm a")
+  } catch (e) {
+    return 'Upload date unavailable'
+  }
+}
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -533,7 +554,18 @@ export default function ProjectsPage() {
                             </button>
                           </div>
                           
-                          <div className="mt-1 flex flex-wrap gap-1.5">
+                          <div className="mt-1 flex flex-col gap-0.5 text-[11px] text-white/40">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="size-3 shrink-0" /> {getUploadDateString(project.createdAt)}
+                            </span>
+                            {project.sourceProfile?.inspection?.durationSec != null && (
+                              <span className="flex items-center gap-1.5">
+                                <FileVideo2 className="size-3 shrink-0" /> {formatDuration(project.sourceProfile.inspection.durationSec)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="mt-2 flex flex-wrap gap-1.5">
                             {project.sourceAssetId ? (
                               <Badge variant="secondary" className="border-emerald-500/20 bg-emerald-500/10 text-[10px] text-emerald-400">
                                 <Video className="mr-1 size-2.5" /> Source Attached
@@ -620,14 +652,22 @@ export default function ProjectsPage() {
                         <button
                           type="button"
                           onClick={() => openProjectEditor(project.id)}
-                          className="flex min-w-0 items-center gap-2 text-white/86 transition-colors hover:text-white"
+                          className="flex min-w-0 items-center gap-3 text-white/86 transition-colors hover:text-white"
                         >
                           {project.previewKind === 'video' ? (
-                            <FileVideo2 className="size-4 shrink-0 text-violet-200/90" />
+                            <FileVideo2 className="size-5 shrink-0 text-violet-200/90" />
                           ) : (
-                            <FileText className="size-4 shrink-0 text-white/70" />
+                            <FileText className="size-5 shrink-0 text-white/70" />
                           )}
-                          <span className="truncate">{project.title}</span>
+                          <div className="flex flex-col items-start min-w-0">
+                            <span className="truncate text-[13px] font-medium">{project.title}</span>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-white/40">
+                              <span className="flex items-center gap-1"><Clock className="size-2.5" /> {getUploadDateString(project.createdAt)}</span>
+                              {project.sourceProfile?.inspection?.durationSec != null && (
+                                <span className="flex items-center gap-1"><FileVideo2 className="size-2.5" /> {formatDuration(project.sourceProfile.inspection.durationSec)}</span>
+                              )}
+                            </div>
+                          </div>
                         </button>
 
                         <div className="flex items-center gap-2">
