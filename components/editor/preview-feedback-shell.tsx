@@ -258,7 +258,7 @@ export function PreviewFeedbackShell({
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             'relative z-10 overflow-hidden rounded-[18px] border border-white/10 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl',
-            state === 'critique' 
+            (state === 'critique' || state === 'summary')
               ? 'w-full max-w-2xl bg-[#09090c]/90 flex flex-col max-h-full' // Centered large panel
               : 'w-full max-w-[420px] bg-[#09090c]/85 flex flex-col' // Centered medium prompt
           )}
@@ -281,8 +281,8 @@ export function PreviewFeedbackShell({
             </button>
           </motion.div>
 
-          {/* Scrollable Content Area for Critique, normal padding otherwise */}
-          <div className={cn('flex-1', state === 'critique' ? 'overflow-y-auto overscroll-contain p-6' : 'p-5')}>
+          {/* Scrollable Content Area for Critique/Summary, normal padding otherwise */}
+          <div className={cn('flex-1', (state === 'critique' || state === 'summary') ? 'overflow-y-auto overscroll-contain p-6' : 'p-5')}>
             <AnimatePresence mode="wait" initial={false}>
               {state === 'prompt' && (
                 <motion.div
@@ -627,31 +627,35 @@ export function PreviewFeedbackShell({
                   </div>
 
                   <div className="flex-1 space-y-6">
-                    {selectedCategories.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What felt wrong</h5>
+                    <div className="space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What felt wrong</h5>
+                      {selectedCategories.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {selectedCategories.map(cat => (
                             <span key={cat} className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-1 text-xs text-white/70">{cat}</span>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
 
-                    {desiredChanges.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What should change</h5>
+                    <div className="space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">What should change</h5>
+                      {desiredChanges.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {desiredChanges.map(change => (
                             <span key={change} className="rounded-md border border-indigo-500/10 bg-indigo-500/5 px-2.5 py-1 text-xs text-indigo-200/80">{change}</span>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
 
-                    {(selectedLocations.length > 0 || timestampNote) && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Where it happened</h5>
+                    <div className="space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Where it happened</h5>
+                      {(selectedLocations.length > 0 || timestampNote) ? (
                         <div className="flex flex-wrap gap-1.5">
                           {selectedLocations.map(loc => (
                             <span key={loc} className="rounded-md border border-white/5 bg-white/[0.02] px-2.5 py-1 text-xs text-white/70">{loc}</span>
@@ -662,23 +666,27 @@ export function PreviewFeedbackShell({
                             </span>
                           )}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
 
-                    {nextVersionTone.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Desired next-version tone</h5>
+                    <div className="space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Desired next-version tone</h5>
+                      {nextVersionTone.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {nextVersionTone.map(tone => (
                             <span key={tone} className="rounded-md border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-xs text-purple-200/80">{tone}</span>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
 
-                    {selectedQuestions.length > 0 && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Selected editor questions</h5>
+                    <div className="space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Selected editor questions</h5>
+                      {selectedQuestions.length > 0 ? (
                         <ul className="space-y-1.5">
                           {selectedQuestions.map(q => (
                             <li key={q} className="flex items-start gap-2 text-xs text-white/60">
@@ -687,17 +695,21 @@ export function PreviewFeedbackShell({
                             </li>
                           ))}
                         </ul>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
 
-                    {freeformFeedback && (
-                      <div className="space-y-2">
-                        <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Final notes</h5>
+                    <div className="space-y-2 pb-4">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-white/40">Final notes</h5>
+                      {freeformFeedback ? (
                         <div className="rounded-xl border border-white/5 bg-white/[0.01] p-3 text-sm text-white/70 italic">
                           &quot;{freeformFeedback}&quot;
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="text-sm text-white/30 italic">Not specified</div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Footer Actions */}
