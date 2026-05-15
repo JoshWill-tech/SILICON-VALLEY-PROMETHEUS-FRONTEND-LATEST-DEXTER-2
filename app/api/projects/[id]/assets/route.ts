@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { ProjectService } from '@/lib/projects/service'
 import { getPresignedGetUrl } from '@/lib/r2/presigned-url'
+import { startAssemblyAITranscription } from '@/lib/api/assemblyai'
 
 export async function GET(
   req: Request,
@@ -129,6 +130,46 @@ export async function POST(
     await ProjectService.updateProject(projectId, {
       sourceAssetId: assetId
     })
+
+    // Phase 1D: Trigger AssemblyAI transcription
+    if (mimeType.startsWith('video/') || mimeType.startsWith('audio/')) {
+      try {
+        const assemblyAiKey = process.env.ASSEMBLYAI_API_KEY
+        if (!assemblyAiKey) {
+          console.warn('[api/projects/[id]/assets] ASSEMBLYAI_API_KEY missing. Skipping transcription.')
+          await supabase
+            .from('source_assets')
+            .update({ transcript_status: 'skipped' })
+            .eq('id', assetId)
+        } else {
+          // Generate a temporary signed GET URL for AssemblyAI
+          const sourceUrl = await getPresignedGetUrl(bucket, objectKey)
+          
+          const transcriptResponse = await startAssemblyAITranscription({
+            audio_url: sourceUrl,
+          })
+
+          await supabase
+            .from('source_assets')
+            .update({
+              transcript_status: 'queued',
+              transcript_job_id: transcriptResponse.id,
+              transcript_provider: 'assemblyai',
+              transcript_started_at: new Date().toISOString(),
+            })
+            .eq('id', assetId)
+        }
+      } catch (transcribeErr) {
+        console.error('[api/projects/[id]/assets] Failed to start transcription:', transcribeErr)
+        await supabase
+          .from('source_assets')
+          .update({ 
+            transcript_status: 'failed',
+            transcript_error: transcribeErr instanceof Error ? transcribeErr.message : 'Unknown error'
+          })
+          .eq('id', assetId)
+      }
+    }
 
     return NextResponse.json({ asset })
   } catch (err) {

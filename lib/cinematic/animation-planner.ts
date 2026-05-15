@@ -98,10 +98,19 @@ export function buildCinematicAnimationPlan({
 
   orderedTranscript.forEach((segment, index) => {
     const emphasis = splitSpeechCue(segment.text)
-    const conceptShift = shouldCreateHeading(segment.text, index)
+    const dna = input.editDNA
+    
+    // Pacing intensity influence
+    const basePacingFrequency = dna?.pacing === 'aggressive' ? 2 : dna?.pacing === 'authoritative' ? 4 : 3
+    const conceptShift = shouldCreateHeading(segment.text, index, basePacingFrequency)
+    
     const comparison = isComparisonText(segment.text)
     const numericClaim = parseNumericValue(segment.text)
     const properNoun = findBuiltInPerson(segment.text)
+
+    // Caption treatment influence
+    const captionTone = dna?.captionStyle === 'dynamic_pop' ? 'lime' : dna?.captionStyle === 'minimalist_sharp' ? 'ice' : emphasis.tone
+    const captionTreatment = dna?.captionStyle === 'bold_oversize' ? 'boxed' : emphasis.treatment
 
     speechCues.push({
       id: cueId(projectId, 'caption', segment.startMs),
@@ -112,8 +121,8 @@ export function buildCinematicAnimationPlan({
       leadText: emphasis.leadText,
       accentText: emphasis.accentText,
       trailingText: emphasis.trailingText,
-      treatment: emphasis.treatment,
-      tone: emphasis.tone,
+      treatment: captionTreatment,
+      tone: captionTone,
       region: 'safe-lower-third',
       alignment: properNoun ? 'left' : 'center',
       bottomPaddingPct: 13,
@@ -123,6 +132,10 @@ export function buildCinematicAnimationPlan({
 
     if (conceptShift) {
       const headingWindowEnd = Math.min(segment.endMs, segment.startMs + 2600)
+      
+      // Heading tone influence
+      const headingTone = dna?.pacing === 'aggressive' ? 'rose' : dna?.pacing === 'authoritative' ? 'amber' : emphasis.tone
+
       speechCues.push({
         id: cueId(projectId, 'heading', segment.startMs),
         variant: 'heading',
@@ -132,8 +145,8 @@ export function buildCinematicAnimationPlan({
         leadText: emphasis.leadText,
         accentText: emphasis.accentText,
         trailingText: emphasis.trailingText,
-        treatment: emphasis.treatment,
-        tone: emphasis.tone,
+        treatment: captionTreatment,
+        tone: headingTone,
         region: 'center-stage',
         alignment: 'left',
         maxWidthPct: 62,
@@ -150,10 +163,13 @@ export function buildCinematicAnimationPlan({
         label: 'Section divider',
       })
 
+      // SFX Intensity influence
+      const sfxIntensity = dna?.pacing === 'aggressive' ? 'bold' : comparison ? 'bold' : 'medium'
+
       sfxCues.push({
         id: cueId(projectId, 'sfx-line', segment.startMs),
         cue: 'line-sweep',
-        intensity: comparison ? 'bold' : 'medium',
+        intensity: sfxIntensity,
         startMs: Math.max(0, segment.startMs - 80),
         endMs: segment.startMs + 280,
       })
@@ -470,10 +486,10 @@ function findBuiltInPerson(value: string) {
   return BUILTIN_PEOPLE_ASSETS.find((entry) => entry.tokens.some((token) => haystack.includes(token))) ?? null
 }
 
-function shouldCreateHeading(text: string, index: number) {
+function shouldCreateHeading(text: string, index: number, pacingFrequency: number = 3) {
   const normalized = normalizeText(text)
   if (index === 0) return true
-  if (index % 3 === 0) return true
+  if (index % pacingFrequency === 0) return true
   return (
     normalized.includes('structure') ||
     normalized.includes('retrieval') ||

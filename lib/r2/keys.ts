@@ -18,4 +18,11 @@ export const R2Keys = {
     const safeFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
     return `users/${userId}/projects/${projectId}/exports/${exportId}/${safeFilename}`;
   },
+
+  /**
+   * users/{userId}/projects/{projectId}/sources/{assetId}/transcript.json
+   */
+  transcript: (userId: string, projectId: string, assetId: string) => {
+    return `users/${userId}/projects/${projectId}/sources/${assetId}/transcript.json`;
+  },
 };
