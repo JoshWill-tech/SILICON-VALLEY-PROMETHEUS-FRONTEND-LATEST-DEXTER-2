@@ -19,7 +19,6 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.06),
       inset 0 -1px 0 rgba(255, 255, 255, 0.02),
       0 42px 96px -76px rgba(0, 0, 0, 0.94);
-    isolation: isolate;
     position: relative;
   }
 
@@ -141,7 +140,6 @@
 
   .music-hero-shell {
     position: relative;
-    isolation: isolate;
     backdrop-filter: blur(18px) saturate(1.04);
   }
 

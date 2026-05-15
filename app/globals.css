@@ -279,7 +279,6 @@
   [data-slot='button'] {
     --button-glow: 236 255 73;
     position: relative;
-    isolation: isolate;
     transform: translateZ(0);
     will-change: transform, box-shadow, filter;
     transition:

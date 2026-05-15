@@ -35,6 +35,8 @@ export function LoginForm() {
   return (
     <form
       onSubmit={async (e) => {
+        console.log("email submit")
+        console.log('auth form submitted', { email })
         e.preventDefault()
         setServerError(null)
         if (!validate()) return

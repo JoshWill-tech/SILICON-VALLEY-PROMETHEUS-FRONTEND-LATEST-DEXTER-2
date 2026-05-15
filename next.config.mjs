@@ -7,6 +7,7 @@ const projectRoot = path.dirname(configFilePath)
 const backendApiBaseUrl = process.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000'
 
 const nextConfig = {
+  allowedDevOrigins: ['192.168.207.174'],
   turbopack: {
     root: projectRoot,
   },
@@ -30,3 +31,4 @@ const nextConfig = {
 }
 
 export default nextConfig
+
