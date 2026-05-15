@@ -213,6 +213,8 @@ export function createProcessingJob(params: {
   input: ProcessingJobInput
 }): ProcessingJob {
   const startedAt = nowIso()
+  const artifacts = buildArtifacts(params.projectId)
+  
   return {
     id: uid('job'),
     projectId: params.projectId,
@@ -227,9 +229,11 @@ export function createProcessingJob(params: {
     ],
     input: params.input,
     artifacts: {
-      ...buildArtifacts(params.projectId),
+      ...artifacts,
       styleId: params.input.styleId,
     },
+    transcriptStatus: 'transcribing',
+    transcriptProvider: 'mock',
   }
 }
 
@@ -295,10 +299,25 @@ export function getJobStatus(projectId: string): ProcessingJob | null {
     return { ...step, status: 'running' as const, progress }
   })
 
+  // Mock transcription finishing when audio-processing is done (or after 5s)
+  let transcriptStatus = job.transcriptStatus
+  let transcriptText = job.transcriptText
+  
+  if (elapsedMs > 5000 && transcriptStatus !== 'completed') {
+    transcriptStatus = 'completed'
+    transcriptText = job.artifacts.transcript.map(s => s.text).join(' ')
+  }
+
   const allDone = updatedSteps.every((s) => s.status === 'completed')
   const status: ProcessingJob['status'] = allDone ? 'completed' : 'running'
 
-  const next: ProcessingJob = { ...job, steps: updatedSteps, status }
+  const next: ProcessingJob = { 
+    ...job, 
+    steps: updatedSteps, 
+    status,
+    transcriptStatus,
+    transcriptText
+  }
   jobs[projectId] = next
   writeJobs(jobs)
 

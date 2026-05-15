@@ -80,6 +80,8 @@ import {
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { buildRevealVariants } from '@/lib/motion'
+import { buildEditDNAProfile } from '@/lib/editorial-frame/edit-dna-router'
+import { compileEditBrief } from '@/lib/editorial-frame/edit-brief-compiler'
 import { buildCinematicAnimationPlan } from '@/lib/cinematic/animation-planner'
 import { cn } from '@/lib/utils'
 import { createProcessingJob, getJobStatus, getProject, setJobAnimationPlan, startProcessing, upsertProject } from '@/lib/mock'
@@ -115,8 +117,10 @@ import type {
   ViralClipTargetPlatform,
   CinematicAssetRegistry,
   ProjectExport,
+  TranscriptStatus,
 } from '@/lib/types'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
+import { InteractiveOrb } from '@/components/ui/interactive-orb'
 
 type LeftTabKey = 'chat' | 'edit' | 'design' | 'assets'
 type HeaderNavMode = 'Motion' | 'Music' | 'Output'
@@ -496,19 +500,31 @@ function buildMusicReply({
   return `For ${projectTitle}, I'd ${paceLine}.${summary}${sourceLine} I've lined up a few options below, and if you want me to narrow it, use the intensity selector so I can lock onto atmospheric, balanced, or driving.`
 }
 
-function selectEditStyleTemplate(prompt: string, videoContext: MusicVideoContext) {
+function selectEditStyleTemplate(prompt: string, videoContext: MusicVideoContext, metadata?: CreativeMetadata) {
+  if (metadata?.styleId) {
+    const directMatch = STYLE_TEMPLATES.find((t) => t.id === metadata.styleId)
+    if (directMatch) return directMatch
+  }
+
   const contextText = normalizeInlineText([prompt, videoContext.summary, ...videoContext.signals].filter(Boolean).join(' '))
   const ranked = STYLE_TEMPLATES.map((template) => ({
     template,
-    score: scoreEditStyleTemplate(template, contextText, videoContext),
+    score: scoreEditStyleTemplate(template, contextText, videoContext, metadata),
   })).sort((left, right) => right.score - left.score)
 
   return ranked[0]?.template ?? STYLE_TEMPLATES[2] ?? STYLE_TEMPLATES[0]
 }
 
-function scoreEditStyleTemplate(template: StyleTemplate, contextText: string, videoContext: MusicVideoContext) {
+function scoreEditStyleTemplate(template: StyleTemplate, contextText: string, videoContext: MusicVideoContext, metadata?: CreativeMetadata) {
   const tokens = `${template.name} ${template.description} ${template.tags.join(' ')}`.toLowerCase()
   let score = 0
+
+  // Boost based on metadata signals
+  if (metadata?.energy === 'fast' && template.id === 'style_reels_heat') score += 10
+  if (metadata?.energy === 'premium' && template.id === 'style_iman_punchy') score += 10
+  if (metadata?.energy === 'cinematic' && template.id === 'style_docs_story') score += 10
+  if (metadata?.goals?.includes('retention') && template.id === 'style_reels_heat') score += 8
+  if (metadata?.goals?.includes('authority') && template.id === 'style_iman_clean') score += 8
 
   if (template.id === 'style_podcast_dynamic') {
     if (hasAny(contextText, ['caption', 'subtitle', 'typographic', 'voice', 'talking', 'podcast', 'long form', 'longform'])) score += 8
@@ -1826,7 +1842,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   composerPortalTarget: HTMLDivElement | null
   automationRequest?: ComposerAutomationRequest | null
   musicSpotlightPortalTarget?: HTMLDivElement | null
-  onEditRequest?: (request: { prompt: string; styleTemplate: StyleTemplate }) => void | Promise<void>
+  onEditRequest?: (request: { prompt: string; styleTemplate: StyleTemplate; metadata?: CreativeMetadata }) => void | Promise<void>
   initialEditorState?: any
   onSave?: (editorState: any) => void
 }) {
@@ -2487,7 +2503,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const shouldShowUserMessage = options?.showUserMessage ?? true
       const musicContextConfidence = videoContext.confidence ?? 0.5
       const editPromptBasis = options?.revisionRequest?.instructionText?.trim() || nextValue
-      const editStyleTemplate = shouldEditRequest ? selectEditStyleTemplate(editPromptBasis, videoContext) : null
+      const editStyleTemplate = shouldEditRequest ? selectEditStyleTemplate(editPromptBasis, videoContext, options?.revisionRequest?.metadata) : null
       const isBroadMusicRequest =
         shouldRecommendMusic &&
         (options?.musicQuickAction === true || isGenericMusicRequest(nextValue) || nextValue.length < 20)
@@ -2600,6 +2616,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           void onEditRequest?.({
             prompt: editPromptBasis,
             styleTemplate: editStyleTemplate,
+            metadata: options?.revisionRequest?.metadata,
           })
         } catch {
           // The edit reply can still stream even if the job staging signal fails.
@@ -3297,6 +3314,48 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   )
 })
 
+function BriefPipelineProgress({ steps, status }: { steps?: string[]; status?: TranscriptStatus }) {
+  if (status === 'completed' || status === 'failed' || !status) return null
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md p-8 text-center"
+    >
+      <div className="mb-8 relative">
+        <InteractiveOrb size={120} intensity="vivid" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Sparkles className="size-8 text-[#7ff2d4] animate-pulse" />
+        </div>
+      </div>
+      
+      <div className="space-y-6 max-w-sm w-full">
+        <div className="space-y-1">
+          <h3 className="text-xl font-bold text-white tracking-tight">Sharpening your Edit DNA</h3>
+          <p className="text-white/40 text-sm font-medium">Prometheus is building a high-resolution preview brief.</p>
+        </div>
+
+        <div className="space-y-3 pt-4">
+          {(steps || ['Initializing', 'Analyzing source', 'Preparing brief', 'Readying preview']).map((step, i) => (
+            <div key={i} className="flex items-center gap-3">
+               <div className={cn(
+                 "size-1.5 rounded-full",
+                 i === 0 ? "bg-[#7ff2d4] shadow-[0_0_10px_#7ff2d4]" : "bg-white/10"
+               )} />
+               <span className={cn(
+                 "text-xs font-bold uppercase tracking-widest",
+                 i === 0 ? "text-white" : "text-white/20"
+               )}>{step}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 function SecondaryPanel({
   title,
   description,
@@ -3443,6 +3502,7 @@ export default function EditorPage() {
   const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
   const [musicSpotlightPortalTarget, setMusicSpotlightPortalTarget] = React.useState<HTMLDivElement | null>(null)
   const inspectorViewportRef = React.useRef<HTMLDivElement | null>(null)
+  const lastTranscriptSyncTimeRef = React.useRef<number>(0)
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false)
   const [isDeferredChromeReady, setIsDeferredChromeReady] = React.useState(false)
   const [cinematicRegistry, setCinematicRegistry] = React.useState<CinematicAssetRegistry | null>(null)
@@ -3573,6 +3633,23 @@ export default function EditorPage() {
       setProject(nextProject)
       setJob(nextJob)
       setIsEditorBootReady(true)
+
+      // Conservative transcript sync polling
+      const now = Date.now()
+      if (
+        nextProject?.sourceAssetId && 
+        nextJob?.transcriptStatus && 
+        (nextJob.transcriptStatus === 'queued' || nextJob.transcriptStatus === 'transcribing') &&
+        now - lastTranscriptSyncTimeRef.current > 6000
+      ) {
+        lastTranscriptSyncTimeRef.current = now
+        void fetch(`/api/assets/${nextProject.sourceAssetId}/transcript/sync`, { method: 'POST' })
+          .then(res => res.json())
+          .then(data => {
+             console.debug('[Editor] Transcript sync result:', data.status)
+          })
+          .catch(err => console.warn('[Editor] Transcript sync failed:', err))
+      }
 
       if (nextJob?.status === 'completed' && intervalId !== null) {
         window.clearInterval(intervalId)
@@ -4296,7 +4373,7 @@ export default function EditorPage() {
   }, [clearPreviewToggleCooldown])
 
   const handleEditRequest = React.useCallback(
-    (request: { prompt: string; styleTemplate: StyleTemplate }) => {
+    (request: { prompt: string; styleTemplate: StyleTemplate; metadata?: CreativeMetadata }) => {
       if (!project?.sourceAssetId) {
         toast.error('Add a source video first so the edit pass has something to render.')
         return
@@ -4305,14 +4382,31 @@ export default function EditorPage() {
       const prompt = request.prompt.trim()
       if (!prompt) return
 
+      const editDNA = buildEditDNAProfile(request.metadata)
+      const editBrief = compileEditBrief({
+        metadata: request.metadata,
+        editDNA,
+        transcriptText: job?.transcriptText,
+        transcriptStatus: job?.transcriptStatus,
+        videoDurationSeconds: project?.sourceProfile?.inspection.durationSec ?? undefined,
+        projectTitle: project?.title,
+      })
+
       const nextJob = createProcessingJob({
         projectId,
         input: {
           prompt,
           sources: sourceList,
           styleId: request.styleTemplate.id,
+          metadata: request.metadata,
+          editDNA,
         },
       })
+      
+      // Attach the compiled brief to the job
+      nextJob.editBrief = editBrief
+      nextJob.previewProgressSteps = editBrief.progressSteps
+
       const startedJob = startProcessing(nextJob)
       const fallbackPlan = buildFallbackEditAnimationPlan({
         projectId,
@@ -5056,8 +5150,12 @@ export default function EditorPage() {
                         }}
                       >
                         <div className="relative h-full w-full">
-                          {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
-                            <motion.div
+                          <BriefPipelineProgress 
+                            status={job?.transcriptStatus} 
+                            steps={job?.previewProgressSteps}
+                          />
+
+                          {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (                            <motion.div
                               initial={{ opacity: 0, y: 6 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}

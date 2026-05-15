@@ -242,6 +242,31 @@ export interface Project {
   animationPlan?: AnimationPlan
 }
 
+export interface SourceAsset {
+  id: Id
+  projectId: Id
+  userId: Id
+  storageBucket?: string
+  storagePath?: string
+  originalFilename?: string
+  mimeType?: string
+  sizeBytes?: number
+  durationMs?: number
+  width?: number
+  height?: number
+  profile: any
+  createdAt: string
+  transcriptStatus?: TranscriptStatus
+  transcriptJobId?: string
+  transcriptProvider?: string
+  transcriptText?: string
+  transcriptError?: string
+  transcriptStartedAt?: string
+  transcriptCompletedAt?: string
+  transcriptR2Key?: string
+  transcriptSyncedAt?: string
+}
+
 export type MusicMood = 'cinematic' | 'uplifting' | 'dark' | 'minimal' | 'playful'
 
 export type MusicEnergy = 'low' | 'medium' | 'high'
@@ -621,6 +646,31 @@ export interface TemplateStyle {
   }
 }
 
+export type TranscriptStatus = 'idle' | 'queued' | 'transcribing' | 'completed' | 'failed'
+
+export interface CompiledEditBrief {
+  title: string
+  summary: string
+  fullPrompt: string
+  previewPrompt: string
+  previewDurationSeconds: number
+  transcriptStatus: TranscriptStatus
+  transcriptUsed: boolean
+  progressSteps: string[]
+  renderInstructions: {
+    pacing: string
+    captions: string
+    motion: string
+    broll: string
+    music: string
+    color: string
+    transitions: string
+    typography: string
+  }
+  avoid: string[]
+  viewerPsychology: string
+}
+
 export type ProcessingJobStatus = 'idle' | 'running' | 'completed' | 'failed'
 
 export interface ProcessingArtifacts {
@@ -632,10 +682,15 @@ export interface ProcessingArtifacts {
   styleId?: Id
 }
 
+import type { CreativeMetadata } from '@/lib/editorial-frame/types'
+import type { EditDNAProfile } from '@/lib/editorial-frame/edit-dna-router'
+
 export interface ProcessingJobInput {
   prompt: string
   sources: string[]
   styleId?: Id
+  metadata?: CreativeMetadata
+  editDNA?: EditDNAProfile
 }
 
 export interface ProcessingJob {
@@ -647,6 +702,12 @@ export interface ProcessingJob {
   steps: PipelineStep[]
   input: ProcessingJobInput
   artifacts: ProcessingArtifacts
+  transcriptStatus?: TranscriptStatus
+  transcriptText?: string
+  transcriptProvider?: 'mock' | 'assemblyai'
+  transcriptJobId?: string
+  editBrief?: CompiledEditBrief
+  previewProgressSteps?: string[]
 }
 
 export type AssetKind = 'upload' | 'music' | 'broll' | 'font' | 'logo'
