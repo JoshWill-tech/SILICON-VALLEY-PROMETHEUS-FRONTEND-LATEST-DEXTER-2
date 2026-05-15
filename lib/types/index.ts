@@ -302,6 +302,19 @@ export interface MusicIntent {
   confidence: number
 }
 
+export type MusicDirectionIntent = {
+  emotion: string
+  energy: 'low' | 'medium' | 'high' | 'dynamic'
+  bpmRange: string
+  vocalPolicy: 'instrumental_only' | 'light_vocals_allowed' | 'no_music'
+  genreFamily: string[]
+  instrumentation: string[]
+  intensityCurve: string
+  voiceoverSafe: boolean
+  avoid: string[]
+  providerCandidate?: 'epidemic' | 'mubert' | 'cyanite' | 'beatoven' | 'internal_mock'
+}
+
 export interface MusicVideoContext {
   pace: MusicVideoPace
   summary: string

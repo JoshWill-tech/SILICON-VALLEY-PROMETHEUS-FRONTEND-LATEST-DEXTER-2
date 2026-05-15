@@ -384,6 +384,22 @@ const MUSIC_REFINEMENT_OPTIONS = [
     hint: 'Warmer, softer, and more reflective.',
   },
   {
+    key: 'softer',
+    label: 'Softer',
+    mood: 'minimal',
+    energy: 'low',
+    variantHint: 'minimal',
+    hint: 'Lower dynamic range and more atmospheric.',
+  },
+  {
+    key: 'less-distracting',
+    label: 'Less distracting',
+    mood: 'minimal',
+    energy: 'low',
+    variantHint: 'less-intense',
+    hint: 'Keeps focus on the voiceover by simplifying the arrangement.',
+  },
+  {
     key: 'fresh',
     label: 'Freshen results',
     mood: 'cinematic',
@@ -1858,6 +1874,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [musicPreference, setMusicPreference] = React.useState<MusicPreference>(() =>
     createDefaultMusicPreference(),
   )
+  const [activeCreativeMetadata, setActiveCreativeMetadata] = React.useState<CreativeMetadata | null>(null)
   const [stagedTracks, setStagedTracks] = React.useState<StagedMusicTrack[]>([])
   const [musicStorageReady, setMusicStorageReady] = React.useState(false)
   const [musicPreviewVolume, setMusicPreviewVolume] = React.useState(DEFAULT_MUSIC_PREVIEW_VOLUME)
@@ -2393,6 +2410,26 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 
   const refineMusicTrack = React.useCallback(
     async (entryId: string, toneKey: string) => {
+      if (toneKey === 'keep') {
+        toast.success('Music direction locked.')
+        return
+      }
+
+      if (toneKey === 'remove') {
+        mergeEntryInState(entryId, (currentEntry) => ({
+          ...currentEntry,
+          music: undefined,
+          text: 'Soundtrack removed as requested.'
+        }))
+        toast.success('Music removed.')
+        return
+      }
+
+      if (toneKey === 'pick-another') {
+        setIsCommandOverlayOpen(true)
+        return
+      }
+
       const preset = MUSIC_REFINEMENT_OPTIONS.find((option) => option.key === toneKey)
       if (!preset) return
 
@@ -2878,9 +2915,14 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const nextValue = submission.rawText.trim()
       if (!nextValue) return
 
+      const mergedMetadata = metadata || submission.revisionRequest.metadata
+      if (mergedMetadata) {
+        setActiveCreativeMetadata(mergedMetadata)
+      }
+
       const enrichedRevisionRequest = {
         ...submission.revisionRequest,
-        metadata: metadata || submission.revisionRequest.metadata
+        metadata: mergedMetadata
       }
 
       if (enrichedRevisionRequest.frameTarget) {
@@ -3213,6 +3255,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                             musicCardRefs.current.delete(trackId)
                           }
                         }}
+                        creativeMetadata={activeCreativeMetadata}
                       />
                     </div>
                   ) : null}

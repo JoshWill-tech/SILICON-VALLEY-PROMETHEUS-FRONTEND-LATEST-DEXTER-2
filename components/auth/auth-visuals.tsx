@@ -64,7 +64,7 @@ export function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 export function AuthSeparator() {
   return (
     <div className="relative my-6">
-      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+      <div className="absolute inset-0 flex items-center pointer-events-none" aria-hidden="true">
         <span className="w-full border-t" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">

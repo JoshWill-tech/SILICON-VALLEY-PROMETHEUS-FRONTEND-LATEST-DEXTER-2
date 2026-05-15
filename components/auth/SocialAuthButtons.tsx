@@ -93,6 +93,10 @@ export function SocialAuthButtons() {
           className="w-full"
           disabled={busyProvider !== null}
           onClick={() => {
+            if (provider === 'google') console.log("google clicked")
+            if (provider === 'apple') console.log("apple clicked")
+            if (provider === 'github') console.log("github clicked")
+            console.log('oauth clicked', { provider })
             void handleOAuth(provider)
           }}
         >

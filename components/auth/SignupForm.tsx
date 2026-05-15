@@ -45,6 +45,8 @@ export function SignupForm() {
   return (
     <form
       onSubmit={(e) => {
+        console.log("email submit")
+        console.log('signup clicked', { email })
         e.preventDefault()
         setServerError(null)
         if (!validate()) return

@@ -5,8 +5,10 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, RefreshCw, Sparkles, SlidersHorizontal, Wand2 } from 'lucide-react'
 
 import { MusicRecommendationCard, MusicRecommendationSkeleton } from '@/components/editor/music-recommendation-card'
+import { MusicDirectionCard } from '@/components/editor/music-direction-card'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { buildRevealVariants } from '@/lib/motion'
+import { inferMusicDirection } from '@/lib/music-direction'
 import { cn } from '@/lib/utils'
 import type {
   MusicRecommendation,
@@ -15,6 +17,7 @@ import type {
   MusicRecommendationPipelineResult,
   MusicSoundtrackProfile,
 } from '@/lib/types'
+import type { CreativeMetadata } from '@/lib/editorial-frame/types'
 
 export type MusicRecommendationBlock = MusicRecommendationPipelineResult & {
   status: 'loading' | 'ready'
@@ -42,6 +45,7 @@ export function MusicRecommendationShowcase({
   onRefine,
   viewportRoot,
   registerCardRef,
+  creativeMetadata,
 }: {
   music: MusicRecommendationBlock
   isPreviewing: (trackId: string) => boolean
@@ -52,12 +56,20 @@ export function MusicRecommendationShowcase({
   onRefine: (toneKey: string) => void
   viewportRoot?: React.RefObject<HTMLDivElement | null>
   registerCardRef?: (trackId: string, node: HTMLDivElement | null) => void
+  creativeMetadata?: CreativeMetadata | null
 }) {
   const reduceMotion = useStableReducedMotion()
   const [visiblePhaseCount, setVisiblePhaseCount] = React.useState(1)
   const phases = music.phases ?? buildFallbackStages(music.profile, music.archiveCount, music.contextSummary, music.variantHint)
   const recommendationGroups = music.recommendationGroups ?? []
   const profile = music.profile
+
+  const musicIntent = React.useMemo(() => {
+    return inferMusicDirection({
+      profile,
+      metadata: creativeMetadata
+    })
+  }, [profile, creativeMetadata])
 
   React.useEffect(() => {
     if (reduceMotion) {
@@ -92,6 +104,23 @@ export function MusicRecommendationShowcase({
 
   return (
     <div className="space-y-4">
+      <AnimatePresence>
+        {music.status === 'ready' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <MusicDirectionCard 
+              intent={musicIntent}
+              onModify={(action) => onRefine(action)}
+              reasoning={profile?.reasoningSummary}
+              className="mb-4"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.section
         variants={buildRevealVariants({ delay: 0.04, distance: 14, blur: 8, duration: 0.28 })}
         initial="hidden"
