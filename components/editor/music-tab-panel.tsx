@@ -1,291 +1,327 @@
 'use client'
 
 import * as React from 'react'
-import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { Pause, Play, Plus } from 'lucide-react'
-import Image from 'next/image'
-
-import { InertialSongScroller } from '@/components/editor/inertial-song-scroller'
-import { LuxuryVignette } from '@/components/editor/luxury-vignette'
-import { TextReveal } from '@/components/editor/text-reveal'
-import ExpandableSearchBar from '@/components/ui/expandable-search-bar'
-import { MusicPlayer } from '@/components/ui/music-player'
-import { chamberEase, chamberSpring } from '@/lib/chamber-motion'
-import type { MusicRecommendation } from '@/lib/types'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  Sparkles, 
+  Activity, 
+  Zap, 
+  ShieldCheck, 
+  Waves, 
+  Wind,
+  Trophy,
+  Cpu,
+  ArrowRight,
+  TrendingUp,
+  MessageSquare,
+  Flame,
+  Check,
+  Music4,
+  Layers
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MusicRecommendation } from '@/lib/types'
+import { TextReveal } from '@/components/editor/text-reveal'
+import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 
-const rowHoverSpring = {
-  stiffness: 240,
-  damping: 22,
-  mass: 0.58,
-}
-
-type SelectedSongDisplay = {
+/**
+ * EDITORIAL LANE TYPE
+ */
+interface EditorialLane {
   id: string
+  type: 'primary' | 'alternative' | 'experimental' | 'viral'
   title: string
-  metadataLine: string
-  artwork: string
-  artworkPosition: string
-  audioSrc: string
+  subtitle: string
+  philosophy: string
+  mood: string
+  energy: number
+  bpm: string
+  fit: number
+  pacing: 'Aggressive' | 'Steady' | 'Flowing' | 'Staccato'
+  tags: string[]
 }
 
-function buildParallaxRange(reduceMotion: boolean, output: [number, number]) {
-  return reduceMotion ? [0, 0] : output
-}
-
-function buildSelectedSongDisplay(track: MusicRecommendation): SelectedSongDisplay {
-  const sourceLabel = track.sourcePlatform === 'online' ? 'Streaming' : 'Prometheus Audio'
-  const metadataLine = [track.artist, track.subtitle || sourceLabel, track.genre].filter(Boolean).join(' / ')
-
-  return {
-    id: track.id,
-    title: track.title,
-    metadataLine,
-    artwork: track.coverArtUrl,
-    artworkPosition: track.coverArtPosition ?? 'center',
-    audioSrc: track.previewUrl,
+const LANES: EditorialLane[] = [
+  {
+    id: 'lane-1',
+    type: 'primary',
+    title: 'Cinematic Narrative',
+    subtitle: 'The Editorial Standard',
+    philosophy: 'Prioritizes emotional weight and narrative arc, ensuring the score lifts during key transitions without overwhelming speech.',
+    mood: 'Epic & Grand',
+    energy: 72,
+    bpm: '105-115',
+    fit: 98,
+    pacing: 'Steady',
+    tags: ['Strings', 'Hybrid Orchestral', 'Deep Bass']
+  },
+  {
+    id: 'lane-2',
+    type: 'alternative',
+    title: 'Lo-Fi Documentary',
+    subtitle: 'Understated & Human',
+    philosophy: 'Focuses on the human element. Keeps frequencies clear for voiceover while maintaining a steady, trustworthy pulse.',
+    mood: 'Warm & Honest',
+    energy: 34,
+    bpm: '85-95',
+    fit: 92,
+    pacing: 'Flowing',
+    tags: ['Acoustic Guitar', 'Soft Pads', 'Organic Textures']
+  },
+  {
+    id: 'lane-3',
+    type: 'experimental',
+    title: 'Cyberpunk Pulse',
+    subtitle: 'High-Tech Momentum',
+    philosophy: 'An aggressive, high-energy lane designed for fast cuts and high-impact visual statements.',
+    mood: 'Glitchy & Driven',
+    energy: 94,
+    bpm: '128-140',
+    fit: 86,
+    pacing: 'Aggressive',
+    tags: ['Synthesizers', 'Glitch Beats', 'Industrial']
+  },
+  {
+    id: 'lane-4',
+    type: 'viral',
+    title: 'Retention Driver',
+    subtitle: 'TikTok / Reel Optimized',
+    philosophy: 'Built for the scroll. High hook density with frequent "ear candy" to keep retention high across mobile platforms.',
+    mood: 'Punchy & Modern',
+    energy: 88,
+    bpm: '120-130',
+    fit: 95,
+    pacing: 'Staccato',
+    tags: ['808 Bass', 'Vocal Chops', 'Snap Percussion']
   }
-}
+]
 
-function SongRailItem({
-  index,
-  isFocused,
-  isSelected,
-  isPlaying,
-  onFocus,
-  onPlayPause,
-  onSelect,
-  reduceMotion,
-  track,
-}: {
-  index: number
-  isFocused: boolean
-  isSelected: boolean
-  isPlaying: boolean
-  onFocus: () => void
-  onPlayPause: () => void
-  onSelect: () => void
-  reduceMotion: boolean
-  track: MusicRecommendation
-}) {
-  const pointerX = useMotionValue(0)
-  const pointerY = useMotionValue(0)
-  const previousSelectedRef = React.useRef(isSelected)
-  const [selectionBurst, setSelectionBurst] = React.useState(0)
+/**
+ * SUB-COMPONENTS
+ */
 
-  const rotateX = useSpring(useTransform(pointerY, [-0.5, 0.5], buildParallaxRange(reduceMotion, [2.4, -2.4])), rowHoverSpring)
-  const rotateY = useSpring(useTransform(pointerX, [-0.5, 0.5], buildParallaxRange(reduceMotion, [-3, 3])), rowHoverSpring)
-  const bodyX = useSpring(useTransform(pointerX, [-0.5, 0.5], buildParallaxRange(reduceMotion, [-1.3, 1.3])), rowHoverSpring)
-  const bodyY = useSpring(useTransform(pointerY, [-0.5, 0.5], buildParallaxRange(reduceMotion, [-1, 1])), rowHoverSpring)
-  const artX = useSpring(useTransform(pointerX, [-0.5, 0.5], buildParallaxRange(reduceMotion, [-2.2, 2.2])), rowHoverSpring)
-  const artY = useSpring(useTransform(pointerY, [-0.5, 0.5], buildParallaxRange(reduceMotion, [-1.8, 1.8])), rowHoverSpring)
-
-  const handlePointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (reduceMotion) return
-
-      const rect = event.currentTarget.getBoundingClientRect()
-      const nextX = (event.clientX - rect.left) / rect.width - 0.5
-      const nextY = (event.clientY - rect.top) / rect.height - 0.5
-
-      pointerX.set(nextX)
-      pointerY.set(nextY)
-    },
-    [pointerX, pointerY, reduceMotion],
-  )
-
-  const handlePointerLeave = React.useCallback(() => {
-    pointerX.set(0)
-    pointerY.set(0)
-  }, [pointerX, pointerY])
+function TypewriterReasoning({ text }: { text: string }) {
+  const [displayedText, setDisplayedText] = React.useState('')
+  const [isTyping, setIsTyping] = React.useState(false)
 
   React.useEffect(() => {
-    if (isSelected && !previousSelectedRef.current) {
-      setSelectionBurst((value) => value + 1)
-    }
-
-    previousSelectedRef.current = isSelected
-  }, [isSelected])
+    setIsTyping(true)
+    let i = 0
+    const timer = setInterval(() => {
+      setDisplayedText(text.slice(0, i))
+      i++
+      if (i > text.length) {
+        clearInterval(timer)
+        setIsTyping(false)
+      }
+    }, 12)
+    return () => clearInterval(timer)
+  }, [text])
 
   return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      layout
-      initial={reduceMotion ? false : { opacity: 0, y: 12, filter: 'blur(8px)' }}
-      animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
-      exit={reduceMotion ? undefined : { opacity: 0, y: -8, filter: 'blur(5px)' }}
-      transition={
-        reduceMotion
-          ? undefined
-          : {
-              ...chamberSpring,
-              delay: 0.04 + index * 0.03,
-            }
-      }
-      whileHover={reduceMotion ? undefined : { scale: 1.008, y: -1.5 }}
-      onClick={onFocus}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onFocus()
-        }
-      }}
-      onPointerLeave={handlePointerLeave}
-      onPointerMove={handlePointerMove}
-      style={reduceMotion ? undefined : { x: bodyX, y: bodyY, rotateX, rotateY, transformPerspective: 1100 }}
-      className={cn(
-        'group relative mb-2 flex items-center gap-2.5 overflow-hidden rounded-[22px] border px-2.5 py-2.5 text-left transition-[border-color,background-color,box-shadow] duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] focus:outline-none',
-        isSelected
-          ? 'border-[#84dfff]/30 bg-[rgba(22,28,40,0.88)] shadow-[0_14px_30px_-28px_rgba(113,214,255,0.38),inset_0_1px_0_rgba(255,255,255,0.08)]'
-          : isFocused
-            ? 'border-white/16 bg-[rgba(22,26,36,0.82)] shadow-[0_16px_34px_-30px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.07)]'
-            : 'border-white/10 bg-[rgba(18,21,30,0.72)] shadow-[0_14px_28px_-30px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.05)] hover:border-white/14 hover:bg-[rgba(21,25,35,0.82)]',
-      )}
-    >
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.045)_0%,rgba(255,255,255,0)_28%,rgba(0,0,0,0.22)_100%)]" />
-      <div
-        aria-hidden
-        className={cn(
-          'pointer-events-none absolute inset-[1px] rounded-[21px] border',
-          isSelected ? 'border-[#b6efff]/18' : 'border-white/5',
-        )}
-      />
-      <div
-        aria-hidden
-        className={cn(
-          'pointer-events-none absolute inset-0 rounded-[22px] opacity-0 transition-opacity duration-220',
-          isSelected
-            ? 'opacity-100 bg-[radial-gradient(circle_at_12%_50%,rgba(117,214,255,0.18)_0%,rgba(117,214,255,0.06)_24%,rgba(117,214,255,0)_54%)]'
-            : 'group-hover:opacity-100 bg-[radial-gradient(circle_at_14%_26%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_40%)]',
-        )}
-      />
+    <div className="relative min-h-[5rem]">
+      <p className="text-[16px] leading-relaxed text-white/70 italic font-medium">
+        {displayedText}
+        {isTyping && <motion.span 
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 0.8, repeat: Infinity }}
+          className="inline-block w-1.5 h-4 ml-1 bg-[#7ff2d4] align-middle" 
+        />}
+      </p>
+    </div>
+  )
+}
 
-      <div className="focus-ring-glow relative z-10 flex min-w-0 flex-1 items-center gap-3 rounded-[18px] pr-1">
-        <motion.div
-          style={reduceMotion ? undefined : { x: artX, y: artY }}
-          className="relative h-[3.5rem] w-[3.5rem] shrink-0 overflow-hidden rounded-[16px] border border-white/8 bg-black/30 shadow-[0_12px_28px_-20px_rgba(0,0,0,0.95)]"
-        >
-          <Image
-            src={track.coverArtUrl}
-            alt={track.title}
-            fill
-            sizes="56px"
-            draggable={false}
-            onDragStart={(event) => event.preventDefault()}
-            className="object-cover"
-            style={{ objectPosition: track.coverArtPosition ?? 'center' }}
-          />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0)_34%,rgba(0,0,0,0.28)_100%)]" />
-        </motion.div>
-
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[0.98rem] font-medium tracking-[-0.025em] text-white">{track.title}</div>
-          <div className="mt-0.5 truncate text-[0.82rem] text-white/46">{track.artist}</div>
+function GlobalAlignmentMap() {
+  return (
+    <div className="group relative h-28 w-full overflow-hidden rounded-[24px] border border-white/8 bg-black/40 backdrop-blur-md">
+      <div className="absolute inset-0 opacity-10 bg-[linear-gradient(to_right,#888_1px,transparent_1px),linear-gradient(to_bottom,#888_1px,transparent_1px)] bg-[size:40px_40px]" />
+      
+      <div className="absolute inset-0 flex items-center px-6">
+        <div className="relative h-14 w-full flex items-center gap-[2px]">
+          {Array.from({ length: 140 }).map((_, i) => {
+            const energy = Math.sin(i * 0.12) * 0.4 + 0.5
+            const speech = Math.cos(i * 0.08) * 0.25 + 0.3
+            return (
+              <div key={i} className="relative flex flex-col gap-[2px] w-full">
+                <motion.div 
+                  initial={{ height: 0 }}
+                  animate={{ height: `${energy * 100}%` }}
+                  transition={{ delay: i * 0.004, duration: 1 }}
+                  className="w-full bg-[#7ff2d4]/40 rounded-full" 
+                />
+                <motion.div 
+                  initial={{ height: 0 }}
+                  animate={{ height: `${speech * 40}%` }}
+                  transition={{ delay: i * 0.004 + 0.4, duration: 1 }}
+                  className="w-full bg-white/20 rounded-full" 
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      <motion.button
-        type="button"
-        aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
-        onClick={(event) => {
-          event.stopPropagation()
-          onPlayPause()
-        }}
-        whileHover={reduceMotion ? undefined : { scale: 1.05 }}
-        whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-        className={cn(
-          'relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-[border-color,background-color,color] duration-200',
-          isPlaying
-            ? 'border-white/22 bg-white text-black'
-            : 'border-white/10 bg-white/[0.03] text-white/76 hover:border-white/18 hover:bg-white/[0.08] hover:text-white',
-        )}
-      >
-        <AnimatePresence initial={false} mode="wait">
-          <motion.span
-            key={isPlaying ? `pause-${track.id}` : `play-${track.id}`}
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.72 }}
-            animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, scale: 0.72 }}
-            transition={{ duration: reduceMotion ? 0 : 0.16, ease: chamberEase }}
-            className="inline-flex items-center justify-center"
-          >
-            {isPlaying ? <Pause className="size-[17px]" strokeWidth={1.9} /> : <Play className="ml-0.5 size-[17px]" strokeWidth={1.9} />}
-          </motion.span>
-        </AnimatePresence>
-      </motion.button>
-
-      <motion.button
-        type="button"
-        aria-label={isSelected ? `${track.title} selected for this video` : `Add ${track.title} to this video`}
-        onClick={(event) => {
-          event.stopPropagation()
-          onSelect()
-        }}
-        whileHover={reduceMotion ? undefined : { scale: 1.05, rotate: 2 }}
-        whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-        data-slot="button"
-        style={{ ['--button-glow' as string]: isSelected ? '127 242 255' : '255 255 255' }}
-        className={cn(
-          'relative z-10 grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[16px] border backdrop-blur-xl transition-[background-color,border-color,color,box-shadow] duration-220',
-          isSelected
-            ? 'border-[#86e7ff]/32 bg-[rgba(74,121,170,0.24)] text-white shadow-[0_14px_24px_-22px_rgba(101,213,255,0.32)]'
-            : 'border-white/10 bg-white/[0.06] text-white/64 hover:border-white/16 hover:bg-white/[0.1] hover:text-white',
-        )}
-      >
-        <AnimatePresence>
-          {selectionBurst > 0 && isSelected ? (
-            <motion.span
-              key={`pulse-${selectionBurst}`}
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: [0, 0.36, 0], scale: [0.7, 1.2, 1.34] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0 : 0.46, ease: chamberEase }}
-              className="pointer-events-none absolute inset-[-3px] rounded-[18px] border border-[#8ce7ff]/32"
+      <div className="absolute inset-0 flex items-center pointer-events-none">
+        {[15, 38, 62, 88].map((pos, i) => (
+          <div key={i} className="absolute h-full w-px bg-white/10" style={{ left: `${pos}%` }}>
+            <motion.div 
+              animate={{ opacity: [0.2, 0.8, 0.2], scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity, delay: i * 0.5 }}
+              className="absolute -top-1 -left-1.5 size-3 rounded-full bg-[#7ff2d4]/40 blur-sm"
             />
-          ) : null}
-        </AnimatePresence>
-        <span aria-hidden className="pointer-events-none absolute inset-[1px] rounded-[15px] bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.02)_34%,rgba(255,255,255,0)_100%)]" />
-        <AnimatePresence initial={false} mode="wait">
-          <motion.span
-            key={isSelected ? `selected-${track.id}` : `add-${track.id}`}
-            initial={reduceMotion ? false : { opacity: 0, scale: 0.78, rotate: -14 }}
-            animate={reduceMotion ? undefined : { opacity: 1, scale: 1, rotate: 0 }}
-            exit={reduceMotion ? undefined : { opacity: 0, scale: 0.72, rotate: 18 }}
-            transition={{ duration: reduceMotion ? 0 : 0.18, ease: chamberEase }}
-            className="inline-flex items-center justify-center"
-          >
-            {isSelected ? (
-              <motion.svg
-                viewBox="0 0 16 16"
-                fill="none"
-                className="size-4"
-                initial={reduceMotion ? false : { opacity: 0 }}
-                animate={reduceMotion ? undefined : { opacity: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0 }}
-              >
-                <motion.path
-                  d="M3.5 8.4 6.6 11.4 12.6 4.8"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={reduceMotion ? false : { pathLength: 0, opacity: 0.4 }}
-                  animate={reduceMotion ? undefined : { pathLength: 1, opacity: 1 }}
-                  transition={{ duration: reduceMotion ? 0 : 0.24, ease: chamberEase }}
-                />
-              </motion.svg>
-            ) : (
-              <Plus className="size-4" />
-            )}
-          </motion.span>
-        </AnimatePresence>
-      </motion.button>
+          </div>
+        ))}
+      </div>
+
+      <motion.div 
+        animate={{ left: ['0%', '100%'] }}
+        transition={{ duration: 45, repeat: Infinity, ease: 'linear' }}
+        className="absolute inset-y-0 w-px bg-white/60 z-10 shadow-[0_0_20px_white]" 
+      />
+
+      <div className="absolute bottom-3 left-6 flex items-center gap-6 text-[10px] uppercase tracking-[0.2em] text-white/30 font-bold">
+        <span className="flex items-center gap-2"><div className="size-2 rounded-full bg-[#7ff2d4]" /> Alignment Peaks</span>
+        <span className="flex items-center gap-2"><div className="size-2 rounded-full bg-white/20" /> Speech Density</span>
+      </div>
+    </div>
+  )
+}
+
+function EditorialLaneCard({ 
+  lane, 
+  isActive, 
+  onSelect 
+}: { 
+  lane: EditorialLane, 
+  isActive: boolean, 
+  onSelect: () => void 
+}) {
+  return (
+    <motion.div
+      layout
+      whileHover={{ scale: 1.01, y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      onClick={onSelect}
+      className={cn(
+        "group relative cursor-pointer overflow-hidden rounded-[28px] border transition-all duration-500",
+        isActive 
+          ? "border-[#7ff2d4]/40 bg-[rgba(127,242,212,0.08)] shadow-[0_32px_64px_-24px_rgba(0,0,0,0.92),inset_0_1px_1px_rgba(255,255,255,0.12)]" 
+          : "border-white/8 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20 shadow-lg"
+      )}
+    >
+      <div className="p-6 flex gap-6 items-start">
+        <div className="relative size-28 shrink-0 overflow-hidden rounded-[20px] border border-white/10 shadow-2xl">
+          <div className={cn(
+            "absolute inset-0 bg-gradient-to-br transition-opacity duration-700",
+            lane.type === 'primary' ? "from-indigo-600 via-purple-700 to-indigo-900" :
+            lane.type === 'alternative' ? "from-amber-600 via-rose-700 to-orange-900" :
+            lane.type === 'experimental' ? "from-emerald-600 via-teal-700 to-cyan-900" :
+            "from-pink-600 via-purple-700 to-indigo-900",
+            isActive ? "opacity-100 scale-110" : "opacity-40 group-hover:opacity-60 scale-100"
+          )} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Music4 className="size-10 text-white/80" />
+          </div>
+          {isActive && (
+            <motion.div 
+              layoutId="active-check"
+              className="absolute top-2 right-2 size-7 rounded-full bg-white text-black flex items-center justify-center shadow-2xl"
+            >
+              <Check className="size-4" strokeWidth={3} />
+            </motion.div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className={cn(
+              "text-[10px] uppercase tracking-[0.3em] font-black",
+              isActive ? "text-[#7ff2d4]" : "text-white/30"
+            )}>
+              {lane.type} direction
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] font-bold text-white/60">
+                <Trophy className="size-3 text-[#7ff2d4]" />
+                {lane.fit}% Match
+              </div>
+            </div>
+          </div>
+          <h4 className="text-xl font-black text-white/95 tracking-tight truncate">{lane.title}</h4>
+          <p className="text-[11px] text-white/30 uppercase tracking-[0.2em] font-black mb-3">{lane.subtitle}</p>
+          
+          <p className="text-[14px] leading-relaxed text-white/50 line-clamp-2 group-hover:line-clamp-none transition-all duration-300">
+            {lane.philosophy}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-6 py-4 border-t border-white/5 bg-black/30 flex items-center justify-between gap-6">
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-black">Pacing</span>
+            <span className="text-[13px] text-white/90 font-bold tracking-tight">{lane.pacing}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-black">Energy</span>
+            <span className="text-[13px] text-white/90 font-bold tracking-tight">{lane.energy}/100</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-black">BPM</span>
+            <span className="text-[13px] text-white/90 font-bold tracking-tight">{lane.bpm}</span>
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          {lane.tags.slice(0, 2).map(tag => (
+            <span key={tag} className="px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/40 font-bold">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
     </motion.div>
   )
 }
 
+function RefinementChip({ 
+  label, 
+  icon: Icon, 
+  onClick,
+  active,
+  laneLevel
+}: { 
+  label: string, 
+  icon: any, 
+  onClick: () => void,
+  active?: boolean,
+  laneLevel?: boolean
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05, y: -1 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2.5 px-5 py-2.5 rounded-full border text-[13px] font-black uppercase tracking-wider transition-all duration-300",
+        active 
+          ? "border-[#7ff2d4]/50 bg-[#7ff2d4]/15 text-[#7ff2d4] shadow-[0_0_20px_rgba(127,242,212,0.15)]"
+          : laneLevel 
+            ? "border-white/10 bg-white/5 text-white/40 hover:text-white/80 hover:border-white/20"
+            : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+      )}
+    >
+      <Icon className="size-4" />
+      {label}
+    </motion.button>
+  )
+}
+
+/**
+ * MAIN COMPONENT
+ */
 export function MusicTabPanel({
   tracks,
   projectTitle,
@@ -298,137 +334,36 @@ export function MusicTabPanel({
   onSelectTrack: (track: MusicRecommendation) => void
 }) {
   const reduceMotion = useStableReducedMotion()
-  const [localSelectedTrackId, setLocalSelectedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
-  const [focusedTrackId, setFocusedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
-  const [playingTrackId, setPlayingTrackId] = React.useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = React.useState('')
+  const [activeLaneId, setActiveLaneId] = React.useState('lane-1')
+  const [reasoningText, setReasoningText] = React.useState(LANES[0]!.philosophy)
+  const [refinements, setRefinements] = React.useState<string[]>([])
 
-  const normalizedQuery = searchQuery.trim().toLowerCase()
-  const filteredTracks = React.useMemo(() => {
-    if (!normalizedQuery) return tracks
+  const activeLane = LANES.find(l => l.id === activeLaneId) || LANES[0]!
 
-    return tracks.filter((track) => {
-      const haystack = [track.title, track.artist, track.subtitle, track.description, track.reason]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(normalizedQuery)
-    })
-  }, [normalizedQuery, tracks])
-
-  React.useEffect(() => {
-    if (!selectedTrackId && !localSelectedTrackId && tracks[0]) {
-      setLocalSelectedTrackId(tracks[0].id)
-      onSelectTrack(tracks[0])
+  const handleLaneSelect = (lane: EditorialLane) => {
+    setActiveLaneId(lane.id)
+    setReasoningText(lane.philosophy)
+    
+    // In a real scenario, we'd trigger onSelectTrack with a track from this lane
+    if (tracks.length > 0) {
+      onSelectTrack(tracks[0]!)
     }
-  }, [localSelectedTrackId, onSelectTrack, selectedTrackId, tracks])
+  }
 
-  React.useEffect(() => {
-    const trackIds = new Set(tracks.map((track) => track.id))
-    if (!trackIds.size) {
-      setLocalSelectedTrackId(null)
-      return
-    }
-
-    if (selectedTrackId && trackIds.has(selectedTrackId)) {
-      setLocalSelectedTrackId(selectedTrackId)
-      return
-    }
-
-    setLocalSelectedTrackId((current) => (current && trackIds.has(current) ? current : tracks[0]?.id ?? null))
-  }, [selectedTrackId, tracks])
-
-  React.useEffect(() => {
-    const trackIds = new Set(tracks.map((track) => track.id))
-    if (!trackIds.size) {
-      setFocusedTrackId(null)
-      return
-    }
-
-    const fallbackTrackId = selectedTrackId && trackIds.has(selectedTrackId) ? selectedTrackId : tracks[0]?.id ?? null
-    setFocusedTrackId((current) => (current && trackIds.has(current) ? current : fallbackTrackId))
-  }, [selectedTrackId, tracks])
-
-  React.useEffect(() => {
-    if (!filteredTracks.length) return
-
-    const filteredIds = new Set(filteredTracks.map((track) => track.id))
-    const fallbackTrackId =
-      (selectedTrackId && filteredIds.has(selectedTrackId) ? selectedTrackId : null)
-      ?? filteredTracks[0]?.id
-      ?? null
-
-    setFocusedTrackId((current) => (current && filteredIds.has(current) ? current : fallbackTrackId))
-  }, [filteredTracks, selectedTrackId])
-
-  const focusedTrack = React.useMemo(
-    () =>
-      filteredTracks.find((track) => track.id === focusedTrackId)
-      ?? tracks.find((track) => track.id === focusedTrackId)
-      ?? tracks.find((track) => track.id === selectedTrackId)
-      ?? tracks[0]
-      ?? null,
-    [filteredTracks, focusedTrackId, selectedTrackId, tracks],
-  )
-
-  const selectedTrack = React.useMemo(
-    () => tracks.find((track) => track.id === localSelectedTrackId) ?? tracks.find((track) => track.id === selectedTrackId) ?? null,
-    [localSelectedTrackId, selectedTrackId, tracks],
-  )
-  const activeTrack = React.useMemo(() => selectedTrack ?? focusedTrack, [focusedTrack, selectedTrack])
-  const selectedSong = React.useMemo(
-    () => (activeTrack ? buildSelectedSongDisplay(activeTrack) : null),
-    [activeTrack],
-  )
-  const playerTrackCount = React.useMemo(
-    () => (filteredTracks.length ? filteredTracks : tracks).length,
-    [filteredTracks, tracks],
-  )
-
-  const handlePlayerStep = React.useCallback(
-    (direction: 'previous' | 'next', options: { shuffle: boolean }) => {
-      const playlist = filteredTracks.length ? filteredTracks : tracks
-      const governingTrack = selectedTrack ?? focusedTrack
-      if (!playlist.length || !governingTrack) return
-
-      let nextTrack: MusicRecommendation | null = null
-
-      if (options.shuffle && playlist.length > 1) {
-        const candidates = playlist.filter((track) => track.id !== governingTrack.id)
-        nextTrack = candidates[Math.floor(Math.random() * candidates.length)] ?? null
+  const toggleRefinement = (key: string) => {
+    setRefinements(prev => {
+      const isRemoving = prev.includes(key)
+      const next = isRemoving ? prev.filter(k => k !== key) : [...prev, key]
+      
+      if (!isRemoving) {
+        setReasoningText(`Modulating intelligence layer for ${key.replace('-', ' ')} priority. Re-mapping emotional sync points to ensure the ${activeLane.title} lane maintains its cinematic integrity while hitting the new energy targets.`)
       } else {
-        const currentIndex = playlist.findIndex((track) => track.id === governingTrack.id)
-        const safeIndex = currentIndex >= 0 ? currentIndex : 0
-        const delta = direction === 'next' ? 1 : -1
-        const nextIndex = (safeIndex + delta + playlist.length) % playlist.length
-        nextTrack = playlist[nextIndex] ?? null
+        setReasoningText(activeLane.philosophy)
       }
-
-      if (!nextTrack) return
-      setLocalSelectedTrackId(nextTrack.id)
-      setFocusedTrackId(nextTrack.id)
-      setPlayingTrackId((current) => (current ? nextTrack.id : current))
-      onSelectTrack(nextTrack)
-    },
-    [filteredTracks, focusedTrack, onSelectTrack, selectedTrack, tracks],
-  )
-
-  const handleTrackSelection = React.useCallback(
-    (track: MusicRecommendation) => {
-      setLocalSelectedTrackId(track.id)
-      setFocusedTrackId(track.id)
-      onSelectTrack(track)
-    },
-    [onSelectTrack],
-  )
-
-  const handleTrackPlayPause = React.useCallback(
-    (track: MusicRecommendation) => {
-      handleTrackSelection(track)
-      setPlayingTrackId((current) => (current === track.id ? null : track.id))
-    },
-    [handleTrackSelection],
-  )
+      
+      return next
+    })
+  }
 
   if (!tracks.length) {
     return (
@@ -444,7 +379,7 @@ export function MusicTabPanel({
           />
           <TextReveal
             as="p"
-            text="Prometheus will surface the song picker once the edit context is ready."
+            text="Prometheus will surface the cinematic workspace once the edit context is ready."
             delay={0.12}
             className="mt-2 max-w-[36rem] text-sm leading-6 text-white/52"
           />
@@ -455,92 +390,179 @@ export function MusicTabPanel({
 
   return (
     <motion.section
-      key="editor-music-tab-panel"
+      key="editor-music-intelligence-workspace"
       aria-label={`${projectTitle} soundtrack selector`}
       initial={reduceMotion ? false : { opacity: 0, y: 14 }}
       animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: 10 }}
-      transition={{ duration: reduceMotion ? 0 : 0.3, ease: chamberEase }}
-      className="relative flex min-h-0 w-full max-w-[1080px] flex-1 self-center overflow-hidden rounded-[32px] border border-white/8 bg-black px-4 py-4 sm:px-5 sm:py-5"
+      transition={{ duration: reduceMotion ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="relative flex flex-col gap-8 min-h-0 w-full max-w-[1120px] self-center overflow-y-auto overflow-x-hidden p-6 sm:p-8 custom-scrollbar"
     >
-      <div className="relative z-10 grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(18rem,1.04fr)_minmax(21rem,0.9fr)] xl:grid-cols-[minmax(20rem,1.08fr)_minmax(22rem,0.92fr)]">
-        <div className="flex min-h-0 min-w-0">
-          {selectedSong ? (
-            <div className="music-hero-shell relative flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/8 bg-black p-4 shadow-[0_24px_54px_-44px_rgba(0,0,0,0.98)] sm:p-5">
-              <MusicPlayer
-                albumArt={selectedSong.artwork}
-                albumArtPosition={selectedSong.artworkPosition}
-                songTitle={selectedSong.title}
-                artistName={selectedSong.metadataLine}
-                audioSrc={selectedSong.audioSrc}
-                isPlaying={playingTrackId === selectedSong.id}
-                onPlayingChange={(nextPlaying) => {
-                  setPlayingTrackId(nextPlaying ? selectedSong.id : null)
-                }}
-                onPrevious={({ shuffle }) => handlePlayerStep('previous', { shuffle })}
-                onNext={({ shuffle }) => handlePlayerStep('next', { shuffle })}
-                canPrevious={playerTrackCount > 1}
-                canNext={playerTrackCount > 1}
-                className="relative z-10 flex-1"
-              />
+      {/* 1. CINEMATIC HEADER */}
+      <motion.section 
+        layout
+        className="premium-ambient-panel relative overflow-hidden rounded-[40px] border border-white/8 bg-[linear-gradient(180deg,rgba(22,24,30,0.95)_0%,rgba(10,10,14,0.98)_100%)] p-8 sm:p-10 shadow-[0_48px_96px_-32px_rgba(0,0,0,0.95)]"
+      >
+        <LuxuryVignette tone="music" />
+        
+        <div className="relative z-10 grid lg:grid-cols-[1fr_360px] items-center gap-12 sm:gap-16">
+          <div className="space-y-10">
+            <div className="flex items-center gap-5">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-[#7ff2d4]/10 border border-[#7ff2d4]/20 shadow-[0_0_30px_rgba(127,242,212,0.15)]">
+                <Cpu className="size-7 text-[#7ff2d4]" />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-[11px] uppercase tracking-[0.5em] font-black text-white/30 leading-none mb-2">AI Cinematic Engine</span>
+                <h2 className="text-4xl font-black text-white tracking-tight leading-none">Soundtrack Strategy</h2>
+              </div>
             </div>
-          ) : null}
-        </div>
 
-        <div className="flex min-h-0 min-w-0 flex-col pl-2 pr-1 pt-1 sm:pl-3 sm:pr-2">
-          <div className="flex items-center justify-end gap-3 pr-4 sm:pr-5">
-            <div className="flex min-w-0 flex-1 justify-end">
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0, y: 4, scale: 0.96, filter: 'blur(6px)' }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                transition={reduceMotion ? undefined : chamberSpring}
-                className="shrink-0"
-              >
-                <ExpandableSearchBar
-                  expandDirection="left"
-                  width={216}
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  onSearch={setSearchQuery}
-                  placeholder="Search tracks"
-                  className="shrink-0"
-                  buttonClassName="border-white/18 bg-black text-white/72 shadow-none hover:border-white/28 hover:bg-black hover:text-white"
-                  surfaceClassName="border-white/18 bg-black px-0 shadow-none"
-                  inputClassName="pr-2 text-white placeholder:text-white/28"
-                />
-              </motion.div>
+            <TypewriterReasoning text={reasoningText} />
+
+            <div className="flex flex-wrap gap-3">
+              <RefinementChip 
+                label="More Cinematic" 
+                icon={Sparkles} 
+                active={refinements.includes('cinematic')}
+                onClick={() => toggleRefinement('cinematic')} 
+              />
+              <RefinementChip 
+                label="More Emotional" 
+                icon={Waves} 
+                active={refinements.includes('emotional')}
+                onClick={() => toggleRefinement('emotional')} 
+              />
+              <RefinementChip 
+                label="More Energetic" 
+                icon={Zap} 
+                active={refinements.includes('energetic')}
+                onClick={() => toggleRefinement('energetic')} 
+              />
+              <RefinementChip 
+                label="Less Distracting" 
+                icon={Wind} 
+                active={refinements.includes('minimal')}
+                onClick={() => toggleRefinement('minimal')} 
+              />
             </div>
           </div>
 
-          <InertialSongScroller className="mt-4 min-h-0 flex-1" contentClassName="px-0.5 py-3" reducedMotion={reduceMotion}>
-            {filteredTracks.length ? (
-              <div>
-                {filteredTracks.map((track, index) => (
-                  <SongRailItem
-                    key={track.id}
-                    track={track}
-                    index={index}
-                    isFocused={focusedTrack?.id === track.id}
-                    isSelected={selectedTrack?.id === track.id}
-                    isPlaying={playingTrackId === track.id}
-                    reduceMotion={reduceMotion}
-                    onFocus={() => handleTrackSelection(track)}
-                    onPlayPause={() => handleTrackPlayPause(track)}
-                    onSelect={() => handleTrackSelection(track)}
-                  />
-                ))}
+          <div className="rounded-[32px] border border-white/8 bg-white/[0.03] p-8 space-y-8 backdrop-blur-md self-stretch flex flex-col justify-center">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] font-black text-white/30">
+                <span>Alignment Confidence</span>
+                <span className="text-[#7ff2d4]">98%</span>
               </div>
-            ) : (
-              <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center">
-                <div>
-                  <div className="text-base font-medium text-white/78">No soundtracks found</div>
-                  <div className="mt-2 text-sm text-white/42">Try a different song, artist, or soundtrack phrase.</div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '98%' }}
+                  className="h-full bg-gradient-to-r from-[#7ff2d4] via-cyan-400 to-indigo-500" 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/20">Target Tempo</span>
+                <div className="text-xl font-black text-white/90 tracking-tight">{activeLane.bpm}</div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/20">Voice Safety</span>
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <ShieldCheck className="size-5" />
+                  <span className="text-[13px] font-black uppercase tracking-wider">Secure</span>
                 </div>
               </div>
-            )}
-          </InertialSongScroller>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-[10px] uppercase tracking-[0.2em] font-black text-white/20">Current Instrumentation</span>
+              <div className="flex flex-wrap gap-2">
+                {activeLane.tags.map(tag => (
+                  <span key={tag} className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[11px] font-bold text-white/40">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </motion.section>
+
+      {/* 2. GLOBAL ALIGNMENT MAP */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <Activity className="size-5 text-white/30" />
+            <h3 className="text-[12px] font-black uppercase tracking-[0.4em] text-white/30">Global Alignment Map</h3>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-[#7ff2d4]/10 border border-[#7ff2d4]/20 px-3 py-1 text-[10px] font-black text-[#7ff2d4] uppercase tracking-widest animate-pulse">
+            Live Sync Pulse
+          </div>
+        </div>
+        <GlobalAlignmentMap />
+      </section>
+
+      {/* 3. EDITORIAL LANES */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {LANES.map((lane) => (
+          <EditorialLaneCard 
+            key={lane.id} 
+            lane={lane} 
+            isActive={activeLaneId === lane.id}
+            onSelect={() => handleLaneSelect(lane)}
+          />
+        ))}
+      </section>
+
+      {/* 4. FLOATING REFINEMENT BAR */}
+      <footer className="sticky bottom-0 z-50 self-center pb-4">
+        <motion.div 
+          initial={{ y: 50, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="flex flex-wrap items-center justify-center gap-4 p-3 rounded-[32px] border border-white/15 bg-black/60 backdrop-blur-3xl shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)]"
+        >
+          <div className="flex items-center gap-3 px-6 py-2.5 border-r border-white/10 mr-2">
+            <Layers className="size-5 text-[#7ff2d4]" />
+            <span className="text-[12px] font-black uppercase tracking-[0.25em] text-white/60">
+              {activeLane.type} Refinement
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center justify-center">
+            <RefinementChip 
+              laneLevel 
+              label="Viral Pacing" 
+              icon={Flame} 
+              active={refinements.includes('viral-pacing')}
+              onClick={() => toggleRefinement('viral-pacing')} 
+            />
+            <RefinementChip 
+              laneLevel 
+              label="Cleaner Vocals" 
+              icon={MessageSquare} 
+              active={refinements.includes('vocals')}
+              onClick={() => toggleRefinement('vocals')} 
+            />
+            <RefinementChip 
+              laneLevel 
+              label="Ambient Intro" 
+              icon={Wind} 
+              active={refinements.includes('ambient')}
+              onClick={() => toggleRefinement('ambient')} 
+            />
+          </div>
+          <div className="w-4" />
+          <motion.button 
+            whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,1)', color: '#000' }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-white/95 text-black text-[14px] font-black uppercase tracking-wider shadow-2xl transition-all"
+          >
+            Confirm Direction
+            <ArrowRight className="size-5" />
+          </motion.button>
+        </motion.div>
+      </footer>
     </motion.section>
   )
 }
