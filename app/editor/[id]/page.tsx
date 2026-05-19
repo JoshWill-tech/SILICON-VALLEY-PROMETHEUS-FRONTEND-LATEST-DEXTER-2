@@ -1670,6 +1670,9 @@ function FloatingChatComposer({
                     id={composerId}
                     ref={composerInputRef}
                     value={draft}
+                    className={cn(
+                      'relative z-10 h-full w-full overflow-hidden bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
+                    )}
                     onChange={(event) => {
                       onDraftChange(event.target.value)
                       setCaretIndex(event.target.selectionStart ?? event.target.value.length)
@@ -1688,9 +1691,6 @@ function FloatingChatComposer({
                     onSelect={() => updateCaretTarget()}
                     onKeyDown={handleComposerKeyDown}
                     placeholder=""
-                    className={cn(
-                      'relative z-10 h-full w-full overflow-hidden bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
-                    )}
                     style={{
                       fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
                       caretColor: 'rgba(255,255,255,0.78)',
@@ -1898,6 +1898,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const handledAutomationRequestIdRef = React.useRef<number | null>(null)
   const [highlightedEntryId, setHighlightedEntryId] = React.useState<string | null>(null)
   const queuedPreviewRequestTokenRef = React.useRef<string | null>(null)
+
   const stagedTrackIdSet = React.useMemo(
     () => new Set(stagedTracks.map((track) => track.recommendation.id)),
     [stagedTracks],
@@ -2752,7 +2753,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                 return
               }
 
-              const chatErrorText = nextError || 'Groq could not answer right now.'
+              const chatErrorText = nextError || 'Luna could not answer right now.'
               latestReplyText = chatErrorText
               replyResolved = true
               chatTaskCompleted = true
@@ -2767,7 +2768,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               const chatErrorText =
                 error instanceof Error
                   ? error.message
-                  : 'The live Groq reply could not be completed right now.'
+                  : 'The live Luna reply could not be completed right now.'
 
               if (shouldEditRequest) {
                 const fallbackReply = sanitizeAssistantReply(editReplyFallback || chatErrorText || loadingText)
@@ -2884,7 +2885,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           text:
             error instanceof Error
               ? error.message
-              : 'The live Groq reply could not be completed right now.',
+              : 'The live Luna reply could not be completed right now.',
         }
         const withAssistantError = [...entriesRef.current, assistantEntry]
         entriesRef.current = withAssistantError
