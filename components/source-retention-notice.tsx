@@ -5,8 +5,51 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Info, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function SourceRetentionNotice({ className }: { className?: string }) {
+export function SourceRetentionNotice({ 
+  className,
+  variant = 'default' 
+}: { 
+  className?: string;
+  variant?: 'default' | 'minimal' | 'ghost';
+}) {
   const [expanded, setExpanded] = useState(false);
+
+  if (variant === 'minimal') {
+    return (
+      <div className={cn("px-4 pb-3", className)}>
+        <div 
+          className="flex cursor-pointer items-center gap-2 text-[10px] sm:text-[11px]"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Info className="h-3 w-3 text-blue-400/70" />
+          <div className="flex-1 truncate text-white/30 hover:text-white/50 transition-colors">
+            Source videos kept for 15 days. Outputs are permanent.
+          </div>
+          <motion.div 
+            animate={{ rotate: expanded ? 180 : 0 }} 
+            className="text-white/20"
+          >
+            <ChevronDown className="h-3 w-3" />
+          </motion.div>
+        </div>
+        
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 text-[10px] leading-relaxed text-white/40 bg-white/[0.02] p-2 rounded-lg border border-white/5">
+                We keep original source uploads for 15 days to manage storage while Prometheus processes your edits. Your final outputs and exports remain available in your project folder indefinitely unless you delete them.
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("rounded-2xl border border-white/10 bg-white/[0.02] p-3 backdrop-blur-sm transition-all duration-300", className)}>

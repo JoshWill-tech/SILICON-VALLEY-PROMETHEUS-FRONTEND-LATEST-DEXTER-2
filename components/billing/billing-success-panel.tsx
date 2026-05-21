@@ -28,7 +28,7 @@ export function BillingSuccessPanel() {
 
   React.useEffect(() => {
     if (!sessionId) {
-      setError('Missing Stripe session reference.')
+      setError('Missing Paddle session reference.')
       return
     }
 
@@ -45,7 +45,7 @@ export function BillingSuccessPanel() {
           | null
 
         if (!response.ok) {
-          throw new Error(data?.error ?? 'Failed to confirm your Stripe subscription.')
+          throw new Error(data?.error ?? 'Failed to confirm your Paddle subscription.')
         }
 
         if (cancelled) return
@@ -69,7 +69,7 @@ export function BillingSuccessPanel() {
         }
       } catch (nextError) {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : 'Failed to confirm your Stripe subscription.')
+          setError(nextError instanceof Error ? nextError.message : 'Failed to confirm your Paddle subscription.')
         }
       }
     })()
@@ -96,8 +96,8 @@ export function BillingSuccessPanel() {
               </div>
               <div className="mt-1 text-sm text-white/52">
                 {isReady
-                  ? 'Stripe completed the checkout flow and your workspace can continue.'
-                  : 'We are checking your Stripe session and syncing the current workspace access.'}
+                  ? 'Paddle completed the checkout flow and your workspace can continue.'
+                  : 'We are checking your Paddle session and syncing the current workspace access.'}
               </div>
             </div>
           </div>

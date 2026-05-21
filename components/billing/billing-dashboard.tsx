@@ -3,12 +3,27 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { Check, CreditCard, Info, Sparkles, Zap } from 'lucide-react'
+import { 
+  Check, 
+  CreditCard, 
+  Info, 
+  Sparkles, 
+  Zap, 
+  Calendar, 
+  ShieldCheck, 
+  ArrowRight,
+  ChevronRight,
+  Wallet,
+  Building2,
+  Users
+} from 'lucide-react'
 
-import { StripeCheckoutButton } from '@/components/billing/stripe-checkout-button'
+import { PaddleCheckoutButton } from '@/components/billing/paddle-checkout-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   BILLING_DASHBOARD_PATH,
   clearBillingAccess,
@@ -22,19 +37,18 @@ const PLANS = BILLING_PLAN_ORDER.map((planId) => BILLING_PLAN_DEFINITIONS[planId
 
 const USAGE_STATS = [
   {
-    label: 'Credits used',
+    label: 'Credits Used',
     value: '3,120',
-    meta: 'out of 5,000 this month',
+    total: '5,000',
+    icon: Sparkles,
+    meta: 'Resets in 12 days',
   },
   {
-    label: 'Workspace seats',
+    label: 'Workspace Seats',
     value: '4',
+    total: '10',
+    icon: Users,
     meta: '1 owner, 3 collaborators',
-  },
-  {
-    label: 'Renewal',
-    value: 'May 12',
-    meta: 'Next billing cycle date',
   },
 ]
 
@@ -42,8 +56,12 @@ export function BillingDashboard() {
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next')
   const [billingState, setBillingState] = React.useState(readBillingAccessState)
-  const used = 62
-  const currentPlan = PLANS.find((plan) => plan.id === billingState.planId) ?? PLANS[1]
+  const usedCredits = 3120
+  const totalCredits = 5000
+  const progressValue = (usedCredits / totalCredits) * 100
+  
+  const currentPlan = PLANS.find((plan) => plan.id === billingState.planId) || null
+  const hasAccess = billingState.status === 'active'
 
   const refreshBillingState = React.useCallback(() => {
     setBillingState(readBillingAccessState())
@@ -60,219 +78,284 @@ export function BillingDashboard() {
     }
   }, [refreshBillingState])
 
-  const hasAccess = billingState.status === 'active'
-
   return (
-    <div className="px-4 py-5 md:px-6 md:py-6">
-      <section className="overflow-hidden rounded-[30px] border border-white/12 bg-[radial-gradient(circle_at_top,rgba(63,122,255,0.16)_0%,rgba(10,10,16,0)_30%),linear-gradient(180deg,rgba(18,18,23,0.98)_0%,rgba(13,13,16,1)_100%)] p-5 shadow-[0_48px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.06)] md:p-7">
-        <div className="flex flex-col gap-8">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_420px]">
-            <div className="space-y-4">
-              <Badge className="border-[#2f8eff]/25 bg-[#2f8eff]/10 text-[#cae2ff]">Prometheus Plans</Badge>
-              <div className="max-w-3xl">
-                <h2 className="text-[clamp(2.2rem,4.2vw,4rem)] font-semibold leading-[0.92] tracking-[-0.04em] text-white">
-                  Choose the right plan for your workspace and unlock editing access.
-                </h2>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60 md:text-[15px]">
-                  Compare plans, manage your workspace access, and activate the subscription that fits your production
-                  needs.
-                </p>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                {USAGE_STATS.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  >
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/38">{stat.label}</div>
-                    <div className="mt-3 text-2xl font-semibold tracking-tight text-white">{stat.value}</div>
-                    <div className="mt-1 text-xs text-white/48">{stat.meta}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.02)_100%)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-white/86">
-                    <Zap className="size-4 text-[#6ab1ff]" />
-                    Billing access
-                  </div>
-                  <div className="mt-3 text-3xl font-semibold tracking-tight text-white">
-                    {hasAccess ? currentPlan.name : 'Locked'}
-                  </div>
-                  <div className="mt-1 text-sm text-white/48">
-                    {hasAccess
-                      ? `Active ${currentPlan.name} access${billingState.activatedAt ? ` since ${new Date(billingState.activatedAt).toLocaleDateString()}` : ''}.`
-                      : 'An active subscription is required before users can open or run edits.'}
-                  </div>
-                </div>
-                <Badge
-                  className={cn(
-                    hasAccess
-                      ? 'border-emerald-400/25 bg-emerald-400/10 text-emerald-100'
-                      : 'border-amber-300/25 bg-amber-400/10 text-amber-100',
-                  )}
-                >
-                  {hasAccess ? 'Active' : 'Payment required'}
-                </Badge>
-              </div>
-
-              <div className="mt-6 rounded-[22px] border border-white/10 bg-black/20 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm text-white/70">Monthly credit usage</div>
-                  <div className="text-xs tabular-nums text-white/45">{used}/100</div>
-                </div>
-                <div className="mt-3">
-                  <Progress value={used} />
-                </div>
-                <div className="mt-2 text-xs text-white/42">
-                  Temporary mock metric until real subscription and usage tracking are connected.
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Badge variant="secondary">{hasAccess ? currentPlan.creditsLabel : 'Editor locked'}</Badge>
-                <Badge variant="secondary">{hasAccess ? 'Processing unlocked' : 'Upgrade required'}</Badge>
-                <Badge variant="secondary">{hasAccess ? 'Workspace enabled' : 'Billing gate active'}</Badge>
-              </div>
-
-              {hasAccess && nextPath ? (
-                <div className="mt-5">
-                  <Button asChild className="w-full rounded-[14px] bg-white text-black hover:bg-white/90">
-                    <Link href={nextPath}>Continue to workspace</Link>
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+    <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 md:px-8 md:py-12">
+      {/* 1. Header & Current Subscription */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+        <div className="flex flex-col justify-center space-y-4">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-white/40">
+            <Building2 className="size-4" />
+            <span>Workspace Management</span>
+            <ChevronRight className="size-3" />
+            <span className="text-white/80">Billing & Plans</span>
           </div>
+          <h1 className="text-4xl font-semibold tracking-tight text-white md:text-5xl">
+            Upgrade your production capability.
+          </h1>
+          <p className="max-w-xl text-lg text-white/50">
+            Manage your workspace subscription and unlock high-performance AI video editing features.
+          </p>
+          
+          {hasAccess && nextPath && (
+            <div className="pt-4">
+              <Button asChild size="lg" className="rounded-full bg-white text-black hover:bg-white/90">
+                <Link href={nextPath}>
+                  Return to Editor <ArrowRight className="ml-2 size-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
+        </div>
 
-          <div className="grid gap-5 xl:grid-cols-3">
-            {PLANS.map((plan) => (
-              <article
-                key={plan.id}
+        <Card className="relative overflow-hidden border-white/10 bg-white/[0.02]">
+          <div className="absolute -right-12 -top-12 size-48 rounded-full bg-blue-500/10 blur-3xl" />
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base font-medium text-white/70">
+                <ShieldCheck className="size-4 text-blue-400" />
+                Current Plan
+              </CardTitle>
+              <Badge 
+                variant={hasAccess ? "default" : "outline"} 
                 className={cn(
-                  'group relative overflow-hidden rounded-[30px] border bg-[linear-gradient(180deg,#17181a_0%,#111214_100%)] p-6 shadow-[0_36px_84px_-56px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.05)] transition-transform duration-300 hover:-translate-y-1',
-                  plan.featured ? 'border-[#4a9eff]/28' : 'border-white/10',
+                  "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                  hasAccess 
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                    : "bg-white/5 text-white/40 border-white/10"
                 )}
               >
-                <div
-                  aria-hidden
-                  className={cn(
-                    'pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b opacity-90 blur-3xl',
-                    `bg-gradient-to-b ${plan.accent}`,
-                  )}
-                />
+                {hasAccess ? 'Active' : 'Unpaid'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <div className="text-3xl font-semibold tracking-tight text-white">
+                {hasAccess && currentPlan ? currentPlan.name : 'Free Trial'}
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-sm text-white/40">
+                <Calendar className="size-3.5" />
+                <span>Next billing date: May 12, 2026</span>
+              </div>
+            </div>
 
-                <div className="relative z-10 flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="text-[2rem] font-semibold tracking-tight text-white">{plan.name}</div>
-                    {plan.featured ? (
-                      <Badge className="border-[#4da1ff]/30 bg-[#4da1ff]/10 text-[#d8ecff]">Best for teams</Badge>
-                    ) : null}
-                  </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-white/40">
+                <span>Monthly Credits</span>
+                <span className="text-white/70">{usedCredits.toLocaleString()} / {totalCredits.toLocaleString()}</span>
+              </div>
+              <Progress value={progressValue} className="h-1.5" />
+              <p className="text-[11px] leading-relaxed text-white/30">
+                Credits reset on your next billing cycle. Additional usage will be billed at the standard rate.
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter className="border-t border-white/5 bg-white/[0.01] pt-4">
+            <Button variant="ghost" size="sm" className="w-full text-white/40 hover:text-white hover:bg-white/5">
+              View usage history
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
 
-                  <div className="mt-7 flex items-end gap-1 text-white">
-                    <span className="text-[3.4rem] font-semibold leading-none tracking-[-0.06em]">{plan.priceWhole}</span>
-                    <span className="pb-2 text-[1.5rem] font-semibold text-[#c8d5e3]">{plan.priceFraction}</span>
-                    <span className="pb-2 text-[1.65rem] text-[#91a4bc]">{plan.monthlyLabel}</span>
-                  </div>
-
-                  <div className="mt-6 inline-flex items-center gap-3 rounded-full border border-[#2c76c7]/24 bg-[#102131] px-3 py-2 text-[1rem] font-semibold text-white">
-                    <span className="grid size-6 place-items-center rounded-full bg-[#1d84ff]">
-                      <Sparkles className="size-3.5 text-white" />
-                    </span>
-                    <span>{plan.creditsLabel}</span>
-                  </div>
-
-                  <div className="mt-7 space-y-4">
-                    {plan.features.map((feature) => (
-                      <div key={feature.label} className="flex items-start gap-3 text-white/74">
-                        <Check className="mt-[3px] size-4 shrink-0 text-white/80" />
-                        <div className="min-w-0">
-                          <div className={cn('text-[1.02rem] leading-7', feature.emphasized && 'font-medium text-white')}>
-                            {feature.label}
-                            {feature.hint ? <Info className="ml-2 inline size-3.5 text-white/42" /> : null}
-                          </div>
-                          {feature.hint ? <div className="text-sm leading-6 text-white/42">{feature.hint}</div> : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8">
-                    {plan.contactOnly ? (
-                      <Button
-                        asChild
-                        size="lg"
-                        className="h-12 w-full rounded-[14px] bg-[#1782ff] text-lg font-semibold text-white hover:bg-[#2a8cff]"
-                      >
-                        <a href="mailto:sales@prometheus.ai?subject=Prometheus%20Cinema%20Plan">{plan.ctaLabel}</a>
-                      </Button>
-                    ) : (
-                      <StripeCheckoutButton planId={plan.id} nextPath={nextPath} ctaLabel={plan.ctaLabel} />
-                    )}
-                  </div>
-                </div>
-              </article>
-            ))}
+      {/* 2. Pricing Plans Section */}
+      <div className="space-y-8">
+        <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold text-white">Choose your plan</h2>
+            <p className="text-sm text-white/40">Scale your production with predictable pricing.</p>
           </div>
+          
+          <Tabs defaultValue="monthly" className="w-auto">
+            <TabsList className="bg-white/5 p-1 border-white/10">
+              <TabsTrigger value="monthly" className="rounded-lg text-xs font-semibold uppercase tracking-wider">Monthly</TabsTrigger>
+              <TabsTrigger value="yearly" className="rounded-lg text-xs font-semibold uppercase tracking-wider">
+                Yearly <span className="ml-1 text-[10px] text-blue-400">-20%</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
-          {process.env.NODE_ENV === 'development' ? (
-            <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-white/88">Local billing access controls</div>
-                  <div className="mt-1 text-sm text-white/50">
-                    Development-only shortcut so you can test the editor lock before Stripe is connected.
+        <div className="grid gap-6 lg:grid-cols-3">
+          {PLANS.map((plan) => {
+            const isCurrent = billingState.planId === plan.id
+            
+            return (
+              <Card 
+                key={plan.id}
+                className={cn(
+                  "group relative flex flex-col transition-all duration-300 hover:border-white/20 hover:shadow-2xl",
+                  plan.featured ? "border-blue-500/30 bg-blue-500/[0.02]" : "border-white/10 bg-white/[0.01]"
+                )}
+              >
+                {plan.featured && (
+                  <div className="absolute inset-x-0 -top-px flex justify-center">
+                    <div className="rounded-b-xl bg-blue-500 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-lg">
+                      Recommended
+                    </div>
                   </div>
+                )}
+                
+                <CardHeader className="pt-8">
+                  <div className="space-y-1">
+                    <CardTitle className="text-xl font-semibold text-white">{plan.name}</CardTitle>
+                    <CardDescription className="text-sm text-white/40">Full control over your assets.</CardDescription>
+                  </div>
+                  <div className="mt-6 flex items-baseline gap-1">
+                    <span className="text-4xl font-semibold tracking-tight text-white">{plan.priceWhole}</span>
+                    <span className="text-lg font-medium text-white/40">{plan.priceFraction}</span>
+                    <span className="ml-1 text-sm text-white/40">{plan.monthlyLabel}</span>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="flex-1 pb-8">
+                  <div className="mb-8 flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3">
+                    <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400">
+                      <Sparkles className="size-4" />
+                    </div>
+                    <div className="text-sm font-medium text-white/80">{plan.creditsLabel}</div>
+                  </div>
+                  
+                  <ul className="space-y-4">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <div className="mt-1 flex size-4 items-center justify-center rounded-full bg-blue-500/10 text-blue-400">
+                          <Check className="size-2.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={cn(
+                            "text-sm leading-snug",
+                            feature.emphasized ? "font-medium text-white/90" : "text-white/60"
+                          )}>
+                            {feature.label}
+                          </p>
+                          {feature.hint && (
+                            <p className="mt-0.5 text-xs text-white/30">{feature.hint}</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                
+                <CardFooter className="pt-0">
+                  {isCurrent ? (
+                    <Button disabled className="w-full rounded-2xl border border-white/10 bg-white/5 text-white/40">
+                      Current Plan
+                    </Button>
+                  ) : plan.contactOnly ? (
+                    <Button asChild className="w-full rounded-2xl bg-white text-black hover:bg-white/90">
+                      <a href="mailto:sales@prometheus.ai?subject=Inquiry: Cinema Plan">
+                        Contact Sales
+                      </a>
+                    </Button>
+                  ) : (
+                    <PaddleCheckoutButton 
+                      planId={plan.id} 
+                      nextPath={nextPath} 
+                      ctaLabel={plan.ctaLabel} 
+                      className="rounded-2xl"
+                    />
+                  )}
+                </CardFooter>
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 3. Actions & Payment Panel */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-white/10 bg-white/[0.01]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-medium text-white">
+              <Wallet className="size-4 text-white/40" />
+              Payment Method
+            </CardTitle>
+            <CardDescription>Manage how you pay for your subscription.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-14 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
+                  <CreditCard className="size-5 text-white/60" />
                 </div>
-                <Badge variant="secondary">Dev only</Badge>
+                <div>
+                  <div className="text-sm font-medium text-white">Visa ending in 4242</div>
+                  <div className="text-xs text-white/30">Expires 12/26</div>
+                </div>
               </div>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                {PLANS.map((plan) => (
-                  <Button
-                    key={`activate-${plan.id}`}
-                    variant="outline"
-                    className="border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.06]"
-                    onClick={() => {
-                      setBillingAccess(plan.id, 'demo')
-                      refreshBillingState()
-                    }}
-                  >
-                    Unlock {plan.name}
-                  </Button>
-                ))}
-
-                <Button
-                  variant="outline"
-                  className="border-white/12 bg-white/[0.03] text-white hover:bg-white/[0.06]"
-                  onClick={() => {
-                    clearBillingAccess()
-                    refreshBillingState()
-                  }}
-                >
-                  Reset to unpaid
-                </Button>
-              </div>
+              <Button variant="ghost" size="sm" className="text-xs text-white/40 hover:text-white">
+                Edit
+              </Button>
             </div>
-          ) : null}
+          </CardContent>
+        </Card>
 
-          <div className="flex flex-col gap-3 rounded-[24px] border border-white/10 bg-white/[0.03] px-5 py-4 text-sm text-white/54 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <CreditCard className="size-4 text-white/55" />
-              Stripe-hosted checkout is wired in for subscription plans. The final production step is persisting
-              webhook-driven access on the server.
-            </div>
-            <div className="text-xs uppercase tracking-[0.18em] text-white/35">
-              Billing route: {BILLING_DASHBOARD_PATH}
-            </div>
+        <Card className="border-white/10 bg-white/[0.01]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg font-medium text-white">
+              <Zap className="size-4 text-white/40" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>Advanced subscription and account controls.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3">
+            <Button variant="outline" className="h-20 flex-col items-center justify-center gap-2 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-white/5">
+              <Calendar className="size-4 text-white/40" />
+              <span className="text-xs">Billing History</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-20 flex-col items-center justify-center gap-2 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-white/5"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to cancel? You will lose access at the end of your period.')) {
+                  // Logic handled via Paddle portal usually
+                }
+              }}
+            >
+              <ShieldCheck className="size-4 text-white/40" />
+              <span className="text-xs">Cancel Plan</span>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dev Tools Shortcut */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-20 border-t border-white/5 pt-12 text-center">
+          <Badge variant="outline" className="mb-6 rounded-full border-white/5 bg-white/[0.02] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white/20">
+            Developer Console
+          </Badge>
+          <div className="flex flex-wrap justify-center gap-3">
+            {PLANS.map((plan) => (
+              <Button
+                key={`unlock-${plan.id}`}
+                variant="ghost"
+                size="sm"
+                className="rounded-full text-xs text-white/30 hover:text-white"
+                onClick={() => {
+                  setBillingAccess(plan.id, 'demo')
+                  refreshBillingState()
+                }}
+              >
+                Mock {plan.name}
+              </Button>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full text-xs text-white/30 hover:text-red-400"
+              onClick={() => {
+                clearBillingAccess()
+                refreshBillingState()
+              }}
+            >
+              Reset All
+            </Button>
           </div>
         </div>
-      </section>
+      )}
     </div>
   )
 }

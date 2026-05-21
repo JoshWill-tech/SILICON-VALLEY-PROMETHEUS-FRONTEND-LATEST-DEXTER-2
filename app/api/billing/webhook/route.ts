@@ -1,44 +1,52 @@
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
-import type Stripe from 'stripe'
 
-import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe'
+import { getPaddleClient, getPaddleWebhookSecret } from '@/lib/paddle'
 
 export async function POST(request: Request) {
   try {
-    const signature = (await headers()).get('stripe-signature')
+    const signature = (await headers()).get('paddle-signature')
 
     if (!signature) {
-      return NextResponse.json({ error: 'Missing Stripe signature.' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing Paddle signature.' }, { status: 400 })
     }
 
-    const stripe = getStripeClient()
+    const paddle = getPaddleClient()
     const payload = await request.text()
-    const event = stripe.webhooks.constructEvent(payload, signature, getStripeWebhookSecret())
+    
+    // Verify and unmarshal the event
+    const event = await paddle.webhooks.unmarshal(payload, getPaddleWebhookSecret(), signature)
 
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        console.info('[stripe webhook] checkout.session.completed', {
-          sessionId: session.id,
-          userId: session.metadata?.userId ?? session.client_reference_id ?? null,
-          planId: session.metadata?.planId ?? null,
-          subscriptionId: typeof session.subscription === 'string' ? session.subscription : null,
+    if (!event) {
+      return NextResponse.json({ error: 'Invalid Paddle signature.' }, { status: 400 })
+    }
+
+    switch (event.eventType) {
+      case 'transaction.completed': {
+        const transaction = event.data
+        const customData = transaction.customData as Record<string, any> | undefined
+        
+        console.info('[paddle webhook] transaction.completed', {
+          transactionId: transaction.id,
+          userId: customData?.userId ?? null,
+          planId: customData?.planId ?? null,
+          subscriptionId: transaction.subscriptionId ?? null,
         })
         break
       }
 
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-      case 'invoice.paid':
-      case 'invoice.payment_failed':
-        console.info('[stripe webhook] event received', { type: event.type, eventId: event.id })
+      case 'subscription.updated':
+      case 'subscription.paused':
+      case 'subscription.canceled':
+      case 'transaction.paid':
+        console.info('[paddle webhook] event received', { type: event.eventType, eventId: event.eventId })
         break
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Stripe webhook failed.'
+    console.error('[paddle webhook error]', error)
+    const message = error instanceof Error ? error.message : 'Paddle webhook failed.'
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
