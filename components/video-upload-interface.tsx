@@ -61,6 +61,7 @@ import { buildBillingHref, hasBillingAccess } from "@/lib/billing";
 import { setSessionSourcePreview } from "@/lib/source-preview-session";
 import type { SourceProfile } from "@/lib/types";
 import { useSourceStage } from "@/hooks/use-source-stage";
+import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
 
 type AirtableImageArchiveResponse = {
@@ -1194,6 +1195,8 @@ const PromptComposer = React.memo(function PromptComposer({
                         <span>{isSubmitting ? "Sending..." : "Send"}</span>
                     </motion.button>
                 </div>
+
+                <SourceRetentionNotice variant="minimal" />
             </motion.div>
 
             <div className="flex flex-wrap items-center justify-center gap-2">

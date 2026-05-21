@@ -1,3 +1,9 @@
+import { 
+  getMusicAudioUrl, 
+  getMusicThumbnailUrl, 
+  getMusicPreviewUrl,
+  type MusicCategoryFolder 
+} from '@/lib/music-url-resolver'
 import {
   MUSIC_CATALOG,
   buildMusicPreviewUrl,
@@ -5,7 +11,110 @@ import {
   normalizeMusicPreference,
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
-import type { MusicPreference, MusicRecommendation, MusicVideoContext } from '@/lib/types'
+import type { 
+  MusicPreference, 
+  MusicRecommendation, 
+  MusicVideoContext, 
+  MusicEnergy, 
+  MusicMood 
+} from '@/lib/types'
+
+export type CloudflareMusicCategory = MusicCategoryFolder
+
+export type CloudflareTrackDef = {
+  id: string
+  filename: string
+  title: string
+  category: CloudflareMusicCategory
+  bpm?: number
+  energy?: MusicEnergy
+  mood?: MusicMood
+  durationSec?: number
+}
+
+// Expanded manifest with more tracks per category
+export const CLOUDFLARE_MUSIC_MANIFEST: CloudflareTrackDef[] = [
+  // Cinematic Trailer
+  { id: 'cf-cin-1', filename: 'eternal-rise', title: 'Eternal Rise', category: 'cinematic-trailer', bpm: 110, energy: 'high', mood: 'cinematic', durationSec: 120 },
+  { id: 'cf-cin-2', filename: 'gotham-shadows', title: 'Gotham Shadows', category: 'cinematic-trailer', bpm: 95, energy: 'medium', mood: 'dark', durationSec: 150 },
+  { id: 'cf-cin-3', filename: 'titan-legacy', title: 'Titan Legacy', category: 'cinematic-trailer', bpm: 125, energy: 'high', mood: 'cinematic', durationSec: 135 },
+  { id: 'cf-cin-4', filename: 'hero-path', title: 'Hero Path', category: 'cinematic-trailer', bpm: 105, energy: 'high', mood: 'uplifting', durationSec: 145 },
+  { id: 'cf-cin-5', filename: 'lost-dynasty', title: 'Lost Dynasty', category: 'cinematic-trailer', bpm: 88, energy: 'medium', mood: 'dark', durationSec: 160 },
+  { id: 'cf-cin-6', filename: 'warrior-spirit', title: 'Warrior Spirit', category: 'cinematic-trailer', bpm: 135, energy: 'high', mood: 'cinematic', durationSec: 115 },
+  
+  // Lofi Chill
+  { id: 'cf-lofi-1', filename: 'midnight-coffee', title: 'Midnight Coffee', category: 'lofi-chill-soft', bpm: 85, energy: 'low', mood: 'minimal', durationSec: 180 },
+  { id: 'cf-lofi-2', filename: 'rainy-afternoon', title: 'Rainy Afternoon', category: 'lofi-chill-soft', bpm: 80, energy: 'low', mood: 'minimal', durationSec: 165 },
+  { id: 'cf-lofi-3', filename: 'urban-breeze', title: 'Urban Breeze', category: 'lofi-chill-soft', bpm: 92, energy: 'low', mood: 'uplifting', durationSec: 200 },
+  { id: 'cf-lofi-4', filename: 'sunset-vinyl', title: 'Sunset Vinyl', category: 'lofi-chill-soft', bpm: 88, energy: 'low', mood: 'minimal', durationSec: 190 },
+  { id: 'cf-lofi-5', filename: 'cozy-corner', title: 'Cozy Corner', category: 'lofi-chill-soft', bpm: 75, energy: 'low', mood: 'minimal', durationSec: 210 },
+  { id: 'cf-lofi-6', filename: 'dreamy-clouds', title: 'Dreamy Clouds', category: 'lofi-chill-soft', bpm: 82, energy: 'low', mood: 'minimal', durationSec: 175 },
+
+  // Tech Futuristic
+  { id: 'cf-tech-1', filename: 'neon-grid', title: 'Neon Grid', category: 'tech-futuristic', bpm: 128, energy: 'high', mood: 'cinematic', durationSec: 140 },
+  { id: 'cf-tech-2', filename: 'cyber-pulse', title: 'Cyber Pulse', category: 'tech-futuristic', bpm: 135, energy: 'high', mood: 'uplifting', durationSec: 130 },
+  { id: 'cf-tech-3', filename: 'data-stream', title: 'Data Stream', category: 'tech-futuristic', bpm: 124, energy: 'medium', mood: 'minimal', durationSec: 155 },
+  { id: 'cf-tech-4', filename: 'silicon-valley', title: 'Silicon Valley', category: 'tech-futuristic', bpm: 118, energy: 'medium', mood: 'uplifting', durationSec: 145 },
+  { id: 'cf-tech-5', filename: 'neural-link', title: 'Neural Link', category: 'tech-futuristic', bpm: 142, energy: 'high', mood: 'dark', durationSec: 125 },
+  { id: 'cf-tech-6', filename: 'android-dream', title: 'Android Dream', category: 'tech-futuristic', bpm: 110, energy: 'low', mood: 'minimal', durationSec: 160 },
+
+  // HipHop / Trap
+  { id: 'cf-hip-1', filename: 'viral-bounce', title: 'Viral Bounce', category: 'hiphop-trap', bpm: 140, energy: 'high', mood: 'playful', durationSec: 110 },
+  { id: 'cf-hip-2', filename: 'bass-drop', title: 'Bass Drop', category: 'hiphop-trap', bpm: 145, energy: 'high', mood: 'uplifting', durationSec: 95 },
+  { id: 'cf-hip-3', filename: 'street-cred', title: 'Street Cred', category: 'hiphop-trap', bpm: 132, energy: 'high', mood: 'dark', durationSec: 120 },
+  { id: 'cf-hip-4', filename: 'gold-chain', title: 'Gold Chain', category: 'hiphop-trap', bpm: 138, energy: 'high', mood: 'playful', durationSec: 105 },
+  { id: 'cf-hip-5', filename: 'night-rider', title: 'Night Rider', category: 'hiphop-trap', bpm: 148, energy: 'high', mood: 'dark', durationSec: 115 },
+  { id: 'cf-hip-6', filename: 'smooth-hustle', title: 'Smooth Hustle', category: 'hiphop-trap', bpm: 128, energy: 'medium', mood: 'playful', durationSec: 130 },
+
+  // Motivational Beats
+  { id: 'cf-mot-1', filename: 'sunrise-glory', title: 'Sunrise Glory', category: 'motivational-beats', bpm: 120, energy: 'high', mood: 'uplifting', durationSec: 140 },
+  { id: 'cf-mot-2', filename: 'power-move', title: 'Power Move', category: 'motivational-beats', bpm: 125, energy: 'high', mood: 'uplifting', durationSec: 130 },
+  { id: 'cf-mot-3', filename: 'corporate-flow', title: 'Corporate Flow', category: 'motivational-beats', bpm: 118, energy: 'medium', mood: 'minimal', durationSec: 150 },
+  { id: 'cf-mot-4', filename: 'innovation', title: 'Innovation', category: 'motivational-beats', bpm: 124, energy: 'high', mood: 'uplifting', durationSec: 135 },
+
+  // Classical / Orchestral
+  { id: 'cf-cla-1', filename: 'string-quartet-1', title: 'String Quartet No. 1', category: 'classical-orchestra', bpm: 82, energy: 'low', mood: 'cinematic', durationSec: 210 },
+  { id: 'cf-cla-2', filename: 'grand-piano-solo', title: 'Grand Piano Solo', category: 'classical-orchestra', bpm: 75, energy: 'low', mood: 'minimal', durationSec: 185 },
+  { id: 'cf-cla-3', filename: 'royal-entrance', title: 'Royal Entrance', category: 'classical-orchestra', bpm: 88, energy: 'medium', mood: 'cinematic', durationSec: 140 },
+  { id: 'cf-cla-4', filename: 'ethereal-violin', title: 'Ethereal Violin', category: 'classical-orchestra', bpm: 72, energy: 'low', mood: 'minimal', durationSec: 160 },
+
+  // Pop / Indie Life
+  { id: 'cf-pop-1', filename: 'summer-vibe', title: 'Summer Vibe', category: 'pop-indie-life', bpm: 118, energy: 'medium', mood: 'uplifting', durationSec: 145 },
+  { id: 'cf-pop-2', filename: 'travel-journal', title: 'Travel Journal', category: 'pop-indie-life', bpm: 122, energy: 'medium', mood: 'playful', durationSec: 130 },
+  { id: 'cf-pop-3', filename: 'urban-morning', title: 'Urban Morning', category: 'pop-indie-life', bpm: 115, energy: 'low', mood: 'minimal', durationSec: 155 },
+  { id: 'cf-pop-4', filename: 'acoustic-soul', title: 'Acoustic Soul', category: 'pop-indie-life', bpm: 112, energy: 'low', mood: 'minimal', durationSec: 170 },
+]
+
+export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommendation {
+  const audioUrl = getMusicAudioUrl(def.category, def.filename)
+  const thumbnailUrl = getMusicThumbnailUrl(def.category, def.filename)
+  const previewSnippetUrl = getMusicPreviewUrl(def.category, def.filename)
+
+  return {
+    id: def.id,
+    title: def.title,
+    artist: 'Prometheus R2 Library',
+    producer: 'Prometheus',
+    genre: def.category.replace('-', ' '),
+    bpm: def.bpm || 100,
+    vibeTags: [def.category, def.energy || 'medium', 'R2 Asset'],
+    coverArtUrl: thumbnailUrl,
+    coverArtPosition: 'center',
+    previewUrl: audioUrl,
+    reason: `Resolved from Cloudflare R2 bucket. Matches ${def.category} tone.`,
+    mood: def.mood || 'cinematic',
+    energy: def.energy || 'medium',
+    sourcePlatform: 'local',
+    durationSec: def.durationSec || 60,
+    matchScore: 99,
+  } as MusicRecommendation
+}
+
+export function getCloudflareTracksByCategory(category: CloudflareMusicCategory): MusicRecommendation[] {
+  return CLOUDFLARE_MUSIC_MANIFEST
+    .filter(t => t.category === category)
+    .map(resolveCloudflareTrack)
+}
 
 export type MusicLibrarySearchResult = {
   query: string

@@ -27,6 +27,7 @@ import { DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { GlassBubbleCard, GlassUploadBackdrop } from '@/components/ui/glass-upload-shell';
 import { Input } from '@/components/ui/input';
 import { MediaUpscaleComparison } from '@/components/ui/media-upscale-comparison';
+import { SourceRetentionNotice } from '@/components/source-retention-notice';
 
 type PendingUploadKind = 'video' | 'image' | 'audio' | 'file';
 
@@ -352,6 +353,8 @@ export function GlassUploadModalView({
                       </motion.div>
                     )}
                   </AnimatePresence>
+
+                  <SourceRetentionNotice className="border-white/8 bg-white/[0.01]" />
 
                   <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,18,24,0.88)_0%,rgba(9,10,13,0.94)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                     <div className="text-[10px] uppercase tracking-[0.24em] text-white/38">

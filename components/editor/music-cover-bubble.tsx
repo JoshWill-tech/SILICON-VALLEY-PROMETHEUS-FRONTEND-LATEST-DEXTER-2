@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 export function MusicCoverBubble({
@@ -13,6 +14,8 @@ export function MusicCoverBubble({
   position?: string
   className?: string
 }) {
+  const [error, setError] = React.useState(false)
+
   return (
     <div
       className={cn(
@@ -21,9 +24,10 @@ export function MusicCoverBubble({
       )}
     >
       <img
-        src={src}
+        src={error ? '/placeholder-logo.svg' : src}
         alt={alt}
         draggable={false}
+        onError={() => setError(true)}
         onDragStart={(event) => event.preventDefault()}
         className="h-full w-full select-none object-cover"
         style={{
