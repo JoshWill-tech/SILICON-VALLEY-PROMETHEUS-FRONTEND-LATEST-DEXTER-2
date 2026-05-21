@@ -11,6 +11,18 @@
       "sourceType": "local",
       "computedHash": "808e487dc0514843373a8aa4d5a473bccd6831daf9ea31a2d042e953a7fd4c81"
     },
+    "enhance-prompt": {
+      "source": "google-labs-code/stitch-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/stitch-utilities/skills/enhance-prompt/SKILL.md",
+      "computedHash": "71cc23e9ec5fc6361e12453495fa8c683f6cf26f3efaf9b230b0f43e0a32cc96"
+    },
+    "gws-modelarmor-sanitize-prompt": {
+      "source": "googleworkspace/cli",
+      "sourceType": "github",
+      "skillPath": "skills/gws-modelarmor-sanitize-prompt/SKILL.md",
+      "computedHash": "798b25bc9e415eee94e0d4d8e504c898f2488c4d198b91345ea45714364d1448"
+    },
     "penpot-uiux-design": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
