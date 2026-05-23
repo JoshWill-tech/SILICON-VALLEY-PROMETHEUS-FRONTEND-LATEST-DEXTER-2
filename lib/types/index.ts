@@ -49,6 +49,19 @@ export interface SourceProfile {
   warnings: string[]
 }
 
+export type LeftTabKey = 'chat' | 'edit' | 'design' | 'assets'
+export type HeaderNavMode = 'Motion' | 'Music' | 'Output'
+export type PreviewFitMode = 'fill' | 'fit'
+export type BottomMode = 'Original' | 'Music' | 'Timeline'
+export type PreviewFramePreset = OutputProfile
+export type PreviewMediaKind = 'video' | 'image'
+
+export interface SessionPreviewState {
+  sourceKey: string
+  url: string
+  kind: PreviewMediaKind
+}
+
 export type OutputProfile = 'source' | '9:16' | '16:9' | '1:1' | '4:5'
 
 export interface ProcessingOperations {
@@ -695,7 +708,8 @@ export interface ProcessingArtifacts {
   styleId?: Id
 }
 
-import type { CreativeMetadata } from '@/lib/editorial-frame/types'
+export type { CreativeMetadata } from '@/lib/editorial-frame/types'
+export type { StyleTemplate } from '@/lib/styles/style-templates'
 import type { EditDNAProfile } from '@/lib/editorial-frame/edit-dna-router'
 
 export interface ProcessingJobInput {

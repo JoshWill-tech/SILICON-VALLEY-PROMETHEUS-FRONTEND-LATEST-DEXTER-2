@@ -14,7 +14,7 @@ const WORKSPACE_ROUTE_REGEX =
   /^\/(?:$|dashboard(?:\/|$)|projects(?:\/|$)|assets(?:\/|$)|editor(?:\/|$)|settings(?:\/|$)|exports(?:\/|$)|templates(?:\/|$)|team(?:\/|$)|highlights(?:\/|$)|captions(?:\/|$)|broll(?:\/|$)|brand-kit(?:\/|$)|billing(?:\/|$))/
 const EDITOR_DETAIL_ROUTE_REGEX = /^\/editor\/[^/]+(?:\/|$)/
 
-const AUTH_ROUTE_REGEX = /^\/(?:login|signup|verify|forgot-password|reset-password|terms|privacy)(?:\/|$)/
+const AUTH_ROUTE_REGEX = /^\/(?:login|signup|verify|forgot-password|reset-password|terms|privacy|refund)(?:\/|$)/
 
 function isWorkspaceRoute(pathname: string) {
   if (!pathname || pathname.startsWith('/api')) return false

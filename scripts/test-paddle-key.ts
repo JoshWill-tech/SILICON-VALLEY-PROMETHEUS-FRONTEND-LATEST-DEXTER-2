@@ -42,7 +42,7 @@ async function testKey() {
     const token = await paddle.clientTokens.create({
       name: 'Test Token'
     })
-    console.log('Success! Client token created:', token.clientToken)
+    console.log('Success! Client token created:', token.token)
   } catch (error: any) {
     console.error('Client token creation failed:', error.message)
     if (error.detail) console.error('Detail:', error.detail)
