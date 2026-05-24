@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import localFont from 'next/font/local'
 import { RootClientEffects } from '@/components/root-client-effects'
 import { WorkspaceFrame } from '@/components/workspace-frame'
@@ -46,6 +47,7 @@ export default function RootLayout({
         <WorkspaceFrame>{children}</WorkspaceFrame>
         <RootClientEffects />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
