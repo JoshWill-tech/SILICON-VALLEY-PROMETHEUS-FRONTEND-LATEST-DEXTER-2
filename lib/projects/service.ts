@@ -87,7 +87,7 @@ export const ProjectService = {
           name: params.title || 'Untitled project',
           status: 'draft',
           preview_kind: params.previewKind,
-          source_profile: normalizedSourceProfile ?? null,
+          source_profile: normalizedSourceProfile ?? {},
           source_asset_id: params.sourceAssetId,
           editor_state: editorState,
         })
@@ -118,7 +118,7 @@ export const ProjectService = {
     if (patch.status !== undefined) updateData.status = patch.status
     if (patch.thumbnailUrl !== undefined) updateData.thumbnail_url = patch.thumbnailUrl
     if (patch.previewKind !== undefined) updateData.preview_kind = patch.previewKind
-    if (patch.sourceProfile !== undefined) updateData.source_profile = normalizeSourceProfile(patch.sourceProfile) ?? null
+    if (patch.sourceProfile !== undefined) updateData.source_profile = normalizeSourceProfile(patch.sourceProfile) ?? {}
     if (patch.editorState !== undefined) updateData.editor_state = patch.editorState
     if (patch.animationPlan !== undefined) updateData.animation_plan = patch.animationPlan
     if (patch.sourceAssetId !== undefined) updateData.source_asset_id = patch.sourceAssetId

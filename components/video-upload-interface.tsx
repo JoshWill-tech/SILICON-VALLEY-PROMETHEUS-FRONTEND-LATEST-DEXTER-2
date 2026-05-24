@@ -1629,7 +1629,7 @@ export function VideoUploadInterface() {
                 // 2. Upload the actual source file to R2 using the returned PUT URL
                 currentStage = 'R2_PUT';
                 
-                const performUpload = (attempt: number): Promise<void> => {
+                const performDirectUpload = (attempt: number): Promise<void> => {
                     return new Promise((resolve, reject) => {
                         const status = attempt > 0 ? 'retrying' : 'uploading';
                         logUploadEvent(status, { attempt });
@@ -1671,6 +1671,52 @@ export function VideoUploadInterface() {
                     });
                 };
 
+                const performProxyUpload = (attempt: number): Promise<void> => {
+                    return new Promise((resolve, reject) => {
+                        const status = attempt > 0 ? 'retrying' : 'uploading';
+                        logUploadEvent(status, { attempt, mode: 'proxy' });
+                        setUploadStatus(status);
+
+                        const xhr = new XMLHttpRequest();
+                        const abortController = new AbortController();
+                        abortControllerRef.current = abortController;
+
+                        xhr.upload.onprogress = (event) => {
+                            if (event.lengthComputable) {
+                                const progress = Math.round((event.loaded / event.total) * 100);
+                                setUploadProgress(progress);
+                                setEditorLaunchOverlay({
+                                    title: launchProjectTitle,
+                                    detail: `Uploading ${stagedSourceFile.name} via secure fallback (${progress}%)...`,
+                                });
+                            }
+                        };
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                logUploadEvent('done', { mode: 'proxy' });
+                                setUploadStatus('done');
+                                resolve();
+                            } else {
+                                reject(new Error(`HTTP ${xhr.status}`));
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Proxy upload network error'));
+                        xhr.onabort = () => reject(new Error('Aborted'));
+
+                        xhr.open('POST', `/api/projects/${project.id}/upload-source`);
+                        xhr.setRequestHeader('Content-Type', stagedSourceFile.type || 'application/octet-stream');
+                        xhr.setRequestHeader('x-asset-id', uploadAsset.id);
+                        xhr.setRequestHeader('x-file-name', encodeURIComponent(stagedSourceFile.name));
+                        xhr.setRequestHeader('x-mime-type', stagedSourceFile.type || 'application/octet-stream');
+                        xhr.setRequestHeader('x-file-size', String(stagedSourceFile.size));
+                        xhr.send(stagedSourceFile);
+
+                        abortController.signal.addEventListener('abort', () => xhr.abort());
+                    });
+                };
+
                 const retryWithBackoff = async (fn: (attempt: number) => Promise<void>, maxRetries: number) => {
                     for (let i = 0; i <= maxRetries; i++) {
                         try {
@@ -1686,7 +1732,17 @@ export function VideoUploadInterface() {
                     }
                 };
 
-                await retryWithBackoff(performUpload, 3);
+                try {
+                    await retryWithBackoff(performDirectUpload, 0);
+                } catch (directUploadError) {
+                    console.warn('[video-upload] Direct R2 upload failed, switching to proxy upload', directUploadError);
+                    setEditorLaunchOverlay({
+                        title: launchProjectTitle,
+                        detail: 'Direct upload failed. Retrying through the secure server channel...',
+                    });
+                    currentStage = 'R2_PROXY_PUT';
+                    await retryWithBackoff(performProxyUpload, 1);
+                }
 
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
