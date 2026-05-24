@@ -60,7 +60,6 @@ import { createProcessingJob, getActiveStyleId, getMostRecentProject, startProce
 import { buildBillingHref, hasBillingAccess } from "@/lib/billing";
 import { setSessionSourcePreview } from "@/lib/source-preview-session";
 import type { SourceProfile } from "@/lib/types";
-import { useSourceStage } from "@/hooks/use-source-stage";
 import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -389,6 +388,12 @@ type PendingUpload = {
     sourceProfile: SourceProfile | null;
     inspectionState: "idle" | "inspecting" | "ready" | "failed";
     inspectionError: string | null;
+};
+
+type QueuedSourceUpload = {
+    file: File;
+    previewKind: "video" | "image" | null;
+    sourceProfile: SourceProfile | null;
 };
 
 function detectUploadKind(file: File): PendingUploadKind {
@@ -1256,6 +1261,7 @@ export function VideoUploadInterface() {
     const [uploadedFileName, setUploadedFileName] = useState<string>("");
     const uploadInspectionRunRef = useRef(0);
     const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+    const [queuedSourceUpload, setQueuedSourceUpload] = useState<QueuedSourceUpload | null>(null);
     const [addSourceMode, setAddSourceMode] = useState<"link" | "upload">("link");
     const [isSourceDragOver, setIsSourceDragOver] = useState(false);
     const sourceFileInputRef = useRef<HTMLInputElement>(null);
@@ -1301,18 +1307,6 @@ export function VideoUploadInterface() {
     }, [uploadStatus]);
 
     const [sourceUrl, setSourceUrl] = useState("");
-    const {
-        previewKind: stagedSourcePreviewKind,
-        sourceAssetId: stagedSourceAssetId,
-        sourceFile: stagedSourceFile,
-        sourceProfile: stagedSourceProfile,
-        stageSource,
-        awaitSettledSource,
-        resetStage: resetStagedSource,
-    } = useSourceStage({
-        currentPreviewUrl: null,
-        currentPreviewKind: null,
-    });
 
     const activeStyle = React.useMemo(
         () => STYLE_TEMPLATES.find((s) => s.id === activeStyleId) ?? null,
@@ -1504,12 +1498,13 @@ export function VideoUploadInterface() {
             uploadedFileName?.trim().length > 0
                 ? uploadedFileName.replace(/\.[^/.]+$/, "")
                 : (message || activeSlashCommand?.label || prompt).slice(0, 28);
-        let resolvedPreviewKind = stagedSourcePreviewKind ?? null;
-        let resolvedSourceAssetId = stagedSourceAssetId ?? null;
-        let resolvedSourceProfile = stagedSourceProfile ?? null;
+        const selectedSourceFile = queuedSourceUpload?.file ?? null;
+        let resolvedPreviewKind = queuedSourceUpload?.previewKind ?? null;
+        let resolvedSourceAssetId: string | null = null;
+        let resolvedSourceProfile = queuedSourceUpload?.sourceProfile ?? null;
         const launchProjectTitle = nextProjectTitle || "PROMETHEUS Project";
         const launchDetail =
-            stagedSourceFile || resolvedSourceAssetId || uploadedFileName.trim().length > 0
+            selectedSourceFile || uploadedFileName.trim().length > 0
                 ? "Finalizing your upload and opening the editor."
                 : "Opening the editor workspace.";
 
@@ -1521,27 +1516,9 @@ export function VideoUploadInterface() {
 
         let currentStage = 'INIT';
         try {
-            if (!resolvedSourceAssetId && stagedSourceFile) {
-                currentStage = 'AWAIT_SETTLED_SOURCE';
-                const settledSource = await awaitSettledSource();
-                if (!settledSource?.assetId) {
-                    setEditorLaunchOverlay(null);
-                    submitLockRef.current = false;
-                    if (submitCooldownTimerRef.current !== null) {
-                        window.clearTimeout(submitCooldownTimerRef.current);
-                        submitCooldownTimerRef.current = null;
-                    }
-                    if (launchNavigationTimerRef.current !== null) {
-                        window.clearTimeout(launchNavigationTimerRef.current);
-                        launchNavigationTimerRef.current = null;
-                    }
-                    toast.error("The uploaded video did not finish staging. Please upload it again.");
-                    return false;
-                }
-
-                resolvedSourceAssetId = settledSource.assetId;
-                resolvedPreviewKind = settledSource.previewKind ?? resolvedPreviewKind;
-                resolvedSourceProfile = settledSource.sourceProfile ?? resolvedSourceProfile;
+            if (selectedSourceFile && !resolvedSourceProfile) {
+                currentStage = 'SOURCE_INSPECT';
+                resolvedSourceProfile = await inspectSourceFile(selectedSourceFile).catch(() => null);
             }
 
             currentStage = 'AUTH_CHECK';
@@ -1594,7 +1571,7 @@ export function VideoUploadInterface() {
 
             // Phase 2B: Wire Upload UI to Cloudflare R2
             let cloudAssetId = null;
-            if (stagedSourceFile) {
+            if (selectedSourceFile) {
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
                     detail: "Preparing secure upload channel...",
@@ -1606,10 +1583,10 @@ export function VideoUploadInterface() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        filename: stagedSourceFile.name,
-                        mimeType: stagedSourceFile.type,
-                        sizeBytes: stagedSourceFile.size,
-                        assetId: stagedSourceAssetId,
+                        filename: selectedSourceFile.name,
+                        mimeType: selectedSourceFile.type,
+                        sizeBytes: selectedSourceFile.size,
+                        assetId: resolvedSourceAssetId,
                     }),
                 });
 
@@ -1623,7 +1600,7 @@ export function VideoUploadInterface() {
 
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
-                    detail: `Uploading ${stagedSourceFile.name} to Cloudflare R2...`,
+                    detail: `Uploading ${selectedSourceFile.name} to Cloudflare R2...`,
                 });
 
                 // 2. Upload the actual source file to R2 using the returned PUT URL
@@ -1645,7 +1622,7 @@ export function VideoUploadInterface() {
                                 setUploadProgress(progress);
                                 setEditorLaunchOverlay({
                                     title: launchProjectTitle,
-                                    detail: `Uploading ${stagedSourceFile.name} (${progress}%)...`,
+                                    detail: `Uploading ${selectedSourceFile.name} (${progress}%)...`,
                                 });
                             }
                         };
@@ -1664,8 +1641,8 @@ export function VideoUploadInterface() {
                         xhr.onabort = () => reject(new Error('Aborted'));
 
                         xhr.open('PUT', upload.url);
-                        xhr.setRequestHeader('Content-Type', stagedSourceFile.type);
-                        xhr.send(stagedSourceFile);
+                        xhr.setRequestHeader('Content-Type', selectedSourceFile.type);
+                        xhr.send(selectedSourceFile);
                         
                         abortController.signal.addEventListener('abort', () => xhr.abort());
                     });
@@ -1687,7 +1664,7 @@ export function VideoUploadInterface() {
                                 setUploadProgress(progress);
                                 setEditorLaunchOverlay({
                                     title: launchProjectTitle,
-                                    detail: `Uploading ${stagedSourceFile.name} via secure fallback (${progress}%)...`,
+                                    detail: `Uploading ${selectedSourceFile.name} via secure fallback (${progress}%)...`,
                                 });
                             }
                         };
@@ -1706,12 +1683,12 @@ export function VideoUploadInterface() {
                         xhr.onabort = () => reject(new Error('Aborted'));
 
                         xhr.open('POST', `/api/projects/${project.id}/upload-source`);
-                        xhr.setRequestHeader('Content-Type', stagedSourceFile.type || 'application/octet-stream');
+                        xhr.setRequestHeader('Content-Type', selectedSourceFile.type || 'application/octet-stream');
                         xhr.setRequestHeader('x-asset-id', uploadAsset.id);
-                        xhr.setRequestHeader('x-file-name', encodeURIComponent(stagedSourceFile.name));
-                        xhr.setRequestHeader('x-mime-type', stagedSourceFile.type || 'application/octet-stream');
-                        xhr.setRequestHeader('x-file-size', String(stagedSourceFile.size));
-                        xhr.send(stagedSourceFile);
+                        xhr.setRequestHeader('x-file-name', encodeURIComponent(selectedSourceFile.name));
+                        xhr.setRequestHeader('x-mime-type', selectedSourceFile.type || 'application/octet-stream');
+                        xhr.setRequestHeader('x-file-size', String(selectedSourceFile.size));
+                        xhr.send(selectedSourceFile);
 
                         abortController.signal.addEventListener('abort', () => xhr.abort());
                     });
@@ -1758,9 +1735,9 @@ export function VideoUploadInterface() {
                         assetId: uploadAsset.id,
                         bucket: uploadAsset.bucket,
                         objectKey: uploadAsset.objectKey,
-                        filename: stagedSourceFile.name,
-                        mimeType: stagedSourceFile.type,
-                        sizeBytes: stagedSourceFile.size,
+                        filename: selectedSourceFile.name,
+                        mimeType: selectedSourceFile.type,
+                        sizeBytes: selectedSourceFile.size,
                         durationMs: resolvedSourceProfile?.inspection.durationSec ? Math.round(resolvedSourceProfile.inspection.durationSec * 1000) : undefined,
                         width: resolvedSourceProfile?.inspection.width,
                         height: resolvedSourceProfile?.inspection.height,
@@ -1781,10 +1758,10 @@ export function VideoUploadInterface() {
             currentStage = 'SYNC_MOCK';
             upsertProject(project);
 
-            if (stagedSourceFile && (resolvedPreviewKind === "video" || resolvedPreviewKind === "image")) {
+            if (selectedSourceFile && (resolvedPreviewKind === "video" || resolvedPreviewKind === "image")) {
                 setSessionSourcePreview({
                     projectId: project.id,
-                    file: stagedSourceFile,
+                    file: selectedSourceFile,
                     previewKind: resolvedPreviewKind,
                     sourceAssetId: cloudAssetId || resolvedSourceAssetId,
                 });
@@ -1859,12 +1836,8 @@ export function VideoUploadInterface() {
         activeStyleId,
         attachments,
         router,
-        awaitSettledSource,
         uploadedFileName,
-        stagedSourceAssetId,
-        stagedSourceFile,
-        stagedSourcePreviewKind,
-        stagedSourceProfile,
+        queuedSourceUpload,
     ]);
 
     const openUploadComposer = useCallback(() => {
@@ -1952,7 +1925,9 @@ export function VideoUploadInterface() {
     const applyUploadToPrompt = () => {
         if (!pendingUpload) return;
         setUploadedFileName(pendingUpload.file.name);
-        void stageSource(pendingUpload.file, {
+        setQueuedSourceUpload({
+            file: pendingUpload.file,
+            previewKind: pendingUpload.kind === "video" || pendingUpload.kind === "image" ? pendingUpload.kind : null,
             sourceProfile: pendingUpload.sourceProfile ?? null,
         });
         addSourceChip(`Upload: ${pendingUpload.file.name}`);
@@ -1971,7 +1946,7 @@ export function VideoUploadInterface() {
             const target = prev[index] ?? "";
             if (target.startsWith("Upload: ")) {
                 setUploadedFileName("");
-                resetStagedSource();
+                setQueuedSourceUpload(null);
             }
             return prev.filter((_, i) => i !== index);
         });
