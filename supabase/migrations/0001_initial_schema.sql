@@ -61,6 +61,73 @@ create table if not exists public.projects (
   updated_at timestamptz not null default now()
 );
 
+alter table if exists public.projects
+  add column if not exists workspace_id uuid references public.workspaces(id) on delete cascade,
+  add column if not exists name text,
+  add column if not exists raw_video_url text,
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists source_asset_id uuid,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+update public.projects
+set name = coalesce(name, title, 'Untitled project')
+where name is null;
+
+alter table public.projects
+  alter column name set default 'Untitled project',
+  alter column name set not null;
+
+insert into public.workspaces (name, owner_id, created_at)
+select
+  'Personal Workspace',
+  p.user_id,
+  min(p.created_at)
+from public.projects as p
+left join public.workspaces as w
+  on w.owner_id = p.user_id
+where p.user_id is not null
+  and w.id is null
+group by p.user_id;
+
+update public.projects as p
+set workspace_id = w.id
+from public.workspaces as w
+where p.workspace_id is null
+  and w.owner_id = p.user_id;
+
+alter table public.projects
+  alter column workspace_id set not null;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'projects'
+      and column_name = 'status'
+      and udt_name <> 'project_status'
+  ) then
+    alter table public.projects alter column status drop default;
+
+    alter table public.projects
+      alter column status type public.project_status
+      using (
+        case
+          when status::text in ('draft', 'rendering', 'completed', 'failed') then status::text::public.project_status
+          when status::text = 'processing' then 'rendering'::public.project_status
+          when status::text in ('ready', 'exported') then 'completed'::public.project_status
+          else 'draft'::public.project_status
+        end
+      );
+  end if;
+end $$;
+
+alter table public.projects
+  alter column status set default 'draft',
+  alter column status set not null;
+
 create table if not exists public.renders (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -95,6 +162,11 @@ alter table public.projects enable row level security;
 alter table public.projects force row level security;
 alter table public.renders enable row level security;
 alter table public.renders force row level security;
+
+drop policy if exists "Users can view their own projects" on public.projects;
+drop policy if exists "Users can insert their own projects" on public.projects;
+drop policy if exists "Users can update their own projects" on public.projects;
+drop policy if exists "Users can delete their own projects" on public.projects;
 
 drop policy if exists workspaces_select_own on public.workspaces;
 create policy workspaces_select_own

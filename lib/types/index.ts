@@ -1,3 +1,5 @@
+import type { CreativeMetadata } from '@/lib/editorial-frame/types'
+
 export type Id = string
 
 export type MediaKind = 'video' | 'image' | 'audio' | 'file'

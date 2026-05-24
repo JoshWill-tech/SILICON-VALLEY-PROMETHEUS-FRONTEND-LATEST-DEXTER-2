@@ -63,6 +63,7 @@ import type { SourceProfile } from "@/lib/types";
 import { useSourceStage } from "@/hooks/use-source-stage";
 import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 type AirtableImageArchiveResponse = {
     ok?: boolean;
@@ -1507,6 +1508,25 @@ export function VideoUploadInterface() {
                 resolvedSourceProfile = settledSource.sourceProfile ?? resolvedSourceProfile;
             }
 
+            currentStage = 'AUTH_CHECK';
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) {
+                throw new Error("You must be logged in to create a project.");
+            }
+
+            currentStage = 'WORKSPACE_FETCH';
+            const { data: workspaces, error: workspaceError } = await supabase
+                .from('workspaces')
+                .select('id')
+                .eq('owner_id', session.user.id)
+                .limit(1);
+
+            if (workspaceError) {
+                console.error("[video-upload] Workspace fetch error:", workspaceError);
+            }
+            const workspaceId = workspaces?.[0]?.id;
+
             currentStage = 'PROJECT_CREATE';
             const projectRes = await fetch('/api/projects', {
                 method: 'POST',
@@ -1515,14 +1535,18 @@ export function VideoUploadInterface() {
                     title: nextProjectTitle || "PROMETHEUS Project",
                     previewKind: resolvedPreviewKind ?? undefined,
                     sourceProfile: resolvedSourceProfile ?? undefined,
+                    userId: session.user.id,
+                    workspaceId: workspaceId,
                 }),
             });
 
-            const { project, error: projectError } = await projectRes.json();
+            const projectData = await projectRes.json();
             
-            if (projectError || !project) {
-                throw new Error(projectError || "Failed to create project");
+            if (!projectRes.ok || projectData.error || !projectData.project) {
+                console.error("[video-upload] Project creation failed:", projectData.error);
+                throw new Error(projectData.error || "Failed to create project");
             }
+            const project = projectData.project;
 
             // Phase 2B: Wire Upload UI to Cloudflare R2
             let cloudAssetId = null;

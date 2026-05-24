@@ -17,6 +17,11 @@ export interface Project {
   raw_video_url: string | null
   user_id: string
   source_asset_id: string | null
+  preview_kind: string | null
+  source_profile: any
+  editor_state: any
+  animation_plan: any
+  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }
@@ -58,6 +63,11 @@ export interface Database {
           raw_video_url?: string | null
           user_id?: string
           source_asset_id?: string | null
+          preview_kind?: string | null
+          source_profile?: any
+          editor_state?: any
+          animation_plan?: any
+          thumbnail_url?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -69,6 +79,11 @@ export interface Database {
           raw_video_url?: string | null
           user_id?: string
           source_asset_id?: string | null
+          preview_kind?: string | null
+          source_profile?: any
+          editor_state?: any
+          animation_plan?: any
+          thumbnail_url?: string | null
           created_at?: string
           updated_at?: string
         }
