@@ -20,7 +20,8 @@ export async function POST(req: Request) {
     console.log('[api/projects] POST payload:', body)
     
     const project = await ProjectService.createProject({ 
-      title: body.title,
+      title: body.title || body.name,
+      prompt: body.prompt,
       previewKind: body.previewKind,
       sourceProfile: body.sourceProfile,
       sourceAssetId: body.sourceAssetId,

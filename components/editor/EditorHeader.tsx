@@ -146,6 +146,11 @@ export function EditorHeader({
                     : 'All changes saved'}
               </span>
               <span>{progressPercent}% staged</span>
+              {project?.editorState?.initialPrompt && (
+                <span className="italic text-neutral-500 truncate max-w-[300px]" title={project.editorState.initialPrompt}>
+                  &ldquo;{project.editorState.initialPrompt}&rdquo;
+                </span>
+              )}
             </div>
           </motion.div>
 

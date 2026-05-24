@@ -55,6 +55,7 @@ export const ProjectService = {
 
   async createProject(params: { 
     title?: string
+    prompt?: string
     previewKind?: 'video' | 'image'
     sourceProfile?: SourceProfile
     sourceAssetId?: string
@@ -74,6 +75,8 @@ export const ProjectService = {
       
       console.log('[ProjectService] Creating project for user:', user.id, 'in workspace:', workspaceId)
 
+      const editorState = params.prompt ? { initialPrompt: params.prompt } : {}
+
       const { data, error } = await supabase
         .from('projects')
         .insert({
@@ -84,6 +87,7 @@ export const ProjectService = {
           preview_kind: params.previewKind,
           source_profile: params.sourceProfile || {},
           source_asset_id: params.sourceAssetId,
+          editor_state: editorState,
         })
         .select()
         .single()

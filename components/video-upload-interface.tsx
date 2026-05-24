@@ -564,6 +564,7 @@ const PromptComposer = React.memo(function PromptComposer({
     const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
     const [mentionQuery, setMentionQuery] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isDisabled = isSubmitting || (value.trim().length < 5 && !activeSlashCommand && attachments.length === 0);
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
@@ -729,7 +730,7 @@ const PromptComposer = React.memo(function PromptComposer({
     }, []);
 
     const submitComposer = useCallback(() => {
-        if (isSubmitting) return;
+        if (isDisabled) return;
 
         setIsSubmitting(true);
         void Promise.resolve(
@@ -747,7 +748,7 @@ const PromptComposer = React.memo(function PromptComposer({
         }).finally(() => {
             setIsSubmitting(false);
         });
-    }, [activeSlashCommand, clearComposer, creatorMentions, isSubmitting, onSubmit, value]);
+    }, [activeSlashCommand, clearComposer, creatorMentions, isDisabled, onSubmit, value]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (activeSlashCommand && e.key === "Backspace") {
@@ -1184,18 +1185,17 @@ const PromptComposer = React.memo(function PromptComposer({
                     <motion.button
                         type="button"
                         onClick={submitComposer}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        disabled={isSubmitting || (!value.trim() && !activeSlashCommand && attachments.length === 0)}
+                        whileHover={!isDisabled ? { scale: 1.05 } : undefined}
+                        whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+                        disabled={isDisabled}
+                        aria-disabled={isDisabled}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
-                            uploadStatus === 'error'
-                                ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
-                                : isSubmitting
-                                ? "bg-white/80 text-[#0A0A0B] shadow-lg shadow-white/8"
-                                : (value.trim() || activeSlashCommand || attachments.length > 0)
-                                ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10"
-                                : "bg-white/[0.05] text-white/40"
+                            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300",
+                            isDisabled
+                                ? "opacity-40 cursor-not-allowed bg-white/[0.05] text-white/40"
+                                : uploadStatus === 'error'
+                                ? "bg-red-500 text-white shadow-lg shadow-red-500/20 opacity-100 cursor-pointer"
+                                : "bg-white text-[#0A0A0B] shadow-[0_0_20px_rgba(255,255,255,0.15)] opacity-100 cursor-pointer"
                         )}
                     >
                         {uploadStatus === 'error' ? (
@@ -1493,7 +1493,7 @@ export function VideoUploadInterface() {
                 : hasAttachedSource
                     ? `Start with ${uploadedSourceLabel}.${styleHint}`.trim()
                     : "";
-        if (!prompt && !hasAttachedSource) return false;
+        // REMOVED: if (!prompt && !hasAttachedSource) return false;
 
         submitLockRef.current = true;
         if (submitCooldownTimerRef.current !== null) {
@@ -1574,7 +1574,9 @@ export function VideoUploadInterface() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    name: (nextProjectTitle || prompt).slice(0, 50),
                     title: nextProjectTitle || "PROMETHEUS Project",
+                    prompt: prompt,
                     previewKind: resolvedPreviewKind ?? undefined,
                     sourceProfile: resolvedSourceProfile ?? undefined,
                     userId: session.user.id,
