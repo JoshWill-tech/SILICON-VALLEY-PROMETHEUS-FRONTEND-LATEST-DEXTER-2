@@ -114,7 +114,7 @@ export function GlassUploadModalView({
                     Upload Source
                   </DialogTitle>
                   <DialogDescription className="mt-2.5 max-w-md text-[13px] leading-5 text-white/54">
-                    Stage one source, preview it cleanly, and attach it to the prompt without visual clutter.
+                    Stage your source and continue directly to the editor.
                   </DialogDescription>
                 </div>
 
@@ -155,104 +155,17 @@ export function GlassUploadModalView({
                       className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white px-3.5 py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-black shadow-[0_16px_34px_-24px_rgba(255,255,255,0.85)] transition-all duration-200 hover:bg-white/92"
                     >
                       <Send className="h-3.5 w-3.5" />
-                      Send
+                      Continue to Edit
                     </button>
                   ) : (
                     <div className="rounded-full border border-white/12 bg-white/[0.04] px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-white/56 backdrop-blur-md">
-                      {sourceReady ? 'Ready' : 'Standby'}
+                      {sourceReady ? 'Staged' : 'Standby'}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="grid gap-4 py-4 lg:grid-cols-[minmax(0,1.05fr)_300px]">
-                <section className="flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,22,28,0.84)_0%,rgba(8,9,12,0.96)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-[0.24em] text-white/38">
-                        Preview
-                      </div>
-                      <div className="mt-1 text-[13px] text-white/72">{sourcePrimaryBadge}</div>
-                    </div>
-                    <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-white/48">
-                      {sourceExtension}
-                    </div>
-                  </div>
-
-                  <div className="relative flex flex-1 overflow-hidden">
-                    <div
-                      aria-hidden
-                      className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_18%,rgba(0,0,0,0.35)_100%),radial-gradient(circle_at_22%_22%,rgba(255,110,84,0.09)_0%,rgba(255,110,84,0)_24%),radial-gradient(circle_at_78%_10%,rgba(108,128,255,0.08)_0%,rgba(108,128,255,0)_20%)]"
-                    />
-                    {addSourceMode === 'link' ? (
-                      <div className={previewStageClassName}>
-                        <div className="rounded-full border border-white/12 bg-white/[0.05] p-4 text-white/86">
-                          <LinkIcon className="h-7 w-7" />
-                        </div>
-                        <div className="mt-5 text-[clamp(1.45rem,2.7vw,2rem)] font-medium leading-tight text-white">
-                          Remote source
-                          <span className="block text-white/58">will render here</span>
-                        </div>
-                        {sourceUrlValue ? (
-                          <div className="mt-5 max-w-[85%] truncate rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs text-white/72">
-                            {sourceUrlValue}
-                          </div>
-                        ) : (
-                          <div className="mt-4 max-w-sm text-sm leading-6 text-white/50">
-                            Paste a link on the right to stage it into the preview.
-                          </div>
-                        )}
-                      </div>
-                    ) : pendingUpload?.kind === 'video' ? (
-                      <div className={comparisonPreviewStageClassName}>
-                        <MediaUpscaleComparison
-                          src={pendingUpload.previewUrl}
-                          alt={pendingUpload.file.name}
-                          kind="video"
-                          className="h-full max-w-none"
-                          viewportClassName="h-full min-h-[360px]"
-                        />
-                      </div>
-                    ) : pendingUpload?.kind === 'image' ? (
-                      <div className={comparisonPreviewStageClassName}>
-                        <MediaUpscaleComparison
-                          src={pendingUpload.previewUrl}
-                          alt={pendingUpload.file.name}
-                          kind="image"
-                          className="h-full max-w-none"
-                          viewportClassName="h-full min-h-[360px]"
-                        />
-                      </div>
-                    ) : pendingUpload?.kind ? (
-                      <div className={previewStageClassName}>
-                        <div className="rounded-full border border-white/12 bg-white/[0.05] p-4 text-white/84">
-                          {pendingUpload.kind === 'audio' ? (
-                            <Music2 className="h-7 w-7" />
-                          ) : (
-                            <FileText className="h-7 w-7" />
-                          )}
-                        </div>
-                        <div className="mt-5 text-lg font-medium text-white">{pendingUpload.file.name}</div>
-                        <div className="mt-3 max-w-sm text-[13px] leading-5 text-white/50">
-                          This file is staged and ready, even though it does not have a visual preview.
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={previewStageClassName}>
-                        <div className="rounded-full border border-white/12 bg-white/[0.05] p-3.5 text-white/84 shadow-[0_0_0_16px_rgba(255,110,84,0.05)]">
-                          <MonitorIcon className="h-7 w-7" />
-                        </div>
-                        <div className="mt-4 text-[clamp(1.3rem,2.4vw,1.7rem)] font-medium leading-tight text-white">
-                          Clip stage
-                        </div>
-                        <div className="mt-2 max-w-[15rem] text-[12px] leading-5 text-white/50">
-                          Upload to preview.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
+              <div className="grid gap-4 py-4 lg:grid-cols-1">
                 <aside className="flex flex-col gap-4">
                   <input
                     ref={sourceFileInputRef}
@@ -347,7 +260,7 @@ export function GlassUploadModalView({
                             className="h-12 rounded-[18px] border-white/10 bg-black/30 text-white placeholder:text-white/28"
                           />
                           <div className="mt-3 text-sm leading-6 text-white/48">
-                            Stage a remote video or reference link into the preview.
+                            Stage a remote video or reference link.
                           </div>
                         </div>
                       </motion.div>
@@ -356,120 +269,54 @@ export function GlassUploadModalView({
 
                   <SourceRetentionNotice className="border-white/8 bg-white/[0.01]" />
 
-                  <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,18,24,0.88)_0%,rgba(9,10,13,0.94)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                    <div className="text-[10px] uppercase tracking-[0.24em] text-white/38">
-                      Active Source
-                    </div>
-                    <div className="mt-3 flex items-start gap-3">
-                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[16px] border border-white/10 bg-white/[0.04]">
-                        {pendingUpload?.kind === 'image' ? (
-                          <img
-                            src={pendingUpload.previewUrl}
-                            alt={pendingUpload.file.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : pendingUpload?.kind === 'video' ? (
-                          <video
-                            src={pendingUpload.previewUrl}
-                            muted
-                            playsInline
-                            preload="metadata"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-white/58">
-                            {addSourceMode === 'link' ? (
-                              <LinkIcon className="h-4 w-4" />
-                            ) : pendingUpload?.kind === 'audio' ? (
-                              <Music2 className="h-4 w-4" />
-                            ) : pendingUpload?.kind === 'file' ? (
-                              <FileText className="h-4 w-4" />
-                            ) : (
-                              <Video className="h-4 w-4" />
-                            )}
-                          </div>
-                        )}
+                  {pendingUpload && (
+                    <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,18,24,0.88)_0%,rgba(9,10,13,0.94)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                      <div className="text-[10px] uppercase tracking-[0.24em] text-white/38">
+                        Active Source
                       </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-white">{sourceDisplayName}</div>
-                        <div className="mt-1 text-xs text-white/48">{sourceDetail}</div>
-                      </div>
-                    </div>
-
-                    {addSourceMode === 'upload' ? (
-                      <div className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.03] p-3.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-[10px] uppercase tracking-[0.24em] text-white/38">
-                            Source Profile
-                          </div>
-                          <div className="text-[10px] uppercase tracking-[0.18em] text-white/42">
-                            {pendingUpload?.inspectionState === 'inspecting'
-                              ? 'Inspecting'
-                              : pendingUpload?.inspectionState === 'failed'
-                                ? 'Inspection issue'
-                                : pendingUpload?.sourceProfile
-                                  ? 'Ready'
-                                  : 'Waiting'}
-                          </div>
+                      <div className="mt-3 flex items-start gap-3">
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[16px] border border-white/10 bg-white/[0.04]">
+                          {pendingUpload?.kind === 'image' ? (
+                            <img
+                              src={pendingUpload.previewUrl}
+                              alt={pendingUpload.file.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : pendingUpload?.kind === 'video' ? (
+                            <video
+                              src={pendingUpload.previewUrl}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-white/58">
+                              {addSourceMode === 'link' ? (
+                                <LinkIcon className="h-4 w-4" />
+                              ) : pendingUpload?.kind === 'audio' ? (
+                                <Music2 className="h-4 w-4" />
+                              ) : pendingUpload?.kind === 'file' ? (
+                                <FileText className="h-4 w-4" />
+                              ) : (
+                                <Video className="h-4 w-4" />
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        {pendingUpload?.inspectionState === 'inspecting' ? (
-                          <div className="mt-3 space-y-2">
-                            <div className="h-2 rounded-full bg-white/[0.06]">
-                              <div className="h-full w-1/2 animate-pulse rounded-full bg-white/[0.3]" />
-                            </div>
-                            <div className="text-xs text-white/46">
-                              Inspecting resolution, duration, audio, and processing weight.
-                            </div>
-                          </div>
-                        ) : pendingUpload?.inspectionState === 'failed' ? (
-                          <div className="mt-3 text-xs leading-5 text-rose-200/72">
-                            {pendingUpload.inspectionError ?? 'This source could not be profiled yet.'}
-                          </div>
-                        ) : pendingUpload?.sourceProfile && sourceMetrics ? (
-                          <>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/74">
-                                {formatAspectFamily(pendingUpload.sourceProfile.aspectFamily)}
-                              </span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/74">
-                                {formatTimeProfile(pendingUpload.sourceProfile.timeProfile)}
-                              </span>
-                              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/74">
-                                {formatProcessingClass(pendingUpload.sourceProfile.processingClass)}
-                              </span>
-                            </div>
-
-                            <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                              <ProfileMetric label="Resolution" value={sourceMetrics.resolution} />
-                              <ProfileMetric label="Duration" value={sourceMetrics.duration} />
-                              <ProfileMetric label="Weight" value={formatWeightBucket(pendingUpload.sourceProfile.weightBucket)} />
-                              <ProfileMetric label="Audio" value={sourceMetrics.audio} />
-                              <ProfileMetric label="Bucket" value={formatDurationBucket(pendingUpload.sourceProfile.durationBucket)} />
-                              <ProfileMetric
-                                label="Bitrate"
-                                value={
-                                  pendingUpload.sourceProfile.inspection.estimatedBitrateMbps
-                                    ? `${pendingUpload.sourceProfile.inspection.estimatedBitrateMbps.toFixed(1)} Mbps`
-                                    : 'Unavailable'
-                                }
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="mt-3 text-xs text-white/46">
-                            Select a source to inspect it locally before upload.
-                          </div>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-white">{sourceDisplayName}</div>
+                          <div className="mt-1 text-xs text-white/48">{sourceDetail}</div>
+                        </div>
                       </div>
-                    ) : null}
-                  </div>
+                    </div>
+                  )}
                 </aside>
               </div>
 
               <div className="flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs text-white/42">One source. One preview. One action.</div>
+                <div className="text-xs text-white/42">Ready to edit.</div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   {pendingUpload && addSourceMode === 'upload' && (

@@ -377,6 +377,8 @@ interface PromptComposerProps {
     onOpenUpload: () => void;
     onRemoveAttachment: (index: number) => void;
     onSubmit: (payload: PromptComposerSubmitPayload) => boolean | Promise<boolean>;
+    uploadStatus: 'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error';
+    uploadProgress: number;
 }
 
 type PendingUploadKind = "video" | "image" | "audio" | "file";
@@ -547,6 +549,8 @@ const PromptComposer = React.memo(function PromptComposer({
     onOpenUpload,
     onRemoveAttachment,
     onSubmit,
+    uploadStatus,
+    uploadProgress,
 }: PromptComposerProps) {
     const [value, setValue] = useState("");
     const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -1185,15 +1189,25 @@ const PromptComposer = React.memo(function PromptComposer({
                         disabled={isSubmitting || (!value.trim() && !activeSlashCommand && attachments.length === 0)}
                         className={cn(
                             "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
-                            isSubmitting
+                            uploadStatus === 'error'
+                                ? "bg-red-500 text-white shadow-lg shadow-red-500/20"
+                                : isSubmitting
                                 ? "bg-white/80 text-[#0A0A0B] shadow-lg shadow-white/8"
                                 : (value.trim() || activeSlashCommand || attachments.length > 0)
                                 ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10"
                                 : "bg-white/[0.05] text-white/40"
                         )}
                     >
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendIcon className="h-4 w-4" />}
-                        <span>{isSubmitting ? "Sending..." : "Send"}</span>
+                        {uploadStatus === 'error' ? (
+                            <ArrowUpIcon className="h-4 w-4" />
+                        ) : isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <SendIcon className="h-4 w-4" />
+                        )}
+                        <span>
+                            {uploadStatus === 'error' ? "Retry Upload" : isSubmitting ? "Sending..." : "Send"}
+                        </span>
                     </motion.button>
                 </div>
 
@@ -1263,6 +1277,29 @@ export function VideoUploadInterface() {
     } | null>(null);
     const [billingGateOpen, setBillingGateOpen] = useState(false);
 
+    const [uploadStatus, setUploadStatus] = useState<'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error'>('idle');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    const logAuthEvent = (event: string, detail?: any) => {
+        console.error('[AUTH_AUDIT]', event, detail);
+    };
+
+    const logUploadEvent = (status: string, detail?: any) => {
+        console.log('[UPLOAD_EVENT]', status, detail);
+    };
+
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (uploadStatus === 'uploading' || uploadStatus === 'retrying') {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [uploadStatus]);
+
     const [sourceUrl, setSourceUrl] = useState("");
     const {
         previewKind: stagedSourcePreviewKind,
@@ -1307,7 +1344,6 @@ export function VideoUploadInterface() {
         ?? (addSourceMode === "link" ? "URL" : "MP4");
     const uploadStudioTabs = [
         { label: "Source Map", icon: Upload },
-        { label: "Preview Deck", icon: MonitorIcon },
         { label: "Delivery", icon: SendIcon },
     ];
     const uploadStudioVitals = [
@@ -1316,7 +1352,7 @@ export function VideoUploadInterface() {
             : { label: "Format", value: sourceExtension, meta: sourcePrimaryBadge },
         pendingSourceProfile
             ? { label: "Runtime", value: pendingSourceMetrics?.duration ?? "Unknown duration", meta: formatDurationBucket(pendingSourceProfile.durationBucket) }
-            : { label: "Mode", value: addSourceMode === "upload" ? "Upload" : "Link", meta: sourceReady ? "Preview armed" : "Signal standby" },
+            : { label: "Mode", value: addSourceMode === "upload" ? "Upload" : "Link", meta: sourceReady ? "Source staged" : "Signal standby" },
         pendingSourceProfile
             ? { label: "Weight", value: formatWeightBucket(pendingSourceProfile.weightBucket), meta: formatProcessingClass(pendingSourceProfile.processingClass) }
             : { label: "State", value: sourceReady ? "Live" : "Idle", meta: "Source signal" },
@@ -1326,7 +1362,7 @@ export function VideoUploadInterface() {
     ];
     const uploadStudioStages = [
         { label: "Source", meta: sourceReady ? "Signal armed" : "Awaiting clip", icon: Upload },
-        { label: "Preview", meta: "Central board", icon: MonitorIcon },
+        { label: "Engine", meta: "Central board", icon: MonitorIcon },
         { label: "Attach", meta: "Prompt ready", icon: ArrowUpIcon },
     ];
     const uploadStudioUtilities = [
@@ -1510,10 +1546,15 @@ export function VideoUploadInterface() {
 
             currentStage = 'AUTH_CHECK';
             const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) {
+                logAuthEvent('SESSION_ERROR', sessionError);
+            }
             if (!session?.user) {
+                logAuthEvent('UNAUTHORIZED');
                 throw new Error("You must be logged in to create a project.");
             }
+            logAuthEvent('AUTHORIZED', { userId: session.user.id });
 
             currentStage = 'WORKSPACE_FETCH';
             const { data: workspaces, error: workspaceError } = await supabase
@@ -1528,6 +1569,7 @@ export function VideoUploadInterface() {
             const workspaceId = workspaces?.[0]?.id;
 
             currentStage = 'PROJECT_CREATE';
+            setUploadStatus('presigning');
             const projectRes = await fetch('/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1584,17 +1626,65 @@ export function VideoUploadInterface() {
 
                 // 2. Upload the actual source file to R2 using the returned PUT URL
                 currentStage = 'R2_PUT';
-                const uploadRes = await fetch(upload.url, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': stagedSourceFile.type,
-                    },
-                    body: stagedSourceFile,
-                });
+                
+                const performUpload = (attempt: number): Promise<void> => {
+                    return new Promise((resolve, reject) => {
+                        const status = attempt > 0 ? 'retrying' : 'uploading';
+                        logUploadEvent(status, { attempt });
+                        setUploadStatus(status);
+                        
+                        const xhr = new XMLHttpRequest();
+                        const abortController = new AbortController();
+                        abortControllerRef.current = abortController;
 
-                if (!uploadRes.ok) {
-                    throw new Error(`Failed to upload to R2: HTTP ${uploadRes.status}`);
-                }
+                        xhr.upload.onprogress = (event) => {
+                            if (event.lengthComputable) {
+                                const progress = Math.round((event.loaded / event.total) * 100);
+                                setUploadProgress(progress);
+                                setEditorLaunchOverlay({
+                                    title: launchProjectTitle,
+                                    detail: `Uploading ${stagedSourceFile.name} (${progress}%)...`,
+                                });
+                            }
+                        };
+
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                logUploadEvent('done');
+                                setUploadStatus('done');
+                                resolve();
+                            } else {
+                                reject(new Error(`HTTP ${xhr.status}`));
+                            }
+                        };
+
+                        xhr.onerror = () => reject(new Error('Network error'));
+                        xhr.onabort = () => reject(new Error('Aborted'));
+
+                        xhr.open('PUT', upload.url);
+                        xhr.setRequestHeader('Content-Type', stagedSourceFile.type);
+                        xhr.send(stagedSourceFile);
+                        
+                        abortController.signal.addEventListener('abort', () => xhr.abort());
+                    });
+                };
+
+                const retryWithBackoff = async (fn: (attempt: number) => Promise<void>, maxRetries: number) => {
+                    for (let i = 0; i <= maxRetries; i++) {
+                        try {
+                            await fn(i);
+                            return;
+                        } catch (err) {
+                            if (i === maxRetries) throw err;
+                            const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+                            logUploadEvent('error', { attempt: i, delay, error: err instanceof Error ? err.message : String(err) });
+                            setUploadStatus('retrying');
+                            await new Promise(r => setTimeout(r, delay));
+                        }
+                    }
+                };
+
+                await retryWithBackoff(performUpload, 3);
 
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
@@ -1679,9 +1769,12 @@ export function VideoUploadInterface() {
             React.startTransition(() => {
                 router.push(editorRoute);
             });
+            setUploadStatus('done');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             console.error(`[UploadFailure] Stage: ${currentStage}, Error:`, error);
+            logUploadEvent('error', { stage: currentStage, error: errorMessage });
+            setUploadStatus('error');
             toast.error(`Failed at ${currentStage}: ${errorMessage}`);
 
             setEditorLaunchOverlay(null);
@@ -1806,6 +1899,13 @@ export function VideoUploadInterface() {
         });
         addSourceChip(`Upload: ${pendingUpload.file.name}`);
         closeSourceModal();
+
+        // Directly transition to editor after applying upload
+        void handleComposerSubmit({
+            message: "",
+            activeSlashCommand: null,
+            creatorMentions: [],
+        });
     };
 
     const removeAttachment = (index: number) => {
@@ -1850,8 +1950,13 @@ export function VideoUploadInterface() {
         handleUploadSelection(files);
     };
 
+    const isUploading = uploadStatus === 'uploading' || uploadStatus === 'retrying';
+
     return (
-        <div className="relative min-h-full w-full overflow-hidden bg-transparent px-4 py-10 text-white sm:px-6 sm:py-12">
+        <div className={cn(
+            "relative min-h-full w-full overflow-hidden bg-transparent px-4 py-10 text-white sm:px-6 sm:py-12",
+            isUploading && "pointer-events-none opacity-80"
+        )}>
             <BillingRequiredDialog open={billingGateOpen} redirectHref={buildBillingHref('/')} contextLabel="Editing access" />
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-violet-500/14 blur-[130px]" />
@@ -1901,6 +2006,8 @@ export function VideoUploadInterface() {
                         onOpenUpload={openUploadComposer}
                         onRemoveAttachment={removeAttachment}
                         onSubmit={handleComposerSubmit}
+                        uploadStatus={uploadStatus}
+                        uploadProgress={uploadProgress}
                     />
 
                     <div className="space-y-4">
@@ -2047,7 +2154,7 @@ export function VideoUploadInterface() {
                                         Upload Studio
                                     </DialogTitle>
                                         <DialogDescription className="mt-2 max-w-2xl text-sm leading-6 text-[#d9d4cb]">
-                                            Stage the source inside a structured preview board before it is attached to the prompt.
+                                            Stage the source inside a structured board before it is attached to the prompt.
                                     </DialogDescription>
                                     </div>
 
@@ -2087,31 +2194,17 @@ export function VideoUploadInterface() {
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[24px] border border-[#d4d0c8] bg-[#d9d5cd]">
-                                                {pendingUpload?.kind === "image" ? (
-                                                    <img
-                                                        src={pendingUpload.previewUrl}
-                                                        alt={pendingUpload.file.name}
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : pendingUpload?.kind === "video" ? (
-                                                    <video
-                                                        src={pendingUpload.previewUrl}
-                                                        muted
-                                                        playsInline
-                                                        preload="metadata"
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(36,33,43,0.18)_0%,rgba(36,33,43,0)_70%)] text-[#2b2831]">
-                                                        {pendingUpload?.kind === "audio" ? (
-                                                            <Music2 className="h-7 w-7" />
-                                                        ) : pendingUpload?.kind === "file" ? (
-                                                            <FileText className="h-7 w-7" />
-                                                        ) : (
-                                                            <Video className="h-7 w-7" />
-                                                        )}
-                                                    </div>
-                                                )}
+                                                <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(36,33,43,0.18)_0%,rgba(36,33,43,0)_70%)] text-[#2b2831]">
+                                                    {pendingUpload?.kind === "audio" ? (
+                                                        <Music2 className="h-7 w-7" />
+                                                    ) : pendingUpload?.kind === "file" ? (
+                                                        <FileText className="h-7 w-7" />
+                                                    ) : pendingUpload?.kind === "image" ? (
+                                                        <ImageIcon className="h-7 w-7" />
+                                                    ) : (
+                                                        <Video className="h-7 w-7" />
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="min-w-0 space-y-1">
@@ -2123,7 +2216,7 @@ export function VideoUploadInterface() {
                                                 </div>
                                                 <div className="text-sm text-[#706b63]">{sourceDetail}</div>
                                                 <div className="pt-1 text-xs text-[#8b857d]">
-                                                    Live shell feed staged for the central preview board.
+                                                    Live shell feed staged for the central board.
                                                 </div>
                                             </div>
                                         </div>
@@ -2199,7 +2292,7 @@ export function VideoUploadInterface() {
                                             </div>
 
                                             <span className="rounded-full border border-[#d9db59] bg-[#ecff49] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d1d1d] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                                                {sourceReady ? "Preview Armed" : "Awaiting Clip"}
+                                                {sourceReady ? "Source Staged" : "Awaiting Clip"}
                                             </span>
                                             <span className="rounded-full border border-[#cbc7be] bg-white/60 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#58534c]">
                                                 Neo dashboard shell
@@ -2301,6 +2394,7 @@ export function VideoUploadInterface() {
                                                         <p className="mt-3 text-sm leading-6 text-[#6d675f]">
                                                             Drop in a live reference URL and attach it from the right-side command node.
                                                         </p>
+
                                                     </div>
                                                 </motion.aside>
 
@@ -2316,7 +2410,7 @@ export function VideoUploadInterface() {
                                                                 URL
                                                             </span>
                                                             <span className="rounded-full border border-[#d1cdc4] bg-white px-3 py-1.5 text-[11px] font-medium text-[#2a2630]">
-                                                                Central Preview
+                                                                Source
                                                             </span>
                                                         </div>
                                                         <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#202020]">
@@ -2333,7 +2427,7 @@ export function VideoUploadInterface() {
                                                                 Remote source will resolve into this central board
                                                             </div>
                                                             <div className="mt-3 max-w-md text-sm leading-6 text-white/62">
-                                                                The preview lane stays device-like and cinematic while the link payload is staged.
+                                                                The lane stays device-like and cinematic while the link payload is staged.
                                                             </div>
                                                             {sourceUrlValue && (
                                                                 <div className="mt-6 max-w-lg rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs text-white/74">
@@ -2352,7 +2446,7 @@ export function VideoUploadInterface() {
                                                 >
                                                     <div className="rounded-[28px] border border-[#d1cdc4] bg-[#fbfaf6] p-4 shadow-[0_26px_48px_-40px_rgba(0,0,0,0.55)]">
                                                         <div className="flex items-center justify-between gap-3">
-                                                            <div className="text-sm font-semibold text-[#2d2932]">Preview Status</div>
+                                                            <div className="text-sm font-semibold text-[#2d2932]">Source Status</div>
                                                             <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1f1f1f]">
                                                                 {sourceReady ? "Ready" : "Idle"}
                                                             </span>
@@ -2448,29 +2542,15 @@ export function VideoUploadInterface() {
                                                         >
                                                             <div className="flex items-center gap-3">
                                                                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-[#d0cbc1] bg-[#1f1c25]">
-                                                                    {pendingUpload.kind === "image" ? (
-                                                                        <img
-                                                                            src={pendingUpload.previewUrl}
-                                                                            alt={pendingUpload.file.name}
-                                                                            className="h-full w-full object-cover"
-                                                                        />
-                                                                    ) : pendingUpload.kind === "video" ? (
-                                                                        <video
-                                                                            src={pendingUpload.previewUrl}
-                                                                            muted
-                                                                            playsInline
-                                                                            preload="metadata"
-                                                                            className="h-full w-full object-cover"
-                                                                        />
+                                                                <div className="flex h-full w-full items-center justify-center text-[#f4f3ee]">
+                                                                    {pendingUpload.kind === "audio" ? (
+                                                                        <Music2 className="h-4 w-4" />
+                                                                    ) : pendingUpload.kind === "image" ? (
+                                                                        <ImageIcon className="h-4 w-4" />
                                                                     ) : (
-                                                                        <div className="flex h-full w-full items-center justify-center text-[#f4f3ee]">
-                                                                            {pendingUpload.kind === "audio" ? (
-                                                                                <Music2 className="h-4 w-4" />
-                                                                            ) : (
-                                                                                <FileText className="h-4 w-4" />
-                                                                            )}
-                                                                        </div>
+                                                                        <FileText className="h-4 w-4" />
                                                                     )}
+                                                                </div>
                                                                 </div>
 
                                                                 <div className="min-w-0 flex-1">
@@ -2515,49 +2595,25 @@ export function VideoUploadInterface() {
                                                         </span>
                                                     </div>
                                                     <div className="mt-4 overflow-hidden rounded-[30px] border border-[#3f3a42]/14 bg-[radial-gradient(circle_at_top,rgba(236,255,73,0.14)_0%,rgba(236,255,73,0)_30%),linear-gradient(180deg,#26222c_0%,#191720_100%)]">
-                                                        {pendingUpload?.kind === "video" ? (
-                                                            <video
-                                                                src={pendingUpload.previewUrl}
-                                                                autoPlay
-                                                                muted
-                                                                loop
-                                                                playsInline
-                                                                preload="metadata"
-                                                                className="min-h-[360px] w-full object-cover sm:min-h-[430px]"
-                                                            />
-                                                        ) : pendingUpload?.kind === "image" ? (
-                                                            <img
-                                                                src={pendingUpload.previewUrl}
-                                                                alt={pendingUpload.file.name}
-                                                                className="min-h-[360px] w-full object-cover sm:min-h-[430px]"
-                                                            />
-                                                        ) : pendingUpload?.kind ? (
-                                                            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
-                                                                <div className="rounded-full border border-white/15 bg-white/[0.06] p-4">
-                                                                    {pendingUpload.kind === "audio" ? (
-                                                                        <Music2 className="h-7 w-7" />
-                                                                    ) : (
-                                                                        <FileText className="h-7 w-7" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="mt-5 text-lg font-medium">{pendingUpload.file.name}</div>
-                                                                <div className="mt-2 max-w-sm text-sm text-white/60">
-                                                                    This source is staged and ready even though it does not have a visual preview.
-                                                                </div>
+                                                        <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
+                                                            <div className="rounded-full border border-white/15 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(233,255,73,0.08)]">
+                                                                {pendingUpload?.kind === "video" ? (
+                                                                    <Video className="h-8 w-8" />
+                                                                ) : pendingUpload?.kind === "image" ? (
+                                                                    <ImageIcon className="h-8 w-8" />
+                                                                ) : pendingUpload?.kind === "audio" ? (
+                                                                    <Music2 className="h-8 w-8" />
+                                                                ) : (
+                                                                    <FileText className="h-8 w-8" />
+                                                                )}
                                                             </div>
-                                                        ) : (
-                                                            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
-                                                                <div className="rounded-full border border-white/15 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(233,255,73,0.08)]">
-                                                                    <MonitorIcon className="h-8 w-8" />
-                                                                </div>
-                                                                <div className="mt-5 text-[28px] leading-tight">
-                                                                    Your uploaded clip will render into the central board
-                                                                </div>
-                                                                <div className="mt-2 max-w-md text-sm leading-6 text-white/60">
-                                                                    The layout now follows the reference: a single instrument panel with the source dock, rail, and bottom control strip.
-                                                                </div>
+                                                            <div className="mt-5 text-[28px] leading-tight">
+                                                                {pendingUpload ? "Source staged for editing" : "Your uploaded clip will resolve here"}
                                                             </div>
-                                                        )}
+                                                            <div className="mt-2 max-w-md text-sm leading-6 text-white/60">
+                                                                The layout now follows the reference: a single instrument panel with the source dock, rail, and bottom control strip.
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </motion.article>
 
@@ -2569,7 +2625,7 @@ export function VideoUploadInterface() {
                                                 >
                                                     <div className="rounded-[28px] border border-[#d1cdc4] bg-[#fbfaf6] p-4 shadow-[0_26px_48px_-40px_rgba(0,0,0,0.55)]">
                                                         <div className="flex items-center justify-between gap-3">
-                                                            <div className="text-sm font-semibold text-[#2d2932]">Preview Status</div>
+                                                            <div className="text-sm font-semibold text-[#2d2932]">Source Status</div>
                                                             <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1f1f1f]">
                                                                 {sourceReady ? "Ready" : "Idle"}
                                                             </span>
@@ -2608,9 +2664,10 @@ export function VideoUploadInterface() {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="text-[10px] uppercase tracking-[0.18em] text-[#7b756d]">Studio rail</div>
-                                            <div className="truncate text-sm text-[#2d2932]">
-                                                Source dock, central preview, and attach command aligned on one board.
-                                            </div>
+                                            <p className="mt-1 text-xs text-white/46">
+                                                Source dock and attach command aligned on one board.
+                                            </p>
+
                                         </div>
                                         <Button
                                             type="button"

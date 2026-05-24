@@ -4,6 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import localFont from 'next/font/local'
 import { RootClientEffects } from '@/components/root-client-effects'
 import { WorkspaceFrame } from '@/components/workspace-frame'
+import { AuthProvider } from '@/components/auth/auth-provider'
 import './globals.css'
 import './premium-vignette.css'
 
@@ -44,10 +45,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${vogueDisplay.variable} bg-[#05060a] font-sans text-foreground antialiased`}>
-        <WorkspaceFrame>{children}</WorkspaceFrame>
-        <RootClientEffects />
-        <Analytics />
-        <SpeedInsights />
+        <AuthProvider>
+          <WorkspaceFrame>{children}</WorkspaceFrame>
+          <RootClientEffects />
+          <Analytics />
+          <SpeedInsights />
+        </AuthProvider>
       </body>
     </html>
   )
