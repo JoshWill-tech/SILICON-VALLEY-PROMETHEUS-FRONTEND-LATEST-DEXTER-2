@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as ChatRequestBody
-    const messages = normalizeMessages(body.messages)
+    const messages = normalizeMessages(body.messages || [])
     const shouldStream = Boolean(body.stream)
 
     if (messages.length === 0) {
@@ -170,7 +170,7 @@ function buildSystemPrompt({
   ].join(' ')
 }
 
-function normalizeMessages(messages: ChatRequestBody['messages']) {
+function normalizeMessages(messages: any[]) {
   if (!Array.isArray(messages)) return []
 
   return messages
