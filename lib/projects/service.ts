@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { normalizeSourceProfile } from '@/lib/media/source-profile'
 import { WorkspaceService } from '@/lib/workspaces/service'
 import type { Project, ProjectStatus, SourceProfile, AnimationPlan } from '@/lib/types'
 
@@ -7,7 +8,7 @@ export interface ProjectPatch {
   status?: ProjectStatus
   thumbnailUrl?: string
   previewKind?: 'video' | 'image'
-  sourceProfile?: SourceProfile
+  sourceProfile?: SourceProfile | null
   editorState?: any
   animationPlan?: AnimationPlan
   sourceAssetId?: string
@@ -57,7 +58,7 @@ export const ProjectService = {
     title?: string
     prompt?: string
     previewKind?: 'video' | 'image'
-    sourceProfile?: SourceProfile
+    sourceProfile?: SourceProfile | null
     sourceAssetId?: string
     workspaceId?: string
   } = {}) {
@@ -76,6 +77,7 @@ export const ProjectService = {
       console.log('[ProjectService] Creating project for user:', user.id, 'in workspace:', workspaceId)
 
       const editorState = params.prompt ? { initialPrompt: params.prompt } : {}
+      const normalizedSourceProfile = normalizeSourceProfile(params.sourceProfile)
 
       const { data, error } = await supabase
         .from('projects')
@@ -85,7 +87,7 @@ export const ProjectService = {
           name: params.title || 'Untitled project',
           status: 'draft',
           preview_kind: params.previewKind,
-          source_profile: params.sourceProfile || {},
+          source_profile: normalizedSourceProfile ?? null,
           source_asset_id: params.sourceAssetId,
           editor_state: editorState,
         })
@@ -116,7 +118,7 @@ export const ProjectService = {
     if (patch.status !== undefined) updateData.status = patch.status
     if (patch.thumbnailUrl !== undefined) updateData.thumbnail_url = patch.thumbnailUrl
     if (patch.previewKind !== undefined) updateData.preview_kind = patch.previewKind
-    if (patch.sourceProfile !== undefined) updateData.source_profile = patch.sourceProfile
+    if (patch.sourceProfile !== undefined) updateData.source_profile = normalizeSourceProfile(patch.sourceProfile) ?? null
     if (patch.editorState !== undefined) updateData.editor_state = patch.editorState
     if (patch.animationPlan !== undefined) updateData.animation_plan = patch.animationPlan
     if (patch.sourceAssetId !== undefined) updateData.source_asset_id = patch.sourceAssetId
@@ -165,7 +167,7 @@ function mapProjectFromDb(row: any): Project {
     updatedAt: row.updated_at,
     thumbnailUrl: row.thumbnail_url,
     previewKind: row.preview_kind,
-    sourceProfile: row.source_profile,
+    sourceProfile: normalizeSourceProfile(row.source_profile),
     sourceAssetId: row.source_asset_id,
     editorState: row.editor_state,
     animationPlan: row.animation_plan,

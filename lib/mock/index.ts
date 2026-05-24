@@ -9,6 +9,7 @@ import type {
   ProjectStatus,
   TranscriptSegment,
 } from '@/lib/types'
+import { normalizeSourceProfile } from '@/lib/media/source-profile'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 
 const STORAGE = {
@@ -67,7 +68,7 @@ export function setActiveStyleId(styleId: string | null) {
 }
 
 export function listProjects(): Project[] {
-  return readLocalStorageJSON<Project[]>(STORAGE.projects) ?? []
+  return (readLocalStorageJSON<Project[]>(STORAGE.projects) ?? []).map(normalizeProject)
 }
 
 export function getMostRecentProject(): Project | null {
@@ -84,8 +85,9 @@ export function resetProjectData(): void {
 }
 
 export function upsertProject(project: Project): void {
+  const normalizedProject = normalizeProject(project)
   const current = listProjects()
-  const next = [project, ...current.filter((p) => p.id !== project.id)]
+  const next = [normalizedProject, ...current.filter((p) => p.id !== normalizedProject.id)]
   writeLocalStorageJSON(STORAGE.projects, next)
   dispatchProjectsUpdated()
 }
@@ -115,7 +117,7 @@ export function createProject(params?: {
   sourceProfile?: Project['sourceProfile']
   sourceAssetId?: string
 }): Project {
-  const project: Project = {
+  const project = normalizeProject({
     id: uid('proj'),
     title: params?.title ?? 'Untitled Project',
     status: 'draft',
@@ -125,9 +127,16 @@ export function createProject(params?: {
     previewKind: params?.previewKind,
     sourceProfile: params?.sourceProfile,
     sourceAssetId: params?.sourceAssetId,
-  }
+  })
   upsertProject(project)
   return project
+}
+
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    sourceProfile: normalizeSourceProfile(project.sourceProfile),
+  }
 }
 
 type JobsByProjectId = Record<string, ProcessingJob>
