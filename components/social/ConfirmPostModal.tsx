@@ -35,7 +35,7 @@ export function ConfirmPostModal({ isOpen, onClose, onConfirm, plan }: ConfirmPo
             </div>
             <DialogTitle className="text-2xl font-bold tracking-tight">Confirm Distribution</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              You're about to broadcast <span className="text-white font-medium">"{plan.videoTitle}"</span> to {plan.posts.length} platforms.
+              You&apos;re about to broadcast <span className="text-white font-medium">&quot;{plan.videoTitle}&quot;</span> to {plan.posts.length} platforms.
             </DialogDescription>
           </DialogHeader>
 
@@ -63,7 +63,7 @@ export function ConfirmPostModal({ isOpen, onClose, onConfirm, plan }: ConfirmPo
                 </div>
               </div>
               <p className="text-xs text-zinc-400 italic line-clamp-2">
-                "{plan.posts[0]?.caption}"
+                &quot;{plan.posts[0]?.caption}&quot;
               </p>
             </div>
           </div>

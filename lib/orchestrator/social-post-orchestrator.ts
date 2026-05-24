@@ -32,19 +32,19 @@ export const SocialPostOrchestrator = {
     // 3. Execute parallel uploads and publishing
     const publishPromises = plan.platforms.map(async (platform) => {
       try {
-        const module = getSocialModule(platform)
+        const socialModule = getSocialModule(platform)
         
         // Auth check (mock)
-        const authenticated = await module.authenticate()
+        const authenticated = await socialModule.authenticate()
         if (!authenticated) {
           return { success: false, platform, error: 'Authentication failed' }
         }
 
         // Upload
-        const uploadId = await module.uploadVideo(video.url, { title: video.title })
+        const uploadId = await socialModule.uploadVideo(video.url, { title: video.title })
         
         // Publish
-        return await module.publish(uploadId, plan.caption)
+        return await socialModule.publish(uploadId, plan.caption)
       } catch (error) {
         console.error(`[Orchestrator] Failed to post to ${platform}:`, error)
         return { 
