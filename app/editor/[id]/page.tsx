@@ -217,10 +217,28 @@ export default function EditorPage() {
     try {
       const stagedSource = await stageSourceFile(file, { allowedMediaKinds: ['video'] }); if (!stagedSource) return
       setSessionSourcePreview({ projectId, file, previewKind: stagedSource.previewKind ?? 'video', sourceAssetId: stagedSource.assetId })
-      const nextProject: Project = { ...project, sourceAssetId: stagedSource.assetId, previewKind: stagedSource.previewKind ?? 'video', thumbnailUrl: '', sourceProfile: stagedSource.sourceProfile ?? project.sourceProfile, updatedAt: new Date().toISOString() }
-      upsertProject(nextProject); setProject(nextProject)
+      
+      // Update backend
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          sourceAssetId: stagedSource.assetId,
+          previewKind: stagedSource.previewKind ?? 'video',
+          sourceProfile: stagedSource.sourceProfile,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update project with new source')
+      const { project: updatedProject } = await res.json()
+
+      upsertProject(updatedProject); setProject(updatedProject)
       previewPlaybackIntentRef.current = 'paused'; previewPlaybackCommandRef.current += 1; setPreviewCurrentTimeSec(0); setPreviewDurationSec(0); setPreviewIntrinsicAspectRatio(null); setPreviewFramePreset('source'); setViralClipSplitPreviewActive(false)
-    } catch (error) { toast.error('Unable to stage video.') }
+      toast.success('Source video uploaded')
+    } catch (error) { 
+      console.error('Failed to stage source:', error)
+      toast.error('Unable to stage video.') 
+    }
   }, [project, projectId, stageSourceFile, setProject, setPreviewCurrentTimeSec, setPreviewDurationSec, setPreviewIntrinsicAspectRatio, setPreviewFramePreset, setViralClipSplitPreviewActive, previewPlaybackIntentRef, previewPlaybackCommandRef])
 
   const handleConfirmDownload = async () => {
