@@ -3,7 +3,7 @@
  * Standardizes URL generation for all soundtrack assets.
  */
 
-const R2_MUSIC_BASE_URL = process.env.NEXT_PUBLIC_R2_MUSIC_BASE_URL || 'https://pub-dd3631a74a2c411cb28460a2b0112611.r2.dev';
+const R2_MUSIC_BASE_URL = process.env.NEXT_PUBLIC_R2_MUSIC_BASE_URL || 'https://assets.prometheusstudio.tech';
 
 export type MusicCategoryFolder = 
   | 'cinematic-trailer'
@@ -20,7 +20,7 @@ export type MusicCategoryFolder =
 export function getMusicAudioUrl(category: string, filename: string): string {
   // Ensure filename has .mp3 extension if not already present
   const cleanFilename = filename.endsWith('.mp3') ? filename : `${filename}.mp3`;
-  return `${R2_MUSIC_BASE_URL}/music-original/${category}/${cleanFilename}`;
+  return `${R2_MUSIC_BASE_URL}/music/${category}/${cleanFilename}`;
 }
 
 /**
@@ -30,16 +30,15 @@ export function getMusicAudioUrl(category: string, filename: string): string {
 export function getMusicThumbnailUrl(category: string, filename: string): string {
   // Derive thumbnail from soundtrack name, ensuring .jpg extension
   const baseName = filename.replace(/\.(mp3|wav|ogg)$/, '');
-  return `${R2_MUSIC_BASE_URL}/music-thumbnail/${category}/${baseName}.jpg`;
+  return `${R2_MUSIC_BASE_URL}/music-thumbnails/${category}/${baseName}.jpg`;
 }
 
 /**
  * Resolves the full public URL for a soundtrack's preview snippet.
- * Prepared for future 15-second snippet pipelines.
  */
 export function getMusicPreviewUrl(category: string, filename: string): string {
   const cleanFilename = filename.endsWith('.mp3') ? filename : `${filename}.mp3`;
-  return `${R2_MUSIC_BASE_URL}/music-preview/${category}/${cleanFilename}`;
+  return `${R2_MUSIC_BASE_URL}/music-previews/${category}/${cleanFilename}`;
 }
 
 /**

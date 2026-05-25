@@ -52,25 +52,13 @@ export function LandingHeader() {
                 <Link href="/signup">Get Started</Link>
               </Button>
             </>
-          ) : (
-            <Button
-              asChild
-              variant="outline"
-              className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
-            >
-              <Link href="/projects">Studio</Link>
-            </Button>
-          )}
+          ) : null}
         </nav>
 
         <div className="md:hidden">
           {isLoading ? (
              <div className="h-4 w-10 animate-pulse rounded bg-white/5" />
-          ) : isAuthenticated ? (
-            <Link href="/projects" className="text-xs font-medium uppercase tracking-widest text-white">
-              Studio
-            </Link>
-          ) : (
+          ) : isAuthenticated ? null : (
             <Link href="/login" className="text-xs font-medium uppercase tracking-widest text-white">
               Login
             </Link>
