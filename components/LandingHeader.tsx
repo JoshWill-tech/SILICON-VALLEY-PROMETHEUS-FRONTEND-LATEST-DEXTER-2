@@ -18,13 +18,13 @@ export function LandingHeader() {
             className="h-6 w-6 object-contain"
           />
           <span className="text-sm font-bold uppercase tracking-[0.3em] text-white">
-            Prometheus
+            rometheus
           </span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
           <Link
-            href="/#pricing"
+            href="/settings/billing"
             className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
           >
             Pricing
