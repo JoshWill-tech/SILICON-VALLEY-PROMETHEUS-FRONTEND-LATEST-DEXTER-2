@@ -4,12 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 
 import { getPaddleClient, getPaddleWebhookSecret } from '@/lib/paddle'
 
-// Use service role for database updates in webhook
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(request: Request) {
   try {
     const signature = (await headers()).get('paddle-signature')
@@ -17,6 +11,12 @@ export async function POST(request: Request) {
     if (!signature) {
       return NextResponse.json({ error: 'Missing Paddle signature.' }, { status: 400 })
     }
+
+    // Use service role for database updates in webhook
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     const paddle = getPaddleClient()
     const payload = await request.text()
@@ -39,11 +39,11 @@ export async function POST(request: Request) {
         const subscriptionId = transaction.subscriptionId
 
         if (userId && planId && subscriptionId) {
-          // Fetch subscription details to get card info and next billing date
+          // Fetch subscription details to get the next billing date
           const subscription = await paddle.subscriptions.get(subscriptionId)
           
-          const nextBillingDate = subscription.nextBillingAt
-          const paymentMethod = subscription.payments[0]?.methodDetails
+          const nextBillingDate = subscription.nextBilledAt
+          const paymentMethod = transaction.payments[0]?.methodDetails
           
           await supabaseAdmin.from('subscriptions').upsert({
             user_id: userId,
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
             plan_id: planId,
             paddle_subscription_id: subscriptionId,
             paddle_customer_id: transaction.customerId,
-            price_id: subscription.items[0]?.priceId,
+            price_id: subscription.items[0]?.price?.id,
             next_billing_date: nextBillingDate,
             card_brand: paymentMethod?.card?.type,
             card_last_4: paymentMethod?.card?.last4,
@@ -73,22 +73,19 @@ export async function POST(request: Request) {
         const planId = customData?.planId
 
         if (userId && planId) {
-          const paymentMethod = subscription.payments[0]?.methodDetails
-
-          await supabaseAdmin.from('subscriptions').upsert({
+          // Update status and next billing date, but don't overwrite card info if not available
+          const updateData: any = {
             user_id: userId,
             status: subscription.status,
             plan_id: planId,
             paddle_subscription_id: subscription.id,
             paddle_customer_id: subscription.customerId,
-            price_id: subscription.items[0]?.priceId,
-            next_billing_date: subscription.nextBillingAt,
-            card_brand: paymentMethod?.card?.type,
-            card_last_4: paymentMethod?.card?.last4,
-            card_expiry_month: paymentMethod?.card?.expiryMonth,
-            card_expiry_year: paymentMethod?.card?.expiryYear,
+            price_id: subscription.items[0]?.price?.id,
+            next_billing_date: subscription.nextBilledAt,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'paddle_subscription_id' })
+          }
+
+          await supabaseAdmin.from('subscriptions').upsert(updateData, { onConflict: 'paddle_subscription_id' })
         }
         break
       }

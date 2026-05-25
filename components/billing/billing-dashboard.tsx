@@ -34,16 +34,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog"
 
 import {
   BILLING_DASHBOARD_PATH,
@@ -116,13 +115,14 @@ export function BillingDashboard() {
     
     setIsUpdatingPayment(true)
     try {
-      paddle.Checkout.open({
+      const options: any = {
         subscriptionId: subscription.paddle_subscription_id,
         settings: {
           displayMode: 'overlay',
           theme: 'dark',
         }
-      })
+      }
+      paddle.Checkout.open(options)
     } catch (err) {
       toast.error('Failed to open payment update.')
     } finally {

@@ -31,13 +31,14 @@ export async function GET() {
 
     const invoices = []
     for await (const transaction of transactions) {
+      const total = transaction.details?.totals?.total || "0"
       invoices.push({
         id: transaction.id,
         status: transaction.status,
-        amount: (parseFloat(transaction.details.totals.total) / 100).toFixed(2),
+        amount: (parseFloat(total) / 100).toFixed(2),
         currency: transaction.currencyCode,
         date: transaction.createdAt,
-        receiptUrl: transaction.checkout?.url || null, // Paddle doesn't have a direct receipt PDF link in the SDK easily available, but checkout URL often works or we can use another method
+        receiptUrl: transaction.checkout?.url || null,
       })
     }
 
