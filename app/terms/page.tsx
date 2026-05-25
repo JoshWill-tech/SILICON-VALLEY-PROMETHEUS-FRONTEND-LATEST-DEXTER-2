@@ -16,7 +16,7 @@ export default function TermsPage() {
     >
       <LegalSection title="1. Introduction and Agreement">
         <p>
-          Welcome to Prometheus Studio (&quot;Prometheus&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). These Terms &amp; Conditions
+          Welcome to Prometheus AI (&quot;Prometheus&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). These Terms &amp; Conditions
           govern your access to and use of prometheusstudio.tech and our AI-powered cinematic content
           production infrastructure. By accessing or using our services, you agree to be bound by these
           terms.
@@ -89,7 +89,7 @@ export default function TermsPage() {
           Artificial Intelligence is probabilistic. While Prometheus strives for deterministic,
           high-fidelity outputs, we do not guarantee that Outputs will be entirely free of rendering
           artifacts or AI hallucinations. You are solely responsible for reviewing all Outputs before
-          public distribution. Prometheus and PROMETHEUS STUDIOS shall not be liable for any
+          public distribution. Prometheus and Prometheus AI shall not be liable for any
           direct, indirect, or consequential damages (including loss of revenue) arising from the use of
           our rendered media.
         </p>

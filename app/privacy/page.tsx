@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      description="This Privacy Policy explains how Prometheus Studio collects, uses, stores, and protects your information when you use our AI-powered cinematic content production infrastructure."
+      description="This Privacy Policy explains how Prometheus AI collects, uses, stores, and protects your information when you use our AI-powered cinematic content production infrastructure."
       currentPath="/privacy"
     >
       <LegalSection title="1. Information We Collect">

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
+import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection } from '@/components/legal/LegalLayout'
 
 export const metadata: Metadata = {
   title: 'Refund Policy | Prometheus',
@@ -11,49 +11,24 @@ export default function RefundPage() {
   return (
     <LegalLayout
       title="Refund Policy"
-      description="Because Prometheus provides access to intensive, high-cost Cloud GPU rendering and proprietary AI motion processing, our refund policy is strictly governed by compute usage."
+      description="Standard 14-day money-back guarantee for Prometheus AI."
       currentPath="/refund"
     >
-      <LegalSection title="1. The 14-Day Conditional Guarantee">
+      <LegalSection title="14-Day Money-Back Guarantee">
         <p>
-          If you purchase a Prometheus subscription (Core, Studio, or Cinema tier) and realize the
-          platform does not fit your workflow, you may request a full refund within fourteen (14) days
-          of your initial purchase, PROVIDED THAT:
-        </p>
-        <ul className="list-disc list-inside">
-          <li>
-            You have not exported/rendered more than five (5) minutes of final high-fidelity video
-            outputs.
-          </li>
-          <li>You have not invited multiple external team members to utilize workspace resources.</li>
-        </ul>
-      </LegalSection>
-
-      <LegalSection title="2. Exhaustion of Compute">
-        <p>
-          Because GPU rendering incurs immediate, unrecoverable hard costs to our infrastructure, no
-          refunds will be granted to accounts that have exceeded the 5-minute final render limit,
-          regardless of whether the request falls within the 14-day window.
+          We offer a 14-day money-back guarantee. If you are unsatisfied with our service for any reason, you may request a full refund within 14 days of your original purchase. To request a refund, simply email our support team at support@prometheusstudio.tech.
         </p>
       </LegalSection>
 
-      <LegalSection title="3. Subscription Cancellations">
+      <LegalSection title="Merchant of Record">
         <p>
-          You may cancel your subscription at any time via your billing dashboard. Cancellation
-          prevents future billing, but you will retain access to your Prometheus workspace and
-          rendering capabilities until the end of your current paid billing cycle. We do not prorate
-          or refund partial months of service.
+          Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for all our orders. Paddle handles all customer service inquiries and returns regarding billing and payments.
         </p>
       </LegalSection>
-
-      <LegalSection title="4. How to Request a Refund">
-        <p>
-          All refund requests must be routed through our Merchant of Record, Paddle, or by emailing us
-          directly at [Your Support Email] with your workspace ID and receipt. Our team will review
-          your GPU compute log to verify eligibility based on the terms above.
-        </p>
-        <p>Last updated: {LEGAL_LAST_UPDATED}</p>
-      </LegalSection>
+      
+      <p className="text-sm text-neutral-500">
+        Last updated: {LEGAL_LAST_UPDATED}
+      </p>
     </LegalLayout>
   )
 }
