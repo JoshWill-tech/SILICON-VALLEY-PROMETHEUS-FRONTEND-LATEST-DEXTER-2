@@ -36,33 +36,23 @@ export function LandingHeader() {
           
           {isLoading ? (
             <div className="h-4 w-12 animate-pulse rounded bg-white/5" />
-          ) : isAuthenticated ? (
-            <Link
-              href="/dashboard"
-              className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
-            >
-              Dashboard
-            </Link>
+          ) : !isAuthenticated ? (
+            <>
+              <Link
+                href="/login"
+                className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
+              >
+                Login
+              </Link>
+              <Button
+                asChild
+                variant="outline"
+                className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
+              >
+                <Link href="/signup">Get Started</Link>
+              </Button>
+            </>
           ) : (
-            <Link
-              href="/login"
-              className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
-            >
-              Login
-            </Link>
-          )}
-
-          {!isLoading && !isAuthenticated && (
-            <Button
-              asChild
-              variant="outline"
-              className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
-            >
-              <Link href="/signup">Get Started</Link>
-            </Button>
-          )}
-          
-          {isAuthenticated && (
             <Button
               asChild
               variant="outline"
@@ -77,8 +67,8 @@ export function LandingHeader() {
           {isLoading ? (
              <div className="h-4 w-10 animate-pulse rounded bg-white/5" />
           ) : isAuthenticated ? (
-            <Link href="/dashboard" className="text-xs font-medium uppercase tracking-widest text-white">
-              Dashboard
+            <Link href="/projects" className="text-xs font-medium uppercase tracking-widest text-white">
+              Studio
             </Link>
           ) : (
             <Link href="/login" className="text-xs font-medium uppercase tracking-widest text-white">

@@ -69,6 +69,9 @@ export function SocialAuthButtons() {
           provider,
           options: {
             redirectTo: redirectTo.toString(),
+            queryParams: provider === 'google' ? {
+              prompt: 'select_account',
+            } : undefined,
           },
         })
 
