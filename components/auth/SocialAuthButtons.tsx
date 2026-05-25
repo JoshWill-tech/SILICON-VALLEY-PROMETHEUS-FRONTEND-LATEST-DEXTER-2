@@ -1,14 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { AppleIcon, GithubIcon } from 'lucide-react'
+import { GithubIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/client'
 
-import { GoogleIcon } from './auth-visuals'
+import { GoogleIcon, AppleIcon } from './auth-visuals'
 
 type SocialProvider = 'google' | 'apple' | 'github'
 
