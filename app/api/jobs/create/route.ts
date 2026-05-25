@@ -16,6 +16,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check subscription status
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const hasAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
+
+    if (!hasAccess && process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE !== 'true') {
+      return NextResponse.json({ 
+        error: 'A paid subscription is required to run AI tasks.',
+        code: 'BILLING_REQUIRED'
+      }, { status: 403 })
+    }
+
     const { data, error } = await supabase
       .from('durable_jobs')
       .insert({
