@@ -65,7 +65,7 @@ export default function PrivacyPage() {
       <LegalSection title="5. Your Rights">
         <p>
           You have the right to access, correct, export, or delete your personal data and media assets
-          at any time. To execute a complete workspace deletion, contact us at [Your Support Email].
+          at any time. To execute a complete workspace deletion, contact us at support@prometheusstudio.tech.
         </p>
       </LegalSection>
 
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
       <LegalSection title="10. Contact Us">
         <p>
           If you have any questions about this Privacy Policy or our data practices, please contact us
-          at [Your Support Email].
+          at support@prometheusstudio.tech.
         </p>
         <p>Last updated: {LEGAL_LAST_UPDATED}</p>
       </LegalSection>

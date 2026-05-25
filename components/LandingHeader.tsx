@@ -4,8 +4,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/components/auth/auth-provider'
 
 export function LandingHeader() {
+  const { session, isLoading } = useAuth()
+  const isAuthenticated = !!session
+
   return (
     <header className="fixed top-0 z-50 w-full border-b border-white/[0.05] bg-black/10 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-8">
@@ -29,26 +33,58 @@ export function LandingHeader() {
           >
             Pricing
           </Link>
-          <Link
-            href="/login"
-            className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
-          >
-            Login
-          </Link>
-          <Button
-            asChild
-            variant="outline"
-            className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
-          >
-            <Link href="/signup">Get Started</Link>
-          </Button>
+          
+          {isLoading ? (
+            <div className="h-4 w-12 animate-pulse rounded bg-white/5" />
+          ) : isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
+            >
+              Login
+            </Link>
+          )}
+
+          {!isLoading && !isAuthenticated && (
+            <Button
+              asChild
+              variant="outline"
+              className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
+            >
+              <Link href="/signup">Get Started</Link>
+            </Button>
+          )}
+          
+          {isAuthenticated && (
+            <Button
+              asChild
+              variant="outline"
+              className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
+            >
+              <Link href="/projects">Studio</Link>
+            </Button>
+          )}
         </nav>
 
         <div className="md:hidden">
-          {/* Mobile menu could go here if needed */}
-          <Link href="/login" className="text-xs font-medium uppercase tracking-widest text-white">
-            Login
-          </Link>
+          {isLoading ? (
+             <div className="h-4 w-10 animate-pulse rounded bg-white/5" />
+          ) : isAuthenticated ? (
+            <Link href="/dashboard" className="text-xs font-medium uppercase tracking-widest text-white">
+              Dashboard
+            </Link>
+          ) : (
+            <Link href="/login" className="text-xs font-medium uppercase tracking-widest text-white">
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </header>
