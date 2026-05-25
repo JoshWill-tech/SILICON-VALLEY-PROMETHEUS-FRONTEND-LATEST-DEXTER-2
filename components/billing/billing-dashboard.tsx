@@ -17,9 +17,14 @@ import {
   Building2,
   Users,
   History,
-  XCircle
+  XCircle,
+  Loader2,
+  Download,
+  Database
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
+import { initializePaddle, type Paddle } from '@paddle/paddle-js'
 
 import { PaddleCheckoutButton } from '@/components/billing/paddle-checkout-button'
 import { Badge } from '@/components/ui/badge'
@@ -27,42 +32,121 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 import {
   BILLING_DASHBOARD_PATH,
-  clearBillingAccess,
-  readBillingAccessState,
-  setBillingAccess,
 } from '@/lib/billing'
 import { BILLING_PLAN_DEFINITIONS, BILLING_PLAN_ORDER } from '@/lib/billing-plans'
-import { cn } from '@/lib/utils'
+import { cn, formatBytes } from '@/lib/utils'
+import { useBillingData } from '@/hooks/use-billing-data'
 
 const PLANS = BILLING_PLAN_ORDER.map((planId) => BILLING_PLAN_DEFINITIONS[planId])
 
 export function BillingDashboard() {
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next')
-  const [billingState, setBillingState] = React.useState(readBillingAccessState)
-  const usedCredits = 3120
-  const totalCredits = 5000
-  const progressValue = (usedCredits / totalCredits) * 100
+  const { subscription, usage, invoices, isLoading, error, refresh } = useBillingData()
   
-  const currentPlan = PLANS.find((plan) => plan.id === billingState.planId) || null
-  const hasAccess = billingState.status === 'active'
-
-  const refreshBillingState = React.useCallback(() => {
-    setBillingState(readBillingAccessState())
-  }, [])
+  const [paddle, setPaddle] = React.useState<Paddle>()
+  const [isUpdatingPayment, setIsUpdatingPayment] = React.useState(false)
+  const [isCancelling, setIsCancelling] = React.useState(false)
 
   React.useEffect(() => {
-    const handleFocus = () => refreshBillingState()
-    const handleStorage = () => refreshBillingState()
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('storage', handleStorage)
-    return () => {
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('storage', handleStorage)
+    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN
+    const env = (process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT as any) || 'sandbox'
+    
+    if (token) {
+      initializePaddle({ 
+        environment: env, 
+        token: token,
+        checkout: {
+          settings: {
+            displayMode: 'overlay',
+            theme: 'dark',
+          }
+        }
+      }).then((instance) => {
+        if (instance) setPaddle(instance)
+      })
     }
-  }, [refreshBillingState])
+  }, [])
+
+  if (error) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center space-y-4 rounded-3xl border border-white/10 bg-white/[0.02] p-12 text-center">
+        <XCircle className="size-12 text-red-400/50" />
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-white">Unable to load billing data</h3>
+          <p className="max-w-md text-sm text-white/40">{error}</p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Try Again
+        </Button>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return <BillingDashboardSkeleton />
+  }
+
+  const hasAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
+  const currentPlan = PLANS.find((plan) => plan.id === subscription?.plan_id) || null
+  const nextBillingDate = subscription?.next_billing_date 
+    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(subscription.next_billing_date))
+    : 'N/A'
+
+  const renderProgress = (usage.renders / (usage.renderLimit || 1)) * 100
+  const storageProgress = (usage.storageBytes / (usage.storageLimit || 1)) * 100
+
+  const handleUpdatePayment = async () => {
+    if (!paddle || !subscription?.paddle_subscription_id) return
+    
+    setIsUpdatingPayment(true)
+    try {
+      paddle.Checkout.open({
+        subscriptionId: subscription.paddle_subscription_id,
+        settings: {
+          displayMode: 'overlay',
+          theme: 'dark',
+        }
+      })
+    } catch (err) {
+      toast.error('Failed to open payment update.')
+    } finally {
+      setIsUpdatingPayment(false)
+    }
+  }
+
+  const handleCancelSubscription = async () => {
+    setIsCancelling(true)
+    try {
+      const response = await fetch('/api/billing/cancel', { method: 'POST' })
+      if (response.ok) {
+        toast.success('Subscription cancelled. You will have access until the end of your period.')
+        refresh()
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to cancel')
+      }
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setIsCancelling(false)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 md:px-8 md:py-12">
@@ -116,7 +200,7 @@ export function BillingDashboard() {
                     : "bg-white/5 text-white/40 border-white/10"
                 )}
               >
-                {hasAccess ? 'Active' : 'Awaiting Payment'}
+                {hasAccess ? (subscription?.status === 'trialing' ? 'Trial' : 'Active') : 'Inactive'}
               </Badge>
             </div>
           </CardHeader>
@@ -127,26 +211,46 @@ export function BillingDashboard() {
               </div>
               <div className="mt-2 flex items-center gap-2 text-sm text-white/30">
                 <Calendar className="size-4" />
-                <span>Next renewal: May 12, 2026</span>
+                <span>Next renewal: {nextBillingDate}</span>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.1em] text-white/30">
-                <span>Monthly Credits</span>
-                <span className="text-white/60">{usedCredits.toLocaleString()} / {totalCredits.toLocaleString()}</span>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.1em] text-white/30">
+                  <span className="flex items-center gap-1.5"><Zap className="size-3" /> Monthly Credits</span>
+                  <span className="text-white/60">{usage.renders.toLocaleString()} / {usage.renderLimit.toLocaleString()}</span>
+                </div>
+                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(renderProgress, 100)}%` }}
+                    transition={{ duration: 1, ease: "circOut" }}
+                    className={cn(
+                      "h-full transition-colors duration-500",
+                      renderProgress > 90 ? "bg-red-500" : "bg-[linear-gradient(90deg,#3b82f6,#60a5fa)]"
+                    )}
+                  />
+                </div>
               </div>
-              <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/5">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progressValue}%` }}
-                  transition={{ duration: 1, ease: "circOut" }}
-                  className="h-full bg-[linear-gradient(90deg,#3b82f6,#60a5fa)]"
-                />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.1em] text-white/30">
+                  <span className="flex items-center gap-1.5"><Database className="size-3" /> Media Storage</span>
+                  <span className="text-white/60">{formatBytes(usage.storageBytes)} / {formatBytes(usage.storageLimit)}</span>
+                </div>
+                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(storageProgress, 100)}%` }}
+                    transition={{ duration: 1, ease: "circOut" }}
+                    className={cn(
+                      "h-full transition-colors duration-500",
+                      storageProgress > 90 ? "bg-red-500" : "bg-[linear-gradient(90deg,#3b82f6,#60a5fa)]"
+                    )}
+                  />
+                </div>
               </div>
-              <p className="text-[12px] leading-relaxed text-white/30">
-                Credits reset automatically. Usage beyond your limit is billed at $0.05/credit.
-              </p>
             </div>
           </CardContent>
           <CardFooter className="border-t border-white/5 bg-white/[0.01] p-0">
@@ -178,7 +282,7 @@ export function BillingDashboard() {
 
         <div className="grid gap-8 lg:grid-cols-3">
           {PLANS.map((plan) => {
-            const isCurrent = billingState.planId === plan.id
+            const isCurrent = subscription?.plan_id === plan.id
             
             return (
               <Card 
@@ -258,7 +362,7 @@ export function BillingDashboard() {
                     <PaddleCheckoutButton 
                       planId={plan.id} 
                       nextPath={nextPath} 
-                      ctaLabel={plan.ctaLabel} 
+                      ctaLabel={hasAccess ? `Upgrade to ${plan.name}` : plan.ctaLabel} 
                       className="rounded-[18px]"
                     />
                   )}
@@ -282,20 +386,37 @@ export function BillingDashboard() {
             <CardDescription className="text-white/40">Manage your default payment provider.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/20 p-5 hover:border-white/10 transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-16 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
-                  <CreditCard className="size-6 text-white/60" />
+            {subscription?.card_last_4 ? (
+              <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/20 p-5 hover:border-white/10 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-16 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
+                    <CreditCard className="size-6 text-white/60" />
+                  </div>
+                  <div>
+                    <div className="text-[15px] font-bold text-white tracking-tight">
+                      {subscription.card_brand} •••• {subscription.card_last_4}
+                    </div>
+                    <div className="text-xs font-medium text-white/20 uppercase tracking-widest mt-0.5">
+                      Expires {subscription.card_expiry_month}/{subscription.card_expiry_year}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[15px] font-bold text-white tracking-tight">Visa •••• 4242</div>
-                  <div className="text-xs font-medium text-white/20 uppercase tracking-widest mt-0.5">Expires 12/2026</div>
-                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-9 px-4 rounded-xl text-xs font-bold uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all"
+                  onClick={handleUpdatePayment}
+                  disabled={isUpdatingPayment}
+                >
+                  {isUpdatingPayment ? <Loader2 className="size-3 animate-spin" /> : 'Update'}
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" className="h-9 px-4 rounded-xl text-xs font-bold uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all">
-                Update
-              </Button>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
+                <CreditCard className="size-8 text-white/10" />
+                <p className="text-sm text-white/30">No payment method on file. Subscribe to a plan to add one.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -312,63 +433,145 @@ export function BillingDashboard() {
           <CardContent className="grid grid-cols-2 gap-4">
             <Button variant="outline" className="h-24 flex-col items-center justify-center gap-3 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/10 transition-all group">
               <div className="grid size-10 place-items-center rounded-full bg-white/5 group-hover:bg-blue-400/10 transition-colors">
-                <Calendar className="size-5 text-white/30 group-hover:text-blue-400 transition-colors" />
+                <History className="size-5 text-white/30 group-hover:text-blue-400 transition-colors" />
               </div>
               <span className="text-[11px] font-black uppercase tracking-[0.1em] text-white/40 group-hover:text-white transition-colors">Billing History</span>
             </Button>
-            <Button 
-              variant="outline" 
-              className="h-24 flex-col items-center justify-center gap-3 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-red-400/[0.03] hover:border-red-400/20 transition-all group"
-              onClick={() => {
-                if (window.confirm('Are you sure you want to cancel? You will lose access at the end of your period.')) {
-                  // Logic handled via Paddle portal usually
-                }
-              }}
-            >
-              <div className="grid size-10 place-items-center rounded-full bg-white/5 group-hover:bg-red-400/10 transition-colors">
-                <XCircle className="size-5 text-white/30 group-hover:text-red-400 transition-colors" />
-              </div>
-              <span className="text-[11px] font-black uppercase tracking-[0.1em] text-white/40 group-hover:text-red-400 transition-colors">Cancel Plan</span>
-            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  disabled={!hasAccess || isCancelling}
+                  className="h-24 flex-col items-center justify-center gap-3 rounded-2xl border-white/5 bg-white/[0.02] hover:bg-red-400/[0.03] hover:border-red-400/20 transition-all group"
+                >
+                  <div className="grid size-10 place-items-center rounded-full bg-white/5 group-hover:bg-red-400/10 transition-colors">
+                    <XCircle className="size-5 text-white/30 group-hover:text-red-400 transition-colors" />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.1em] text-white/40 group-hover:text-red-400 transition-colors">
+                    {isCancelling ? <Loader2 className="size-3 animate-spin" /> : 'Cancel Plan'}
+                  </span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="border-white/10 bg-[#0a0a0b] text-white">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-bold">Are you absolutely sure?</DialogTitle>
+                  <DialogDescription className="text-white/50">
+                    This will cancel your subscription at the end of the current billing period. You will retain access until then, but your plan will not renew.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="ghost" className="border-white/10 bg-transparent text-white hover:bg-white/5">Keep Subscription</Button>
+                  </DialogClose>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleCancelSubscription}
+                    className="bg-red-500 text-white hover:bg-red-600"
+                  >
+                    Confirm Cancellation
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
       </div>
+
+      {/* 4. Billing History / Invoices */}
+      {invoices.length > 0 && (
+        <Card className="border-white/10 bg-white/[0.015] shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-white">Billing History</CardTitle>
+            <CardDescription className="text-white/40">Download past invoices and receipts.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-white/60">
+                <thead className="border-b border-white/5 text-xs font-black uppercase tracking-widest text-white/20">
+                  <tr>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4">{new Date(invoice.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 font-bold text-white">{invoice.currency} {invoice.amount}</td>
+                      <td className="px-6 py-4">
+                        <Badge variant="outline" className="rounded-full bg-emerald-500/10 text-[10px] text-emerald-400 border-emerald-500/20">
+                          {invoice.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {invoice.receiptUrl && (
+                          <Button variant="ghost" size="sm" asChild className="h-8 rounded-lg text-blue-400 hover:bg-blue-400/10">
+                            <a href={invoice.receiptUrl} target="_blank" rel="noopener noreferrer">
+                              <Download className="mr-2 size-3.5" />
+                              Download
+                            </a>
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dev Tools Shortcut */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mt-24 border-t border-white/5 pt-16 text-center">
           <Badge variant="outline" className="mb-8 rounded-full border-white/10 bg-white/[0.02] px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">
-            Dev Override Console
+            Dev Tools
           </Badge>
           <div className="flex flex-wrap justify-center gap-4">
-            {PLANS.map((plan) => (
-              <Button
-                key={`unlock-${plan.id}`}
-                variant="ghost"
-                size="sm"
-                className="h-10 rounded-full px-6 text-[11px] font-bold uppercase tracking-widest text-white/30 hover:bg-white/5 hover:text-blue-400 transition-all"
-                onClick={() => {
-                  setBillingAccess(plan.id, 'demo')
-                  refreshBillingState()
-                }}
-              >
-                Simulate {plan.name}
-              </Button>
-            ))}
             <Button
               variant="ghost"
               size="sm"
-              className="h-10 rounded-full px-6 text-[11px] font-bold uppercase tracking-widest text-white/30 hover:bg-red-500/10 hover:text-red-400 transition-all"
-              onClick={() => {
-                clearBillingAccess()
-                refreshBillingState()
-              }}
+              className="h-10 rounded-full px-6 text-[11px] font-bold uppercase tracking-widest text-white/30 hover:bg-white/5 hover:text-blue-400 transition-all"
+              onClick={() => refresh()}
             >
-              Reset Access
+              Refresh Real-time Data
             </Button>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function BillingDashboardSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl space-y-12 px-4 py-8 md:px-8 md:py-12">
+      <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
+        <div className="space-y-6">
+          <Skeleton className="h-4 w-32 bg-white/5" />
+          <div className="space-y-4">
+            <Skeleton className="h-16 w-3/4 bg-white/5" />
+            <Skeleton className="h-16 w-1/2 bg-white/5" />
+          </div>
+          <Skeleton className="h-12 w-48 rounded-[18px] bg-white/5" />
+        </div>
+        <Card className="border-white/10 bg-white/[0.03]">
+          <CardHeader><Skeleton className="h-8 w-full bg-white/5" /></CardHeader>
+          <CardContent className="space-y-8">
+            <Skeleton className="h-12 w-1/2 bg-white/5" />
+            <Skeleton className="h-24 w-full bg-white/5" />
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-8 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[600px] w-full rounded-3xl bg-white/5" />
+        ))}
+      </div>
     </div>
   )
 }
