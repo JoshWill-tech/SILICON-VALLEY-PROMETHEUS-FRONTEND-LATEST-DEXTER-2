@@ -13,6 +13,7 @@ type LegalLayoutProps = {
   title: string
   description: string
   currentPath: string
+  lastUpdated?: string
   children: ReactNode
 }
 
@@ -26,7 +27,13 @@ type LegalSubsectionProps = {
   children: ReactNode
 }
 
-export function LegalLayout({ title, description, currentPath, children }: LegalLayoutProps) {
+export function LegalLayout({
+  title,
+  description,
+  currentPath,
+  lastUpdated = LEGAL_LAST_UPDATED,
+  children,
+}: LegalLayoutProps) {
   return (
     <main className="relative min-h-screen bg-neutral-950">
       <div
@@ -67,7 +74,7 @@ export function LegalLayout({ title, description, currentPath, children }: Legal
             <p className="max-w-2xl text-base leading-8 text-neutral-400 sm:text-lg">{description}</p>
           </div>
           <p className="text-sm uppercase tracking-[0.22em] text-neutral-500">
-            Last updated {LEGAL_LAST_UPDATED}
+            Last updated {lastUpdated}
           </p>
         </header>
 
