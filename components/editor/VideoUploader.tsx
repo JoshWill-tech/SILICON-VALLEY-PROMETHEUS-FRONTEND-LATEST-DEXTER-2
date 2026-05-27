@@ -8,11 +8,26 @@ import Uppy, { type UppyFile } from '@uppy/core'
 import AwsS3Multipart from '@uppy/aws-s3-multipart'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 export interface VideoUploaderProps {
   onUploadSuccess: (url: string, filename: string) => void
   onCancel?: () => void
   className?: string
+}
+
+const MAX_VIDEO_BYTES = 3 * 1024 * 1024 * 1024
+
+function validateVideoFile(file: File) {
+  if (!file.type.startsWith('video/')) {
+    return 'That file type is not supported here. Upload an MP4, MOV, or WEBM video.'
+  }
+
+  if (file.size > MAX_VIDEO_BYTES) {
+    return 'That video is over the 3GB ingestion limit. Choose a smaller source for this workspace.'
+  }
+
+  return null
 }
 
 export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUploaderProps) {
@@ -128,7 +143,7 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
 
     uppy.on('upload-error', (file, error) => {
       setUploadState(prev => ({ ...prev, status: 'error' }))
-      toast.error('Upload failed', { description: error.message })
+      toast.error('Upload failed', { description: normalizeUxError(error, 'upload') })
     })
 
     // Uppy 4.x uses logout/close cleanup depending on version, 
@@ -159,6 +174,11 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
                 const files = Array.from(e.dataTransfer.files)
                 if (files.length > 0) {
                   const file = files[0]
+                  const validationError = validateVideoFile(file)
+                  if (validationError) {
+                    toast.error('Source rejected', { description: validationError })
+                    return
+                  }
                   uppy.addFile({
                     name: file.name,
                     type: file.type,
@@ -192,12 +212,20 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
                     accept="video/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
-                      if (file) uppy.addFile({
-                        name: file.name,
-                        type: file.type,
-                        data: file,
-                        meta: { startTime: Date.now() }
-                      })
+                      if (file) {
+                        const validationError = validateVideoFile(file)
+                        if (validationError) {
+                          toast.error('Source rejected', { description: validationError })
+                          e.currentTarget.value = ''
+                          return
+                        }
+                        uppy.addFile({
+                          name: file.name,
+                          type: file.type,
+                          data: file,
+                          meta: { startTime: Date.now() }
+                        })
+                      }
                     }}
                   />
                 </label>

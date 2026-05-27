@@ -5,12 +5,15 @@ import { motion, AnimatePresence, useSpring, useTransform, useMotionValueEvent }
 import { CheckCircle2, Loader2, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DurableJobStatus, DurableJobType } from '@/lib/types/jobs'
+import type { DurableJobConnectionState } from '@/hooks/use-durable-job'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 interface DurableJobProgressProps {
   status: DurableJobStatus | 'idle'
   progress: number
   type?: DurableJobType | string
   errorMessage?: string | null
+  connectionState?: DurableJobConnectionState
   className?: string
 }
 
@@ -28,6 +31,7 @@ export function DurableJobProgress({
   progress,
   type,
   errorMessage,
+  connectionState = 'idle',
   className,
 }: DurableJobProgressProps) {
   const [isVisible, setIsVisible] = React.useState(false)
@@ -49,7 +53,7 @@ export function DurableJobProgress({
   })
 
   React.useEffect(() => {
-    if (status === 'processing' || status === 'pending') {
+    if (status === 'processing' || status === 'pending' || connectionState === 'reconnecting' || connectionState === 'offline') {
       setIsVisible(true)
     } else if (status === 'completed') {
       // Keep visible for a moment to show success state
@@ -60,9 +64,12 @@ export function DurableJobProgress({
     } else {
       setIsVisible(false)
     }
-  }, [status])
+  }, [connectionState, status])
 
   if (!isVisible && status !== 'completed' && status !== 'failed') return null
+
+  const isReconnecting = connectionState === 'reconnecting' || connectionState === 'offline'
+  const sanitizedError = errorMessage ? normalizeUxError(errorMessage, 'job') : null
 
   return (
     <AnimatePresence>
@@ -89,7 +96,7 @@ export function DurableJobProgress({
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                         <CheckCircle2 className="size-4 text-emerald-400" />
                       </motion.div>
-                    ) : status === 'failed' ? (
+                    ) : status === 'failed' || isReconnecting ? (
                       <AlertCircle className="size-4 text-rose-400" />
                     ) : (
                       <Loader2 className="size-4 animate-spin text-blue-400" />
@@ -97,10 +104,10 @@ export function DurableJobProgress({
                   </div>
                   <div>
                     <h4 className="text-[13px] font-bold tracking-tight text-white/90">
-                      {status === 'completed' ? 'Processing Complete' : (type ? (JOB_LABELS[type] || type) : 'Processing...')}
+                      {isReconnecting ? 'Reconnecting to Render Engine' : status === 'completed' ? 'Processing Complete' : (type ? (JOB_LABELS[type] || type) : 'Processing...')}
                     </h4>
                     <p className="text-[11px] font-medium text-white/40 uppercase tracking-widest">
-                      {status === 'pending' ? 'Queued in pipeline' : status === 'completed' ? 'Assets Ready' : status === 'failed' ? 'Error encountered' : 'Active Task'}
+                      {isReconnecting ? 'Connection recovery' : status === 'pending' ? 'Queued in pipeline' : status === 'completed' ? 'Assets Ready' : status === 'failed' ? 'Error encountered' : 'Active Task'}
                     </p>
                   </div>
                 </div>
@@ -110,9 +117,9 @@ export function DurableJobProgress({
                 </span>
               </div>
 
-              {status === 'failed' && errorMessage ? (
+              {(status === 'failed' || isReconnecting) && sanitizedError ? (
                 <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-2 text-[11px] text-rose-300">
-                  {errorMessage}
+                  {sanitizedError}
                 </div>
               ) : (
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5">

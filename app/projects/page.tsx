@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -36,8 +37,7 @@ import { Badge } from '@/components/ui/badge'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import type { Project, ProjectStatus, ProjectExport } from '@/lib/types'
 import { cn } from '@/lib/utils'
-
-const OWNER_EMAILS = ['you@prometheus.local', 'studio@prometheus.local', 'team@prometheus.local']
+import { normalizeUxError } from '@/lib/ux/errors'
 
 type ProjectsApiResponse = {
   projects?: Project[]
@@ -76,6 +76,42 @@ function getUploadDateString(isoString: string) {
   }
 }
 
+function ProjectCardSkeleton() {
+  return (
+    <div className="h-[210px] rounded-[22px] border border-white/10 bg-[linear-gradient(152deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.03)_36%,rgba(7,7,11,0.72)_100%)] p-3">
+      <Skeleton className="h-[132px] rounded-2xl bg-white/[0.06]" />
+      <div className="mt-3 space-y-2">
+        <Skeleton className="h-4 w-2/3 rounded-full bg-white/[0.07]" />
+        <Skeleton className="h-3 w-1/2 rounded-full bg-white/[0.05]" />
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <Skeleton className="h-8 rounded-lg bg-white/[0.05]" />
+          <Skeleton className="h-8 rounded-lg bg-white/[0.04]" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ProjectRowSkeleton() {
+  return (
+    <div className="grid w-full grid-cols-[minmax(0,1.35fr)_140px_160px_160px_80px] items-center px-4 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <Skeleton className="size-5 shrink-0 rounded-full bg-white/[0.06]" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <Skeleton className="h-3 w-2/3 rounded-full bg-white/[0.06]" />
+          <Skeleton className="h-2.5 w-1/2 rounded-full bg-white/[0.04]" />
+        </div>
+      </div>
+      <Skeleton className="h-5 w-16 rounded-full bg-white/[0.05]" />
+      <Skeleton className="h-4 w-24 rounded-full bg-white/[0.05]" />
+      <Skeleton className="h-4 w-24 rounded-full bg-white/[0.05]" />
+      <div className="flex justify-end">
+        <Skeleton className="h-8 w-8 rounded-lg bg-white/[0.05]" />
+      </div>
+    </div>
+  )
+}
+
 export default function ProjectsPage() {
   const router = useRouter()
 
@@ -85,6 +121,8 @@ export default function ProjectsPage() {
   const [latestExports, setLatestExports] = React.useState<Record<string, ProjectExport | null>>({})
   const [brokenPreviewIds, setBrokenPreviewIds] = React.useState<Record<string, true>>({})
   const [isLoading, setIsLoading] = React.useState(true)
+  const [showSlowLoader, setShowSlowLoader] = React.useState(false)
+  const [exportsRecovering, setExportsRecovering] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const [assetToDelete, setAssetToDelete] = React.useState<{ projectId: string; assetId: string } | null>(null)
@@ -121,7 +159,7 @@ export default function ProjectsPage() {
     } catch (err: any) {
       console.error('[PROJECTS_DOWNLOAD]', err)
       toast.error('Could not start download', {
-        description: err.message || 'An unexpected error occurred.',
+        description: normalizeUxError(err, 'export'),
       })
     } finally {
       setDownloadingExportId(null)
@@ -156,7 +194,7 @@ export default function ProjectsPage() {
     } catch (err: any) {
       console.error('[PROJECTS_RENAME]', err)
       toast.error('Could not rename project', {
-        description: err.message || 'An unexpected error occurred.',
+        description: normalizeUxError(err, 'project_action'),
       })
     } finally {
       setIsRenaming(false)
@@ -183,7 +221,7 @@ export default function ProjectsPage() {
     } catch (err: any) {
       console.error('[PROJECTS_REMOVE]', err)
       toast.error('Could not remove project', {
-        description: err.message || 'An unexpected error occurred.',
+        description: normalizeUxError(err, 'project_action'),
       })
     } finally {
       setIsRemoving(false)
@@ -215,7 +253,7 @@ export default function ProjectsPage() {
     } catch (err: any) {
       console.error('[PROJECTS_DELETE_ASSET]', err)
       toast.error('Could not delete file', {
-        description: err.message || 'An unexpected error occurred.',
+        description: normalizeUxError(err, 'project_action'),
       })
     } finally {
       setIsDeleting(false)
@@ -228,7 +266,11 @@ export default function ProjectsPage() {
 
     const loadProjects = async () => {
       setIsLoading(true)
+      setShowSlowLoader(false)
       setError(null)
+      const slowTimer = window.setTimeout(() => {
+        if (!isDisposed) setShowSlowLoader(true)
+      }, 3000)
 
       try {
         const res = await fetch('/api/projects', {
@@ -246,11 +288,16 @@ export default function ProjectsPage() {
         setProjects(Array.isArray(payload?.projects) ? payload.projects : [])
       } catch (err) {
         if (isDisposed || controller.signal.aborted) return
-        const message = err instanceof Error ? err.message : 'Unable to load projects'
+        const message = normalizeUxError(err, 'project_load')
         setError(message)
         setProjects([])
+        toast.error('Workspace recovery paused', { description: message })
       } finally {
-        if (!isDisposed) setIsLoading(false)
+        window.clearTimeout(slowTimer)
+        if (!isDisposed) {
+          setShowSlowLoader(false)
+          setIsLoading(false)
+        }
       }
     }
 
@@ -267,6 +314,10 @@ export default function ProjectsPage() {
 
     const fetchLatestExports = async () => {
       const results: Record<string, ProjectExport | null> = {}
+      let hadFailure = false
+      let slowTimer: number | null = window.setTimeout(() => {
+        setExportsRecovering(true)
+      }, 3000)
       
       // We do this in parallel but with a small delay or batching if needed
       // for 200 items, parallel is fine but let's be safe.
@@ -280,12 +331,21 @@ export default function ProjectsPage() {
             }
           } catch (err) {
             console.warn(`[PROJECTS_FETCH_EXPORT] Failed for ${project.id}`, err)
+            hadFailure = true
             results[project.id] = null
           }
         })
       )
 
       setLatestExports(results)
+      if (slowTimer !== null) window.clearTimeout(slowTimer)
+      slowTimer = null
+      setExportsRecovering(false)
+      if (hadFailure) {
+        toast.info('Some export status is delayed', {
+          description: 'Prometheus will keep the workspace usable while export metadata recovers.',
+        })
+      }
     }
 
     fetchLatestExports()
@@ -420,8 +480,32 @@ export default function ProjectsPage() {
             </div>
 
             {error ? (
-              <div className="mt-4 rounded-xl border border-rose-300/35 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-                {error}
+              <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl border border-rose-300/24 bg-[linear-gradient(180deg,rgba(244,63,94,0.12)_0%,rgba(244,63,94,0.05)_100%)] px-4 py-3 text-sm text-rose-100 shadow-[0_18px_44px_-34px_rgba(244,63,94,0.5)]">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-100/58">
+                    Workspace Recovery
+                  </div>
+                  <div className="mt-1 text-rose-50/88">{error}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                  className="shrink-0 rounded-full border-white/10 bg-white/[0.08] text-white hover:bg-white/[0.12]"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {showSlowLoader && !error ? (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white/68">
+                Rebuilding the workspace index from storage. The layout is reserved while media metadata catches up.
+              </div>
+            ) : null}
+            {exportsRecovering ? (
+              <div className="mt-4 rounded-2xl border border-[#7ff2d4]/18 bg-[#7ff2d4]/[0.06] px-4 py-3 text-sm text-[#c8fff2]/82">
+                Export status is still syncing. Project folders remain available while Prometheus reconnects metadata.
               </div>
             ) : null}
 
@@ -430,10 +514,7 @@ export default function ProjectsPage() {
               {isLoading ? (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={`loading-${index}`}
-                      className="h-[210px] animate-pulse rounded-[22px] border border-white/10 bg-white/[0.04]"
-                    />
+                    <ProjectCardSkeleton key={`loading-${index}`} />
                   ))}
                 </div>
               ) : isEmpty ? (
@@ -777,8 +858,12 @@ export default function ProjectsPage() {
                       </div>
                     )
                   })}
-                  {!isLoading && filteredProjects.length === 0 ? (
-                    <div className="px-4 py-8 text-sm text-white/56">No uploaded files yet.</div>
+                  {isLoading ? (
+                    Array.from({ length: 4 }).map((_, index) => <ProjectRowSkeleton key={`row-loading-${index}`} />)
+                  ) : filteredProjects.length === 0 ? (
+                    <div className="px-4 py-8 text-sm text-white/56">
+                      {isDataEmpty ? 'No uploaded projects yet. Start in the Studio to create your first source.' : 'No projects match this view.'}
+                    </div>
                   ) : null}
                 </div>
               </div>

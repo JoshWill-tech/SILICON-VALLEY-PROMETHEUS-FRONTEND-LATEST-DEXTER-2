@@ -20,11 +20,9 @@ export function RootClientEffects() {
   const pathname = usePathname()
   const isAuthRoute = AUTH_ROUTE_REGEX.test(pathname)
 
-  if (isAuthRoute) return null
-
   return (
     <>
-      <CinematicClickRipple />
+      {isAuthRoute ? null : <CinematicClickRipple />}
       <AppToaster />
     </>
   )

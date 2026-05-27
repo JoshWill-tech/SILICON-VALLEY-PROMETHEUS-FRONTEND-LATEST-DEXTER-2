@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       if (looksLikeEmailConfirmationError(error.message)) {
         return NextResponse.json(
           {
-            error: error.message,
+            error: getErrorMessage(error, 'Email confirmation required', 'verification'),
             requiresVerification: true,
           },
           { status: 403 },
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user, requiresVerification })
   } catch (err) {
-    const message = getErrorMessage(err, 'Login failed')
+    const message = getErrorMessage(err, 'Login failed', 'login')
     console.error('[api/auth/login] error', { ms: Date.now() - startedAt, message })
     return NextResponse.json({ error: message }, { status: 401 })
   }

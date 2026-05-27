@@ -964,7 +964,7 @@ export function CommandOverlayShell({
       />
 
       <motion.div
-        className="relative w-full max-w-5xl bg-[#111116]/85 backdrop-blur-3xl border border-white/20 rounded-[40px] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)] pointer-events-auto overflow-hidden ring-1 ring-white/10"
+        className="relative flex max-h-[min(78vh,52rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[40px] border border-white/20 bg-[#111116]/85 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/10 backdrop-blur-3xl pointer-events-auto"
         initial={{ y: 120, opacity: 0, scale: 0.94 }}
         animate={{ y: 0, opacity: 1, scale: 1 }}
         exit={{ y: 60, opacity: 0, scale: 0.97 }}
@@ -973,7 +973,7 @@ export function CommandOverlayShell({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(127,242,212,0.15)_0%,transparent_50%)]" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
         
-        <div className="relative p-8 sm:p-12">
+        <div className="relative min-h-0 overflow-y-auto overscroll-contain p-8 sm:p-12">
           {/* Header */}
           <div className="flex items-center justify-between mb-12">
             <div className="flex items-center gap-4">
@@ -1035,7 +1035,7 @@ export function CommandOverlayShell({
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder="e.g. Make this feel like a high-end tech commercial with fast cuts and punchy captions..."
-                        className="relative min-h-[200px] border-white/10 bg-white/[0.04] text-2xl italic tracking-tight text-white placeholder:text-white/10 focus:border-[#7ff2d4]/40 rounded-[32px] p-10 resize-none shadow-2xl transition-all"
+                        className="relative max-h-[min(34vh,20rem)] min-h-[200px] overflow-y-auto break-words rounded-[32px] border-white/10 bg-white/[0.04] p-10 text-2xl italic tracking-tight text-white shadow-2xl transition-all placeholder:text-white/10 focus:border-[#7ff2d4]/40 resize-none"
                         style={{ fontFamily: 'var(--font-newsreader), serif' }}
                         autoFocus
                       />
@@ -1495,7 +1495,7 @@ export function CommandOverlayShell({
                           value={optionalNotes}
                           onChange={(e) => setOptionalNotes(e.target.value)}
                           placeholder="e.g. Keep the captions on the left side, use more blue tones..."
-                          className="min-h-[220px] bg-white/[0.03] border-white/10 rounded-[32px] px-8 py-8 text-lg text-white placeholder:text-white/10 focus:border-[#7ff2d4]/30 outline-none resize-none shadow-2xl transition-all"
+                          className="max-h-[min(34vh,20rem)] min-h-[220px] overflow-y-auto break-words rounded-[32px] border-white/10 bg-white/[0.03] px-8 py-8 text-lg text-white shadow-2xl transition-all placeholder:text-white/10 focus:border-[#7ff2d4]/30 outline-none resize-none"
                         />
                       </div>
 

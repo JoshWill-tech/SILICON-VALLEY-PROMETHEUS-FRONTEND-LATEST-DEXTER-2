@@ -516,8 +516,8 @@ export function FloatingChatComposer({
           'pointer-events-auto relative origin-bottom overflow-visible bg-[linear-gradient(135deg,rgba(146,163,255,0.34)_0%,rgba(127,242,212,0.26)_38%,rgba(255,255,255,0.16)_68%,rgba(140,113,255,0.3)_100%)] p-[1px] transition-[height,width,border-radius,box-shadow] duration-300',
           isOpen
             ? isFrameAssistExpanded
-              ? 'h-[188px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
-              : 'h-[128px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
+              ? 'min-h-[188px] max-h-[min(62vh,26rem)] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
+              : 'min-h-[128px] max-h-[min(46vh,20rem)] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
             : isHandleHovered
               ? 'h-[74px] w-[min(20rem,calc(100vw-4rem))] rounded-[28px]'
               : 'h-14 w-14 rounded-full',
@@ -591,7 +591,7 @@ export function FloatingChatComposer({
             {isOpen ? (
               <motion.div
                 key="open-composer"
-                className="relative flex h-full flex-col px-4 py-3"
+                className="relative flex h-full min-h-0 flex-col px-4 py-3"
                 initial={reduceMotion ? false : { opacity: 0, y: 12, filter: 'blur(10px)' }}
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: 8, filter: 'blur(6px)' }}
@@ -664,7 +664,7 @@ export function FloatingChatComposer({
                   className="relative z-30 mt-2"
                 />
 
-                <div className="relative mt-2 flex-1 overflow-visible">
+                <div className="relative mt-2 min-h-[3.25rem] flex-1 overflow-hidden">
                   {!hasDraft ? (
                     <div className="pointer-events-none absolute inset-0 flex items-center overflow-hidden">
                       <div
@@ -716,7 +716,7 @@ export function FloatingChatComposer({
                     onKeyDown={handleComposerKeyDown}
                     placeholder=""
                     className={cn(
-                      'relative z-10 h-full w-full overflow-hidden bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
+                      'relative z-10 h-full w-full min-w-0 overflow-hidden bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
                     )}
                     style={{
                       fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
@@ -725,7 +725,7 @@ export function FloatingChatComposer({
                   />
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5 text-white/36">
                     <motion.button
                       type="button"

@@ -7,6 +7,8 @@ import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/client'
+import { normalizeUxError } from '@/lib/ux/errors'
+import { toast } from 'sonner'
 
 import { GoogleIcon, AppleIcon } from './auth-visuals'
 
@@ -30,6 +32,7 @@ export function SocialAuthButtons() {
   const searchParams = useSearchParams()
   const [busyProvider, setBusyProvider] = React.useState<SocialProvider | null>(null)
   const [serverError, setServerError] = React.useState<string | null>(null)
+  const [slowProvider, setSlowProvider] = React.useState<SocialProvider | null>(null)
 
   const nextPath = normalizeNextPath(searchParams.get('next'))
 
@@ -49,12 +52,21 @@ export function SocialAuthButtons() {
   const handleOAuth = React.useCallback(
     async (provider: SocialProvider) => {
       if (!SUPABASE_CLIENT_READY) {
-        setServerError('Supabase client env vars are missing. Add them to .env.local first.')
+        const message = 'Secure sign-in is temporarily unavailable. Use email sign-in while we reconnect identity providers.'
+        setServerError(message)
+        toast.error('Identity provider unavailable', { description: message })
         return
       }
 
       setBusyProvider(provider)
+      setSlowProvider(null)
       setServerError(null)
+      const slowTimer = window.setTimeout(() => {
+        setSlowProvider(provider)
+        toast.info('Still waiting on the provider', {
+          description: 'Keep this tab open while the secure identity handoff completes.',
+        })
+      }, 3000)
 
       try {
         const supabase = createClient()
@@ -79,8 +91,13 @@ export function SocialAuthButtons() {
           throw error
         }
       } catch (error) {
-        setServerError(error instanceof Error ? error.message : 'OAuth sign-in failed')
+        const message = normalizeUxError(error, 'oauth')
+        setServerError(message)
+        toast.error('Identity handoff paused', { description: message })
         setBusyProvider(null)
+        setSlowProvider(null)
+      } finally {
+        window.clearTimeout(slowTimer)
       }
     },
     [nextPath],
@@ -104,7 +121,7 @@ export function SocialAuthButtons() {
           }}
         >
           <Icon className="size-4 me-2" />
-          {busyProvider === provider ? 'Redirecting...' : label}
+          {busyProvider === provider ? (slowProvider === provider ? 'Still connecting...' : 'Redirecting...') : label}
         </Button>
       ))}
 

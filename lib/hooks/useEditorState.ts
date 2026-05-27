@@ -39,6 +39,7 @@ export interface EditorState {
   jobStatus: string | undefined
   dbJob: any
   jobError: string | null
+  jobConnectionState: string
   saveStatus: 'saved' | 'saving' | 'error'
   setSaveStatus: React.Dispatch<React.SetStateAction<'saved' | 'saving' | 'error'>>
   isEditorBootReady: boolean
@@ -155,7 +156,8 @@ export function useEditorState(): EditorState {
     progress: jobProgress, 
     status: jobStatus, 
     job: dbJob,
-    error: jobError 
+    error: jobError,
+    connectionState: jobConnectionState,
   } = useDurableJob(currentJobId)
 
   // Sync real-time job state
@@ -570,6 +572,7 @@ export function useEditorState(): EditorState {
     jobStatus,
     dbJob,
     jobError,
+    jobConnectionState,
     saveStatus,
     setSaveStatus,
     isEditorBootReady,

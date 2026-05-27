@@ -3,10 +3,12 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { LockIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 export function ResetPasswordForm() {
   const [password, setPassword] = React.useState('')
@@ -43,11 +45,16 @@ export function ResetPasswordForm() {
           }
 
           setSuccess(true)
+          toast.success('Password updated', {
+            description: 'Returning you to the workspace.',
+          })
           window.setTimeout(() => {
             window.location.assign('/')
           }, 700)
         } catch (error) {
-          setServerError(error instanceof Error ? error.message : 'Password reset failed')
+          const message = normalizeUxError(error, 'password_reset')
+          setServerError(message)
+          toast.error('Password update paused', { description: message })
         } finally {
           setSubmitting(false)
         }

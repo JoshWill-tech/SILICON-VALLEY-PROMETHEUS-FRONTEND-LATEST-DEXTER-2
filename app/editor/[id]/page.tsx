@@ -32,6 +32,7 @@ import { SecondaryPanel } from '@/components/editor/SecondaryPanel'
 import { FloatingChatComposer } from '@/components/editor/floating-chat-composer'
 import { CommandOverlayShell } from '@/components/editor/command-overlay-shell'
 import { DurableJobProgress } from '@/components/editor/durable-job-progress'
+import { CinematicErrorBoundary } from '@/components/error-boundaries/CinematicErrorBoundary'
 
 import { useSourceStage } from '@/hooks/use-source-stage'
 import { useViralClipJob } from '@/hooks/use-viral-clip-job'
@@ -65,6 +66,7 @@ import { compileEditBrief } from '@/lib/editorial-frame/edit-brief-compiler'
 import { formatSourceProfileMetric } from '@/lib/media/source-profile'
 import { setSessionSourcePreview } from '@/lib/source-preview-session'
 import { getStoredSourceAssetFile } from '@/lib/source-asset-store'
+import { normalizeUxError } from '@/lib/ux/errors'
 import { toast } from 'sonner'
 
 import type { 
@@ -91,6 +93,20 @@ const LEFT_TABS = [
   { key: 'assets' as LeftTabKey, label: 'Assets', icon: FolderOpen },
 ]
 
+const INLINE_SOURCE_MAX_BYTES = 3 * 1024 * 1024 * 1024
+
+function validateInlineSourceFile(file: File) {
+  if (!file.type.startsWith('video/')) {
+    return 'That file type is not supported here. Upload an MP4, MOV, or WEBM video.'
+  }
+
+  if (file.size > INLINE_SOURCE_MAX_BYTES) {
+    return 'That video is over the 3GB editor limit. Choose a smaller source for this workspace.'
+  }
+
+  return null
+}
+
 export default function EditorPage() {
   const editorState = useEditorState()
   const {
@@ -104,7 +120,7 @@ export default function EditorPage() {
     handleWorkspaceTabChange, handleTitleStartEdit, handleTitleSave, handleTitleKeyDown,
     handleBackNavigation, handleAiChatOpen, handleAiMusicOpen, handleAutoSave,
     handleAutoSaveAnimationPlan, handlePrepareExport, progressPercent,
-    currentJobId, jobStatus, jobError, jobProgress,
+    currentJobId, jobStatus, jobError, jobProgress, jobConnectionState,
     // Chat / Command Overlay
     chatDraft, setChatDraft, isComposerOpen, setIsComposerOpen,
     isCommandOverlayOpen, setIsCommandOverlayOpen, queuedPreviewRevision,
@@ -162,7 +178,7 @@ export default function EditorPage() {
 
   const showInlinePreviewStatus = hasPreviewMedia && inlinePreviewStatusVariant !== 'hidden'
   const isInlinePreviewStatusExpanded = inlinePreviewStatusVariant === 'expanded' || inlinePreviewStatusHovered
-  const inlinePreviewStatusLabel = sourceStageError ? sourceStageError : sourceStagePhase === 'staging_local_preview' ? 'Preparing the new source preview' : sourceStagePhase === 'persisting' ? 'Saving the source in the background' : null
+  const inlinePreviewStatusLabel = sourceStageError ? normalizeUxError(sourceStageError, 'upload') : sourceStagePhase === 'staging_local_preview' ? 'Preparing the new source preview' : sourceStagePhase === 'persisting' ? 'Saving the source in the background' : null
   const sourceMetrics = project?.sourceProfile ? formatSourceProfileMetric(project.sourceProfile) : null
   const visiblePreviewAspectRatio = showViralClipSplitPreview ? 2.24 : resolvedPreviewAspectRatio
   const previewFrameWidth = `min(100%, calc((clamp(250px, 40vh, 460px) - 2rem) * ${visiblePreviewAspectRatio.toFixed(4)}))`
@@ -214,6 +230,12 @@ export default function EditorPage() {
 
   const handleInlineSourceSelection = React.useCallback(async (files: File[]) => {
     const file = files[0]; if (!file || !project) return
+    const validationError = validateInlineSourceFile(file)
+    if (validationError) {
+      toast.error('Source rejected', { description: validationError })
+      return
+    }
+
     try {
       const stagedSource = await stageSourceFile(file, { allowedMediaKinds: ['video'] }); if (!stagedSource) return
       setSessionSourcePreview({ projectId, file, previewKind: stagedSource.previewKind ?? 'video', sourceAssetId: stagedSource.assetId })
@@ -237,7 +259,7 @@ export default function EditorPage() {
       toast.success('Source video uploaded')
     } catch (error) { 
       console.error('Failed to stage source:', error)
-      toast.error('Unable to stage video.') 
+      toast.error('Unable to stage video', { description: normalizeUxError(error, 'upload') })
     }
   }, [project, projectId, stageSourceFile, setProject, setPreviewCurrentTimeSec, setPreviewDurationSec, setPreviewIntrinsicAspectRatio, setPreviewFramePreset, setViralClipSplitPreviewActive, previewPlaybackIntentRef, previewPlaybackCommandRef])
 
@@ -288,7 +310,14 @@ export default function EditorPage() {
               <Toolbar activeWorkspaceTab={activeWorkspaceTab} clipModeActive={clipModeActive} viralClipTriggerBusy={viralClipTriggerBusy} onLockedHoverChange={setIsLockedViralClipTriggerHovered} onGenerateViralClips={handleGenerateViralClips} onOpenAiLamp={() => setIsAiLampOpen(true)} />
               <div className={cn('flex min-h-0 flex-1 flex-col px-4 py-3', activeWorkspaceTab === 'Music' ? 'overflow-hidden' : 'overflow-y-auto')}>
                 <MusicPanel activeWorkspaceTab={activeWorkspaceTab} editorMusicRecommendations={editorMusicRecommendations} project={project} selectedEditorMusicTrackId={selectedEditorMusicTrackId} onSelectTrack={handleEditorMusicTrackSelect} />
-                <PreviewCanvas projectId={projectId} project={project} job={job} activeWorkspaceTab={activeWorkspaceTab} hasSourceAsset={Boolean(project?.sourceAssetId)} hasPreviewMedia={Boolean(previewUrl)} clipModeActive={clipModeActive} sourceAssetLabel={sourceAssetLabel} previewOverlayPlan={previewOverlayPlan} previewCurrentTimeSec={previewCurrentTimeSec} showViralClipSplitPreview={showViralClipSplitPreview} viralClipSplitAnimationKey={viralClipSplitAnimationKey} previewUrl={previewUrl} previewKind={previewKind} previewPlaying={previewPlaying} shouldUseLegacySessionPreviewSurface={shouldUseLegacySessionPreviewSurface} previewFrameTransformStyle={previewFrameTransformStyle} fitMode={fitMode} currentSplitPreviewAssets={currentSplitPreviewAssets} isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered} isPreviewMuted={isPreviewMuted} isPreviewMediaReady={isPreviewMediaReady} isPreviewLoadingVisible={isPreviewLoadingVisible} isPreviewBriefGenerating={isPreviewBriefGenerating} showPreviewFeedback={showPreviewFeedback} showInlinePreviewStatus={showInlinePreviewStatus} sourceStageError={sourceStageError} inlinePreviewStatusLabel={inlinePreviewStatusLabel} isInlinePreviewStatusExpanded={isInlinePreviewStatusExpanded} isInlineSourceDragOver={isInlineSourceDragOver} visiblePreviewAspectRatio={visiblePreviewAspectRatio} previewFrameWidth={previewFrameWidth} musicSpotlightPortalRef={setMusicSpotlightPortalTarget} sourceFileInputRef={sourceFileInputRef} previewVideoRef={previewVideoRef} onInlineSourceFileInputChange={(e) => handleInlineSourceSelection(Array.from(e.target.files ?? []))} onRestoreLandscape={handleRestoreLandscapePreview} onPreviewImageLoaded={handlePreviewImageLoaded} onPreviewMetadataLoaded={handlePreviewMetadataLoaded} onPreviewVideoReady={handlePreviewVideoReady} onPreviewTimeUpdate={handlePreviewTimeUpdate} onPreviewEnded={handlePreviewEnded} onPreviewVideoPlay={handlePreviewVideoPlay} onPreviewVideoPause={handlePreviewVideoPause} onPreviewVideoError={handlePreviewVideoError} onTogglePreviewPlayback={togglePreviewPlayback} onSetIsPreviewBriefGenerating={setIsPreviewBriefGenerating} onSetShowPreviewFeedback={setShowPreviewFeedback} onSetInlinePreviewStatusHovered={setInlinePreviewStatusHovered} onPickSource={openInlineSourcePicker} onInlineSourceDragOver={(e) => { e.preventDefault(); setIsInlineSourceDragOver(true) }} onInlineSourceDragLeave={() => setIsInlineSourceDragOver(false)} onInlineSourceDrop={(e) => { e.preventDefault(); setIsInlineSourceDragOver(false); handleInlineSourceSelection(Array.from(e.dataTransfer.files ?? [])) }} />
+                <CinematicErrorBoundary
+                  scope="render"
+                  title="Preview renderer paused"
+                  description="The editor shell stayed online while the preview surface recovered."
+                  resetLabel="Retry preview"
+                >
+                  <PreviewCanvas projectId={projectId} project={project} job={job} activeWorkspaceTab={activeWorkspaceTab} hasSourceAsset={Boolean(project?.sourceAssetId)} hasPreviewMedia={Boolean(previewUrl)} clipModeActive={clipModeActive} sourceAssetLabel={sourceAssetLabel} previewOverlayPlan={previewOverlayPlan} previewCurrentTimeSec={previewCurrentTimeSec} showViralClipSplitPreview={showViralClipSplitPreview} viralClipSplitAnimationKey={viralClipSplitAnimationKey} previewUrl={previewUrl} previewKind={previewKind} previewPlaying={previewPlaying} shouldUseLegacySessionPreviewSurface={shouldUseLegacySessionPreviewSurface} previewFrameTransformStyle={previewFrameTransformStyle} fitMode={fitMode} currentSplitPreviewAssets={currentSplitPreviewAssets} isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered} isPreviewMuted={isPreviewMuted} isPreviewMediaReady={isPreviewMediaReady} isPreviewLoadingVisible={isPreviewLoadingVisible} isPreviewBriefGenerating={isPreviewBriefGenerating} showPreviewFeedback={showPreviewFeedback} showInlinePreviewStatus={showInlinePreviewStatus} sourceStageError={sourceStageError ? normalizeUxError(sourceStageError, 'upload') : null} inlinePreviewStatusLabel={inlinePreviewStatusLabel} isInlinePreviewStatusExpanded={isInlinePreviewStatusExpanded} isInlineSourceDragOver={isInlineSourceDragOver} visiblePreviewAspectRatio={visiblePreviewAspectRatio} previewFrameWidth={previewFrameWidth} musicSpotlightPortalRef={setMusicSpotlightPortalTarget} sourceFileInputRef={sourceFileInputRef} previewVideoRef={previewVideoRef} onInlineSourceFileInputChange={(e) => handleInlineSourceSelection(Array.from(e.target.files ?? []))} onRestoreLandscape={handleRestoreLandscapePreview} onPreviewImageLoaded={handlePreviewImageLoaded} onPreviewMetadataLoaded={handlePreviewMetadataLoaded} onPreviewVideoReady={handlePreviewVideoReady} onPreviewTimeUpdate={handlePreviewTimeUpdate} onPreviewEnded={handlePreviewEnded} onPreviewVideoPlay={handlePreviewVideoPlay} onPreviewVideoPause={handlePreviewVideoPause} onPreviewVideoError={handlePreviewVideoError} onTogglePreviewPlayback={togglePreviewPlayback} onSetIsPreviewBriefGenerating={setIsPreviewBriefGenerating} onSetShowPreviewFeedback={setShowPreviewFeedback} onSetInlinePreviewStatusHovered={setInlinePreviewStatusHovered} onPickSource={openInlineSourcePicker} onInlineSourceDragOver={(e) => { e.preventDefault(); setIsInlineSourceDragOver(true) }} onInlineSourceDragLeave={() => setIsInlineSourceDragOver(false)} onInlineSourceDrop={(e) => { e.preventDefault(); setIsInlineSourceDragOver(false); handleInlineSourceSelection(Array.from(e.dataTransfer.files ?? [])) }} />
+                </CinematicErrorBoundary>
                 <TimelinePanel activeWorkspaceTab={activeWorkspaceTab} previewKind={previewKind} previewUrl={previewUrl} previewPlaying={previewPlaying} transportCurrentTime={transportCurrentTime} transportTime={transportTime} transportProgress={transportProgress} isPreviewMuted={isPreviewMuted} project={project} bottomMode={bottomMode} onTogglePlayback={togglePreviewPlayback} onSeek={handlePreviewSeek} onToggleMute={() => setIsPreviewMuted(!isPreviewMuted)} onSetBottomMode={setBottomMode} />
               </div>
             </section>
@@ -365,6 +394,7 @@ export default function EditorPage() {
             progress={jobProgress}
             type="ai_enhancement"
             errorMessage={jobError}
+            connectionState={jobConnectionState as any}
             className="fixed bottom-24 right-6 z-50 w-[320px]"
           />
         </>,

@@ -63,6 +63,7 @@ import type { SourceProfile } from "@/lib/types";
 import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeUxError } from "@/lib/ux/errors";
 
 type AirtableImageArchiveResponse = {
     ok?: boolean;
@@ -85,6 +86,7 @@ const AIRTABLE_STYLE_PREVIEWS_SESSION_KEY = "prometheus.airtable-style-previews.
 const EDITOR_NAVIGATION_FALLBACK_DELAY_MS = 6000;
 const SHOULD_USE_EDITOR_NAVIGATION_FALLBACK = process.env.NODE_ENV === "production";
 const DISABLE_EDITOR_BILLING_GATE = process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE === "true";
+const STUDIO_SOURCE_MAX_BYTES = 3 * 1024 * 1024 * 1024;
 
 function waitForNextPaint() {
     if (typeof window === "undefined") {
@@ -398,6 +400,20 @@ type QueuedSourceUpload = {
 
 function detectUploadKind(file: File): PendingUploadKind {
     return detectSourceFileKind(file) as PendingUploadKind;
+}
+
+function validateStudioUpload(file: File) {
+    const kind = detectUploadKind(file);
+
+    if (kind !== "video") {
+        return "That file type is not supported in the Studio source dock. Upload an MP4, MOV, or WEBM video.";
+    }
+
+    if (file.size > STUDIO_SOURCE_MAX_BYTES) {
+        return "That video is over the 3GB Studio limit. Choose a smaller source for this workspace.";
+    }
+
+    return null;
 }
 
 const DEMO_FRAMES: DynamicFrame[] = [
@@ -1807,10 +1823,13 @@ export function VideoUploadInterface() {
             setUploadStatus('done');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            const userMessage = normalizeUxError(error, "upload");
             console.error(`[UploadFailure] Stage: ${currentStage}, Error:`, error);
             logUploadEvent('error', { stage: currentStage, error: errorMessage });
             setUploadStatus('error');
-            toast.error(`Failed at ${currentStage}: ${errorMessage}`);
+            toast.error('Upload handoff paused', {
+                description: userMessage,
+            });
 
             setEditorLaunchOverlay(null);
             submitLockRef.current = false;
@@ -1871,6 +1890,11 @@ export function VideoUploadInterface() {
     const handleUploadSelection = async (files: File[]) => {
         if (files.length === 0) return;
         const file = files[0]!;
+        const validationError = validateStudioUpload(file);
+        if (validationError) {
+            toast.error("Source rejected", { description: validationError });
+            return;
+        }
         const previewUrl = URL.createObjectURL(file);
         const kind = detectUploadKind(file);
         const inspectionRunId = uploadInspectionRunRef.current + 1;

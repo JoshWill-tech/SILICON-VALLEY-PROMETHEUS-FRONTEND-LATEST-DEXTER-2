@@ -291,11 +291,18 @@ export function useVideoEngine(
   React.useEffect(() => {
     let active = true
     let nextObjectUrl: string | null = null
+    let delayedLoaderTimer: number | null = null
 
     setPersistedPreviewUrl(null)
+    setIsPreviewMediaReady(false)
+    setIsPreviewLoadingVisible(false)
 
     const recoverPersistedSource = async () => {
       if (!project?.sourceAssetId) return
+
+      delayedLoaderTimer = window.setTimeout(() => {
+        if (active) setIsPreviewLoadingVisible(true)
+      }, 3000)
 
       try {
         const localUrl = await createSourceAssetObjectUrl(project.sourceAssetId)
@@ -308,6 +315,7 @@ export function useVideoEngine(
         if (localUrl) {
           nextObjectUrl = localUrl
           setPersistedPreviewUrl(localUrl)
+          setIsPreviewLoadingVisible(false)
           return
         }
 
@@ -321,6 +329,7 @@ export function useVideoEngine(
 
         if (cloudUrl) {
           setPersistedPreviewUrl(cloudUrl)
+          setIsPreviewLoadingVisible(false)
         } else {
           throw new Error('No cloud URL returned')
         }
@@ -331,6 +340,7 @@ export function useVideoEngine(
         if (project?.sourceAssetId) {
           setIsPreviewMediaReady(false)
         }
+        setIsPreviewLoadingVisible(false)
       }
     }
 
@@ -338,6 +348,9 @@ export function useVideoEngine(
 
     return () => {
       active = false
+      if (delayedLoaderTimer !== null) {
+        window.clearTimeout(delayedLoaderTimer)
+      }
       if (nextObjectUrl) {
         URL.revokeObjectURL(nextObjectUrl)
       }
