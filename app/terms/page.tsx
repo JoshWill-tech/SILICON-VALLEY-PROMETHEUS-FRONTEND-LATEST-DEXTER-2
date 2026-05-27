@@ -16,6 +16,9 @@ export default function TermsPage() {
     >
       <LegalSection title="1. Introduction and Agreement">
         <p>
+          These Terms &amp; Conditions constitute a legally binding agreement made between you and Prometheus AI (&apos;Company&apos;, &apos;we&apos;, &apos;us&apos;, or &apos;our&apos;), concerning your access to and use of the prometheusstudio.tech website and services.
+        </p>
+        <p>
           Welcome to Prometheus AI (&quot;Prometheus&quot;, &quot;we&quot;, &quot;our&quot;, or &quot;us&quot;). These Terms &amp; Conditions
           govern your access to and use of prometheusstudio.tech and our AI-powered cinematic content
           production infrastructure. By accessing or using our services, you agree to be bound by these

@@ -28,7 +28,7 @@ export function LandingHeader() {
 
         <nav className="hidden items-center gap-8 md:flex">
           <Link
-            href="/settings/billing"
+            href="/pricing"
             className="text-xs font-medium uppercase tracking-widest text-gray-400 transition-colors hover:text-white"
           >
             Pricing

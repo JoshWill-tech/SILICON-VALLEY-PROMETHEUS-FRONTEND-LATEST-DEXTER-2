@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 
 const FOOTER_LINKS = [
-  { href: '/terms', label: 'Terms' },
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/refund', label: 'Refund' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/terms', label: 'Terms & Conditions' },
+  { href: '/privacy', label: 'Privacy Policy' },
+  { href: '/refund', label: 'Refund Policy' },
 ]
 
 export function Footer() {
@@ -24,7 +25,7 @@ export function Footer() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-xs font-medium tracking-wider text-gray-400 transition-colors hover:text-white"
+              className="text-sm font-medium tracking-wider text-slate-400 transition-colors hover:text-white"
             >
               {link.label}
             </Link>

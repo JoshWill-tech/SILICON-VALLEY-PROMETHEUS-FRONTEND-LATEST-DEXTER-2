@@ -2050,7 +2050,7 @@ export function VideoUploadInterface() {
                             delay={0.28}
                             className="max-w-lg text-sm text-white/55"
                         >
-                            Prompt your project, attach sources, and shape the edit flow in one place.
+                            Prometheus AI: The enterprise-grade infrastructure platform for automated premium video editing and motion design.
                         </TextEffect>
                     </motion.div>
 
