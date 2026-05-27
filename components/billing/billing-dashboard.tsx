@@ -4,10 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { 
-  Check, 
   CreditCard, 
-  Info, 
-  Sparkles, 
   Zap, 
   Calendar, 
   ShieldCheck, 
@@ -15,23 +12,21 @@ import {
   ChevronRight,
   Wallet,
   Building2,
-  Users,
   History,
   XCircle,
   Loader2,
   Download,
   Database
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { initializePaddle, type Paddle } from '@paddle/paddle-js'
 
 import { PaddleCheckoutButton } from '@/components/billing/paddle-checkout-button'
+import { PremiumPricingPlans } from '@/components/premium-pricing-plans'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
@@ -44,9 +39,6 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 
-import {
-  BILLING_DASHBOARD_PATH,
-} from '@/lib/billing'
 import { BILLING_PLAN_DEFINITIONS, BILLING_PLAN_ORDER } from '@/lib/billing-plans'
 import { cn, formatBytes } from '@/lib/utils'
 import { useBillingData } from '@/hooks/use-billing-data'
@@ -264,113 +256,51 @@ export function BillingDashboard() {
 
       {/* 2. Pricing Plans Section */}
       <div className="space-y-8">
-        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-3xl font-bold tracking-tight text-white">Choose your plan</h2>
-            <p className="text-base text-white/40">Scale your production with predictable, high-value pricing.</p>
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div className="space-y-3 text-center md:text-left">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/36">
+              PRICING
+            </p>
+            <h2 className="text-3xl font-semibold text-white md:text-4xl">Choose your plan</h2>
+            <p className="max-w-2xl text-base leading-7 text-white/52">
+              Premium AI video infrastructure with monthly pricing, cloud-backed storage, and export-ready rendering workflows.
+            </p>
           </div>
-          
-          <Tabs defaultValue="monthly" className="w-auto">
-            <TabsList className="h-11 bg-white/5 p-1 border border-white/10 rounded-[14px]">
-              <TabsTrigger value="monthly" className="rounded-[10px] px-6 text-xs font-bold uppercase tracking-widest">Monthly</TabsTrigger>
-              <TabsTrigger value="yearly" className="rounded-[10px] px-6 text-xs font-bold uppercase tracking-widest">
-                Yearly <span className="ml-1 text-[10px] text-emerald-400">Save 20%</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="mx-auto rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-medium text-white/54 md:mx-0">
+            Monthly billing
+          </div>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {PLANS.map((plan) => {
+        <PremiumPricingPlans
+          compact
+          renderCta={(plan, context) => {
             const isCurrent = subscription?.plan_id === plan.id
-            
-            return (
-              <Card 
-                key={plan.id}
-                className={cn(
-                  "group relative flex flex-col border-white/10 bg-white/[0.02] transition-all duration-500 hover:bg-white/[0.03]",
-                  plan.featured ? "border-blue-500/30 ring-1 ring-blue-500/10" : "hover:border-white/20"
-                )}
-              >
-                {plan.featured && (
-                  <div className="absolute inset-x-0 -top-px flex justify-center">
-                    <div className="rounded-b-2xl bg-blue-600 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_4px_20px_rgba(37,99,235,0.4)]">
-                      Recommended
-                    </div>
-                  </div>
-                )}
-                
-                <CardHeader className="pt-10 space-y-6">
-                  <div className="space-y-2">
-                    <CardTitle className="text-2xl font-bold tracking-tight text-white">{plan.name}</CardTitle>
-                    <CardDescription className="text-[15px] text-white/40 leading-relaxed">Everything needed for professional output.</CardDescription>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-5xl font-bold tracking-tighter text-white">{plan.priceWhole}</span>
-                    <div className="flex flex-col">
-                       <span className="text-xl font-bold text-white/40 leading-none">{plan.priceFraction}</span>
-                       <span className="text-[11px] font-black uppercase tracking-widest text-white/20">{plan.monthlyLabel.replace('/', '').trim()}</span>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="flex-1 pb-10">
-                  <div className="mb-8 flex items-center gap-3 rounded-[20px] border border-white/5 bg-white/[0.03] p-4 group-hover:bg-white/[0.05] transition-colors">
-                    <div className="flex size-10 items-center justify-center rounded-[14px] bg-blue-500/20 text-blue-400">
-                      <Sparkles className="size-5" />
-                    </div>
-                    <div>
-                      <div className="text-[13px] font-bold text-white/90">{plan.creditsLabel}</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/20">Monthly limit</div>
-                    </div>
-                  </div>
-                  
-                  <ul className="space-y-5">
-                    {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-4">
-                        <div className="mt-1 flex size-5 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400/80">
-                          <Check className="size-3 stroke-[3]" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={cn(
-                            "text-[15px] leading-tight",
-                            feature.emphasized ? "font-bold text-white" : "text-white/60"
-                          )}>
-                            {feature.label}
-                          </p>
-                          {feature.hint && (
-                            <p className="mt-1 text-xs text-white/30 leading-normal">{feature.hint}</p>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-                
-                <CardFooter className="pt-0">
-                  {isCurrent ? (
-                    <Button disabled className="h-12 w-full rounded-[18px] border border-white/10 bg-white/5 text-[15px] font-bold text-white/20">
-                      Current Plan
-                    </Button>
-                  ) : plan.contactOnly ? (
-                    <Button asChild className="h-12 w-full rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_100%)] text-[15px] font-semibold text-white shadow-[0_2px_10px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] hover:border-white/25 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.04)_100%)] hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all">
-                      <a href="mailto:sales@prometheus.ai?subject=Inquiry: Cinema Plan">
-                        Contact Sales
-                      </a>
-                    </Button>
-                  ) : (
-                    <PaddleCheckoutButton 
-                      planId={plan.id} 
-                      nextPath={nextPath} 
-                      ctaLabel={hasAccess ? `Upgrade to ${plan.name}` : plan.ctaLabel} 
-                      className="rounded-[18px]"
-                    />
+
+            if (isCurrent) {
+              return (
+                <Button
+                  disabled
+                  aria-label={`Current plan: ${plan.name}`}
+                  className={cn(
+                    context.buttonClassName,
+                    'pointer-events-none border-white/10 bg-white/[0.045] text-white/34 shadow-none',
                   )}
-                </CardFooter>
-              </Card>
+                >
+                  Current Plan
+                </Button>
+              )
+            }
+
+            return (
+              <PaddleCheckoutButton
+                planId={plan.id}
+                nextPath={nextPath}
+                ctaLabel={context.ctaLabel}
+                className={context.buttonClassName}
+              />
             )
-          })}
-        </div>
+          }}
+        />
       </div>
 
       {/* 3. Actions & Payment Panel */}

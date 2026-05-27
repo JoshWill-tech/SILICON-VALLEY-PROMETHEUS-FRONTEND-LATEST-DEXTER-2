@@ -12,28 +12,32 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <PrometheusShell header={<LandingHeader />}>
-      <div className="relative min-h-screen overflow-hidden bg-[#07070a] px-4 py-28 text-white sm:px-6 lg:px-8">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-[10%] top-[-8rem] h-80 w-80 rounded-full bg-blue-500/10 blur-[140px]" />
-          <div className="absolute bottom-[-10rem] right-[12%] h-96 w-96 rounded-full bg-violet-500/10 blur-[150px]" />
-        </div>
+      <main className="relative isolate min-h-screen overflow-hidden bg-[#050505] px-4 pb-24 pt-28 text-white sm:px-6 lg:px-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,#050505_0%,#0b0b0d_42%,#0f0f11_100%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,102,241,0.16),transparent_46%),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.026)_1px,transparent_1px)] bg-[size:auto,72px_72px,72px_72px] opacity-80"
+        />
 
-        <div className="relative mx-auto max-w-6xl">
-          <div className="mb-12 max-w-3xl">
-            <p className="text-xs font-medium uppercase tracking-[0.32em] text-white/34">
-              Pricing
+        <div className="relative mx-auto max-w-[88rem]">
+          <header className="mx-auto mb-12 max-w-4xl text-center sm:mb-16">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/42">
+              PRICING
             </p>
-            <h1 className="mt-4 text-4xl font-medium tracking-tight text-white sm:text-6xl">
+            <h1 className="mt-5 text-4xl font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
               Premium video infrastructure, packaged for teams that ship.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-white/52 sm:text-lg">
+            <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-white/58 sm:text-lg">
               Choose a Prometheus AI plan for automated premium video editing, cinematic motion design, cloud-backed project storage, and export-ready rendering workflows.
             </p>
-          </div>
+          </header>
 
           <PricingSection />
         </div>
-      </div>
+      </main>
     </PrometheusShell>
   )
 }
