@@ -219,7 +219,7 @@ export function GlassUploadModalView({
                             <Upload className="h-5 w-5" />
                           </div>
                           <div className="mt-4 text-sm font-medium text-white">Drop video to stage it</div>
-                          <div className="mt-2 text-xs text-white/66">MP4, MOV, WEBM supported</div>
+                          <div className="mt-2 text-xs text-white/66">MP4, MOV, M4V, WEBM supported up to 10GB</div>
                           <Button
                             type="button"
                             variant="outline"

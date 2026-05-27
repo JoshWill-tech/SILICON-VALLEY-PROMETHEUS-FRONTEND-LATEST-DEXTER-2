@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * Upload verification plan:
+ * 1. Test a 50MB MP4 on fast WiFi. It should complete through R2 multipart upload with a smooth progress bar.
+ * 2. Test a 2GB MP4 on throttled "Slow 3G" in DevTools. It should upload in 50MB parts and retry failed parts without crashing the browser.
+ * 3. Test an MKV/AVI. It should reject immediately with a clear unsupported-format error before any R2 multipart session starts.
+ * 4. Test unplugging WiFi mid-upload. It should show the retrying state and retry the failed part with exponential backoff.
+ * 5. Test with expired/invalid auth. The UI should surface the exact 401/403 status and response body in console logs, not a generic upload failure.
+ */
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -64,6 +73,12 @@ import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeUxError } from "@/lib/ux/errors";
+import {
+    R2_MULTIPART_CLIENT_MAX_BYTES,
+    R2_MULTIPART_CLIENT_PART_SIZE,
+    uploadProjectSourceMultipart,
+    type MultipartUploadProgress,
+} from "@/lib/r2/multipart-client";
 
 type AirtableImageArchiveResponse = {
     ok?: boolean;
@@ -86,7 +101,7 @@ const AIRTABLE_STYLE_PREVIEWS_SESSION_KEY = "prometheus.airtable-style-previews.
 const EDITOR_NAVIGATION_FALLBACK_DELAY_MS = 6000;
 const SHOULD_USE_EDITOR_NAVIGATION_FALLBACK = process.env.NODE_ENV === "production";
 const DISABLE_EDITOR_BILLING_GATE = process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE === "true";
-const STUDIO_SOURCE_MAX_BYTES = 3 * 1024 * 1024 * 1024;
+const STUDIO_SOURCE_MAX_BYTES = R2_MULTIPART_CLIENT_MAX_BYTES;
 
 function waitForNextPaint() {
     if (typeof window === "undefined") {
@@ -378,7 +393,7 @@ interface PromptComposerProps {
     onOpenUpload: () => void;
     onRemoveAttachment: (index: number) => void;
     onSubmit: (payload: PromptComposerSubmitPayload) => boolean | Promise<boolean>;
-    uploadStatus: 'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error';
+    uploadStatus: UploadStatus;
     uploadProgress: number;
 }
 
@@ -398,22 +413,55 @@ type QueuedSourceUpload = {
     sourceProfile: SourceProfile | null;
 };
 
+type UploadStatus = 'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error';
+
 function detectUploadKind(file: File): PendingUploadKind {
     return detectSourceFileKind(file) as PendingUploadKind;
 }
 
 function validateStudioUpload(file: File) {
     const kind = detectUploadKind(file);
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const supportedVideoExtensions = new Set(["mp4", "mov", "webm", "m4v"]);
+    const supportedVideoMimeTypes = new Set(["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"]);
 
-    if (kind !== "video") {
-        return "That file type is not supported in the Studio source dock. Upload an MP4, MOV, or WEBM video.";
+    if (kind !== "video" || (!supportedVideoMimeTypes.has(file.type.toLowerCase()) && !supportedVideoExtensions.has(extension))) {
+        return "Unsupported format. Upload an MP4, MOV, M4V, or WEBM video.";
     }
 
     if (file.size > STUDIO_SOURCE_MAX_BYTES) {
-        return "That video is over the 3GB Studio limit. Choose a smaller source for this workspace.";
+        return "That video is over the 10GB Studio limit. Choose a smaller source for this workspace.";
     }
 
     return null;
+}
+
+function describeMultipartUploadProgress(progress: MultipartUploadProgress, fileName: string) {
+    const partLabel = progress.totalParts > 1
+        ? `Part ${Math.max(1, progress.currentPart)} of ${progress.totalParts}`
+        : "Single part";
+
+    if (progress.phase === "initiating") {
+        return "Preparing secure multipart upload channel...";
+    }
+
+    if (progress.phase === "retrying") {
+        return `Network timeout — retrying ${partLabel.toLowerCase()} for ${fileName}.`;
+    }
+
+    if (progress.phase === "completing") {
+        return "Finalizing uploaded parts in Cloudflare R2...";
+    }
+
+    if (progress.phase === "aborting") {
+        return "Cancelling incomplete upload and cleaning up R2 parts...";
+    }
+
+    if (progress.phase === "done") {
+        return "Upload complete. Registering asset metadata...";
+    }
+
+    return `Uploading ${fileName} (${progress.percentage}%) — ${partLabel}.`;
 }
 
 const DEMO_FRAMES: DynamicFrame[] = [
@@ -1299,9 +1347,11 @@ export function VideoUploadInterface() {
     } | null>(null);
     const [billingGateOpen, setBillingGateOpen] = useState(false);
 
-    const [uploadStatus, setUploadStatus] = useState<'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error'>('idle');
+    const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
     const [uploadProgress, setUploadProgress] = useState(0);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const [uploadPartLabel, setUploadPartLabel] = useState<string | null>(null);
+    const [uploadErrorDetail, setUploadErrorDetail] = useState<string | null>(null);
 
     const logAuthEvent = (event: string, detail?: any) => {
         console.error('[AUTH_AUDIT]', event, detail);
@@ -1593,149 +1643,53 @@ export function VideoUploadInterface() {
                     detail: "Preparing secure upload channel...",
                 });
 
-                // 1. Request presigned R2 upload URL
-                currentStage = 'R2_UPLOAD_URL';
-                const uploadUrlRes = await fetch(`/api/projects/${project.id}/upload-url`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filename: selectedSourceFile.name,
-                        mimeType: selectedSourceFile.type,
-                        sizeBytes: selectedSourceFile.size,
-                        assetId: resolvedSourceAssetId,
-                    }),
+                currentStage = 'R2_MULTIPART_UPLOAD';
+                const abortController = new AbortController();
+                abortControllerRef.current = abortController;
+                setUploadProgress(0);
+                setUploadErrorDetail(null);
+                setUploadPartLabel(null);
+
+                const multipartResult = await uploadProjectSourceMultipart({
+                    assetId: resolvedSourceAssetId,
+                    file: selectedSourceFile,
+                    projectId: project.id,
+                    signal: abortController.signal,
+                    onProgress: (progress) => {
+                        const nextStatus: UploadStatus =
+                            progress.phase === 'initiating'
+                                ? 'presigning'
+                                : progress.phase === 'retrying'
+                                    ? 'retrying'
+                                    : progress.phase === 'aborting'
+                                        ? 'paused'
+                                        : progress.phase === 'done'
+                                            ? 'done'
+                                            : 'uploading';
+                        const partLabel = progress.totalParts > 1
+                            ? `Uploading part ${Math.max(1, progress.currentPart)} of ${progress.totalParts}`
+                            : `Uploading ${formatFileSize(selectedSourceFile.size)}`;
+                        const detail = describeMultipartUploadProgress(progress, selectedSourceFile.name);
+
+                        logUploadEvent(progress.phase, {
+                            bytesUploaded: progress.bytesUploaded,
+                            currentPart: progress.currentPart,
+                            percentage: progress.percentage,
+                            totalParts: progress.totalParts,
+                        });
+                        setUploadStatus(nextStatus);
+                        setUploadProgress(progress.percentage);
+                        setUploadPartLabel(partLabel);
+                        setEditorLaunchOverlay({
+                            title: launchProjectTitle,
+                            detail,
+                        });
+                    },
                 });
 
-                if (!uploadUrlRes.ok) {
-                    const errorData = await uploadUrlRes.json().catch(() => ({}));
-                    throw new Error(errorData.error || `HTTP ${uploadUrlRes.status} from upload-url`);
-                }
-
-                const { asset: uploadAsset, upload } = await uploadUrlRes.json();
+                const uploadAsset = multipartResult.asset;
                 cloudAssetId = uploadAsset.id;
-
-                setEditorLaunchOverlay({
-                    title: launchProjectTitle,
-                    detail: `Uploading ${selectedSourceFile.name} to Cloudflare R2...`,
-                });
-
-                // 2. Upload the actual source file to R2 using the returned PUT URL
-                currentStage = 'R2_PUT';
-                
-                const performDirectUpload = (attempt: number): Promise<void> => {
-                    return new Promise((resolve, reject) => {
-                        const status = attempt > 0 ? 'retrying' : 'uploading';
-                        logUploadEvent(status, { attempt });
-                        setUploadStatus(status);
-                        
-                        const xhr = new XMLHttpRequest();
-                        const abortController = new AbortController();
-                        abortControllerRef.current = abortController;
-
-                        xhr.upload.onprogress = (event) => {
-                            if (event.lengthComputable) {
-                                const progress = Math.round((event.loaded / event.total) * 100);
-                                setUploadProgress(progress);
-                                setEditorLaunchOverlay({
-                                    title: launchProjectTitle,
-                                    detail: `Uploading ${selectedSourceFile.name} (${progress}%)...`,
-                                });
-                            }
-                        };
-
-                        xhr.onload = () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                                logUploadEvent('done');
-                                setUploadStatus('done');
-                                resolve();
-                            } else {
-                                reject(new Error(`HTTP ${xhr.status}`));
-                            }
-                        };
-
-                        xhr.onerror = () => reject(new Error('Network error'));
-                        xhr.onabort = () => reject(new Error('Aborted'));
-
-                        xhr.open('PUT', upload.url);
-                        xhr.setRequestHeader('Content-Type', selectedSourceFile.type);
-                        xhr.send(selectedSourceFile);
-                        
-                        abortController.signal.addEventListener('abort', () => xhr.abort());
-                    });
-                };
-
-                const performProxyUpload = (attempt: number): Promise<void> => {
-                    return new Promise((resolve, reject) => {
-                        const status = attempt > 0 ? 'retrying' : 'uploading';
-                        logUploadEvent(status, { attempt, mode: 'proxy' });
-                        setUploadStatus(status);
-
-                        const xhr = new XMLHttpRequest();
-                        const abortController = new AbortController();
-                        abortControllerRef.current = abortController;
-
-                        xhr.upload.onprogress = (event) => {
-                            if (event.lengthComputable) {
-                                const progress = Math.round((event.loaded / event.total) * 100);
-                                setUploadProgress(progress);
-                                setEditorLaunchOverlay({
-                                    title: launchProjectTitle,
-                                    detail: `Uploading ${selectedSourceFile.name} via secure fallback (${progress}%)...`,
-                                });
-                            }
-                        };
-
-                        xhr.onload = () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                                logUploadEvent('done', { mode: 'proxy' });
-                                setUploadStatus('done');
-                                resolve();
-                            } else {
-                                reject(new Error(`HTTP ${xhr.status}`));
-                            }
-                        };
-
-                        xhr.onerror = () => reject(new Error('Proxy upload network error'));
-                        xhr.onabort = () => reject(new Error('Aborted'));
-
-                        xhr.open('POST', `/api/projects/${project.id}/upload-source`);
-                        xhr.setRequestHeader('Content-Type', selectedSourceFile.type || 'application/octet-stream');
-                        xhr.setRequestHeader('x-asset-id', uploadAsset.id);
-                        xhr.setRequestHeader('x-file-name', encodeURIComponent(selectedSourceFile.name));
-                        xhr.setRequestHeader('x-mime-type', selectedSourceFile.type || 'application/octet-stream');
-                        xhr.setRequestHeader('x-file-size', String(selectedSourceFile.size));
-                        xhr.send(selectedSourceFile);
-
-                        abortController.signal.addEventListener('abort', () => xhr.abort());
-                    });
-                };
-
-                const retryWithBackoff = async (fn: (attempt: number) => Promise<void>, maxRetries: number) => {
-                    for (let i = 0; i <= maxRetries; i++) {
-                        try {
-                            await fn(i);
-                            return;
-                        } catch (err) {
-                            if (i === maxRetries) throw err;
-                            const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
-                            logUploadEvent('error', { attempt: i, delay, error: err instanceof Error ? err.message : String(err) });
-                            setUploadStatus('retrying');
-                            await new Promise(r => setTimeout(r, delay));
-                        }
-                    }
-                };
-
-                try {
-                    await retryWithBackoff(performDirectUpload, 0);
-                } catch (directUploadError) {
-                    console.warn('[video-upload] Direct R2 upload failed, switching to proxy upload', directUploadError);
-                    setEditorLaunchOverlay({
-                        title: launchProjectTitle,
-                        detail: 'Direct upload failed. Retrying through the secure server channel...',
-                    });
-                    currentStage = 'R2_PROXY_PUT';
-                    await retryWithBackoff(performProxyUpload, 1);
-                }
+                abortControllerRef.current = null;
 
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
@@ -1823,10 +1777,32 @@ export function VideoUploadInterface() {
             setUploadStatus('done');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                console.info('[UploadCancelled] R2 multipart upload aborted by user.');
+                logUploadEvent('cancelled', { stage: currentStage });
+                setUploadStatus('paused');
+                setUploadPartLabel('Upload cancelled');
+                setUploadErrorDetail(null);
+                setEditorLaunchOverlay(null);
+                submitLockRef.current = false;
+                clearPendingEditorNavigation();
+                if (submitCooldownTimerRef.current !== null) {
+                    window.clearTimeout(submitCooldownTimerRef.current);
+                    submitCooldownTimerRef.current = null;
+                }
+                if (launchNavigationTimerRef.current !== null) {
+                    window.clearTimeout(launchNavigationTimerRef.current);
+                    launchNavigationTimerRef.current = null;
+                }
+                return false;
+            }
+
             const userMessage = normalizeUxError(error, "upload");
             console.error(`[UploadFailure] Stage: ${currentStage}, Error:`, error);
             logUploadEvent('error', { stage: currentStage, error: errorMessage });
             setUploadStatus('error');
+            setUploadErrorDetail(errorMessage);
+            setUploadPartLabel(null);
             toast.error('Upload handoff paused', {
                 description: userMessage,
             });
@@ -1886,6 +1862,23 @@ export function VideoUploadInterface() {
         setSourceUrl("");
         setIsSourceDragOver(false);
     };
+
+    const cancelActiveUpload = useCallback(() => {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        setUploadStatus('paused');
+        setUploadPartLabel('Upload cancelled');
+        setEditorLaunchOverlay(null);
+        submitLockRef.current = false;
+        clearPendingEditorNavigation();
+        if (launchNavigationTimerRef.current !== null) {
+            window.clearTimeout(launchNavigationTimerRef.current);
+            launchNavigationTimerRef.current = null;
+        }
+        toast.message('Upload cancelled', {
+            description: 'Prometheus aborted the multipart upload and cleaned up incomplete R2 parts.',
+        });
+    }, []);
 
     const handleUploadSelection = async (files: File[]) => {
         if (files.length === 0) return;
@@ -2944,6 +2937,43 @@ export function VideoUploadInterface() {
                                 subtitle={editorLaunchOverlay.detail}
                                 className="w-full"
                             />
+                            {(uploadStatus === 'presigning' || uploadStatus === 'uploading' || uploadStatus === 'retrying' || uploadStatus === 'paused') ? (
+                                <div className="mt-6 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+                                    <div className="flex items-center justify-between gap-4 text-xs text-white/62">
+                                        <span>
+                                            {uploadPartLabel ?? `Chunk size ${formatFileSize(R2_MULTIPART_CLIENT_PART_SIZE)}`}
+                                        </span>
+                                        <span className="font-semibold text-white">{uploadProgress}%</span>
+                                    </div>
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                                        <motion.div
+                                            className="h-full rounded-full bg-[#6366f1] shadow-[0_0_26px_rgba(99,102,241,0.55)]"
+                                            animate={{ width: `${Math.max(0, Math.min(100, uploadProgress))}%` }}
+                                            transition={{ duration: 0.25, ease: "easeOut" }}
+                                        />
+                                    </div>
+                                    {uploadStatus === 'retrying' ? (
+                                        <div className="mt-3 text-xs text-[#c7d2fe]">
+                                            Network timeout — retrying the failed chunk.
+                                        </div>
+                                    ) : null}
+                                    <div className="pointer-events-auto mt-4 flex justify-center">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-9 rounded-full border-white/12 bg-transparent px-4 text-xs text-white/72 hover:bg-white/[0.08] hover:text-white"
+                                            onClick={cancelActiveUpload}
+                                        >
+                                            Cancel Upload
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : null}
+                            {uploadStatus === 'error' && uploadErrorDetail ? (
+                                <div className="mt-5 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                                    {uploadErrorDetail}
+                                </div>
+                            ) : null}
                         </motion.div>
                     </motion.div>
                 ) : null}
