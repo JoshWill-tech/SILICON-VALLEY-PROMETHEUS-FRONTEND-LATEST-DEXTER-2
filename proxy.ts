@@ -5,6 +5,7 @@ import { normalizeNextPath } from '@/lib/auth/redirect'
 import { getSupabaseConfig, isSupabaseConfigured } from '@/lib/supabase/config'
 
 const AUTH_PAGE_PREFIXES = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password', '/auth']
+const PUBLIC_ROUTES = ['/', '/pricing', '/terms', '/privacy', '/refund']
 const PROTECTED_PREFIXES = [
   '/',
   '/dashboard',
@@ -35,6 +36,7 @@ function shouldBypassAuth(req: NextRequest) {
 }
 
 function isPublicPath(pathname: string) {
+  if (PUBLIC_ROUTES.includes(pathname)) return true
   if (pathname.startsWith('/api')) return true
   if (pathname.startsWith('/_next')) return true
   if (pathname === '/favicon.ico') return true
@@ -48,11 +50,11 @@ function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
-function redirectToLogin(req: NextRequest) {
+function redirectToSignup(req: NextRequest) {
   const url = req.nextUrl.clone()
   const nextPath = normalizeNextPath(`${req.nextUrl.pathname}${req.nextUrl.search}`)
 
-  url.pathname = '/login'
+  url.pathname = '/signup'
   url.search = ''
 
   if (nextPath !== '/') {
@@ -78,7 +80,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!isSupabaseConfigured()) {
-    return redirectToLogin(request)
+    return redirectToSignup(request)
   }
 
   let response = NextResponse.next({
@@ -114,7 +116,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set('Cache-Control', 'private, no-store')
 
   if (!user) {
-    return redirectToLogin(request)
+    return redirectToSignup(request)
   }
 
   return response
