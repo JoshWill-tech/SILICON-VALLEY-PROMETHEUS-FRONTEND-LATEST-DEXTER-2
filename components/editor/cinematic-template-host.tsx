@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { PremiumLoader } from '@/components/ui/premium-loader'
+import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
 import { cn } from '@/lib/utils'
 import type { CinematicTemplateAsset, ExplainerCue } from '@/lib/types'
 
@@ -66,7 +66,7 @@ export function CinematicTemplateHost({
         />
       ) : (
         <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_58%)] text-center">
-          <PremiumLoader label="Loading explainer" message="Preparing the selected template." size="sm" variant="inline" />
+          <Hero3DGeometricLoader label="Loading explainer" message="Preparing the selected template." size="sm" variant="inline" />
         </div>
       )}
     </div>

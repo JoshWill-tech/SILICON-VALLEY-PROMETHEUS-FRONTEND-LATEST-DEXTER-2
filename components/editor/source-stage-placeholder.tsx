@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
 
-import { PremiumLoader } from '@/components/ui/premium-loader'
+import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { cn } from '@/lib/utils'
 
@@ -83,7 +83,7 @@ export function SourceStagePlaceholder({
   if (isLoading) {
     return (
       <div className="flex h-full min-h-[clamp(250px,40vh,460px)] w-full items-center justify-center rounded-[18px] border border-white/10 bg-[#07070a]">
-        <PremiumLoader
+        <Hero3DGeometricLoader
           label="Restoring source preview"
           message="Rebuilding the media stage inside the editor."
           variant="inline"

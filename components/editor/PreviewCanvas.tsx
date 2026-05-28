@@ -7,7 +7,7 @@ import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-r
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
 import { PreviewGenerationState } from '@/components/editor/preview-generation-state'
 import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell'
-import { PremiumLoader } from '@/components/ui/premium-loader'
+import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { cn } from '@/lib/utils'
 import type {
@@ -266,7 +266,7 @@ export function PreviewCanvas({
 
                         {!isPreviewMediaReady && isPreviewLoadingVisible ? (
                           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                            <PremiumLoader
+                            <Hero3DGeometricLoader
                               label="Loading source preview"
                               message="Preparing the visible video surface."
                               variant="inline"
@@ -395,7 +395,7 @@ function BriefPipelineProgress({
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 px-8 backdrop-blur-sm">
-      <PremiumLoader
+      <Hero3DGeometricLoader
         label={isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
         message={
           isTranscribing

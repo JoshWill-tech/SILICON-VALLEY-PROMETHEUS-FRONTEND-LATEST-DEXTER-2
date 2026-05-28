@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Button } from '@/components/ui/button'
-import { PremiumLoader } from '@/components/ui/premium-loader'
+import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
 import {
   Dialog,
   DialogContent,
@@ -1088,7 +1088,7 @@ function ProjectCard({
           ) : (
             <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0)_52%),linear-gradient(165deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.02)_68%)]">
               {status === 'processing' ? (
-                <PremiumLoader
+                <Hero3DGeometricLoader
                   label="Loading..."
                   message="AI task processing this project."
                   size="sm"

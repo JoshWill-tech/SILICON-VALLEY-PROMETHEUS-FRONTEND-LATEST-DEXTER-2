@@ -148,26 +148,6 @@
   }
 }
 
-@keyframes editor-infinity-head {
-  0% {
-    stroke-dashoffset: 0;
-  }
-
-  100% {
-    stroke-dashoffset: -100;
-  }
-}
-
-@keyframes editor-infinity-tail {
-  0% {
-    stroke-dashoffset: -6;
-  }
-
-  100% {
-    stroke-dashoffset: -106;
-  }
-}
-
 @layer base {
   html,
   body {
@@ -203,48 +183,6 @@
 }
 
 @layer components {
-  .editor-infinity-backdrop {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(circle at center, rgba(124, 77, 255, 0.16) 0%, rgba(124, 77, 255, 0.08) 24%, rgba(0, 0, 0, 0) 62%),
-      radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 54%);
-    filter: blur(26px);
-    opacity: 0.92;
-    pointer-events: none;
-  }
-
-  .editor-infinity-outline,
-  .editor-infinity-tail,
-  .editor-infinity-head {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .editor-infinity-outline {
-    stroke: rgba(255, 255, 255, 0.16);
-    stroke-width: 7;
-  }
-
-  .editor-infinity-tail {
-    stroke: rgba(124, 77, 255, 0.8);
-    stroke-width: 7;
-    stroke-dasharray: 26 74;
-    animation: editor-infinity-tail 1.7s linear infinite;
-    will-change: stroke-dashoffset;
-  }
-
-  .editor-infinity-head {
-    stroke: rgba(255, 255, 255, 0.98);
-    stroke-width: 7;
-    stroke-dasharray: 12 88;
-    animation: editor-infinity-head 1.7s linear infinite;
-    will-change: stroke-dashoffset;
-  }
-
   .glass-surface {
     border: 1px solid var(--glass-border);
     background: var(--glass-fill);
@@ -439,11 +377,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .editor-infinity-tail,
-    .editor-infinity-head {
-      animation: none !important;
-    }
-
     [data-slot='button'] {
       transition: none;
     }

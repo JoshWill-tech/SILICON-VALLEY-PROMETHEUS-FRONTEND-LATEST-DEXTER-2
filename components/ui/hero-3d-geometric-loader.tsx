@@ -9,6 +9,8 @@ type Hero3DGeometricLoaderProps = {
   className?: string
   label?: string
   message?: string
+  size?: 'sm' | 'md' | 'lg'
+  variant?: 'screen' | 'panel' | 'inline'
 }
 
 type ThreeModule = typeof import('three')
@@ -22,6 +24,25 @@ const SHARD_LAYOUT = [
   { x: 0.52, y: 0.96, z: 0.08, rx: 0.78, ry: 0.2, rz: -0.24, scale: 0.3 },
   { x: 0.0, y: -1.26, z: -0.3, rx: -1.1, ry: 0.12, rz: 0.06, scale: 0.24 },
 ] as const
+
+const ROOT_VARIANT_CLASS_NAMES = {
+  screen: 'min-h-dvh bg-[#000000] px-6 py-12',
+  panel:
+    'min-h-[clamp(14rem,34vh,26rem)] rounded-[24px] border border-white/10 bg-[#000000] px-6 py-8 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)]',
+  inline: 'min-h-[clamp(9rem,24vh,15rem)] bg-[#000000] px-4 py-5',
+} as const
+
+const TEXT_SIZE_CLASS_NAMES = {
+  sm: 'text-[clamp(1.75rem,14vw,3.4rem)]',
+  md: 'text-[clamp(2.4rem,10vw,6rem)]',
+  lg: 'text-[clamp(3rem,11vw,10rem)]',
+} as const
+
+const FALLBACK_SIZE_CLASS_NAMES = {
+  sm: 'h-[clamp(7rem,22vw,12rem)] w-[clamp(7rem,22vw,12rem)]',
+  md: 'h-[clamp(9rem,25vw,16rem)] w-[clamp(9rem,25vw,16rem)]',
+  lg: 'h-[clamp(10rem,28vw,21rem)] w-[clamp(10rem,28vw,21rem)]',
+} as const
 
 function supportsWebGL() {
   if (typeof window === 'undefined') return false
@@ -157,7 +178,7 @@ function createHeroAsset(THREE: ThreeModule) {
   return { group, geometries, materials }
 }
 
-function FallbackGeometry({ visible }: { visible: boolean }) {
+function FallbackGeometry({ size, visible }: { size: NonNullable<Hero3DGeometricLoaderProps['size']>; visible: boolean }) {
   return (
     <div
       aria-hidden
@@ -166,7 +187,7 @@ function FallbackGeometry({ visible }: { visible: boolean }) {
         visible ? 'opacity-100' : 'opacity-0',
       )}
     >
-      <div className="relative h-[clamp(10rem,28vw,21rem)] w-[clamp(10rem,28vw,21rem)]">
+      <div className={cn('relative', FALLBACK_SIZE_CLASS_NAMES[size])}>
         <div className="absolute inset-[18%] rotate-45 bg-[linear-gradient(135deg,rgba(255,255,255,0.18),rgba(20,24,30,0.92)_28%,rgba(0,0,0,0.98)_70%,rgba(181,209,238,0.18))] shadow-[0_0_44px_rgba(190,220,255,0.12)] [clip-path:polygon(50%_0%,92%_28%,82%_82%,50%_100%,18%_82%,8%_28%)]" />
         <div className="absolute left-[22%] top-[18%] h-16 w-16 -rotate-12 bg-[linear-gradient(135deg,rgba(255,255,255,0.14),rgba(8,10,14,0.96))] [clip-path:polygon(50%_0%,100%_100%,0%_76%)]" />
         <div className="absolute bottom-[20%] right-[18%] h-14 w-14 rotate-12 bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(7,9,12,0.98))] [clip-path:polygon(50%_0%,100%_100%,0%_76%)]" />
@@ -179,6 +200,8 @@ export function Hero3DGeometricLoader({
   className,
   label = 'Loading...',
   message = 'Preparing the workspace.',
+  size = 'lg',
+  variant = 'screen',
 }: Hero3DGeometricLoaderProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [webglFailed, setWebglFailed] = React.useState(false)
@@ -414,8 +437,9 @@ export function Hero3DGeometricLoader({
     <section
       ref={rootRef}
       className={cn(
-        'relative isolate min-h-dvh overflow-hidden bg-[#000000] text-white',
-        'flex items-center justify-center px-6 py-12',
+        'relative isolate overflow-hidden text-white',
+        'flex items-center justify-center',
+        ROOT_VARIANT_CLASS_NAMES[variant],
         className,
       )}
       role="status"
@@ -441,7 +465,10 @@ export function Hero3DGeometricLoader({
       >
         <p
           ref={textRef}
-          className="select-none text-center font-sans text-[clamp(3rem,11vw,10rem)] font-light leading-none tracking-normal text-white/[0.58]"
+          className={cn(
+            'select-none text-center font-sans font-light leading-none tracking-normal text-white/[0.58]',
+            TEXT_SIZE_CLASS_NAMES[size],
+          )}
           style={{
             fontFamily: 'var(--font-ui)',
             textShadow: '0 0 34px rgba(210, 226, 244, 0.16)',
@@ -458,7 +485,7 @@ export function Hero3DGeometricLoader({
       />
 
       <div ref={fallbackRef}>
-        <FallbackGeometry visible={webglFailed} />
+        <FallbackGeometry size={size} visible={webglFailed} />
       </div>
 
       <div

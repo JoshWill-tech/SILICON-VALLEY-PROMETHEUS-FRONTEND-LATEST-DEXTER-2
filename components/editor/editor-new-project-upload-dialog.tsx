@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 import { GlassUploadModalView } from '@/components/ui/glass-upload-modal-view'
-import { PremiumLoader } from '@/components/ui/premium-loader'
+import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import {
@@ -387,7 +387,7 @@ export function EditorNewProjectUploadDialog({ open, onOpenChange }: EditorNewPr
               transition={{ duration: 0.2 }}
             >
               <div className="w-full max-w-[620px]">
-                <PremiumLoader
+                <Hero3DGeometricLoader
                   label={uploadStatus === 'error' ? 'Upload paused' : 'Loading...'}
                   message={uploadMessage ?? 'Preparing your video for the editor.'}
                   size="lg"
