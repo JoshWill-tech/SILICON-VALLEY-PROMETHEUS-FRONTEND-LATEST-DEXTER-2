@@ -717,11 +717,13 @@ export function MusicTabPanel({
   projectTitle,
   selectedTrackId,
   onSelectTrack,
+  variant = 'desktop',
 }: {
   tracks: MusicRecommendation[]
   projectTitle: string
   selectedTrackId: string | null
   onSelectTrack: (track: MusicRecommendation) => void
+  variant?: 'desktop' | 'mobile'
 }) {
   const reduceMotion = useStableReducedMotion()
   const [catalogTracks, setCatalogTracks] = React.useState<MusicRecommendation[]>([])
@@ -920,6 +922,149 @@ export function MusicTabPanel({
           <TextReveal as="p" text="Prometheus will surface the song picker once the edit context is ready." delay={0.12} className="mt-2 max-w-[36rem] text-sm leading-6 text-white/52" />
         </div>
       </section>
+    )
+  }
+
+  if (variant === 'mobile') {
+    return (
+      <motion.section
+        key="mobile-editor-music-tab-panel"
+        aria-label={`${projectTitle} mobile soundtrack selector`}
+        initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+        animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2, ease: chamberEase }}
+        className="premium-ambient-panel premium-vignette-surface editorial-light-effect relative flex h-full min-h-[34rem] w-full flex-col overflow-hidden rounded-[24px] border border-white/8 bg-black pb-28"
+      >
+        <style>{`
+          @keyframes music-eq {
+            from { transform: scaleY(0.38); opacity: 0.58; }
+            to { transform: scaleY(1); opacity: 1; }
+          }
+        `}</style>
+        <LuxuryVignette tone="music" />
+
+        {selectedSong ? (
+          <div className="pointer-events-none absolute -left-16 top-0 h-px w-px overflow-hidden opacity-0" aria-hidden>
+            <MusicPlayer
+              albumArt={selectedSong.artwork || FALLBACK_COVER_ART}
+              albumArtPosition={selectedSong.artworkPosition}
+              songTitle={selectedSong.title}
+              artistName={selectedSong.metadataLine}
+              audioSrc={selectedSong.audioSrc}
+              isMuted={isMuted}
+              seekRequest={seekRequest}
+              isPlaying={playingTrackId === selectedSong.id}
+              onProgressChange={setPlayerProgress}
+              onPlayingChange={(nextPlaying) => {
+                setPlayingTrackId(nextPlaying ? selectedSong.id : null)
+              }}
+              onPrevious={({ shuffle }) => handlePlayerStep('previous', { shuffle })}
+              onNext={({ shuffle }) => handlePlayerStep('next', { shuffle })}
+              canPrevious={(filteredTracks.length || displayTracks.length) > 1}
+              canNext={(filteredTracks.length || displayTracks.length) > 1}
+              className="h-px w-px"
+            />
+          </div>
+        ) : null}
+
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 p-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-12 w-full rounded-[18px] border border-white/16 bg-white/[0.06] pl-10 pr-10 text-[16px] text-white/90 outline-none transition-colors placeholder:text-white/42 focus:border-[#6366f1]/70 focus:ring-2 focus:ring-[#6366f1]/20"
+              placeholder="Search title, artist, or album"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                aria-label="Clear music search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-white/42 transition-all duration-150 ease-out hover:bg-white/[0.06] hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="rounded-[20px] border border-white/10 bg-white/[0.035] p-2">
+            <div className="mb-2 flex items-center justify-between px-1 text-xs text-white/48">
+              <span>{selectedTrackIds.size ? `${selectedTrackIds.size} selected` : 'Select tracks to compare'}</span>
+              <span>{filteredTracks.length} songs</span>
+            </div>
+            <Button
+              type="button"
+              disabled={!selectedTrackIds.size || isAutoMatching}
+              onClick={() => void handleAutoMatch()}
+              className="h-11 w-full border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out hover:border-[#818cf8] hover:bg-[#5558e8] hover:shadow-[0_0_34px_rgba(99,102,241,0.42)] disabled:border-white/10 disabled:bg-white/[0.05] disabled:text-white/42 disabled:shadow-none"
+            >
+              {isAutoMatching ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {isAutoMatching ? 'Analyzing compatibility...' : 'AI Auto-Match'}
+            </Button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="space-y-2 pb-4">
+              {catalogLoading && !visibleTracks.length ? (
+                <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
+                  <div>
+                    <Loader2 className="mx-auto size-5 animate-spin text-white/50" />
+                    <div className="mt-3 text-sm text-white/52">Loading catalog</div>
+                  </div>
+                </div>
+              ) : null}
+              {visibleTracks.map((track) => (
+                <CatalogTrackRow
+                  key={track.id}
+                  track={track}
+                  artBroken={Boolean(brokenArtworkIds[track.id])}
+                  isFocused={focusedTrack?.id === track.id}
+                  isPlaying={playingTrackId === track.id}
+                  isSelected={selectedTrackIds.has(track.id)}
+                  onArtworkError={() => setBrokenArtworkIds((current) => ({ ...current, [track.id]: true }))}
+                  onFocus={() => handleTrackPlayPause(track)}
+                  onPlayPause={() => handleTrackPlayPause(track)}
+                  onToggleSelected={() => toggleMultiSelect(track.id)}
+                />
+              ))}
+              {!catalogLoading && !filteredTracks.length ? (
+                <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center">
+                  <div>
+                    <div className="text-base font-medium text-white/78">No soundtracks found</div>
+                    <div className="mt-2 text-sm text-white/42">Try a different song, artist, or soundtrack phrase.</div>
+                  </div>
+                </div>
+              ) : null}
+              {filteredTracks.length > visibleTrackCount ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="mt-2 h-11 w-full"
+                  onClick={() => setVisibleTrackCount((current) => current + VISIBLE_TRACK_INCREMENT)}
+                >
+                  Load more
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <NowPlayingBar
+          track={currentPlayerTrack}
+          isPlaying={Boolean(currentPlayerTrack && playingTrackId === currentPlayerTrack.id)}
+          isMuted={isMuted}
+          currentTime={playerProgress.currentTime}
+          duration={playerProgress.duration || currentPlayerTrack?.durationSec || 0}
+          onMuteToggle={() => setIsMuted((current) => !current)}
+          onPlayPause={() => {
+            if (!currentPlayerTrack) return
+            handleTrackPlayPause(currentPlayerTrack)
+          }}
+          onSeek={(time) => setSeekRequest({ time, token: Date.now() })}
+        />
+      </motion.section>
     )
   }
 

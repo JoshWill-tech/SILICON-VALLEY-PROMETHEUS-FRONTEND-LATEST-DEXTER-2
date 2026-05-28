@@ -141,6 +141,9 @@ type PreviewMediaKind = 'video' | 'image'
 type PreviewFitMode = 'fill' | 'fit'
 type BottomMode = 'Original' | 'Music' | 'Timeline'
 type PreviewFramePreset = OutputProfile
+type MobileEditorTabKey = 'status' | 'music' | 'chat' | 'versions' | 'export'
+type MobileExportQuality = 'draft' | 'standard' | 'max'
+type MobileExportFormat = 'mp4' | 'mov'
 type SessionPreviewState = {
   sourceKey: string
   url: string
@@ -683,6 +686,14 @@ const WORKSPACE_TABS: Array<{ key: HeaderNavMode; label: string; icon: React.Com
   { key: 'Motion', label: 'Motion', icon: Sparkles },
 ]
 
+const MOBILE_EDITOR_TABS: Array<{ key: MobileEditorTabKey; label: string }> = [
+  { key: 'status', label: 'Status' },
+  { key: 'music', label: 'Music' },
+  { key: 'chat', label: 'Chat' },
+  { key: 'versions', label: 'Versions' },
+  { key: 'export', label: 'Export' },
+]
+
 const QUICK_ACTIONS = [
   { label: 'Edit this video', icon: PenSquare },
   { label: 'Generate rough cuts', icon: Wand2 },
@@ -793,6 +804,61 @@ function msToTime(ms: number) {
   const seconds = Math.floor(safe / 1000)
   const minutes = Math.floor(seconds / 60)
   return `${minutes}:${`${seconds % 60}`.padStart(2, '0')}`
+}
+
+function useMediaQuery(query: string) {
+  const subscribe = React.useCallback(
+    (onStoreChange: () => void) => {
+      if (typeof window === 'undefined') return () => undefined
+      const mediaQueryList = window.matchMedia(query)
+      mediaQueryList.addEventListener('change', onStoreChange)
+      return () => mediaQueryList.removeEventListener('change', onStoreChange)
+    },
+    [query],
+  )
+  const getSnapshot = React.useCallback(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia(query).matches
+  }, [query])
+
+  return React.useSyncExternalStore(subscribe, getSnapshot, () => false)
+}
+
+function formatMobileBytes(bytes: number | undefined | null) {
+  if (!bytes || bytes <= 0) return 'Unknown size'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+function formatMobileDate(value: string | undefined | null) {
+  if (!value) return 'Not finished yet'
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+function getMobileEditorStatus({
+  hasSourceAsset,
+  job,
+}: {
+  hasSourceAsset: boolean
+  job: ProcessingJob | null
+}) {
+  if (!hasSourceAsset) return 'Waiting for video'
+  if (job?.status === 'running') return 'Processing'
+  if (job?.status === 'failed') return 'Needs attention'
+  if (job?.status === 'completed') return 'Ready'
+  return 'Ready to edit'
+}
+
+function getActiveJobStep(job: ProcessingJob | null) {
+  if (!job?.steps.length) return null
+  return job.steps.find((step) => step.progress < 1) ?? job.steps[job.steps.length - 1] ?? null
 }
 
 function buildAssistantReply({
@@ -4308,10 +4374,400 @@ function SecondaryPanel({
   )
 }
 
+type MobileEditorViewProps = {
+  project: Project | null
+  projectId: string
+  projectTitle: string
+  statusLabel: string
+  saveStatus: 'saved' | 'saving' | 'error'
+  job: ProcessingJob | null
+  progressPercent: number
+  sourceMetrics: ReturnType<typeof formatSourceProfileMetric> | null
+  previewUrl: string
+  previewKind: PreviewMediaKind
+  hasPreviewMedia: boolean
+  sourceLabel: string
+  musicTracks: MusicRecommendation[]
+  selectedMusicTrackId: string | null
+  videoContext: MusicVideoContext
+  initialPrompt: string
+  initialSources: string[]
+  latestExport: ProjectExport | null
+  isExporting: boolean
+  isDownloading: boolean
+  clipRelayState: ClipRelayState | null
+  automationRequest: ComposerAutomationRequest | null
+  onBack: () => void
+  onSelectMusicTrack: (track: MusicRecommendation) => void
+  onEditRequest: (request: { prompt: string; styleTemplate: StyleTemplate }) => void
+  onSave: (editorState: any) => Promise<void>
+  onStartExport: (options?: { quality: MobileExportQuality; format: MobileExportFormat }) => void
+  onDownloadLatest: () => void
+}
+
+function MobileEditorView({
+  project,
+  projectId,
+  projectTitle,
+  statusLabel,
+  saveStatus,
+  job,
+  progressPercent,
+  sourceMetrics,
+  previewUrl,
+  previewKind,
+  hasPreviewMedia,
+  sourceLabel,
+  musicTracks,
+  selectedMusicTrackId,
+  videoContext,
+  initialPrompt,
+  initialSources,
+  latestExport,
+  isExporting,
+  isDownloading,
+  clipRelayState,
+  automationRequest,
+  onBack,
+  onSelectMusicTrack,
+  onEditRequest,
+  onSave,
+  onStartExport,
+  onDownloadLatest,
+}: MobileEditorViewProps) {
+  const reduceMotion = useStableReducedMotion()
+  const [activeTab, setActiveTab] = React.useState<MobileEditorTabKey>('status')
+  const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
+  const [exportQuality, setExportQuality] = React.useState<MobileExportQuality>('standard')
+  const [exportFormat, setExportFormat] = React.useState<MobileExportFormat>('mp4')
+  const mobilePreviewVideoRef = React.useRef<HTMLVideoElement | null>(null)
+  const activeJobStep = getActiveJobStep(job)
+  const isJobRunning = job?.status === 'running'
+  const exportDate = formatMobileDate(latestExport?.completedAt ?? latestExport?.updatedAt ?? latestExport?.createdAt)
+  const exportSize = formatMobileBytes(latestExport?.fileSizeBytes)
+
+  const openNativeVideoPlayer = React.useCallback(() => {
+    const video = mobilePreviewVideoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
+    if (!video) return
+
+    video.controls = true
+    video.muted = false
+    void video.play().catch(() => undefined)
+
+    if (typeof video.webkitEnterFullscreen === 'function') {
+      video.webkitEnterFullscreen()
+      return
+    }
+
+    if (typeof video.requestFullscreen === 'function') {
+      void video.requestFullscreen().catch(() => undefined)
+    }
+  }, [])
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'music':
+        return (
+          <div className="h-full min-h-0">
+            <MusicTabPanel
+              tracks={musicTracks}
+              projectTitle={projectTitle}
+              selectedTrackId={selectedMusicTrackId}
+              onSelectTrack={onSelectMusicTrack}
+              variant="mobile"
+            />
+          </div>
+        )
+      case 'chat':
+        return (
+          <div className="mobile-chat-panel relative h-full min-h-0 overflow-hidden rounded-[24px] border border-white/8 bg-[#101116]">
+            <style>{`
+              .mobile-chat-panel .whitespace-pre-wrap {
+                background: linear-gradient(135deg, #ffffff 0%, #d6fff7 42%, #c7d2fe 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+              }
+            `}</style>
+            <ChatWorkspacePanel
+              key={`mobile-chat-${projectId}`}
+              projectId={projectId}
+              projectTitle={projectTitle}
+              initialPrompt={initialPrompt}
+              initialSources={initialSources}
+              videoContext={videoContext}
+              composerPortalTarget={chatComposerPortal}
+              automationRequest={automationRequest}
+              clipRelayState={clipRelayState}
+              musicSpotlightPortalTarget={null}
+              onEditRequest={onEditRequest}
+              initialEditorState={project?.editorState}
+              onSave={onSave}
+            />
+            <div ref={setChatComposerPortal} className="absolute inset-x-3 bottom-3 z-40" />
+          </div>
+        )
+      case 'versions':
+        return (
+          <div className="h-full overflow-y-auto rounded-[24px] border border-white/8 bg-[#101116] p-3">
+            {latestExport ? (
+              <div className="flex min-h-[96px] gap-3 rounded-[20px] border border-white/10 bg-white/[0.035] p-3">
+                <div
+                  className="h-20 w-28 shrink-0 rounded-[14px] border border-white/10 bg-black bg-cover bg-center"
+                  style={previewUrl ? { backgroundImage: `url(${previewUrl})` } : undefined}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-white">{latestExport.preset || 'Latest export'}</div>
+                  <div className="mt-1 text-xs text-white/48">{exportDate}</div>
+                  <div className="mt-1 text-xs text-white/48">{exportSize}</div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3 w-full"
+                    disabled={latestExport.status !== 'completed' || isDownloading}
+                    onClick={onDownloadLatest}
+                  >
+                    {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    Download
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[18rem] items-center justify-center text-center">
+                <div>
+                  <div className="text-base font-medium text-white/78">No exports yet</div>
+                  <div className="mt-2 text-sm leading-6 text-white/44">Start an export when this cut is ready to share.</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      case 'export':
+        return (
+          <div className="h-full overflow-y-auto rounded-[24px] border border-white/8 bg-[#101116] p-4">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-white/40">Quality</div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {(['draft', 'standard', 'max'] as const).map((quality) => (
+                <button
+                  key={quality}
+                  type="button"
+                  onClick={() => setExportQuality(quality)}
+                  className={cn(
+                    'h-11 rounded-[16px] border text-sm capitalize transition-colors',
+                    exportQuality === quality
+                      ? 'border-[#6366f1]/60 bg-[#6366f1]/18 text-white'
+                      : 'border-white/10 bg-white/[0.035] text-white/56',
+                  )}
+                >
+                  {quality}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 text-[11px] uppercase tracking-[0.24em] text-white/40">Format</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(['mp4', 'mov'] as const).map((format) => (
+                <button
+                  key={format}
+                  type="button"
+                  onClick={() => setExportFormat(format)}
+                  className={cn(
+                    'h-11 rounded-[16px] border text-sm uppercase transition-colors',
+                    exportFormat === format
+                      ? 'border-[#6366f1]/60 bg-[#6366f1]/18 text-white'
+                      : 'border-white/10 bg-white/[0.035] text-white/56',
+                  )}
+                >
+                  {format}
+                </button>
+              ))}
+            </div>
+
+            <Button
+              type="button"
+              disabled={isExporting}
+              onClick={() => onStartExport({ quality: exportQuality, format: exportFormat })}
+              className="mt-6 h-12 w-full border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)]"
+            >
+              {isExporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {isExporting ? 'Starting export' : 'Start Export'}
+            </Button>
+
+            {(isExporting || latestExport?.status === 'processing' || latestExport?.status === 'pending') ? (
+              <div className="mt-5 rounded-[18px] border border-white/10 bg-white/[0.035] p-3">
+                <div className="flex items-center justify-between text-xs text-white/50">
+                  <span>Export progress</span>
+                  <span>{latestExport?.status ?? 'queued'}</span>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-2/5 rounded-full bg-[#6366f1]" />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )
+      case 'status':
+      default:
+        return (
+          <div className="h-full overflow-y-auto rounded-[24px] border border-white/8 bg-[#101116] p-4">
+            {isJobRunning ? (
+              <div className="rounded-[20px] border border-[#6366f1]/28 bg-[#6366f1]/12 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-white">{activeJobStep?.title ?? activeJobStep?.key ?? 'AI task running'}</div>
+                    <div className="mt-1 truncate text-xs text-white/52">{activeJobStep?.status ?? 'Processing'}</div>
+                  </div>
+                  <div className="text-sm text-white/72">{progressPercent}%</div>
+                </div>
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full rounded-full bg-[#6366f1]" style={{ width: `${Math.max(4, progressPercent)}%` }} />
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-3 grid gap-2">
+              {[
+                ['Duration', sourceMetrics?.duration ?? 'Unknown duration'],
+                ['Resolution', sourceMetrics?.resolution ?? 'Unknown resolution'],
+                ['File size', sourceMetrics?.fileSize ?? 'Unknown file size'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-4 rounded-[16px] border border-white/8 bg-white/[0.03] px-3 py-3">
+                  <span className="text-xs text-white/42">{label}</span>
+                  <span className="truncate text-sm text-white/78">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-[20px] border border-white/8 bg-white/[0.025] p-4">
+              <div className="text-sm font-medium text-white/82">Open on Desktop</div>
+              <p className="mt-2 text-sm leading-6 text-white/46">For full editing power, switch to a desktop device.</p>
+            </div>
+          </div>
+        )
+    }
+  }
+
+  return (
+    <div className="relative h-[100dvh] overflow-hidden bg-[#07070a] text-white">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(84,69,126,0.22)_0%,rgba(84,69,126,0.08)_26%,rgba(7,7,10,0)_58%),linear-gradient(180deg,rgba(16,14,24,0.78)_0%,rgba(7,7,10,1)_44%)]"
+      />
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        <header className="shrink-0 border-b border-white/8 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="Back to projects"
+              className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/76"
+            >
+              <ArrowLeft className="size-4" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold text-white">{projectTitle}</div>
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-white/42">
+                {saveStatus === 'saving' ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                {saveStatus === 'saving' ? 'Saving' : saveStatus === 'error' ? 'Save issue' : 'Saved'}
+              </div>
+            </div>
+            <div className="max-w-[8rem] truncate rounded-full border border-emerald-400/18 bg-emerald-400/8 px-3 py-1.5 text-[11px] text-emerald-100">
+              {statusLabel}
+            </div>
+          </div>
+        </header>
+
+        <main className="flex min-h-0 flex-1 flex-col">
+          <section className="shrink-0 px-4 py-3">
+            <div className="relative aspect-video max-h-[40vh] w-full overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]">
+              {hasPreviewMedia && previewKind === 'video' ? (
+                <>
+                  <video
+                    ref={mobilePreviewVideoRef}
+                    src={previewUrl}
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full bg-black object-contain"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Play video fullscreen"
+                    onClick={openNativeVideoPlayer}
+                    className="absolute inset-0 grid place-items-center bg-black/18"
+                  >
+                    <span className="grid size-14 place-items-center rounded-full border border-white/18 bg-black/44 text-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.95)] backdrop-blur-md">
+                      <Play className="ml-1 size-6 fill-current" />
+                    </span>
+                  </button>
+                </>
+              ) : hasPreviewMedia ? (
+                <div
+                  className="h-full w-full bg-black bg-contain bg-center bg-no-repeat"
+                  style={{ backgroundImage: `url(${previewUrl})` }}
+                  role="img"
+                  aria-label={`${projectTitle} preview`}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center px-6 text-center">
+                  <div>
+                    <Loader2 className={cn('mx-auto size-6 text-white/38', !reduceMotion && 'animate-spin')} />
+                    <div className="mt-3 text-sm font-medium text-white/76">Video processing</div>
+                    <div className="mt-1 text-xs text-white/42">{sourceLabel}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <nav className="shrink-0 overflow-x-auto border-b border-white/8 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex min-w-max gap-5">
+              {MOBILE_EDITOR_TABS.map((tab) => {
+                const active = activeTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    aria-current={active ? 'page' : undefined}
+                    className={cn(
+                      'relative h-11 text-sm font-medium transition-colors',
+                      active ? 'text-white' : 'text-white/46',
+                    )}
+                  >
+                    {tab.label}
+                    {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[#6366f1]" /> : null}
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
+
+          <section className="min-h-0 flex-1 overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeTab}
+                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full min-h-0"
+              >
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
+          </section>
+        </main>
+      </div>
+    </div>
+  )
+}
+
 export default function EditorPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const projectId = params.id
+  const isMobile = useMediaQuery('(max-width: 1024px)')
 
   const [project, setProject] = React.useState<Project | null>(null)
   const [job, setJob] = React.useState<ProcessingJob | null>(null)
@@ -4734,6 +5190,10 @@ export default function EditorPage() {
 
     router.push('/')
   }, [projectId, router])
+
+  const handleMobileBackNavigation = React.useCallback(() => {
+    router.push('/projects')
+  }, [router])
 
   const totalDurationMs = React.useMemo(() => {
     const scenes = job?.artifacts.scenes ?? []
@@ -5259,22 +5719,32 @@ export default function EditorPage() {
     viralClipStatusMessage,
   ])
 
-  const handlePrepareExport = React.useCallback(async () => {
+  const handlePrepareExport = React.useCallback(async (options?: { quality: MobileExportQuality; format: MobileExportFormat }) => {
     if (isExporting) return
 
     setIsExporting(true)
     try {
+      const exportPayload = options
+        ? {
+            preset: options.quality,
+            metadata: {
+              source: 'editor_mobile_export',
+              quality: options.quality,
+              format: options.format,
+            },
+          }
+        : {
+            preset: 'default',
+            metadata: {
+              source: 'editor_prepare_export',
+            },
+          }
       const res = await fetch(`/api/projects/${projectId}/exports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          preset: 'default',
-          metadata: {
-            source: 'editor_prepare_export',
-          },
-        }),
+        body: JSON.stringify(exportPayload),
       })
 
       const payload = await res.json().catch(() => ({}))
@@ -5847,6 +6317,41 @@ export default function EditorPage() {
           />
         )
     }
+  }
+
+  if (isMobile) {
+    return (
+      <MobileEditorView
+        project={project}
+        projectId={projectId}
+        projectTitle={project?.title ?? 'Untitled Project'}
+        statusLabel={getMobileEditorStatus({ hasSourceAsset, job })}
+        saveStatus={saveStatus}
+        job={job}
+        progressPercent={progressPercent}
+        sourceMetrics={sourceMetrics}
+        previewUrl={previewUrl}
+        previewKind={previewKind}
+        hasPreviewMedia={hasPreviewMedia}
+        sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
+        musicTracks={editorMusicRecommendations}
+        selectedMusicTrackId={selectedEditorMusicTrackId}
+        videoContext={videoContext}
+        initialPrompt={promptText}
+        initialSources={sourceList}
+        latestExport={latestExport}
+        isExporting={isExporting}
+        isDownloading={isDownloading}
+        clipRelayState={clipRelayState}
+        automationRequest={composerAutomationRequest}
+        onBack={handleMobileBackNavigation}
+        onSelectMusicTrack={handleEditorMusicTrackSelect}
+        onEditRequest={handleEditRequest}
+        onSave={handleAutoSave}
+        onStartExport={handlePrepareExport}
+        onDownloadLatest={handleConfirmDownload}
+      />
+    )
   }
 
   return (
