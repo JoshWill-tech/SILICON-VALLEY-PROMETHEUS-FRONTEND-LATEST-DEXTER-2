@@ -37,12 +37,14 @@ export async function GET(request: Request) {
     const rawPlanId = customData?.planId
     const planId = isBillingPlanId(rawPlanId) ? rawPlanId : null
     const subscriptionId = transaction.subscriptionId ?? null
+    const priceId = transaction.items?.[0]?.price?.id ?? null
 
     return NextResponse.json({
       id: transaction.id,
       status: transaction.status,
       paymentStatus: transaction.status === 'completed' ? 'paid' : transaction.status,
       planId,
+      priceId,
       customerEmail: user.email ?? null,
       subscriptionId,
     })

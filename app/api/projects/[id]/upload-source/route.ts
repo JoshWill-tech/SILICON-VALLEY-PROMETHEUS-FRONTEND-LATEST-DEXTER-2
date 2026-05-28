@@ -3,10 +3,8 @@ import { Readable } from 'node:stream'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { NextResponse } from 'next/server'
 
-import { ProjectService } from '@/lib/projects/service'
 import { r2Client } from '@/lib/r2/client'
-import { R2Keys } from '@/lib/r2/keys'
-import { createClient } from '@/lib/supabase/server'
+import { requireProjectSourceUploadContext } from '@/lib/r2/project-source-multipart'
 
 export async function POST(
   req: Request,
@@ -24,39 +22,35 @@ export async function POST(
       return NextResponse.json({ error: 'Missing upload payload or metadata' }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const context = await requireProjectSourceUploadContext(projectId, {
+      assetId: providedAssetId,
+      contentType: mimeType,
+      filename,
+      sizeBytes: sizeBytesHeader,
+    })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if ('error' in context) {
+      return NextResponse.json({ error: context.error }, { status: context.status })
     }
-
-    const project = await ProjectService.getProject(projectId)
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    const bucket = process.env.R2_BUCKET_SOURCES || 'prometheus-sources'
-    const objectKey = R2Keys.sourceAsset(user.id, projectId, providedAssetId, filename)
 
     await r2Client.send(
       new PutObjectCommand({
-        Bucket: bucket,
-        Key: objectKey,
+        Bucket: context.bucket,
+        Key: context.key,
         Body: Readable.fromWeb(req.body as unknown as NodeReadableStream),
-        ContentType: mimeType,
+        ContentType: context.contentType,
       }),
     )
 
     return NextResponse.json({
       asset: {
-        id: providedAssetId,
+        id: context.assetId,
         projectId,
         storageProvider: 'r2',
-        bucket,
-        objectKey,
-        mimeType,
-        sizeBytes: sizeBytesHeader ? Number(sizeBytesHeader) : undefined,
+        bucket: context.bucket,
+        objectKey: context.key,
+        mimeType: context.contentType,
+        sizeBytes: context.sizeBytes,
       },
     })
   } catch (err) {

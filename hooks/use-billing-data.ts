@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getStorageLimit, getStorageTierFromPlan } from '@/lib/storage-limits'
 
 export type SubscriptionData = {
   status: string
@@ -32,7 +33,12 @@ export type InvoiceData = {
 
 export function useBillingData() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
-  const [usage, setUsage] = useState<UsageData>({ renders: 0, renderLimit: 0, storageBytes: 0, storageLimit: 0 })
+  const [usage, setUsage] = useState<UsageData>({
+    renders: 0,
+    renderLimit: 10,
+    storageBytes: 0,
+    storageLimit: getStorageLimit('free'),
+  })
   const [invoices, setInvoices] = useState<InvoiceData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +50,12 @@ export function useBillingData() {
       
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
+        setUsage({
+          renders: 0,
+          renderLimit: 10,
+          storageBytes: 0,
+          storageLimit: getStorageLimit('free'),
+        })
         setIsLoading(false)
         return
       }
@@ -77,20 +89,19 @@ export function useBillingData() {
       const totalBytes = assets.reduce((acc, asset) => acc + (asset.size_bytes || 0), 0)
 
       // 4. Limits based on plan
-      const planLimits: Record<string, { renders: number; storage: number }> = {
-        creator: { renders: 400, storage: 50 * 1024 * 1024 * 1024 }, // 50GB
-        studio: { renders: 5000, storage: 500 * 1024 * 1024 * 1024 }, // 500GB
-        cinema: { renders: 30000, storage: 2 * 1024 * 1024 * 1024 * 1024 }, // 2TB
-        free: { renders: 10, storage: 1 * 1024 * 1024 * 1024 }, // 1GB
+      const renderLimits: Record<string, number> = {
+        creator: 150,
+        studio: 600,
+        cinema: 2000,
+        free: 10,
       }
-
-      const limits = planLimits[subData?.plan_id || 'free']
+      const storageTier = getStorageTierFromPlan(subData?.plan_id || 'free')
 
       setUsage({
         renders: renderCount || 0,
-        renderLimit: limits.renders,
+        renderLimit: renderLimits[storageTier],
         storageBytes: totalBytes,
-        storageLimit: limits.storage
+        storageLimit: getStorageLimit(storageTier)
       })
 
       // 5. Fetch invoices (we'll create an API for this since it needs server-side Paddle SDK)

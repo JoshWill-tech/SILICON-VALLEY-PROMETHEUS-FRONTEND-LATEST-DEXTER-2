@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProjectService } from '@/lib/projects/service'
 import { getPresignedGetUrl } from '@/lib/r2/presigned-url'
 import { startAssemblyAITranscription } from '@/lib/api/assemblyai'
+import { formatStorage, getStorageLimit, getStorageTierFromPlan } from '@/lib/storage-limits'
 
 export async function GET(
   req: Request,
@@ -102,6 +103,37 @@ export async function POST(
     const project = await ProjectService.getProject(projectId)
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from('subscriptions')
+      .select('plan_id, status')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (subscriptionError) throw subscriptionError
+
+    const hasPaidAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
+    const tier = getStorageTierFromPlan(hasPaidAccess ? subscription?.plan_id ?? 'free' : 'free')
+    const storageLimit = getStorageLimit(tier)
+    const { data: existingAssets, error: existingAssetsError } = await supabase
+      .from('source_assets')
+      .select('size_bytes')
+      .eq('user_id', user.id)
+      .neq('id', assetId)
+
+    if (existingAssetsError) throw existingAssetsError
+
+    const usedBytes = (existingAssets ?? []).reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+    const nextAssetBytes = Number(sizeBytes) || 0
+
+    if (usedBytes + nextAssetBytes > storageLimit) {
+      return NextResponse.json(
+        {
+          error: `Storage limit exceeded. Your ${tier} plan includes ${formatStorage(storageLimit)}. You are using ${formatStorage(usedBytes)}, and this asset is ${formatStorage(nextAssetBytes)}.`,
+        },
+        { status: 413 },
+      )
     }
 
     // Insert source asset metadata

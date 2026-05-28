@@ -37,11 +37,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useBillingData } from '@/hooks/use-billing-data'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import { getJobStatus, listProjects as listMockProjects, upsertProject } from '@/lib/mock'
 import { formatDurationSeconds, formatFileSize } from '@/lib/media/source-profile'
 import { projects as projectManager, PROJECTS_UPDATED_EVENT } from '@/lib/projects'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
+import { formatStorage, getStorageLimit } from '@/lib/storage-limits'
 import type { ProcessingJob, Project, ProjectExport } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -68,7 +70,6 @@ type VersionRecord = {
 const SORT_STORAGE_KEY = 'prometheus.projects.sort.v1'
 const PROJECTS_STORAGE_KEY = 'prometheus.projects.v1'
 const TAG_LIMIT = 3
-const STORAGE_LIMIT_BYTES = 2 * 1024 * 1024 * 1024 * 1024
 
 const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -305,6 +306,7 @@ function SkeletonGrid() {
 export default function ProjectsPage() {
   const router = useRouter()
   const searchInputRef = React.useRef<HTMLInputElement | null>(null)
+  const { usage } = useBillingData()
 
   const [projects, setProjects] = React.useState<Project[]>([])
   const [latestExports, setLatestExports] = React.useState<Record<string, ProjectExport | null>>({})
@@ -436,11 +438,9 @@ export default function ProjectsPage() {
     [projects, selectedIds],
   )
 
-  const storageUsedBytes = React.useMemo(
-    () => projects.reduce((total, project) => total + getProjectSizeBytes(project), 0),
-    [projects],
-  )
-  const storagePercent = Math.min(100, Math.max(2, (storageUsedBytes / STORAGE_LIMIT_BYTES) * 100))
+  const storageUsedBytes = usage.storageBytes
+  const storageLimitBytes = usage.storageLimit || getStorageLimit('free')
+  const storagePercent = Math.min(100, Math.max(2, (storageUsedBytes / storageLimitBytes) * 100))
 
   const recentActivity = React.useMemo(() => {
     return [...projects]
@@ -626,7 +626,11 @@ export default function ProjectsPage() {
               sortKey={sortKey}
             />
 
-            <StorageMeter storagePercent={storagePercent} storageUsedBytes={storageUsedBytes} />
+            <StorageMeter
+              storageLimitBytes={storageLimitBytes}
+              storagePercent={storagePercent}
+              storageUsedBytes={storageUsedBytes}
+            />
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="min-w-0">
@@ -870,7 +874,15 @@ function DashboardHeader({
   )
 }
 
-function StorageMeter({ storagePercent, storageUsedBytes }: { storagePercent: number; storageUsedBytes: number }) {
+function StorageMeter({
+  storageLimitBytes,
+  storagePercent,
+  storageUsedBytes,
+}: {
+  storageLimitBytes: number
+  storagePercent: number
+  storageUsedBytes: number
+}) {
   return (
     <a
       href="/settings/billing"
@@ -878,7 +890,7 @@ function StorageMeter({ storagePercent, storageUsedBytes }: { storagePercent: nu
     >
       <div className="flex items-center justify-between gap-4 text-sm">
         <span className="font-medium text-white">Storage</span>
-        <span className="text-white/50">{formatFileSize(storageUsedBytes)} of 2TB used</span>
+        <span className="text-white/50">{formatStorage(storageUsedBytes)} of {formatStorage(storageLimitBytes)} used</span>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div

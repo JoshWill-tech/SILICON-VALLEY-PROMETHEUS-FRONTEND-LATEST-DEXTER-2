@@ -40,7 +40,8 @@ import {
 } from "@/components/ui/dialog"
 
 import { BILLING_PLAN_DEFINITIONS, BILLING_PLAN_ORDER } from '@/lib/billing-plans'
-import { cn, formatBytes } from '@/lib/utils'
+import { formatStorage } from '@/lib/storage-limits'
+import { cn } from '@/lib/utils'
 import { useBillingData } from '@/hooks/use-billing-data'
 
 const PLANS = BILLING_PLAN_ORDER.map((planId) => BILLING_PLAN_DEFINITIONS[planId])
@@ -229,7 +230,7 @@ export function BillingDashboard() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.1em] text-white/30">
                   <span className="flex items-center gap-1.5"><Database className="size-3" /> Media Storage</span>
-                  <span className="text-white/60">{formatBytes(usage.storageBytes)} / {formatBytes(usage.storageLimit)}</span>
+                  <span className="text-white/60">{formatStorage(usage.storageBytes)} / {formatStorage(usage.storageLimit)}</span>
                 </div>
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5">
                   <motion.div 

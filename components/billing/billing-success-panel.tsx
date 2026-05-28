@@ -4,9 +4,12 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { CheckCircle2, CreditCard, LoaderCircle } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { normalizeNextPath } from '@/lib/auth/redirect'
 import { BILLING_DASHBOARD_PATH, setBillingAccess, type BillingPlanId } from '@/lib/billing'
+import { formatStorage, getStorageLimit, getStorageTierFromPlan } from '@/lib/storage-limits'
+import { updateUserStorageTier } from '@/lib/user-storage-tier'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +18,7 @@ type CheckoutSessionStatus = {
   status: string | null
   paymentStatus: string | null
   planId: BillingPlanId | null
+  priceId: string | null
   customerEmail: string | null
   subscriptionId: string | null
 }
@@ -25,6 +29,7 @@ export function BillingSuccessPanel() {
   const nextPath = normalizeNextPath(searchParams.get('next'), '/')
   const [sessionState, setSessionState] = React.useState<CheckoutSessionStatus | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const hasAppliedStorageTierRef = React.useRef(false)
 
   React.useEffect(() => {
     if (!sessionId) {
@@ -54,6 +59,7 @@ export function BillingSuccessPanel() {
           status: data?.status ?? null,
           paymentStatus: data?.paymentStatus ?? null,
           planId: data?.planId ?? null,
+          priceId: data?.priceId ?? null,
           customerEmail: data?.customerEmail ?? null,
           subscriptionId: data?.subscriptionId ?? null,
         }
@@ -63,9 +69,16 @@ export function BillingSuccessPanel() {
         if (
           nextSessionState.planId &&
           nextSessionState.status === 'complete' &&
-          nextSessionState.paymentStatus !== 'unpaid'
+          nextSessionState.paymentStatus !== 'unpaid' &&
+          !hasAppliedStorageTierRef.current
         ) {
+          hasAppliedStorageTierRef.current = true
           setBillingAccess(nextSessionState.planId, 'external')
+          const priceId = nextSessionState.priceId ?? nextSessionState.planId
+          const mappedTier = getStorageTierFromPlan(priceId)
+          const tier = mappedTier === 'free' ? getStorageTierFromPlan(nextSessionState.planId) : mappedTier
+          updateUserStorageTier(tier)
+          toast.success(`Welcome to ${tier[0].toUpperCase()}${tier.slice(1)}! Storage upgraded to ${formatStorage(getStorageLimit(tier))}.`)
         }
       } catch (nextError) {
         if (!cancelled) {

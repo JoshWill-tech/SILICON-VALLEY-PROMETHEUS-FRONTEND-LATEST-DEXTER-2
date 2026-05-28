@@ -1,5 +1,6 @@
 import { ProjectService } from '@/lib/projects/service'
 import { R2Keys } from '@/lib/r2/keys'
+import { formatStorage, getStorageLimit, getStorageTierFromPlan } from '@/lib/storage-limits'
 import { createClient } from '@/lib/supabase/server'
 
 export const PROJECT_SOURCE_MULTIPART_MAX_BYTES = 10 * 1024 * 1024 * 1024
@@ -75,6 +76,40 @@ export function validateProjectSourceUploadInput(input: {
   return null
 }
 
+async function getUserStorageQuota(userId: string) {
+  const supabase = await createClient()
+
+  const { data: subscription, error: subscriptionError } = await supabase
+    .from('subscriptions')
+    .select('plan_id, status')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (subscriptionError) {
+    throw subscriptionError
+  }
+
+  const hasPaidAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
+  const tier = getStorageTierFromPlan(hasPaidAccess ? subscription?.plan_id ?? 'free' : 'free')
+
+  const { data: assets, error: assetsError } = await supabase
+    .from('source_assets')
+    .select('size_bytes')
+    .eq('user_id', userId)
+
+  if (assetsError) {
+    throw assetsError
+  }
+
+  const usedBytes = (assets ?? []).reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+
+  return {
+    tier,
+    usedBytes,
+    limitBytes: getStorageLimit(tier),
+  }
+}
+
 export async function requireProjectSourceUploadContext(
   projectId: string,
   input: {
@@ -105,6 +140,14 @@ export async function requireProjectSourceUploadContext(
   const project = await ProjectService.getProject(projectId)
   if (!project) {
     return { error: 'Project not found', status: 404 }
+  }
+
+  const quota = await getUserStorageQuota(user.id)
+  if (quota.usedBytes + sizeBytes > quota.limitBytes) {
+    return {
+      error: `Storage limit exceeded. Your ${quota.tier} plan includes ${formatStorage(quota.limitBytes)}. You are using ${formatStorage(quota.usedBytes)}, and this upload is ${formatStorage(sizeBytes)}.`,
+      status: 413,
+    }
   }
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
