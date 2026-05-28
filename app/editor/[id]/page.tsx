@@ -6178,7 +6178,7 @@ export default function EditorPage() {
                       <input
                         ref={sourceFileInputRef}
                         type="file"
-                        accept="video/*"
+                        accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv"
                         className="sr-only"
                         onChange={handleInlineSourceFileInputChange}
                       />
