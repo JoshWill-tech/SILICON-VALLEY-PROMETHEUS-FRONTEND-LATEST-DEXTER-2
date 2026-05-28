@@ -2,14 +2,14 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { Check, Pause, Play, Plus } from 'lucide-react'
+import { Check, Loader2, Music, Pause, Play, Plus, Search, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
 import Image from 'next/image'
+import { toast } from 'sonner'
 
-import { InertialSongScroller } from '@/components/editor/inertial-song-scroller'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { TextReveal } from '@/components/editor/text-reveal'
-import ExpandableSearchBar from '@/components/ui/expandable-search-bar'
 import { MusicPlayer } from '@/components/ui/music-player'
+import { Button } from '@/components/ui/button'
 import { chamberEase, chamberSpring } from '@/lib/chamber-motion'
 import type { MusicRecommendation } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -426,6 +426,292 @@ function SongRailItem({
   )
 }
 
+type CatalogApiTrack = {
+  id: string
+  title: string
+  artist: string | null
+  album?: string
+  category: string
+  genreTags: string[]
+  moodTags: string[]
+  durationSec?: number
+  audioPreviewUrl?: string
+  thumbnailUrl?: string
+}
+
+type CatalogApiResponse = {
+  tracks?: CatalogApiTrack[]
+  total?: number
+  limit?: number
+  offset?: number
+}
+
+type MusicMatchResponse = {
+  matchedTrackIds?: string[]
+  reasoningSummary?: string
+  source?: 'groq' | 'heuristic'
+}
+
+const FALLBACK_COVER_ART = '/style-previews/dark-cinematic-1.jpg'
+const CATALOG_PAGE_SIZE = 200
+const INITIAL_VISIBLE_TRACKS = 50
+const VISIBLE_TRACK_INCREMENT = 50
+
+function formatDuration(durationSec: number | undefined) {
+  const safeDuration = Number.isFinite(durationSec) ? Math.max(0, Math.floor(durationSec ?? 0)) : 0
+  const minutes = Math.floor(safeDuration / 60)
+  const seconds = safeDuration % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+function mapCatalogApiTrack(track: CatalogApiTrack): MusicRecommendation {
+  const genre = track.genreTags[0] ?? track.category ?? 'Soundtrack'
+
+  return {
+    id: track.id,
+    title: track.title,
+    subtitle: track.album || track.category,
+    description: [track.album, track.category, track.genreTags.join(' ')].filter(Boolean).join(' '),
+    album: track.album,
+    artist: track.artist ?? 'Prometheus Audio',
+    producer: 'Prometheus',
+    genre,
+    bpm: 100,
+    vibeTags: [...track.genreTags, ...track.moodTags].filter(Boolean),
+    coverArtUrl: track.thumbnailUrl || FALLBACK_COVER_ART,
+    coverArtPosition: 'center',
+    previewUrl: track.audioPreviewUrl ?? `/api/music/preview?trackId=${encodeURIComponent(track.id)}`,
+    reason: 'Loaded from the Prometheus music catalog.',
+    mood: 'cinematic',
+    energy: 'medium',
+    sourcePlatform: 'local',
+    durationSec: track.durationSec ?? 0,
+  }
+}
+
+function buildSearchText(track: MusicRecommendation) {
+  return [track.title, track.artist, track.album, track.subtitle, track.description, track.genre, track.vibeTags.join(' ')]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+}
+
+function EqualizerBars() {
+  return (
+    <span className="flex h-4 items-end gap-0.5" aria-hidden>
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className="w-1 rounded-full bg-[#6366f1] shadow-[0_0_12px_rgba(99,102,241,0.42)]"
+          style={{
+            height: `${7 + index * 3}px`,
+            animation: `music-eq 0.72s ease-out ${index * 0.12}s infinite alternate`,
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function TrackArtwork({
+  broken,
+  onError,
+  track,
+}: {
+  broken: boolean
+  onError: () => void
+  track: MusicRecommendation
+}) {
+  if (broken || !track.coverArtUrl) {
+    return (
+      <div className="grid size-10 shrink-0 place-items-center rounded-[12px] bg-white/[0.06] text-white/20">
+        <Music className="size-5" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative size-10 shrink-0 overflow-hidden rounded-[12px] border border-white/10 bg-white/[0.04]">
+      <Image
+        src={track.coverArtUrl}
+        alt=""
+        fill
+        sizes="40px"
+        className="object-cover"
+        onError={onError}
+        style={{ objectPosition: track.coverArtPosition ?? 'center' }}
+      />
+    </div>
+  )
+}
+
+function CatalogTrackRow({
+  artBroken,
+  isFocused,
+  isPlaying,
+  isSelected,
+  onArtworkError,
+  onFocus,
+  onPlayPause,
+  onToggleSelected,
+  track,
+}: {
+  artBroken: boolean
+  isFocused: boolean
+  isPlaying: boolean
+  isSelected: boolean
+  onArtworkError: () => void
+  onFocus: () => void
+  onPlayPause: () => void
+  onToggleSelected: () => void
+  track: MusicRecommendation
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onFocus}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onFocus()
+        }
+      }}
+      className={cn(
+        'group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-white/[0.03] px-3 py-2.5 text-left transition-all duration-200 ease-out focus:outline-none',
+        isSelected
+          ? 'border-[#6366f1]/36 bg-[#6366f1]/14 shadow-[0_0_30px_rgba(99,102,241,0.18)]'
+          : isFocused
+            ? 'border-white/16 bg-white/[0.06]'
+            : 'border-white/10 hover:-translate-y-0.5 hover:border-white/[0.12] hover:bg-white/[0.05]',
+      )}
+    >
+      {isSelected ? <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-[#6366f1]" /> : null}
+
+      <button
+        type="button"
+        aria-label={isSelected ? `Deselect ${track.title}` : `Select ${track.title}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onToggleSelected()
+        }}
+        className={cn(
+          'grid size-7 shrink-0 place-items-center rounded-full border transition-all duration-150 ease-out md:opacity-0 md:group-hover:opacity-100',
+          isSelected ? 'border-[#6366f1]/36 bg-[#6366f1] text-white opacity-100' : 'border-white/12 bg-black/30 text-white/42 hover:text-white',
+        )}
+      >
+        {isSelected ? <Check className="size-3.5" /> : null}
+      </button>
+
+      <TrackArtwork track={track} broken={artBroken} onError={onArtworkError} />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="truncate text-sm font-medium text-white">{track.title}</div>
+          {isPlaying ? <EqualizerBars /> : null}
+          {isSelected ? (
+            <span className="hidden rounded-full border border-[#6366f1]/36 bg-[#6366f1]/14 px-2 py-0.5 text-[10px] text-[#c7d2fe] sm:inline-flex">
+              Selected
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-0.5 truncate text-xs text-white/50">{track.artist}</div>
+      </div>
+
+      <div className="hidden w-12 shrink-0 text-right text-xs text-white/40 sm:block">{formatDuration(track.durationSec)}</div>
+
+      <button
+        type="button"
+        aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onPlayPause()
+        }}
+        className={cn(
+          'grid size-8 shrink-0 place-items-center rounded-full border transition-all duration-150 ease-out',
+          isPlaying ? 'border-[#6366f1]/36 bg-[#6366f1] text-white' : 'border-white/12 bg-black/30 text-white/72 hover:bg-white/[0.08] hover:text-white',
+        )}
+      >
+        {isPlaying ? <Pause className="size-3.5" /> : <Play className="ml-0.5 size-3.5 fill-current" />}
+      </button>
+    </div>
+  )
+}
+
+function NowPlayingBar({
+  currentTime,
+  duration,
+  isMuted,
+  isPlaying,
+  onMuteToggle,
+  onPlayPause,
+  onSeek,
+  track,
+}: {
+  currentTime: number
+  duration: number
+  isMuted: boolean
+  isPlaying: boolean
+  onMuteToggle: () => void
+  onPlayPause: () => void
+  onSeek: (nextTime: number) => void
+  track: MusicRecommendation | null
+}) {
+  if (!track) return null
+
+  const progress = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+
+  return (
+    <div className="absolute inset-x-4 bottom-4 z-30 rounded-[22px] border border-white/10 bg-[#111116]/[0.92] p-3 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)] backdrop-blur-[24px]">
+      <div className="flex items-center gap-3">
+        <div className="relative size-8 shrink-0 overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.04]">
+          <Image
+            src={track.coverArtUrl || FALLBACK_COVER_ART}
+            alt=""
+            fill
+            sizes="32px"
+            className="object-cover"
+            style={{ objectPosition: track.coverArtPosition ?? 'center' }}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-white">{track.title}</div>
+          <div className="truncate text-xs text-white/50">{track.artist}</div>
+        </div>
+        <button
+          type="button"
+          aria-label={isPlaying ? 'Pause current track' : 'Play current track'}
+          onClick={onPlayPause}
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-[#6366f1] text-white shadow-[0_0_30px_rgba(99,102,241,0.24)] transition-transform duration-150 ease-out hover:scale-105"
+        >
+          {isPlaying ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4 fill-current" />}
+        </button>
+        <button
+          type="button"
+          aria-label={isMuted ? 'Unmute music' : 'Mute music'}
+          onClick={onMuteToggle}
+          className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/62 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-white"
+        >
+          {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+        </button>
+      </div>
+      <button
+        type="button"
+        aria-label="Seek current track"
+        onClick={(event) => {
+          if (duration <= 0) return
+          const rect = event.currentTarget.getBoundingClientRect()
+          const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
+          onSeek(ratio * duration)
+        }}
+        className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+      >
+        <span className="block h-full rounded-full bg-[#6366f1] shadow-[0_0_30px_rgba(99,102,241,0.24)]" style={{ width: `${progress}%` }} />
+      </button>
+    </div>
+  )
+}
+
 export function MusicTabPanel({
   tracks,
   projectTitle,
@@ -438,116 +724,115 @@ export function MusicTabPanel({
   onSelectTrack: (track: MusicRecommendation) => void
 }) {
   const reduceMotion = useStableReducedMotion()
+  const [catalogTracks, setCatalogTracks] = React.useState<MusicRecommendation[]>([])
+  const [catalogLoading, setCatalogLoading] = React.useState(false)
   const [localSelectedTrackId, setLocalSelectedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
   const [focusedTrackId, setFocusedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
   const [playingTrackId, setPlayingTrackId] = React.useState<string | null>(null)
+  const [selectedTrackIds, setSelectedTrackIds] = React.useState<Set<string>>(() => new Set())
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [visibleTrackCount, setVisibleTrackCount] = React.useState(INITIAL_VISIBLE_TRACKS)
+  const [brokenArtworkIds, setBrokenArtworkIds] = React.useState<Record<string, true>>({})
+  const [isMuted, setIsMuted] = React.useState(false)
+  const [isAutoMatching, setIsAutoMatching] = React.useState(false)
+  const [playerProgress, setPlayerProgress] = React.useState({ currentTime: 0, duration: 0 })
+  const [seekRequest, setSeekRequest] = React.useState<{ time: number; token: number } | null>(null)
+
+  React.useEffect(() => {
+    let disposed = false
+
+    async function loadCatalog() {
+      setCatalogLoading(true)
+      try {
+        const nextTracks: MusicRecommendation[] = []
+        let offset = 0
+        let total = Number.POSITIVE_INFINITY
+
+        while (!disposed && offset < total) {
+          const response = await fetch(`/api/music/catalog?limit=${CATALOG_PAGE_SIZE}&offset=${offset}&includeUnsafe=true`, { cache: 'no-store' })
+          if (!response.ok) throw new Error('Unable to load music catalog')
+          const data = (await response.json()) as CatalogApiResponse
+          const pageTracks = Array.isArray(data.tracks) ? data.tracks.map(mapCatalogApiTrack) : []
+          nextTracks.push(...pageTracks)
+
+          total = typeof data.total === 'number' && Number.isFinite(data.total) ? data.total : nextTracks.length
+          const nextOffset = offset + (typeof data.limit === 'number' && data.limit > 0 ? data.limit : pageTracks.length)
+          if (!pageTracks.length || nextOffset <= offset) break
+          offset = nextOffset
+        }
+
+        if (!disposed) setCatalogTracks(nextTracks)
+      } catch (error) {
+        if (!disposed) {
+          setCatalogTracks([])
+          toast.error(error instanceof Error ? error.message : 'Unable to load music catalog')
+        }
+      } finally {
+        if (!disposed) setCatalogLoading(false)
+      }
+    }
+
+    void loadCatalog()
+
+    return () => {
+      disposed = true
+    }
+  }, [])
+
+  const displayTracks = React.useMemo(() => {
+    const sourceTracks = catalogTracks.length ? catalogTracks : tracks
+    const seen = new Set<string>()
+    return sourceTracks.filter((track) => {
+      if (seen.has(track.id)) return false
+      seen.add(track.id)
+      return true
+    })
+  }, [catalogTracks, tracks])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredTracks = React.useMemo(() => {
-    if (!normalizedQuery) return tracks
-
-    return tracks.filter((track) => {
-      const haystack = [track.title, track.artist, track.subtitle, track.description, track.reason]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(normalizedQuery)
-    })
-  }, [normalizedQuery, tracks])
+    if (!normalizedQuery) return displayTracks
+    return displayTracks.filter((track) => buildSearchText(track).includes(normalizedQuery))
+  }, [displayTracks, normalizedQuery])
+  const visibleTracks = React.useMemo(() => filteredTracks.slice(0, visibleTrackCount), [filteredTracks, visibleTrackCount])
 
   React.useEffect(() => {
-    if (!selectedTrackId && !localSelectedTrackId && tracks[0]) {
-      setLocalSelectedTrackId(tracks[0].id)
-      onSelectTrack(tracks[0])
-    }
-  }, [localSelectedTrackId, onSelectTrack, selectedTrackId, tracks])
+    setVisibleTrackCount(INITIAL_VISIBLE_TRACKS)
+  }, [normalizedQuery])
 
   React.useEffect(() => {
-    const trackIds = new Set(tracks.map((track) => track.id))
+    const trackIds = new Set(displayTracks.map((track) => track.id))
     if (!trackIds.size) {
       setLocalSelectedTrackId(null)
-      return
-    }
-
-    if (selectedTrackId && trackIds.has(selectedTrackId)) {
-      setLocalSelectedTrackId(selectedTrackId)
-      return
-    }
-
-    setLocalSelectedTrackId((current) => (current && trackIds.has(current) ? current : tracks[0]?.id ?? null))
-  }, [selectedTrackId, tracks])
-
-  React.useEffect(() => {
-    const trackIds = new Set(tracks.map((track) => track.id))
-    if (!trackIds.size) {
       setFocusedTrackId(null)
       return
     }
 
-    const fallbackTrackId = selectedTrackId && trackIds.has(selectedTrackId) ? selectedTrackId : tracks[0]?.id ?? null
+    const fallbackTrackId = selectedTrackId && trackIds.has(selectedTrackId) ? selectedTrackId : displayTracks[0]?.id ?? null
+    setLocalSelectedTrackId((current) => (current && trackIds.has(current) ? current : fallbackTrackId))
     setFocusedTrackId((current) => (current && trackIds.has(current) ? current : fallbackTrackId))
-  }, [selectedTrackId, tracks])
-
-  React.useEffect(() => {
-    if (!filteredTracks.length) return
-
-    const filteredIds = new Set(filteredTracks.map((track) => track.id))
-    const fallbackTrackId =
-      (selectedTrackId && filteredIds.has(selectedTrackId) ? selectedTrackId : null) ?? filteredTracks[0]?.id ?? null
-
-    setFocusedTrackId((current) => (current && filteredIds.has(current) ? current : fallbackTrackId))
-  }, [filteredTracks, selectedTrackId])
-
-  const focusedTrack = React.useMemo(
-    () =>
-      filteredTracks.find((track) => track.id === focusedTrackId) ??
-      tracks.find((track) => track.id === focusedTrackId) ??
-      tracks.find((track) => track.id === selectedTrackId) ??
-      tracks[0] ??
-      null,
-    [filteredTracks, focusedTrackId, selectedTrackId, tracks],
-  )
+  }, [displayTracks, selectedTrackId])
 
   const selectedTrack = React.useMemo(
-    () => tracks.find((track) => track.id === localSelectedTrackId) ?? tracks.find((track) => track.id === selectedTrackId) ?? null,
-    [localSelectedTrackId, selectedTrackId, tracks],
+    () => displayTracks.find((track) => track.id === localSelectedTrackId) ?? displayTracks.find((track) => track.id === selectedTrackId) ?? null,
+    [displayTracks, localSelectedTrackId, selectedTrackId],
   )
-  const activeTrack = React.useMemo(() => selectedTrack ?? focusedTrack, [focusedTrack, selectedTrack])
+  const focusedTrack = React.useMemo(
+    () => filteredTracks.find((track) => track.id === focusedTrackId) ?? selectedTrack ?? filteredTracks[0] ?? displayTracks[0] ?? null,
+    [displayTracks, filteredTracks, focusedTrackId, selectedTrack],
+  )
+  const activeTrack = selectedTrack ?? focusedTrack
   const selectedSong = React.useMemo(() => (activeTrack ? buildSelectedSongDisplay(activeTrack) : null), [activeTrack])
-  const playerTrackCount = React.useMemo(() => (filteredTracks.length ? filteredTracks : tracks).length, [filteredTracks, tracks])
-
-  const handlePlayerStep = React.useCallback(
-    (direction: 'previous' | 'next', options: { shuffle: boolean }) => {
-      const playlist = filteredTracks.length ? filteredTracks : tracks
-      const governingTrack = selectedTrack ?? focusedTrack
-      if (!playlist.length || !governingTrack) return
-
-      let nextTrack: MusicRecommendation | null = null
-
-      if (options.shuffle && playlist.length > 1) {
-        const candidates = playlist.filter((track) => track.id !== governingTrack.id)
-        nextTrack = candidates[Math.floor(Math.random() * candidates.length)] ?? null
-      } else {
-        const currentIndex = playlist.findIndex((track) => track.id === governingTrack.id)
-        const safeIndex = currentIndex >= 0 ? currentIndex : 0
-        const delta = direction === 'next' ? 1 : -1
-        nextTrack = playlist[(safeIndex + delta + playlist.length) % playlist.length] ?? null
-      }
-
-      if (!nextTrack) return
-      setLocalSelectedTrackId(nextTrack.id)
-      setFocusedTrackId(nextTrack.id)
-      setPlayingTrackId((current) => (current ? nextTrack.id : current))
-      onSelectTrack(nextTrack)
-    },
-    [filteredTracks, focusedTrack, onSelectTrack, selectedTrack, tracks],
+  const currentPlayerTrack = React.useMemo(
+    () => displayTracks.find((track) => track.id === playingTrackId) ?? activeTrack,
+    [activeTrack, displayTracks, playingTrackId],
   )
 
-  const handleTrackSelection = React.useCallback(
+  const handleTrackFocus = React.useCallback(
     (track: MusicRecommendation) => {
       setLocalSelectedTrackId(track.id)
       setFocusedTrackId(track.id)
+      setPlayingTrackId((current) => (current && current !== track.id ? null : current))
       onSelectTrack(track)
     },
     [onSelectTrack],
@@ -555,30 +840,84 @@ export function MusicTabPanel({
 
   const handleTrackPlayPause = React.useCallback(
     (track: MusicRecommendation) => {
-      handleTrackSelection(track)
+      setLocalSelectedTrackId(track.id)
+      setFocusedTrackId(track.id)
+      onSelectTrack(track)
       setPlayingTrackId((current) => (current === track.id ? null : track.id))
     },
-    [handleTrackSelection],
+    [onSelectTrack],
   )
 
-  if (!tracks.length) {
+  const handlePlayerStep = React.useCallback(
+    (direction: 'previous' | 'next', options: { shuffle: boolean }) => {
+      const playlist = filteredTracks.length ? filteredTracks : displayTracks
+      const governingTrack = currentPlayerTrack
+      if (!playlist.length || !governingTrack) return
+
+      const nextTrack = options.shuffle && playlist.length > 1
+        ? playlist.filter((track) => track.id !== governingTrack.id)[Math.floor(Math.random() * (playlist.length - 1))]
+        : playlist[(Math.max(0, playlist.findIndex((track) => track.id === governingTrack.id)) + (direction === 'next' ? 1 : -1) + playlist.length) % playlist.length]
+
+      if (!nextTrack) return
+      setLocalSelectedTrackId(nextTrack.id)
+      setFocusedTrackId(nextTrack.id)
+      setPlayingTrackId((current) => (current ? nextTrack.id : current))
+      onSelectTrack(nextTrack)
+    },
+    [currentPlayerTrack, displayTracks, filteredTracks, onSelectTrack],
+  )
+
+  const toggleMultiSelect = React.useCallback((trackId: string) => {
+    setSelectedTrackIds((current) => {
+      const next = new Set(current)
+      if (next.has(trackId)) next.delete(trackId)
+      else next.add(trackId)
+      return next
+    })
+  }, [])
+
+  const handleAutoMatch = React.useCallback(async () => {
+    const trackIds = Array.from(selectedTrackIds)
+    if (!trackIds.length) return
+
+    setIsAutoMatching(true)
+    try {
+      const response = await fetch('/api/music/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackIds, projectTitle }),
+      })
+      if (!response.ok) throw new Error('Unable to run AI Auto-Match')
+      const data = (await response.json()) as MusicMatchResponse
+      const matchedTrackIds = Array.isArray(data.matchedTrackIds)
+        ? data.matchedTrackIds.filter((trackId): trackId is string => typeof trackId === 'string' && trackId.length > 0)
+        : []
+      const topMatch = matchedTrackIds.length ? displayTracks.find((track) => track.id === matchedTrackIds[0]) ?? null : null
+
+      if (matchedTrackIds.length) {
+        setSelectedTrackIds(new Set(matchedTrackIds))
+      }
+
+      if (topMatch) {
+        handleTrackFocus(topMatch)
+      }
+
+      toast.success(topMatch ? `AI matched ${topMatch.title} as the top fit` : `AI ranked ${trackIds.length} selected tracks`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to run AI Auto-Match')
+    } finally {
+      setIsAutoMatching(false)
+    }
+  }, [displayTracks, handleTrackFocus, projectTitle, selectedTrackIds])
+
+  if (!displayTracks.length && !catalogLoading) {
     return (
       <section className="premium-ambient-panel premium-vignette-surface flex w-full max-w-[1060px] self-center rounded-[30px] px-5 py-5 shadow-[0_28px_64px_-38px_rgba(0,0,0,0.95)]">
         <LuxuryVignette tone="music" />
         <div className="relative z-10">
           <TextReveal as="div" text="Music" className="text-[11px] uppercase tracking-[0.22em] text-white/56" />
-          <TextReveal
-            as="div"
-            text="Soundtrack options will appear here"
-            delay={0.08}
-            className="editor-display-soft mt-4 text-lg text-white"
-          />
-          <TextReveal
-            as="p"
-            text="Prometheus will surface the song picker once the edit context is ready."
-            delay={0.12}
-            className="mt-2 max-w-[36rem] text-sm leading-6 text-white/52"
-          />
+          <TextReveal as="div" text="Soundtrack options will appear here" delay={0.08} className="editor-display-soft mt-4 text-lg text-white" />
+          <TextReveal as="p" text="Prometheus will surface the song picker once the edit context is ready." delay={0.12} className="mt-2 max-w-[36rem] text-sm leading-6 text-white/52" />
         </div>
       </section>
     )
@@ -592,27 +931,36 @@ export function MusicTabPanel({
       animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: 10 }}
       transition={{ duration: reduceMotion ? 0 : 0.3, ease: chamberEase }}
-      className="premium-ambient-panel premium-vignette-surface editorial-light-effect relative flex min-h-0 w-full max-w-[1080px] flex-1 self-center overflow-hidden rounded-[32px] border border-white/8 bg-black px-4 py-4 sm:px-5 sm:py-5"
+      className="premium-ambient-panel premium-vignette-surface editorial-light-effect relative flex min-h-0 w-full max-w-[1080px] flex-1 self-center overflow-hidden rounded-[32px] border border-white/8 bg-black px-4 pb-28 pt-4 sm:px-5 sm:pt-5"
     >
+      <style>{`
+        @keyframes music-eq {
+          from { transform: scaleY(0.38); opacity: 0.58; }
+          to { transform: scaleY(1); opacity: 1; }
+        }
+      `}</style>
       <LuxuryVignette tone="music" />
       <div className="relative z-10 grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(18rem,1.04fr)_minmax(21rem,0.9fr)] xl:grid-cols-[minmax(20rem,1.08fr)_minmax(22rem,0.92fr)]">
         <div className="flex min-h-0 min-w-0">
           {selectedSong ? (
             <div className="music-hero-shell music-disc-safe-stage relative flex min-h-0 flex-1 flex-col rounded-[28px] border border-white/8 bg-black p-4 shadow-[0_24px_54px_-44px_rgba(0,0,0,0.98)] sm:p-5">
               <MusicPlayer
-                albumArt={selectedSong.artwork}
+                albumArt={selectedSong.artwork || FALLBACK_COVER_ART}
                 albumArtPosition={selectedSong.artworkPosition}
                 songTitle={selectedSong.title}
                 artistName={selectedSong.metadataLine}
                 audioSrc={selectedSong.audioSrc}
+                isMuted={isMuted}
+                seekRequest={seekRequest}
                 isPlaying={playingTrackId === selectedSong.id}
+                onProgressChange={setPlayerProgress}
                 onPlayingChange={(nextPlaying) => {
                   setPlayingTrackId(nextPlaying ? selectedSong.id : null)
                 }}
                 onPrevious={({ shuffle }) => handlePlayerStep('previous', { shuffle })}
                 onNext={({ shuffle }) => handlePlayerStep('next', { shuffle })}
-                canPrevious={playerTrackCount > 1}
-                canNext={playerTrackCount > 1}
+                canPrevious={(filteredTracks.length || displayTracks.length) > 1}
+                canNext={(filteredTracks.length || displayTracks.length) > 1}
                 className="relative z-10 flex-1"
               />
             </div>
@@ -620,72 +968,109 @@ export function MusicTabPanel({
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-col pl-2 pr-1 pt-1 sm:pl-3 sm:pr-2">
-          <div className="flex items-center justify-end gap-3 pr-7 sm:pr-9">
-            <motion.div
-              initial={reduceMotion ? false : { opacity: 0, y: 4, scale: 0.96, filter: 'blur(6px)' }}
-              animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-              transition={reduceMotion ? undefined : chamberSpring}
-              className="shrink-0"
-            >
-              <ExpandableSearchBar
-                expandDirection="left"
-                width={216}
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                onSearch={setSearchQuery}
-                placeholder="Search tracks"
-                className="shrink-0"
-                buttonClassName="premium-search-pill border-white/18 bg-black text-white/72 shadow-none hover:border-white/28 hover:bg-black hover:text-white"
-                surfaceClassName="premium-search-pill border-white/18 bg-black px-0 shadow-none"
-                inputClassName="premium-search-input pr-2 text-white placeholder:text-white/28"
-              />
-            </motion.div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/35" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-11 w-full rounded-[18px] border border-white/16 bg-white/[0.06] pl-10 pr-10 text-sm text-white/90 outline-none transition-colors placeholder:text-white/42 focus:border-[#6366f1]/70 focus:ring-2 focus:ring-[#6366f1]/20"
+              placeholder="Search title, artist, or album"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                aria-label="Clear music search"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-white/42 transition-all duration-150 ease-out hover:bg-white/[0.06] hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null}
           </div>
 
-          {filteredTracks.length ? (
-            <div className="mt-4 pr-3 sm:pr-4">
-              <PhysicsMusicDeck
-                tracks={filteredTracks}
-                activeTrackId={focusedTrack?.id ?? selectedTrack?.id ?? null}
-                selectedTrackId={selectedTrack?.id ?? null}
-                playingTrackId={playingTrackId}
-                reduceMotion={reduceMotion}
-                onFocusTrack={handleTrackSelection}
-                onPlayPause={handleTrackPlayPause}
-                onSelectTrack={handleTrackSelection}
-              />
-            </div>
-          ) : null}
-
-          <InertialSongScroller className="mt-4 min-h-0 flex-1" contentClassName="px-0.5 py-3" reducedMotion={reduceMotion}>
-            {filteredTracks.length ? (
-              <div>
-                {filteredTracks.map((track, index) => (
-                  <SongRailItem
-                    key={track.id}
-                    track={track}
-                    index={index}
-                    isFocused={focusedTrack?.id === track.id}
-                    isSelected={selectedTrack?.id === track.id}
-                    isPlaying={playingTrackId === track.id}
-                    reduceMotion={reduceMotion}
-                    onFocus={() => handleTrackSelection(track)}
-                    onPlayPause={() => handleTrackPlayPause(track)}
-                    onSelect={() => handleTrackSelection(track)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center">
-                <div>
-                  <div className="text-base font-medium text-white/78">No soundtracks found</div>
-                  <div className="mt-2 text-sm text-white/42">Try a different song, artist, or soundtrack phrase.</div>
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="space-y-2 pb-4">
+              {catalogLoading && !visibleTracks.length ? (
+                <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
+                  <div>
+                    <Loader2 className="mx-auto size-5 animate-spin text-white/50" />
+                    <div className="mt-3 text-sm text-white/52">Loading catalog</div>
+                  </div>
                 </div>
-              </div>
-            )}
-          </InertialSongScroller>
+              ) : null}
+              {visibleTracks.map((track) => (
+                <CatalogTrackRow
+                  key={track.id}
+                  track={track}
+                  artBroken={Boolean(brokenArtworkIds[track.id])}
+                  isFocused={focusedTrack?.id === track.id}
+                  isPlaying={playingTrackId === track.id}
+                  isSelected={selectedTrackIds.has(track.id)}
+                  onArtworkError={() => setBrokenArtworkIds((current) => ({ ...current, [track.id]: true }))}
+                  onFocus={() => handleTrackFocus(track)}
+                  onPlayPause={() => handleTrackPlayPause(track)}
+                  onToggleSelected={() => toggleMultiSelect(track.id)}
+                />
+              ))}
+              {!catalogLoading && !filteredTracks.length ? (
+                <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center">
+                  <div>
+                    <div className="text-base font-medium text-white/78">No soundtracks found</div>
+                    <div className="mt-2 text-sm text-white/42">Try a different song, artist, or soundtrack phrase.</div>
+                  </div>
+                </div>
+              ) : null}
+              {filteredTracks.length > visibleTrackCount ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="mt-2 w-full"
+                  onClick={() => setVisibleTrackCount((current) => current + VISIBLE_TRACK_INCREMENT)}
+                >
+                  Load more
+                </Button>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedTrackIds.size > 0 ? (
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: 18 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: chamberEase }}
+            className="absolute inset-x-4 bottom-24 z-40 flex flex-col gap-3 rounded-[22px] border border-white/12 bg-[#111116]/[0.92] p-3 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)] backdrop-blur-[24px] sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="text-sm font-medium text-white">{selectedTrackIds.size} tracks selected</div>
+            <Button
+              type="button"
+              disabled={isAutoMatching}
+              onClick={() => void handleAutoMatch()}
+              className="border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#818cf8] hover:bg-[#5558e8] hover:shadow-[0_0_34px_rgba(99,102,241,0.42)]"
+            >
+              {isAutoMatching ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              {isAutoMatching ? 'Analyzing compatibility…' : 'AI Auto-Match'}
+            </Button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <NowPlayingBar
+        track={currentPlayerTrack}
+        isPlaying={Boolean(currentPlayerTrack && playingTrackId === currentPlayerTrack.id)}
+        isMuted={isMuted}
+        currentTime={playerProgress.currentTime}
+        duration={playerProgress.duration || currentPlayerTrack?.durationSec || 0}
+        onMuteToggle={() => setIsMuted((current) => !current)}
+        onPlayPause={() => {
+          if (!currentPlayerTrack) return
+          handleTrackPlayPause(currentPlayerTrack)
+        }}
+        onSeek={(time) => setSeekRequest({ time, token: Date.now() })}
+      />
     </motion.section>
   )
 }

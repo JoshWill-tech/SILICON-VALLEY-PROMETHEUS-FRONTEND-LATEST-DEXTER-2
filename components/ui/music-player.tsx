@@ -26,7 +26,11 @@ type MusicPlayerProps = {
   artistName: string
   audioSrc: string
   isPlaying?: boolean
+  isMuted?: boolean
+  seekRequest?: { time: number; token: number } | null
+  onBufferingChange?: (isBuffering: boolean) => void
   onPlayingChange?: (nextPlaying: boolean) => void
+  onProgressChange?: (progress: { currentTime: number; duration: number }) => void
   onPrevious?: (options: { shuffle: boolean }) => void
   onNext?: (options: { shuffle: boolean }) => void
   canPrevious?: boolean
@@ -41,7 +45,11 @@ export function MusicPlayer({
   artistName,
   audioSrc,
   isPlaying: isPlayingProp,
+  isMuted = false,
+  seekRequest = null,
+  onBufferingChange,
   onPlayingChange,
+  onProgressChange,
   onPrevious,
   onNext,
   canPrevious = false,
@@ -54,8 +62,10 @@ export function MusicPlayer({
   const [currentTime, setCurrentTime] = React.useState(0)
   const [isShuffle, setIsShuffle] = React.useState(false)
   const [isRepeat, setIsRepeat] = React.useState(false)
+  const [isBuffering, setIsBuffering] = React.useState(false)
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
+  const bufferingTimerRef = React.useRef<number | null>(null)
   const progressBarRef = React.useRef<HTMLInputElement | null>(null)
   const rotation = useMotionValue(0)
   const isControlledPlaying = typeof isPlayingProp === 'boolean'
@@ -72,6 +82,14 @@ export function MusicPlayer({
     [isControlledPlaying, onPlayingChange],
   )
 
+  const setBufferingState = React.useCallback(
+    (nextBuffering: boolean) => {
+      setIsBuffering(nextBuffering)
+      onBufferingChange?.(nextBuffering)
+    },
+    [onBufferingChange],
+  )
+
   const syncProgressVisual = React.useCallback((time: number, totalDuration: number) => {
     if (!progressBarRef.current) return
     const progress = totalDuration > 0 ? (time / totalDuration) * 100 : 0
@@ -81,11 +99,12 @@ export function MusicPlayer({
   React.useEffect(() => {
     setCurrentTime(0)
     setDuration(0)
+    setBufferingState(false)
     syncProgressVisual(0, 0)
     if (!reduceMotion) {
       rotation.set((rotation.get() + 24) % 360)
     }
-  }, [audioSrc, reduceMotion, rotation, syncProgressVisual])
+  }, [audioSrc, reduceMotion, rotation, setBufferingState, syncProgressVisual])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -96,11 +115,13 @@ export function MusicPlayer({
       setDuration(nextDuration)
       setCurrentTime(audio.currentTime)
       syncProgressVisual(audio.currentTime, nextDuration)
+      onProgressChange?.({ currentTime: audio.currentTime, duration: nextDuration })
     }
 
     const setAudioTime = () => {
       setCurrentTime(audio.currentTime)
       syncProgressVisual(audio.currentTime, audio.duration)
+      onProgressChange?.({ currentTime: audio.currentTime, duration: Number.isFinite(audio.duration) ? audio.duration : 0 })
     }
 
     const handleEnded = () => {
@@ -108,24 +129,58 @@ export function MusicPlayer({
       setPlayingState(false)
     }
 
+    const handleBufferingStart = () => setBufferingState(true)
+    const handleBufferingEnd = () => setBufferingState(false)
+
     audio.addEventListener('loadedmetadata', setAudioData)
     audio.addEventListener('timeupdate', setAudioTime)
     audio.addEventListener('ended', handleEnded)
-
+    audio.addEventListener('loadstart', handleBufferingStart)
+    audio.addEventListener('waiting', handleBufferingStart)
+    audio.addEventListener('canplay', handleBufferingEnd)
+    audio.addEventListener('playing', handleBufferingEnd)
     if (isPlaying) {
+      setBufferingState(true)
+      if (bufferingTimerRef.current !== null) {
+        window.clearTimeout(bufferingTimerRef.current)
+      }
+      bufferingTimerRef.current = window.setTimeout(() => setBufferingState(false), 1800)
       void audio.play().catch(() => {
         // Keep the visual playback state alive even if the browser blocks preview audio.
+        setBufferingState(false)
       })
     } else {
       audio.pause()
+      setBufferingState(false)
     }
 
     return () => {
       audio.removeEventListener('loadedmetadata', setAudioData)
       audio.removeEventListener('timeupdate', setAudioTime)
       audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('loadstart', handleBufferingStart)
+      audio.removeEventListener('waiting', handleBufferingStart)
+      audio.removeEventListener('canplay', handleBufferingEnd)
+      audio.removeEventListener('playing', handleBufferingEnd)
+      if (bufferingTimerRef.current !== null) {
+        window.clearTimeout(bufferingTimerRef.current)
+        bufferingTimerRef.current = null
+      }
     }
-  }, [audioSrc, isPlaying, isRepeat, setPlayingState, syncProgressVisual])
+  }, [audioSrc, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
+
+  React.useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = isMuted
+  }, [isMuted])
+
+  React.useEffect(() => {
+    if (!audioRef.current || !seekRequest) return
+    audioRef.current.currentTime = seekRequest.time
+    setCurrentTime(seekRequest.time)
+    syncProgressVisual(seekRequest.time, duration)
+    onProgressChange?.({ currentTime: seekRequest.time, duration })
+  }, [duration, onProgressChange, seekRequest, syncProgressVisual])
 
   useAnimationFrame((_, delta) => {
     if (reduceMotion) return
@@ -140,8 +195,9 @@ export function MusicPlayer({
       audioRef.current.currentTime = nextTime
       setCurrentTime(nextTime)
       syncProgressVisual(nextTime, duration)
+      onProgressChange?.({ currentTime: nextTime, duration })
     },
-    [duration, syncProgressVisual],
+    [duration, onProgressChange, syncProgressVisual],
   )
 
   const handlePrevious = React.useCallback(() => {
@@ -150,11 +206,12 @@ export function MusicPlayer({
       audio.currentTime = 0
       setCurrentTime(0)
       syncProgressVisual(0, duration)
+      onProgressChange?.({ currentTime: 0, duration })
       return
     }
 
     onPrevious?.({ shuffle: isShuffle })
-  }, [duration, isShuffle, onPrevious, syncProgressVisual])
+  }, [duration, isShuffle, onPrevious, onProgressChange, syncProgressVisual])
 
   const handleNext = React.useCallback(() => {
     onNext?.({ shuffle: isShuffle })
@@ -205,7 +262,7 @@ export function MusicPlayer({
         }
       `}</style>
 
-      <audio ref={audioRef} src={audioSrc} loop={isRepeat} preload="metadata" />
+      <audio ref={audioRef} src={audioSrc} loop={isRepeat} preload="none" />
 
       <div className="relative mb-5 flex min-h-[14.5rem] items-center justify-center">
         <motion.div
@@ -299,7 +356,10 @@ export function MusicPlayer({
             onClick={() => setPlayingState(!isPlaying)}
             whileHover={reduceMotion ? undefined : { scale: 1.04 }}
             whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-            className="flex h-10 w-10 items-center justify-center text-white"
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-full text-white transition-[box-shadow,background-color] duration-200 ease-out',
+              isBuffering && isPlaying && 'animate-pulse bg-white/[0.08] shadow-[0_0_30px_rgba(99,102,241,0.24)]',
+            )}
             aria-label={isPlaying ? 'Pause track' : 'Play track'}
           >
             <AnimatePresence mode="wait" initial={false}>

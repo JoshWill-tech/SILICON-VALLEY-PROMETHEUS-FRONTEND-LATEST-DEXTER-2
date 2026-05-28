@@ -14,6 +14,7 @@ export type MusicCatalogApiTrack = {
   id: string
   title: string
   artist: string | null
+  album?: string
   category: string
   genreTags: string[]
   moodTags: string[]
@@ -142,6 +143,7 @@ function mapTrackToApiTrack(track: OwnedMusicCatalogTrack): MusicCatalogApiTrack
     id: track.id,
     title: track.title,
     artist: track.artist || null,
+    album: track.album,
     category: track.mood,
     genreTags,
     moodTags,
