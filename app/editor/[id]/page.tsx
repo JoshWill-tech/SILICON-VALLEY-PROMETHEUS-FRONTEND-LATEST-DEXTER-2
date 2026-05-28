@@ -28,11 +28,11 @@ import {
   Pause,
   PenSquare,
   Play,
-  Loader2,
   Settings2,
   SlidersHorizontal,
   Scissors,
   Sparkles,
+  Upload,
   Volume2,
   VolumeX,
   Wand2,
@@ -49,14 +49,18 @@ import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-runtime'
 import { EditWorkflowPanel } from '@/components/editor/edit-workflow-panel'
+import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { StagedMusicRail } from '@/components/editor/staged-music-rail'
+import { PremiumLoader } from '@/components/ui/premium-loader'
 
 // Always-Fast Lobe System
 const LivingCanvas = dynamic(() => import('@/components/living-canvas').then((mod) => mod.LivingCanvas), {
   ssr: false,
-  loading: () => <div className="flex h-full w-full items-center justify-center bg-[#05060a]/20 backdrop-blur-md">
-    <div className="h-1 w-32 animate-pulse rounded-full bg-white/5" />
-  </div>
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-[#050505] p-6">
+      <PremiumLoader label="Loading..." message="Preparing the live AI canvas." size="sm" variant="inline" />
+    </div>
+  ),
 })
 
 const CinematicExportCluster = dynamic(() => import('@/components/editor/cinematic-export-cluster').then(mod => mod.CinematicExportCluster), { ssr: false })
@@ -64,7 +68,6 @@ const ViralClipSplitPreview = dynamic(() => import('@/components/editor/viral-cl
 const EditorialComposerFrameAssist = dynamic(() => import('@/components/editor/editorial-composer-frame-assist').then(mod => mod.EditorialComposerFrameAssist), { ssr: false })
 const FrameComposerDraftMirror = dynamic(() => import('@/components/editor/frame-composer-draft-mirror').then(mod => mod.FrameComposerDraftMirror), { ssr: false })
 
-import { InfinityTrailLoader } from '@/components/editor/infinity-trail-loader'
 import { ViralClipTrigger } from '@/components/editor/viral-clip-trigger'
 import { CommandOverlayShell } from '@/components/editor/command-overlay-shell'
 import { useSourceStage } from '@/hooks/use-source-stage'
@@ -4398,6 +4401,7 @@ type MobileEditorViewProps = {
   clipRelayState: ClipRelayState | null
   automationRequest: ComposerAutomationRequest | null
   onBack: () => void
+  onOpenUploadNewProject: () => void
   onSelectMusicTrack: (track: MusicRecommendation) => void
   onEditRequest: (request: { prompt: string; styleTemplate: StyleTemplate }) => void
   onSave: (editorState: any) => Promise<void>
@@ -4434,6 +4438,7 @@ function MobileEditorView({
   onSave,
   onStartExport,
   onDownloadLatest,
+  onOpenUploadNewProject,
 }: MobileEditorViewProps) {
   const reduceMotion = useStableReducedMotion()
   const [activeTab, setActiveTab] = React.useState<MobileEditorTabKey>('status')
@@ -4528,7 +4533,7 @@ function MobileEditorView({
                     disabled={latestExport.status !== 'completed' || isDownloading}
                     onClick={onDownloadLatest}
                   >
-                    {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    {isDownloading ? <Sparkles className="size-4" /> : <Download className="size-4" />}
                     Download
                   </Button>
                 </div>
@@ -4590,7 +4595,7 @@ function MobileEditorView({
               onClick={() => onStartExport({ quality: exportQuality, format: exportFormat })}
               className="mt-6 h-12 w-full border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)]"
             >
-              {isExporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              {isExporting ? <Sparkles className="size-4" /> : <Download className="size-4" />}
               {isExporting ? 'Starting export' : 'Start Export'}
             </Button>
 
@@ -4668,10 +4673,18 @@ function MobileEditorView({
             <div className="min-w-0 flex-1">
               <div className="truncate text-base font-semibold text-white">{projectTitle}</div>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-white/42">
-                {saveStatus === 'saving' ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle2 className="size-3" />}
+                {saveStatus === 'saving' ? <Sparkles className="size-3" /> : <CheckCircle2 className="size-3" />}
                 {saveStatus === 'saving' ? 'Saving' : saveStatus === 'error' ? 'Save issue' : 'Saved'}
               </div>
             </div>
+            <button
+              type="button"
+              onClick={onOpenUploadNewProject}
+              className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/76"
+              aria-label="Upload new video"
+            >
+              <Upload className="size-4" />
+            </button>
             <div className="max-w-[8rem] truncate rounded-full border border-emerald-400/18 bg-emerald-400/8 px-3 py-1.5 text-[11px] text-emerald-100">
               {statusLabel}
             </div>
@@ -4710,11 +4723,13 @@ function MobileEditorView({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center">
-                  <div>
-                    <Loader2 className={cn('mx-auto size-6 text-white/38', !reduceMotion && 'animate-spin')} />
-                    <div className="mt-3 text-sm font-medium text-white/76">Video processing</div>
-                    <div className="mt-1 text-xs text-white/42">{sourceLabel}</div>
-                  </div>
+                  <PremiumLoader
+                    label="Loading..."
+                    message={`Video processing - ${sourceLabel}`}
+                    size="sm"
+                    variant="inline"
+                    className="w-full"
+                  />
                 </div>
               )}
             </div>
@@ -4795,6 +4810,7 @@ export default function EditorPage() {
   const [isExporting, setIsExporting] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = React.useState(false)
+  const [isNewProjectUploadOpen, setIsNewProjectUploadOpen] = React.useState(false)
   const [isEditingTitle, setIsEditingTitle] = React.useState(false)
   const [tempTitle, setTempTitle] = React.useState('')
   const titleInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -6321,36 +6337,40 @@ export default function EditorPage() {
 
   if (isMobile) {
     return (
-      <MobileEditorView
-        project={project}
-        projectId={projectId}
-        projectTitle={project?.title ?? 'Untitled Project'}
-        statusLabel={getMobileEditorStatus({ hasSourceAsset, job })}
-        saveStatus={saveStatus}
-        job={job}
-        progressPercent={progressPercent}
-        sourceMetrics={sourceMetrics}
-        previewUrl={previewUrl}
-        previewKind={previewKind}
-        hasPreviewMedia={hasPreviewMedia}
-        sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
-        musicTracks={editorMusicRecommendations}
-        selectedMusicTrackId={selectedEditorMusicTrackId}
-        videoContext={videoContext}
-        initialPrompt={promptText}
-        initialSources={sourceList}
-        latestExport={latestExport}
-        isExporting={isExporting}
-        isDownloading={isDownloading}
-        clipRelayState={clipRelayState}
-        automationRequest={composerAutomationRequest}
-        onBack={handleMobileBackNavigation}
-        onSelectMusicTrack={handleEditorMusicTrackSelect}
-        onEditRequest={handleEditRequest}
-        onSave={handleAutoSave}
-        onStartExport={handlePrepareExport}
-        onDownloadLatest={handleConfirmDownload}
-      />
+      <>
+        <MobileEditorView
+          project={project}
+          projectId={projectId}
+          projectTitle={project?.title ?? 'Untitled Project'}
+          statusLabel={getMobileEditorStatus({ hasSourceAsset, job })}
+          saveStatus={saveStatus}
+          job={job}
+          progressPercent={progressPercent}
+          sourceMetrics={sourceMetrics}
+          previewUrl={previewUrl}
+          previewKind={previewKind}
+          hasPreviewMedia={hasPreviewMedia}
+          sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
+          musicTracks={editorMusicRecommendations}
+          selectedMusicTrackId={selectedEditorMusicTrackId}
+          videoContext={videoContext}
+          initialPrompt={promptText}
+          initialSources={sourceList}
+          latestExport={latestExport}
+          isExporting={isExporting}
+          isDownloading={isDownloading}
+          clipRelayState={clipRelayState}
+          automationRequest={composerAutomationRequest}
+          onBack={handleMobileBackNavigation}
+          onOpenUploadNewProject={() => setIsNewProjectUploadOpen(true)}
+          onSelectMusicTrack={handleEditorMusicTrackSelect}
+          onEditRequest={handleEditRequest}
+          onSave={handleAutoSave}
+          onStartExport={handlePrepareExport}
+          onDownloadLatest={handleConfirmDownload}
+        />
+        <EditorNewProjectUploadDialog open={isNewProjectUploadOpen} onOpenChange={setIsNewProjectUploadOpen} />
+      </>
     )
   }
 
@@ -6370,18 +6390,30 @@ export default function EditorPage() {
         <header className="relative z-30 shrink-0 border-b border-white/8">
           <div className="mx-auto flex w-full max-w-[1580px] flex-col gap-4 px-4 py-[clamp(0.875rem,1.8vh,1rem)] lg:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <motion.button
-                type="button"
-                onClick={handleBackNavigation}
+              <motion.div
                 variants={buildRevealVariants({ delay: 0.03, distance: 10, blur: 6, duration: 0.24 })}
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: false, amount: 0.55 }}
-                className="inline-flex items-center gap-2 text-sm text-white/72 transition-colors hover:text-white"
+                className="inline-flex items-center gap-2"
               >
-                <ArrowLeft className="size-4" />
-                <span>Back</span>
-              </motion.button>
+                <button
+                  type="button"
+                  onClick={handleBackNavigation}
+                  className="inline-flex items-center gap-2 text-sm text-white/72 transition-colors hover:text-white"
+                >
+                  <ArrowLeft className="size-4" />
+                  <span>Back</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectUploadOpen(true)}
+                  className="inline-flex h-8 items-center gap-2 rounded-full border border-white/8 bg-white/[0.025] px-3 text-xs text-white/58 transition-colors hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
+                >
+                  <Upload className="size-3.5" />
+                  <span>Upload New Video</span>
+                </button>
+              </motion.div>
 
               <motion.div
                 variants={buildRevealVariants({ delay: 0.08, distance: 10, blur: 6, duration: 0.24 })}
@@ -6426,7 +6458,7 @@ export default function EditorPage() {
                     >
                       <TextReveal
                         as="div"
-                        text={project?.title ?? 'Loading project...'}
+                        text={project?.title ?? 'Opening project'}
                         split="words"
                         delay={0.08}
                         className="editor-display truncate text-[1.45rem] leading-tight text-white"
@@ -6440,7 +6472,7 @@ export default function EditorPage() {
                     saveStatus === 'saving' ? "text-white/60" : saveStatus === 'error' ? "text-rose-400" : "text-white/42"
                   )}>
                     {saveStatus === 'saving' ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Sparkles className="size-3.5" />
                     ) : (
                       <CheckCircle2 className="size-3.5" />
                     )}
@@ -6795,10 +6827,11 @@ export default function EditorPage() {
 
                                     {!isPreviewMediaReady && isPreviewLoadingVisible ? (
                                       <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                                        <InfinityTrailLoader
-                                          label="Loading source preview"
-                                          subtitle="Preparing the visible video surface."
-                                          variant="stacked"
+                                        <PremiumLoader
+                                          label="Loading..."
+                                          message="Preparing the visible video surface."
+                                          size="sm"
+                                          variant="inline"
                                           className="w-full max-w-[320px]"
                                         />
                                       </div>
@@ -6848,7 +6881,7 @@ export default function EditorPage() {
                                       {sourceStageError ? (
                                         <AlertCircle className="size-4 text-rose-100" />
                                       ) : (
-                                        <Loader2 className="size-4 text-[#9ff6e3]" />
+                                        <Activity className="size-4 text-[#9ff6e3]" />
                                       )}
                                     </motion.span>
 
@@ -7338,6 +7371,7 @@ export default function EditorPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <EditorNewProjectUploadDialog open={isNewProjectUploadOpen} onOpenChange={setIsNewProjectUploadOpen} />
       <div
         ref={setChatComposerPortal}
         aria-hidden

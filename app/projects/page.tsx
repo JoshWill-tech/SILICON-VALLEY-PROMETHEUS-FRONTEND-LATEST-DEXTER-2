@@ -11,7 +11,6 @@ import {
   Download,
   ExternalLink,
   Film,
-  Loader2,
   MoreHorizontal,
   Plus,
   Search,
@@ -26,6 +25,7 @@ import { toast } from 'sonner'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Button } from '@/components/ui/button'
+import { PremiumLoader } from '@/components/ui/premium-loader'
 import {
   Dialog,
   DialogContent,
@@ -1088,10 +1088,13 @@ function ProjectCard({
           ) : (
             <div className="flex h-full items-center justify-center bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.26)_0%,rgba(255,255,255,0)_52%),linear-gradient(165deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.02)_68%)]">
               {status === 'processing' ? (
-                <div className="flex flex-col items-center gap-3 text-white/66">
-                  <Loader2 className="size-8 animate-spin" />
-                  <span className="text-xs uppercase tracking-[0.18em]">Processing...</span>
-                </div>
+                <PremiumLoader
+                  label="Loading..."
+                  message="AI task processing this project."
+                  size="sm"
+                  variant="inline"
+                  className="w-full"
+                />
               ) : (
                 <Film className="size-12 text-white/20" />
               )}
@@ -1122,8 +1125,9 @@ function ProjectCard({
                   event.stopPropagation()
                   onRenameStart(project)
                 }}
-                className="min-w-0 truncate text-left text-lg font-semibold text-white"
+                className="min-w-0 touch-manipulation truncate text-left text-lg font-semibold text-white"
                 title="Click to rename"
+                aria-label={`Rename ${project.title}`}
               >
                 {project.title}
               </button>
@@ -1204,6 +1208,7 @@ function ProjectCard({
 
           <QuickActionChips
             project={project}
+            status={status}
             onDelete={onDeleteProject}
             onDuplicate={onDuplicateProject}
             onEdit={onEditProject}
@@ -1213,6 +1218,20 @@ function ProjectCard({
           />
         </div>
       </div>
+      <button
+        type="button"
+        aria-label={`Delete ${project.title}`}
+        onClick={(event) => {
+          event.stopPropagation()
+          onDeleteProject(project)
+        }}
+        className={cn(
+          'absolute left-3 top-3 z-30 grid size-9 place-items-center rounded-full border border-white/10 bg-black/54 text-white/42 shadow-[0_18px_36px_-24px_rgba(0,0,0,0.95)] backdrop-blur-md transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12] hover:bg-white/[0.08] hover:text-white md:text-white/30 md:group-hover:text-white/72',
+          status === 'failed' && 'border-red-400/22 bg-red-500/10 text-red-100 md:text-red-100',
+        )}
+      >
+        <Trash2 className="size-4" />
+      </button>
     </article>
   )
 }
@@ -1267,6 +1286,7 @@ function QuickActionChips({
   onRepurpose,
   onShare,
   project,
+  status,
 }: {
   onDelete: (project: Project) => void
   onDuplicate: (project: Project) => void
@@ -1275,6 +1295,7 @@ function QuickActionChips({
   onRepurpose: (project: Project) => void
   onShare: (project: Project) => void
   project: Project
+  status: StatusFilter
 }) {
   const actions = [
     { label: 'Edit', icon: ExternalLink, onClick: onEdit },
@@ -1286,7 +1307,12 @@ function QuickActionChips({
   ]
 
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 hidden translate-y-2 justify-center gap-1.5 opacity-0 transition-all duration-150 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:flex">
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-x-3 bottom-3 hidden translate-y-2 justify-center gap-1.5 opacity-0 transition-all duration-150 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:flex',
+        status === 'failed' && 'pointer-events-auto translate-y-0 opacity-100',
+      )}
+    >
       {actions.map((action) => (
         <button
           key={action.label}
@@ -1442,7 +1468,7 @@ function DeleteConfirmationModal({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="border-white/10 bg-[#0a0a0d] text-white">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-[24px] border-white/10 bg-[#0a0a0d] text-white">
         <DialogHeader>
           <div className="mb-3 flex size-11 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
             <AlertTriangle className="size-5" />

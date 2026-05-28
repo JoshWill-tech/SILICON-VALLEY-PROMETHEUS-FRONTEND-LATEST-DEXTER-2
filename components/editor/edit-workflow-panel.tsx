@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Loader2, Sparkles, Wand2 } from 'lucide-react'
+import { CheckCircle2, Sparkles, Wand2 } from 'lucide-react'
 
 import { TextReveal } from '@/components/editor/text-reveal'
 import { Plan, type PlanItem } from '@/components/ui/agent-plan'
@@ -81,7 +81,7 @@ export function EditWorkflowPanel({ projectTitle, sourceLabel, job }: EditWorkfl
           <TextReveal as="div" text={projectTitle} delay={0.12} className="mt-2 text-[11px] uppercase tracking-[0.22em] text-white/42" />
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/66">
-          {job?.status === 'running' ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+          <Sparkles className={cn('size-3.5', job?.status === 'running' && 'animate-pulse')} />
           <span>{statusText}</span>
         </div>
       </div>

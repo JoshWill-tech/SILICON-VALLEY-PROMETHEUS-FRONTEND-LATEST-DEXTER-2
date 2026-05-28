@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileVideo, CheckCircle2, Loader2, X } from 'lucide-react'
+import { Upload, FileVideo, CheckCircle2, Sparkles, X } from 'lucide-react'
 import Uppy, { type UppyFile } from '@uppy/core'
 // @ts-ignore - Uppy types can be finicky in certain environments
 import AwsS3Multipart from '@uppy/aws-s3-multipart'
@@ -278,7 +278,7 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
                   </div>
                   <div className="mt-2 flex items-center justify-center gap-4 text-[11px] font-medium uppercase tracking-[0.2em] text-white/25">
                     <span className="flex items-center gap-1.5">
-                      <Loader2 className="size-3 animate-spin" />
+                      <Sparkles className="size-3 animate-pulse" />
                       {uploadState.speed}
                     </span>
                     <div className="size-1 rounded-full bg-white/10" />

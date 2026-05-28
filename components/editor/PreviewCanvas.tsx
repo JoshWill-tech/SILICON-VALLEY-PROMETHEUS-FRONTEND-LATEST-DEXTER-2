@@ -2,12 +2,12 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertCircle, Film, Loader2 } from 'lucide-react'
+import { AlertCircle, Film, Sparkles } from 'lucide-react'
 import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-runtime'
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
 import { PreviewGenerationState } from '@/components/editor/preview-generation-state'
 import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell'
-import { InfinityTrailLoader } from '@/components/editor/infinity-trail-loader'
+import { PremiumLoader } from '@/components/ui/premium-loader'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { cn } from '@/lib/utils'
 import type {
@@ -266,10 +266,11 @@ export function PreviewCanvas({
 
                         {!isPreviewMediaReady && isPreviewLoadingVisible ? (
                           <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                            <InfinityTrailLoader
+                            <PremiumLoader
                               label="Loading source preview"
-                              subtitle="Preparing the visible video surface."
-                              variant="stacked"
+                              message="Preparing the visible video surface."
+                              variant="inline"
+                              size="sm"
                               className="w-full max-w-[320px]"
                             />
                           </div>
@@ -339,7 +340,7 @@ export function PreviewCanvas({
                           {sourceStageError ? (
                             <AlertCircle className="size-4 text-rose-100" />
                           ) : (
-                            <Loader2 className="size-4 text-[#9ff6e3]" />
+                            <Sparkles className="size-4 text-[#9ff6e3]" />
                           )}
                         </motion.span>
 
@@ -394,13 +395,15 @@ function BriefPipelineProgress({
 
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 px-8 backdrop-blur-sm">
-      <InfinityTrailLoader
+      <PremiumLoader
         label={isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
-        subtitle={
+        message={
           isTranscribing
             ? 'Mapping audio patterns and speech timestamps.'
             : 'Extracting motion parameters from your prompt.'
         }
+        variant="inline"
+        size="sm"
         className="w-full max-w-[320px]"
       />
       <div className="mt-8 flex flex-wrap justify-center gap-2">

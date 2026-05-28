@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence, useSpring, useTransform, useMotionValueEvent } from 'framer-motion'
-import { CheckCircle2, Loader2, AlertCircle, Sparkles } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DurableJobStatus, DurableJobType } from '@/lib/types/jobs'
 
@@ -92,7 +92,7 @@ export function DurableJobProgress({
                     ) : status === 'failed' ? (
                       <AlertCircle className="size-4 text-rose-400" />
                     ) : (
-                      <Loader2 className="size-4 animate-spin text-blue-400" />
+                      <Sparkles className="size-4 animate-pulse text-blue-400" />
                     )}
                   </div>
                   <div>

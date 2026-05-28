@@ -2,13 +2,14 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
-import { Check, Loader2, Music, Pause, Play, Plus, Search, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
+import { Check, Music, Pause, Play, Plus, Search, Sparkles, Volume2, VolumeX, X } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MusicPlayer } from '@/components/ui/music-player'
+import { PremiumLoader } from '@/components/ui/premium-loader'
 import { Button } from '@/components/ui/button'
 import { chamberEase, chamberSpring } from '@/lib/chamber-motion'
 import type { MusicRecommendation } from '@/lib/types'
@@ -1020,7 +1021,7 @@ export function MusicTabPanel({
               onClick={() => void handleAutoMatch()}
               className="h-11 w-full border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out hover:border-[#818cf8] hover:bg-[#5558e8] hover:shadow-[0_0_34px_rgba(99,102,241,0.42)] disabled:border-white/10 disabled:bg-white/[0.05] disabled:text-white/42 disabled:shadow-none"
             >
-              {isAutoMatching ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              <Sparkles className={cn('size-4', isAutoMatching && 'animate-pulse')} />
               {isAutoMatching ? 'Analyzing compatibility...' : 'AI Auto-Match'}
             </Button>
           </div>
@@ -1029,10 +1030,7 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <div>
-                    <Loader2 className="mx-auto size-5 animate-spin text-white/50" />
-                    <div className="mt-3 text-sm text-white/52">Loading catalog</div>
-                  </div>
+                  <PremiumLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (
@@ -1159,10 +1157,7 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <div>
-                    <Loader2 className="mx-auto size-5 animate-spin text-white/50" />
-                    <div className="mt-3 text-sm text-white/52">Loading catalog</div>
-                  </div>
+                  <PremiumLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (
@@ -1218,7 +1213,7 @@ export function MusicTabPanel({
               onClick={() => void handleAutoMatch()}
               className="border-[#6366f1]/80 bg-[#6366f1] text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-[#818cf8] hover:bg-[#5558e8] hover:shadow-[0_0_34px_rgba(99,102,241,0.42)]"
             >
-              {isAutoMatching ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+              <Sparkles className={cn('size-4', isAutoMatching && 'animate-pulse')} />
               {isAutoMatching ? 'Analyzing compatibility…' : 'AI Auto-Match'}
             </Button>
           </motion.div>

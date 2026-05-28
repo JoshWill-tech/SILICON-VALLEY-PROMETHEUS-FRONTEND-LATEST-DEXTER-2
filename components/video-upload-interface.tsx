@@ -35,7 +35,6 @@ import {
     MessageSquare,
     ImageIcon, // Added import for ImageIcon
     Link as LinkIcon,
-    Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as React from "react";
@@ -48,7 +47,7 @@ import { BillingRequiredDialog } from "@/components/billing/billing-required-dia
 import { GlassUploadModalView } from "@/components/ui/glass-upload-modal-view";
 import { DynamicFrameLayout } from "@/components/ui/dynamic-frame-layout";
 import { TextEffect } from "@/components/ui/text-effect";
-import { InfinityTrailLoader } from "@/components/editor/infinity-trail-loader";
+import { PremiumLoader } from "@/components/ui/premium-loader";
 import type { DynamicFrame } from "@/components/ui/dynamic-frame-layout";
 import { InteractiveOrb } from "@/components/ui/interactive-orb";
 import { STYLE_TEMPLATES } from "@/lib/styles/style-templates";
@@ -1270,7 +1269,7 @@ const PromptComposer = React.memo(function PromptComposer({
                         {uploadStatus === 'error' ? (
                             <ArrowUpIcon className="h-4 w-4" />
                         ) : isSubmitting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Sparkles className="h-4 w-4" />
                         ) : (
                             <SendIcon className="h-4 w-4" />
                         )}
@@ -2932,10 +2931,11 @@ export function VideoUploadInterface() {
                                 aria-hidden
                                 className="pointer-events-none absolute inset-x-[12%] top-1/2 h-40 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,rgba(145,110,255,0.12)_34%,rgba(3,3,8,0)_74%)] blur-[58px]"
                             />
-                            <InfinityTrailLoader
-                                variant="stacked"
+                            <PremiumLoader
                                 label={`Opening ${editorLaunchOverlay.title}`}
-                                subtitle={editorLaunchOverlay.detail}
+                                message={editorLaunchOverlay.detail}
+                                size="lg"
+                                variant="panel"
                                 className="w-full"
                             />
                             {(uploadStatus === 'presigning' || uploadStatus === 'uploading' || uploadStatus === 'retrying' || uploadStatus === 'paused') ? (

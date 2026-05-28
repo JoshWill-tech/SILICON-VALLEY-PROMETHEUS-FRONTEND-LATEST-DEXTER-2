@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowUpRight, Check, ChevronDown, Download, Link2, Loader2, Plus, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Check, ChevronDown, Download, Link2, Plus, Sparkles } from 'lucide-react'
 
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { cn } from '@/lib/utils'
@@ -334,7 +334,7 @@ export function CinematicExportCluster({
           >
             <div className="flex items-center gap-2">
               {isDownloading ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Sparkles className="size-3.5 animate-pulse" />
               ) : (
                 <Download className="size-3.5" />
               )}
@@ -358,7 +358,7 @@ export function CinematicExportCluster({
           >
             <div className="flex items-center gap-2">
               {isExporting ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
+                <Sparkles className="size-3.5 animate-pulse opacity-70" />
               ) : (
                 <Sparkles className="size-3.5 opacity-70" />
               )}
@@ -462,7 +462,7 @@ export function CinematicExportCluster({
                     disabled={isExporting}
                     className="absolute left-1/2 top-1/2 grid size-[4.6rem] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[24px] border border-white/14 bg-[linear-gradient(145deg,rgba(255,255,255,0.15)_0%,rgba(255,255,255,0.04)_48%,rgba(255,255,255,0.02)_100%)] text-white shadow-[0_24px_48px_-28px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] transition-colors hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isExporting ? <Loader2 className="size-5 animate-spin" /> : <ArrowUpRight className="size-5" />}
+                    {isExporting ? <Sparkles className="size-5 animate-pulse" /> : <ArrowUpRight className="size-5" />}
                   </button>
 
                   {PLATFORM_OPTIONS.map((platform, index) => {

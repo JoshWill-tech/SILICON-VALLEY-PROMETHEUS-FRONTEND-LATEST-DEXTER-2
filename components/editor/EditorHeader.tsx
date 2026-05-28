@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Sparkles } from 'lucide-react'
 import { WorkspaceNavBar, type WorkspaceNavItem } from '@/components/ui/anime-navbar'
 import { CinematicExportCluster } from '@/components/editor/cinematic-export-cluster'
 import { TextReveal } from '@/components/editor/text-reveal'
@@ -119,7 +119,7 @@ export function EditorHeader({
                 >
                   <TextReveal
                     as="div"
-                    text={project?.title ?? 'Loading project...'}
+                    text={project?.title ?? 'Opening project'}
                     split="words"
                     delay={0.08}
                     className="editor-display truncate text-[1.45rem] leading-tight text-white"
@@ -135,7 +135,7 @@ export function EditorHeader({
                 )}
               >
                 {saveStatus === 'saving' ? (
-                  <Loader2 className="size-3.5 animate-spin" />
+                  <Sparkles className="size-3.5 animate-pulse" />
                 ) : (
                   <CheckCircle2 className="size-3.5" />
                 )}

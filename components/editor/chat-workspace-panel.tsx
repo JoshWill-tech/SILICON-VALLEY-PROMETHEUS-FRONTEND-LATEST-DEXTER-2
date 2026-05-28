@@ -10,7 +10,6 @@ import {
   Sparkles,
   Volume2,
   X,
-  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -228,7 +227,7 @@ export const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               animate={{ opacity: 1, y: 0 }}
               className="flex items-center gap-2 px-2 text-xs text-white/32"
             >
-              <Loader2 className="size-3 animate-spin" />
+              <Sparkles className="size-3 animate-pulse text-[#9ff6e3]" />
               <span>Thinking...</span>
             </motion.div>
           )}

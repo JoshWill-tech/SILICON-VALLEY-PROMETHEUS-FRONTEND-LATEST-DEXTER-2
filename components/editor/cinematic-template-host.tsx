@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 
+import { PremiumLoader } from '@/components/ui/premium-loader'
 import { cn } from '@/lib/utils'
 import type { CinematicTemplateAsset, ExplainerCue } from '@/lib/types'
 
@@ -65,9 +66,7 @@ export function CinematicTemplateHost({
         />
       ) : (
         <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_58%)] text-center">
-          <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] uppercase tracking-[0.26em] text-white/48">
-            Loading explainer
-          </div>
+          <PremiumLoader label="Loading explainer" message="Preparing the selected template." size="sm" variant="inline" />
         </div>
       )}
     </div>
