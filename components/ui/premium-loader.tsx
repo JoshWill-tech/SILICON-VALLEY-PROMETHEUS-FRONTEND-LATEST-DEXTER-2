@@ -14,9 +14,9 @@ type PremiumLoaderProps = {
 }
 
 const SIZE_CLASS_NAMES = {
-  sm: 'h-12 w-24',
-  md: 'h-16 w-32',
-  lg: 'h-20 w-40',
+  sm: 'h-14 w-28',
+  md: 'h-20 w-40',
+  lg: 'h-24 w-48',
 } as const
 
 export function PremiumLoader({
@@ -26,14 +26,18 @@ export function PremiumLoader({
   size = 'md',
   variant = 'panel',
 }: PremiumLoaderProps) {
-  const gradientId = React.useId().replace(/:/g, '')
+  const uniqueId = React.useId().replace(/:/g, '')
+  const pathId = `${uniqueId}-orbit`
+  const gradientId = `${uniqueId}-neon-gradient`
+  const bloomFilterId = `${uniqueId}-bloom`
+  const packetFilterId = `${uniqueId}-packet`
 
   return (
     <div
       className={cn(
         'relative flex flex-col items-center justify-center overflow-hidden text-center text-white',
-        variant === 'screen' && 'min-h-screen bg-[#050505] px-6',
-        variant === 'panel' && 'rounded-[28px] border border-white/8 bg-[#050505] px-6 py-10 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)]',
+        variant === 'screen' && 'min-h-screen bg-black px-6',
+        variant === 'panel' && 'rounded-[28px] border border-white/8 bg-black px-6 py-10 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)]',
         variant === 'inline' && 'bg-transparent px-4 py-5',
         className,
       )}
@@ -42,116 +46,176 @@ export function PremiumLoader({
       aria-label={message ? `${label} ${message}` : label}
     >
       <style>{`
-        @keyframes premium-loader-draw {
+        @keyframes premium-loader-orbit {
+          from { stroke-dashoffset: 0; }
+          to { stroke-dashoffset: -1; }
+        }
+
+        @keyframes premium-loader-core-orbit {
+          from { stroke-dashoffset: -0.022; }
+          to { stroke-dashoffset: -1.022; }
+        }
+
+        @keyframes premium-loader-ambient {
           0% {
-            stroke-dashoffset: 132;
-            opacity: 0.42;
-            filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.48)) drop-shadow(0 0 14px rgba(99, 102, 241, 0.18));
+            opacity: 0.34;
+            transform: translate(-50%, -50%) scale(0.95);
           }
-          36% {
-            stroke-dashoffset: 0;
-            opacity: 1;
-            filter: drop-shadow(0 0 9px rgba(167, 139, 250, 0.9)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.44));
-          }
-          68% {
-            stroke-dashoffset: -3;
-            opacity: 0.84;
-            filter: drop-shadow(0 0 8px rgba(196, 181, 253, 0.76)) drop-shadow(0 0 19px rgba(99, 102, 241, 0.28));
+          45% {
+            opacity: 0.7;
+            transform: translate(-50%, -50%) scale(1.16);
           }
           100% {
-            stroke-dashoffset: -132;
             opacity: 0.36;
-            filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.42)) drop-shadow(0 0 12px rgba(99, 102, 241, 0.16));
+            transform: translate(-50%, -50%) scale(0.98);
           }
         }
 
-        @keyframes premium-loader-breathe {
+        @keyframes premium-loader-haze {
           0%, 100% {
-            opacity: 0.42;
-            transform: translate(-50%, -50%) scale(1.08);
+            opacity: 0.18;
+            transform: translate(-50%, -50%) scaleX(1);
           }
-          46% {
-            opacity: 0.76;
-            transform: translate(-50%, -50%) scale(1.28);
+          50% {
+            opacity: 0.32;
+            transform: translate(-50%, -50%) scaleX(1.1);
           }
         }
 
-        @keyframes premium-loader-dot {
+        @keyframes premium-loader-text {
           0%, 100% {
-            opacity: 0.86;
-            transform: scale(0.92);
-            filter: drop-shadow(0 0 8px rgba(255,255,255,0.72)) drop-shadow(0 0 18px rgba(167,139,250,0.46));
+            opacity: 0.62;
           }
-          48% {
-            opacity: 1;
-            transform: scale(1.14);
-            filter: drop-shadow(0 0 10px rgba(255,255,255,0.92)) drop-shadow(0 0 24px rgba(167,139,250,0.68));
+          50% {
+            opacity: 0.95;
           }
         }
 
-        @keyframes premium-loader-ghost {
-          0%, 100% { opacity: 0.42; }
-          50% { opacity: 0.62; }
+        @keyframes premium-loader-track {
+          0%, 100% { opacity: 0.34; }
+          50% { opacity: 0.56; }
         }
       `}</style>
 
       <div aria-hidden className="relative isolate">
         <div
-          className="pointer-events-none absolute left-[33%] top-1/2 h-14 w-24 rounded-full bg-violet-500/20 blur-2xl"
-          style={{ animation: 'premium-loader-breathe 3.2s ease-in-out infinite' }}
+          className="pointer-events-none absolute left-1/2 top-1/2 h-24 w-44 rounded-full bg-[#0080ff]/18 blur-3xl"
+          style={{ animation: 'premium-loader-ambient 2.7s ease-in-out infinite' }}
         />
         <div
-          className="pointer-events-none absolute left-[40%] top-1/2 h-8 w-16 rounded-full bg-[#6366f1]/16 blur-xl"
-          style={{ animation: 'premium-loader-breathe 3.2s ease-in-out 0.28s infinite' }}
+          className="pointer-events-none absolute left-1/2 top-1/2 h-16 w-52 rounded-full bg-[#8b5cf6]/14 blur-2xl"
+          style={{ animation: 'premium-loader-haze 2.7s ease-in-out infinite' }}
         />
-        <svg viewBox="0 0 200 100" className={cn('relative z-10 overflow-visible', SIZE_CLASS_NAMES[size])} fill="none">
+        <svg viewBox="0 0 220 120" className={cn('relative z-10 overflow-visible', SIZE_CLASS_NAMES[size])} fill="none">
           <defs>
-            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#a78bfa" />
-              <stop offset="52%" stopColor="#c4b5fd" />
+            <linearGradient id={gradientId} x1="8%" y1="20%" x2="92%" y2="80%">
+              <stop offset="0%" stopColor="#00f0ff">
+                <animate attributeName="stop-color" values="#00f0ff;#0080ff;#8b5cf6;#00f0ff" dur="2.7s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="45%" stopColor="#0080ff">
+                <animate attributeName="stop-color" values="#0080ff;#8b5cf6;#00f0ff;#0080ff" dur="2.7s" repeatCount="indefinite" />
+              </stop>
+              <stop offset="78%" stopColor="#8b5cf6">
+                <animate attributeName="stop-color" values="#8b5cf6;#00f0ff;#0080ff;#8b5cf6" dur="2.7s" repeatCount="indefinite" />
+              </stop>
               <stop offset="100%" stopColor="#ffffff" />
             </linearGradient>
+            <filter id={bloomFilterId} x="-45%" y="-75%" width="190%" height="250%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feColorMatrix
+                in="blur"
+                type="matrix"
+                values="0 0 0 0 0 0 0 0 0 0.62 0 0 0 0 1 0 0 0 0.85 0"
+                result="blueGlow"
+              />
+              <feMerge>
+                <feMergeNode in="blueGlow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <filter id={packetFilterId} x="-350%" y="-350%" width="800%" height="800%">
+              <feGaussianBlur stdDeviation="3.4" result="blur" />
+              <feColorMatrix
+                in="blur"
+                type="matrix"
+                values="0 0 0 0 0.15 0 0 0 0 0.78 0 0 0 0 1 0 0 0 0.95 0"
+                result="packetGlow"
+              />
+              <feMerge>
+                <feMergeNode in="packetGlow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
           <path
-            d="M30,50 C30,20 70,20 100,50 C130,80 170,80 170,50 C170,20 130,20 100,50 C70,80 30,80 30,50"
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth="6"
+            id={pathId}
+            pathLength={1}
+            d="M38 60 C38 31 67 26 92 52 C98 58 103 62 110 60 C117 58 122 52 128 46 C153 20 182 31 182 60 C182 89 153 100 128 74 C122 68 117 62 110 60 C103 58 98 62 92 68 C67 94 38 89 38 60"
+            stroke="rgba(148,163,184,0.13)"
+            strokeWidth="8"
             strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ animation: 'premium-loader-track 3.2s ease-in-out infinite' }}
           />
           <path
-            d="M100,50 C130,80 170,80 170,50 C170,20 130,20 100,50"
-            stroke="rgba(255,255,255,0.115)"
-            strokeWidth="6"
+            pathLength={1}
+            d="M38 60 C38 31 67 26 92 52 C98 58 103 62 110 60 C117 58 122 52 128 46 C153 20 182 31 182 60 C182 89 153 100 128 74 C122 68 117 62 110 60 C103 58 98 62 92 68 C67 94 38 89 38 60"
+            stroke={`url(#${gradientId})`}
+            strokeWidth="18"
             strokeLinecap="round"
-            style={{ animation: 'premium-loader-ghost 3.2s ease-in-out infinite' }}
+            strokeLinejoin="round"
+            strokeDasharray="0.28 0.72"
+            filter={`url(#${bloomFilterId})`}
+            opacity="0.38"
+            style={{ animation: 'premium-loader-orbit 2.7s linear infinite' }}
           />
           <path
-            d="M30,50 C30,20 70,20 100,50"
+            pathLength={1}
+            d="M38 60 C38 31 67 26 92 52 C98 58 103 62 110 60 C117 58 122 52 128 46 C153 20 182 31 182 60 C182 89 153 100 128 74 C122 68 117 62 110 60 C103 58 98 62 92 68 C67 94 38 89 38 60"
             fill="none"
             stroke={`url(#${gradientId})`}
-            strokeWidth="6"
+            strokeWidth="8"
             strokeLinecap="round"
-            strokeDasharray="132"
-            strokeDashoffset="132"
-            style={{
-              animation: 'premium-loader-draw 2.9s cubic-bezier(0.52, 0, 0.22, 1) infinite',
-            }}
+            strokeLinejoin="round"
+            strokeDasharray="0.18 0.82"
+            filter={`url(#${bloomFilterId})`}
+            style={{ animation: 'premium-loader-orbit 2.7s linear infinite' }}
           />
-          <circle
-            cx="100"
-            cy="50"
-            r="4"
-            fill="white"
-            style={{
-              transformBox: 'fill-box',
-              transformOrigin: 'center',
-              animation: 'premium-loader-dot 2.9s ease-in-out infinite',
-            }}
+          <path
+            pathLength={1}
+            d="M38 60 C38 31 67 26 92 52 C98 58 103 62 110 60 C117 58 122 52 128 46 C153 20 182 31 182 60 C182 89 153 100 128 74 C122 68 117 62 110 60 C103 58 98 62 92 68 C67 94 38 89 38 60"
+            fill="none"
+            stroke="rgba(255,255,255,0.96)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="0.038 0.962"
+            filter={`url(#${packetFilterId})`}
+            style={{ animation: 'premium-loader-core-orbit 2.7s linear infinite' }}
           />
+          <g filter={`url(#${packetFilterId})`}>
+            <circle r="5.2" fill="#00f0ff" opacity="0.3">
+              <animateMotion dur="2.7s" repeatCount="indefinite" rotate="auto">
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </circle>
+            <circle r="3.6" fill="#ffffff">
+              <animateMotion dur="2.7s" repeatCount="indefinite" rotate="auto">
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </circle>
+            <circle r="2.2" fill="#8b5cf6" opacity="0.72" transform="translate(3 -1.5)">
+              <animateMotion dur="2.7s" repeatCount="indefinite" rotate="auto">
+                <mpath href={`#${pathId}`} />
+              </animateMotion>
+            </circle>
+          </g>
         </svg>
       </div>
 
-      <p className="relative mt-8 text-sm font-light tracking-wide text-white/30">{label}</p>
+      <p className="relative mt-8 text-sm font-light tracking-wide text-[#475569]" style={{ animation: 'premium-loader-text 2.4s ease-in-out infinite' }}>
+        {label}
+      </p>
       {message ? <span className="sr-only">{message}</span> : null}
     </div>
   )
