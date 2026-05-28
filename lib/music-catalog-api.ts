@@ -104,7 +104,7 @@ export async function getMusicCatalogPreviewUrl(trackId: string): Promise<MusicP
     audioPreviewUrl: track.previewAllowed ? previewUrl : undefined,
     audioObjectKey: track.audioObjectKey,
     reason: track.previewAllowed
-      ? 'Preview URL is served through the web app music preview adapter.'
+      ? 'Preview URL is a public browser-playable catalog URL.'
       : 'Preview is unavailable for this track.',
   }
 }
@@ -156,7 +156,7 @@ function mapTrackToApiTrack(track: OwnedMusicCatalogTrack): MusicCatalogApiTrack
     audioPreviewUrl: resolveDirectAudioUrl(track) ?? undefined,
     audioObjectKey: storageKey,
     thumbnailUrl: track.coverArtUrl,
-    thumbnailObjectKey: storageKey,
+    thumbnailObjectKey: resolvePublicAssetObjectKey(track.coverArtUrl),
     urlMode: 'public_url',
     playableInBrowser: true,
     licenseSummary: buildLicenseSummary(track, renderAllowed),
@@ -169,7 +169,7 @@ function resolveDirectAudioUrl(track: OwnedMusicCatalogTrack) {
   try {
     const parsed = new URL(track.sourceUrl)
     const path = parsed.pathname.toLowerCase()
-    if (path.includes('/music/') && (path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.ogg') || path.endsWith('.m4a'))) {
+    if (isBrowserAudioAssetPath(path)) {
       return track.sourceUrl
     }
   } catch {
@@ -177,6 +177,21 @@ function resolveDirectAudioUrl(track: OwnedMusicCatalogTrack) {
   }
 
   return null
+}
+
+function isBrowserAudioAssetPath(path: string) {
+  return path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.ogg') || path.endsWith('.m4a')
+}
+
+function resolvePublicAssetObjectKey(value: string | undefined) {
+  if (!value || value.startsWith('/')) return undefined
+
+  try {
+    const parsed = new URL(value)
+    return decodeURIComponent(parsed.pathname.replace(/^\/+/, '')) || undefined
+  } catch {
+    return undefined
+  }
 }
 
 function buildLicenseSummary(track: OwnedMusicCatalogTrack, renderAllowed: boolean): MusicCatalogLicenseSummary {

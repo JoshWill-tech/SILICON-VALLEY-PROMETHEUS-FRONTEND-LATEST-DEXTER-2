@@ -418,7 +418,7 @@ function resolveDirectCloudflareAudioUrl(track: MusicCatalogTrack) {
   try {
     const parsed = new URL(track.sourceUrl)
     const pathname = parsed.pathname.toLowerCase()
-    if (pathname.includes('/music/') && (pathname.endsWith('.mp3') || pathname.endsWith('.wav') || pathname.endsWith('.ogg') || pathname.endsWith('.m4a'))) {
+    if (pathname.endsWith('.mp3') || pathname.endsWith('.wav') || pathname.endsWith('.ogg') || pathname.endsWith('.m4a')) {
       return track.sourceUrl
     }
   } catch {

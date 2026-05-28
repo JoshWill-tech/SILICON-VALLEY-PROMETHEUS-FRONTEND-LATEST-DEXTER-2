@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 
-import { buildGoogleDriveDownloadUrl, findDriveMusicTrackById } from '@/lib/music-drive'
+import { buildGoogleDriveDownloadUrl, findDriveMusicTrackById, listAvailableMusicCatalog } from '@/lib/music-drive'
 import { findMusicTrack, type MusicCatalogTrack } from '@/lib/music-catalog'
-import { buildCloudflareMusicCatalog, findOwnedMusicTrackById } from '@/lib/music-library'
+import { findOwnedMusicTrackById } from '@/lib/music-library'
 
 export const runtime = 'nodejs'
 
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Missing trackId.' }, { status: 400 })
   }
 
-  const ownedTrack = findOwnedMusicTrackById(trackId, buildCloudflareMusicCatalog())
+  const ownedTrack = findOwnedMusicTrackById(trackId, await listAvailableMusicCatalog())
   if (ownedTrack?.previewUrl && isDirectMusicAssetUrl(ownedTrack.previewUrl)) {
     return proxyRemotePreview(ownedTrack.previewUrl)
   }
@@ -125,7 +125,7 @@ function isDirectMusicAssetUrl(value: string) {
   try {
     const parsed = new URL(value)
     const path = parsed.pathname.toLowerCase()
-    return path.includes('/music/') && (path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.ogg') || path.endsWith('.m4a'))
+    return path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.ogg') || path.endsWith('.m4a')
   } catch {
     return false
   }

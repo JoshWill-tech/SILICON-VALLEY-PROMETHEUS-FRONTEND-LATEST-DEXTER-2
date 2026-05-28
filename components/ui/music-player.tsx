@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue } from 'framer-motion'
-import { Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react'
+import { Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react'
 import Image from 'next/image'
 
 import { chamberEase } from '@/lib/chamber-motion'
@@ -11,6 +11,7 @@ import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 
 const musicDisplayFont = 'tracking-[-0.035em]'
 const musicMetaFont = 'font-serif'
+const ARTIFICIAL_BUFFER_MS = 4200
 
 const formatTime = (timeInSeconds: number): string => {
   if (Number.isNaN(timeInSeconds)) return '00:00'
@@ -63,9 +64,10 @@ export function MusicPlayer({
   const [isShuffle, setIsShuffle] = React.useState(false)
   const [isRepeat, setIsRepeat] = React.useState(false)
   const [isBuffering, setIsBuffering] = React.useState(false)
+  const [canStartPlayback, setCanStartPlayback] = React.useState(false)
+  const [albumArtFailed, setAlbumArtFailed] = React.useState(false)
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
-  const bufferingTimerRef = React.useRef<number | null>(null)
   const progressBarRef = React.useRef<HTMLInputElement | null>(null)
   const rotation = useMotionValue(0)
   const isControlledPlaying = typeof isPlayingProp === 'boolean'
@@ -99,11 +101,19 @@ export function MusicPlayer({
   React.useEffect(() => {
     setCurrentTime(0)
     setDuration(0)
+    setCanStartPlayback(false)
+    setAlbumArtFailed(false)
     setBufferingState(false)
     syncProgressVisual(0, 0)
     if (!reduceMotion) {
       rotation.set((rotation.get() + 24) % 360)
     }
+
+    const timer = window.setTimeout(() => {
+      setCanStartPlayback(true)
+    }, ARTIFICIAL_BUFFER_MS)
+
+    return () => window.clearTimeout(timer)
   }, [audioSrc, reduceMotion, rotation, setBufferingState, syncProgressVisual])
 
   React.useEffect(() => {
@@ -130,7 +140,15 @@ export function MusicPlayer({
     }
 
     const handleBufferingStart = () => setBufferingState(true)
-    const handleBufferingEnd = () => setBufferingState(false)
+    const handleBufferingEnd = () => {
+      if (canStartPlayback) {
+        setBufferingState(false)
+      }
+    }
+    const handleAudioError = () => {
+      setBufferingState(false)
+      setPlayingState(false)
+    }
 
     audio.addEventListener('loadedmetadata', setAudioData)
     audio.addEventListener('timeupdate', setAudioTime)
@@ -139,15 +157,26 @@ export function MusicPlayer({
     audio.addEventListener('waiting', handleBufferingStart)
     audio.addEventListener('canplay', handleBufferingEnd)
     audio.addEventListener('playing', handleBufferingEnd)
+    audio.addEventListener('error', handleAudioError)
     if (isPlaying) {
       setBufferingState(true)
-      if (bufferingTimerRef.current !== null) {
-        window.clearTimeout(bufferingTimerRef.current)
+      if (!canStartPlayback) {
+        audio.load()
+        return () => {
+          audio.removeEventListener('loadedmetadata', setAudioData)
+          audio.removeEventListener('timeupdate', setAudioTime)
+          audio.removeEventListener('ended', handleEnded)
+          audio.removeEventListener('loadstart', handleBufferingStart)
+          audio.removeEventListener('waiting', handleBufferingStart)
+          audio.removeEventListener('canplay', handleBufferingEnd)
+          audio.removeEventListener('playing', handleBufferingEnd)
+          audio.removeEventListener('error', handleAudioError)
+        }
       }
-      bufferingTimerRef.current = window.setTimeout(() => setBufferingState(false), 1800)
+
       void audio.play().catch(() => {
-        // Keep the visual playback state alive even if the browser blocks preview audio.
         setBufferingState(false)
+        setPlayingState(false)
       })
     } else {
       audio.pause()
@@ -162,12 +191,9 @@ export function MusicPlayer({
       audio.removeEventListener('waiting', handleBufferingStart)
       audio.removeEventListener('canplay', handleBufferingEnd)
       audio.removeEventListener('playing', handleBufferingEnd)
-      if (bufferingTimerRef.current !== null) {
-        window.clearTimeout(bufferingTimerRef.current)
-        bufferingTimerRef.current = null
-      }
+      audio.removeEventListener('error', handleAudioError)
     }
-  }, [audioSrc, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
+  }, [audioSrc, canStartPlayback, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
 
   React.useEffect(() => {
     if (!audioRef.current) return
@@ -262,7 +288,7 @@ export function MusicPlayer({
         }
       `}</style>
 
-      <audio ref={audioRef} src={audioSrc} loop={isRepeat} preload="none" />
+      <audio ref={audioRef} src={audioSrc} loop={isRepeat} preload="metadata" />
 
       <div className="relative mb-5 flex min-h-[14.5rem] items-center justify-center">
         <motion.div
@@ -274,15 +300,22 @@ export function MusicPlayer({
           style={reduceMotion ? undefined : { rotate: rotation }}
           className="relative z-10 h-44 w-44 overflow-hidden rounded-full border border-white/8 shadow-[0_20px_42px_-30px_rgba(0,0,0,0.98)] sm:h-48 sm:w-48"
         >
-          <Image
-            src={albumArt}
-            alt={`${songTitle} album art`}
-            fill
-            sizes="192px"
-            priority
-            className="object-cover"
-            style={{ objectPosition: albumArtPosition }}
-          />
+          {albumArtFailed ? (
+            <div className="grid h-full w-full place-items-center bg-white/[0.04] text-white/24">
+              <Music className="size-12" strokeWidth={1.5} />
+            </div>
+          ) : (
+            <Image
+              src={albumArt}
+              alt={`${songTitle} album art`}
+              fill
+              sizes="192px"
+              priority
+              className="object-cover"
+              onError={() => setAlbumArtFailed(true)}
+              style={{ objectPosition: albumArtPosition }}
+            />
+          )}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_20%,rgba(0,0,0,0.4)_100%)]" />
           <div className="absolute inset-[1px] rounded-full border border-white/10" />
           <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-black shadow-[0_0_0_8px_rgba(0,0,0,0.92)]" />
@@ -305,6 +338,9 @@ export function MusicPlayer({
             <p className={cn(musicMetaFont, 'mt-1 text-[0.92rem] font-normal text-white/72')}>
               {artistName}
             </p>
+            <div aria-live="polite" className="mt-2 min-h-4 text-[11px] uppercase tracking-[0.18em] text-white/38">
+              {isBuffering && isPlaying ? 'Buffering...' : null}
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

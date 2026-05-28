@@ -641,6 +641,7 @@ function CatalogTrackRow({
 function NowPlayingBar({
   currentTime,
   duration,
+  isBuffering,
   isMuted,
   isPlaying,
   onMuteToggle,
@@ -650,6 +651,7 @@ function NowPlayingBar({
 }: {
   currentTime: number
   duration: number
+  isBuffering: boolean
   isMuted: boolean
   isPlaying: boolean
   onMuteToggle: () => void
@@ -657,6 +659,12 @@ function NowPlayingBar({
   onSeek: (nextTime: number) => void
   track: MusicRecommendation | null
 }) {
+  const [artBroken, setArtBroken] = React.useState(false)
+
+  React.useEffect(() => {
+    setArtBroken(false)
+  }, [track?.id, track?.coverArtUrl])
+
   if (!track) return null
 
   const progress = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
@@ -665,24 +673,34 @@ function NowPlayingBar({
     <div className="absolute inset-x-4 bottom-4 z-30 rounded-[22px] border border-white/10 bg-[#111116]/[0.92] p-3 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)] backdrop-blur-[24px]">
       <div className="flex items-center gap-3">
         <div className="relative size-8 shrink-0 overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.04]">
-          <Image
-            src={track.coverArtUrl || FALLBACK_COVER_ART}
-            alt=""
-            fill
-            sizes="32px"
-            className="object-cover"
-            style={{ objectPosition: track.coverArtPosition ?? 'center' }}
-          />
+          {artBroken || !track.coverArtUrl ? (
+            <div className="grid h-full w-full place-items-center text-white/24">
+              <Music className="size-4" />
+            </div>
+          ) : (
+            <Image
+              src={track.coverArtUrl || FALLBACK_COVER_ART}
+              alt=""
+              fill
+              sizes="32px"
+              className="object-cover"
+              onError={() => setArtBroken(true)}
+              style={{ objectPosition: track.coverArtPosition ?? 'center' }}
+            />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-white">{track.title}</div>
-          <div className="truncate text-xs text-white/50">{track.artist}</div>
+          <div className="truncate text-xs text-white/50">{isBuffering && isPlaying ? 'Buffering...' : track.artist}</div>
         </div>
         <button
           type="button"
           aria-label={isPlaying ? 'Pause current track' : 'Play current track'}
           onClick={onPlayPause}
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-[#6366f1] text-white shadow-[0_0_30px_rgba(99,102,241,0.24)] transition-transform duration-150 ease-out hover:scale-105"
+          className={cn(
+            'grid size-9 shrink-0 place-items-center rounded-full bg-[#6366f1] text-white shadow-[0_0_30px_rgba(99,102,241,0.24)] transition-transform duration-150 ease-out hover:scale-105',
+            isBuffering && isPlaying && 'animate-pulse',
+          )}
         >
           {isPlaying ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4 fill-current" />}
         </button>
@@ -737,6 +755,7 @@ export function MusicTabPanel({
   const [brokenArtworkIds, setBrokenArtworkIds] = React.useState<Record<string, true>>({})
   const [isMuted, setIsMuted] = React.useState(false)
   const [isAutoMatching, setIsAutoMatching] = React.useState(false)
+  const [isPlayerBuffering, setIsPlayerBuffering] = React.useState(false)
   const [playerProgress, setPlayerProgress] = React.useState({ currentTime: 0, duration: 0 })
   const [seekRequest, setSeekRequest] = React.useState<{ time: number; token: number } | null>(null)
 
@@ -955,6 +974,7 @@ export function MusicTabPanel({
               isMuted={isMuted}
               seekRequest={seekRequest}
               isPlaying={playingTrackId === selectedSong.id}
+              onBufferingChange={setIsPlayerBuffering}
               onProgressChange={setPlayerProgress}
               onPlayingChange={(nextPlaying) => {
                 setPlayingTrackId(nextPlaying ? selectedSong.id : null)
@@ -1054,6 +1074,7 @@ export function MusicTabPanel({
         <NowPlayingBar
           track={currentPlayerTrack}
           isPlaying={Boolean(currentPlayerTrack && playingTrackId === currentPlayerTrack.id)}
+          isBuffering={isPlayerBuffering}
           isMuted={isMuted}
           currentTime={playerProgress.currentTime}
           duration={playerProgress.duration || currentPlayerTrack?.durationSec || 0}
@@ -1098,6 +1119,7 @@ export function MusicTabPanel({
                 isMuted={isMuted}
                 seekRequest={seekRequest}
                 isPlaying={playingTrackId === selectedSong.id}
+                onBufferingChange={setIsPlayerBuffering}
                 onProgressChange={setPlayerProgress}
                 onPlayingChange={(nextPlaying) => {
                   setPlayingTrackId(nextPlaying ? selectedSong.id : null)
@@ -1206,6 +1228,7 @@ export function MusicTabPanel({
       <NowPlayingBar
         track={currentPlayerTrack}
         isPlaying={Boolean(currentPlayerTrack && playingTrackId === currentPlayerTrack.id)}
+        isBuffering={isPlayerBuffering}
         isMuted={isMuted}
         currentTime={playerProgress.currentTime}
         duration={playerProgress.duration || currentPlayerTrack?.durationSec || 0}

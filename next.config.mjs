@@ -26,9 +26,11 @@ const nextConfig = {
       { protocol: 'https', hostname: 'airtableusercontent.com' },
       { protocol: 'https', hostname: 'v4.airtableusercontent.com' },
       { protocol: 'https', hostname: 'v5.airtableusercontent.com' },
+      { protocol: 'https', hostname: '**.r2.dev' },
+      { protocol: 'https', hostname: 'assets.prometheusstudio.tech' },
+      { protocol: 'https', hostname: 'cdn.prometheusstudio.tech' },
     ],
   },
 }
 
 export default nextConfig
-

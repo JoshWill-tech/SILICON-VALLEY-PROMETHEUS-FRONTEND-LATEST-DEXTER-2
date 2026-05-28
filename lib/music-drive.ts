@@ -1,17 +1,42 @@
+import { ListObjectsV2Command } from '@aws-sdk/client-s3'
+
 import {
   MUSIC_CATALOG,
   normalizeMusicPreference,
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
-import { buildCloudflareMusicCatalog } from '@/lib/music-library'
 import { GOOGLE_DRIVE_MUSIC_CATALOG_SNAPSHOT } from '@/lib/generated/google-drive-music-catalog'
+import { r2Client } from '@/lib/r2/client'
+import { resolveR2AssetUrl } from '@/lib/music-url-resolver'
 
 const DEFAULT_GOOGLE_DRIVE_MUSIC_FOLDER_ID = '1oczdEdER5h0_6Bv4WqaDZTDZ8rP4DNDa'
 const DRIVE_FOLDER_CACHE_TTL_MS = 5 * 60 * 1000
+const R2_MUSIC_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000
+const R2_MUSIC_AUDIO_PREFIX = normalizeR2Prefix(process.env.R2_MUSIC_AUDIO_PREFIX ?? 'music-originals')
+const R2_MUSIC_THUMBNAIL_PREFIX = normalizeR2Prefix(process.env.R2_MUSIC_THUMBNAIL_PREFIX ?? 'music-thumbnails')
+const R2_AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.m4a'])
+const R2_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 
 type DriveMusicFolderCache = {
   expiresAt: number
   tracks: MusicCatalogTrack[]
+}
+
+type R2MusicCatalogCache = {
+  expiresAt: number
+  tracks: MusicCatalogTrack[]
+}
+
+type R2ListedObject = {
+  key: string
+  size: number
+}
+
+type ParsedR2AssetKey = {
+  category: string
+  filename: string
+  baseName: string
+  extension: string
 }
 
 type ParsedDriveEntry = {
@@ -24,6 +49,8 @@ type DriveMusicMetadataOverride = (typeof GOOGLE_DRIVE_MUSIC_CATALOG_SNAPSHOT)[n
 
 let driveMusicFolderCache: DriveMusicFolderCache | null = null
 let driveMusicFolderRequest: Promise<MusicCatalogTrack[]> | null = null
+let r2MusicCatalogCache: R2MusicCatalogCache | null = null
+let r2MusicCatalogRequest: Promise<MusicCatalogTrack[]> | null = null
 
 const DRIVE_SCRAPE_HEADERS = {
   'User-Agent':
@@ -103,9 +130,13 @@ export async function fetchDriveMusicCatalog() {
 }
 
 export async function listAvailableMusicCatalog() {
-  const cloudflareTracks = buildCloudflareMusicCatalog()
-  if (cloudflareTracks.length > 0) {
-    return cloudflareTracks
+  try {
+    const cloudflareTracks = await fetchCloudflareMusicCatalog()
+    if (cloudflareTracks.length > 0) {
+      return cloudflareTracks
+    }
+  } catch (error) {
+    console.warn('[music-drive] Unable to read the Cloudflare R2 music catalog.', error)
   }
 
   try {
@@ -115,6 +146,356 @@ export async function listAvailableMusicCatalog() {
     console.warn('[music-drive] Falling back to bundled music catalog.', error)
     return MUSIC_CATALOG
   }
+}
+
+export async function fetchCloudflareMusicCatalog() {
+  if (r2MusicCatalogCache && r2MusicCatalogCache.expiresAt > Date.now()) {
+    return r2MusicCatalogCache.tracks
+  }
+
+  if (r2MusicCatalogRequest) {
+    return r2MusicCatalogRequest
+  }
+
+  r2MusicCatalogRequest = loadCloudflareMusicCatalog()
+    .then((tracks) => {
+      r2MusicCatalogCache = {
+        expiresAt: Date.now() + R2_MUSIC_CATALOG_CACHE_TTL_MS,
+        tracks,
+      }
+      return tracks
+    })
+    .finally(() => {
+      r2MusicCatalogRequest = null
+    })
+
+  return r2MusicCatalogRequest
+}
+
+async function loadCloudflareMusicCatalog() {
+  const bucket = process.env.R2_BUCKET_MUSIC?.trim()
+  if (!bucket || !process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+    return []
+  }
+
+  const [audioObjects, thumbnailObjects] = await Promise.all([
+    listR2Objects(bucket, R2_MUSIC_AUDIO_PREFIX),
+    listR2Objects(bucket, R2_MUSIC_THUMBNAIL_PREFIX),
+  ])
+  const thumbnailIndex = buildR2ThumbnailIndex(thumbnailObjects)
+
+  return audioObjects
+    .filter((object) => {
+      const parsed = parseR2AssetKey(object.key, R2_MUSIC_AUDIO_PREFIX)
+      return parsed ? R2_AUDIO_EXTENSIONS.has(parsed.extension) : false
+    })
+    .map((object, index) => mapR2ObjectToMusicTrack(object, thumbnailIndex, index))
+}
+
+async function listR2Objects(bucket: string, prefix: string): Promise<R2ListedObject[]> {
+  const objects: R2ListedObject[] = []
+  let continuationToken: string | undefined
+
+  do {
+    const response = await r2Client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+        MaxKeys: 1000,
+      }),
+    )
+
+    for (const object of response.Contents ?? []) {
+      if (!object.Key || object.Key.endsWith('/')) continue
+      objects.push({
+        key: object.Key,
+        size: object.Size ?? 0,
+      })
+    }
+
+    continuationToken = response.NextContinuationToken
+  } while (continuationToken)
+
+  return objects
+}
+
+function buildR2ThumbnailIndex(thumbnailObjects: R2ListedObject[]) {
+  const exactByCategoryAndBaseName = new Map<string, string>()
+  const byCategory = new Map<string, string[]>()
+
+  for (const object of thumbnailObjects) {
+    const parsed = parseR2AssetKey(object.key, R2_MUSIC_THUMBNAIL_PREFIX)
+    if (!parsed || !R2_IMAGE_EXTENSIONS.has(parsed.extension)) continue
+
+    exactByCategoryAndBaseName.set(`${parsed.category}/${parsed.baseName}`, object.key)
+    const categoryThumbnails = byCategory.get(parsed.category) ?? []
+    categoryThumbnails.push(object.key)
+    byCategory.set(parsed.category, categoryThumbnails)
+  }
+
+  return {
+    exactByCategoryAndBaseName,
+    byCategory,
+  }
+}
+
+function mapR2ObjectToMusicTrack(
+  object: R2ListedObject,
+  thumbnailIndex: ReturnType<typeof buildR2ThumbnailIndex>,
+  index: number,
+): MusicCatalogTrack {
+  const parsed = parseR2AssetKey(object.key, R2_MUSIC_AUDIO_PREFIX)
+  if (!parsed) {
+    throw new Error(`Unable to parse R2 music object key: ${object.key}`)
+  }
+
+  const profile = inferR2TrackProfile(parsed.category, parsed.baseName)
+  const title = formatR2DisplayText(parsed.baseName)
+  const categoryLabel = formatR2DisplayText(parsed.category)
+  const thumbnailKey = resolveR2ThumbnailKey(parsed, thumbnailIndex)
+  const durationSec = estimateR2DurationSec(object.size)
+  const bpm = inferR2Bpm(profile.energy, profile.mood, parsed.baseName)
+
+  return {
+    id: buildR2TrackId(parsed.category, parsed.baseName),
+    title,
+    subtitle: categoryLabel,
+    description: `${title} is served from the Prometheus Cloudflare R2 music library.`,
+    artist: 'Prometheus R2 Library',
+    producer: 'Prometheus',
+    genre: profile.genre,
+    subgenre: categoryLabel,
+    bpm,
+    mood: profile.mood,
+    energy: profile.energy,
+    vibeTags: uniqueTokens([categoryLabel, profile.genre, profile.mood, profile.energy, parsed.baseName]),
+    moodTags: uniqueTokens([profile.mood, categoryLabel, profile.energy]),
+    rankingKeywords: uniqueTokens([title, categoryLabel, parsed.baseName, parsed.category, profile.genre, 'cloudflare', 'r2', 'owned music']),
+    energyScore: profile.energy === 'high' ? 84 : profile.energy === 'low' ? 30 : 58,
+    tempoRange: buildR2TempoRange(bpm, profile.energy),
+    instrumentation: profile.instrumentation,
+    cinematicTags: uniqueTokens([categoryLabel, profile.mood, 'editorial', 'owned']),
+    tensionLevel: profile.mood === 'dark' ? 76 : profile.energy === 'high' ? 62 : profile.energy === 'low' ? 18 : 44,
+    emotionalTone: profile.tone,
+    idealUseCases: profile.useCases,
+    avoidContexts: profile.energy === 'high' ? ['quiet documentary beds', 'soft dialogue'] : ['aggressive trailer pacing'],
+    coverArtUrl: thumbnailKey ? resolveR2AssetUrl(thumbnailKey) : '/style-previews/dark-cinematic-1.jpg',
+    coverArtPosition: 'center',
+    releaseYear: 2026,
+    durationSec,
+    sourcePlatform: 'local',
+    storageKey: object.key,
+    sourceUrl: resolveR2AssetUrl(object.key),
+    license: 'owned',
+    qualityScore: 96,
+    usageCount: index % 5,
+    freshnessScore: 94 - (index % 6),
+    previewTone: buildR2PreviewTone(profile.mood, bpm),
+  }
+}
+
+function resolveR2ThumbnailKey(
+  audioKey: ParsedR2AssetKey,
+  thumbnailIndex: ReturnType<typeof buildR2ThumbnailIndex>,
+) {
+  const exactMatch = thumbnailIndex.exactByCategoryAndBaseName.get(`${audioKey.category}/${audioKey.baseName}`)
+  if (exactMatch) return exactMatch
+
+  const categoryThumbnails = thumbnailIndex.byCategory.get(audioKey.category) ?? []
+  return (
+    categoryThumbnails.find((key) => /(?:^|-)me\.(?:jpe?g|png|webp)$/i.test(key.split('/').pop() ?? '')) ??
+    categoryThumbnails[0] ??
+    null
+  )
+}
+
+function parseR2AssetKey(key: string, prefix: string): ParsedR2AssetKey | null {
+  if (!key.startsWith(prefix)) return null
+
+  const relativePath = key.slice(prefix.length)
+  const [category, ...filenameParts] = relativePath.split('/').filter(Boolean)
+  const filename = filenameParts.join('/')
+  if (!category || !filename) return null
+
+  const extensionMatch = filename.match(/(\.[^.]+)$/)
+  const extension = extensionMatch?.[1]?.toLowerCase() ?? ''
+  const baseName = filename.replace(/\.[^.]+$/, '').split('/').pop() ?? ''
+  if (!baseName || !extension) return null
+
+  return {
+    category,
+    filename,
+    baseName,
+    extension,
+  }
+}
+
+function inferR2TrackProfile(category: string, baseName: string): {
+  genre: string
+  mood: MusicCatalogTrack['mood']
+  energy: MusicCatalogTrack['energy']
+  instrumentation: string[]
+  tone: string
+  useCases: string[]
+} {
+  const text = normalizeDriveText(`${category} ${baseName}`)
+
+  if (text.includes('classical') || text.includes('orchestral') || text.includes('concerto') || text.includes('vivaldi') || text.includes('bach')) {
+    return {
+      genre: 'Classical / Orchestral',
+      mood: 'cinematic',
+      energy: text.includes('presto') || text.includes('summer') ? 'medium' : 'low',
+      instrumentation: ['strings', 'piano', 'orchestral room', 'bowed texture'],
+      tone: 'elegant and cinematic',
+      useCases: ['brand film', 'premium montage', 'documentary sequence'],
+    }
+  }
+
+  if (text.includes('lo-fi') || text.includes('chill') || text.includes('soft') || text.includes('relaxing') || text.includes('ambient')) {
+    return {
+      genre: 'Lo-Fi / Chill',
+      mood: 'minimal',
+      energy: 'low',
+      instrumentation: ['soft keys', 'warm bass', 'light drums', 'ambient texture'],
+      tone: 'quiet and editorial',
+      useCases: ['under-dialogue bed', 'reflective edit', 'soft founder story'],
+    }
+  }
+
+  if (text.includes('hip-hop') || text.includes('trap') || text.includes('urban') || text.includes('beats')) {
+    return {
+      genre: 'Hip-Hop / Trap',
+      mood: 'playful',
+      energy: 'high',
+      instrumentation: ['808', 'trap hats', 'sub bass', 'snare'],
+      tone: 'social and kinetic',
+      useCases: ['social hook', 'fast product reel', 'creator clip'],
+    }
+  }
+
+  if (text.includes('motivational') || text.includes('uplift') || text.includes('triumph')) {
+    return {
+      genre: 'Motivational',
+      mood: 'uplifting',
+      energy: 'high',
+      instrumentation: ['clean drums', 'uplift synth', 'pulse bass', 'bright keys'],
+      tone: 'bright and propulsive',
+      useCases: ['launch trailer', 'founder story', 'high-impact reel'],
+    }
+  }
+
+  if (hasR2Token(text, 'tech') || hasR2Token(text, 'futuristic') || hasR2Token(text, 'ai')) {
+    return {
+      genre: 'Tech / Futuristic',
+      mood: 'cinematic',
+      energy: 'medium',
+      instrumentation: ['synth arps', 'digital pulse', 'sub bass', 'glitch percussion'],
+      tone: 'clean and futuristic',
+      useCases: ['AI product edit', 'SaaS walkthrough', 'futuristic montage'],
+    }
+  }
+
+  if (text.includes('pop') || text.includes('indie') || text.includes('lifestyle')) {
+    return {
+      genre: 'Pop / Indie',
+      mood: 'uplifting',
+      energy: 'medium',
+      instrumentation: ['guitar', 'indie drums', 'warm synth', 'hand percussion'],
+      tone: 'optimistic and clean',
+      useCases: ['brand film', 'editorial montage', 'promo cut'],
+    }
+  }
+
+  if (text.includes('dark') || text.includes('fear') || text.includes('vengeance') || text.includes('combat') || text.includes('sub-zero')) {
+    return {
+      genre: 'Cinematic',
+      mood: 'dark',
+      energy: text.includes('combat') || text.includes('vengeance') ? 'high' : 'medium',
+      instrumentation: ['low pulse', 'dark percussion', 'sub bass', 'tension hits'],
+      tone: 'controlled and shadowed',
+      useCases: ['dramatic reveal', 'tense montage', 'high-contrast edit'],
+    }
+  }
+
+  if (text.includes('cinematic') || text.includes('trailer') || text.includes('epic') || text.includes('dramatic') || text.includes('intense')) {
+    return {
+      genre: 'Cinematic Trailer',
+      mood: 'cinematic',
+      energy: 'high',
+      instrumentation: ['trailer drums', 'hybrid strings', 'risers', 'impacts'],
+      tone: 'cinematic and polished',
+      useCases: ['hero reveal', 'launch trailer', 'high-impact reel'],
+    }
+  }
+
+  return {
+    genre: 'Soundtrack',
+    mood: 'cinematic',
+    energy: 'medium',
+    instrumentation: ['pulse', 'texture', 'drums', 'bass'],
+    tone: 'polished and editorial',
+    useCases: ['brand film', 'editorial montage', 'promo cut'],
+  }
+}
+
+function estimateR2DurationSec(size: number) {
+  if (!Number.isFinite(size) || size <= 0) return 90
+  return Math.max(15, Math.min(360, Math.round(size / 16000)))
+}
+
+function inferR2Bpm(
+  energy: MusicCatalogTrack['energy'],
+  mood: MusicCatalogTrack['mood'],
+  baseName: string,
+) {
+  const text = normalizeDriveText(baseName)
+  if (text.includes('slowed') || mood === 'minimal') return 86
+  if (energy === 'high') return 128
+  if (energy === 'low') return 88
+  return 108
+}
+
+function buildR2TempoRange(bpm: number, energy: MusicCatalogTrack['energy']): [number, number] {
+  const spread = energy === 'high' ? 12 : energy === 'low' ? 8 : 10
+  return [Math.max(60, bpm - spread), Math.min(160, bpm + spread)]
+}
+
+function buildR2PreviewTone(mood: MusicCatalogTrack['mood'], bpm: number) {
+  const rootHz = mood === 'dark' ? 98 : mood === 'uplifting' ? 146.83 : mood === 'minimal' ? 88 : 110
+
+  return {
+    rootHz,
+    harmonyHz: rootHz * 2,
+    bassHz: rootHz / 2,
+    pulseHz: Math.max(2.2, bpm / 36),
+  }
+}
+
+function buildR2TrackId(category: string, baseName: string) {
+  return `r2-${category}-${baseName}`.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()
+}
+
+function hasR2Token(value: string, token: string) {
+  return value.split(/[^a-z0-9]+/g).includes(token)
+}
+
+function formatR2DisplayText(value: string) {
+  return value
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word) => capitalizeWord(word.toLowerCase()))
+    .join(' ')
+    .replace(/\bAin T\b/g, "Ain't")
+    .replace(/\bCan T\b/g, "Can't")
+    .replace(/\bDon T\b/g, "Don't")
+    .replace(/\bI M\b/g, "I'm")
+}
+
+function normalizeR2Prefix(value: string) {
+  return `${value.replace(/^\/+|\/+$/g, '')}/`
 }
 
 export async function findDriveMusicTrackById(trackId: string) {
