@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-export const LEGAL_LAST_UPDATED = 'May 23, 2026'
+export const LEGAL_LAST_UPDATED = 'May 28, 2026'
 
 const LEGAL_LINKS = [
+  { href: '/pricing', label: 'Pricing' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/refund', label: 'Refund' },

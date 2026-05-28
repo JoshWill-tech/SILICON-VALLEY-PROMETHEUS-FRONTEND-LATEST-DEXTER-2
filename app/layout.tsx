@@ -5,7 +5,7 @@ import localFont from 'next/font/local'
 import { RootClientEffects } from '@/components/root-client-effects'
 import { WorkspaceFrame } from '@/components/workspace-frame'
 import { AuthProvider } from '@/components/auth/auth-provider'
-import { RouteScopedFooter } from '@/components/Footer'
+import { Footer } from '@/components/Footer'
 import './globals.css'
 import './premium-vignette.css'
 
@@ -17,7 +17,7 @@ const vogueDisplay = localFont({
 
 export const metadata: Metadata = {
   title: 'Prometheus',
-  description: 'Premium creator infrastructure for cinematic editing, music selection, and export polish.',
+  description: 'Prometheus is an AI-powered cinematic video creation and motion graphics platform.',
   generator: 'Prometheus',
   icons: {
     icon: [
@@ -51,7 +51,7 @@ export default function RootLayout({
             <div className="flex-1">
               <WorkspaceFrame>{children}</WorkspaceFrame>
             </div>
-            <RouteScopedFooter />
+            <Footer />
           </div>
           <RootClientEffects />
           <Analytics />

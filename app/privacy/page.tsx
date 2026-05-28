@@ -3,21 +3,20 @@ import type { Metadata } from 'next'
 import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Prometheus',
-  description: 'Read the Privacy Policy for Prometheus.',
+  title: 'Privacy Policy | Prometheus Studio',
+  description: 'Read the Privacy Policy for Prometheus Studio.',
 }
 
 export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      description="This Privacy Policy explains how Prometheus AI collects, uses, stores, and protects your information when you use our AI-powered cinematic content production infrastructure."
+      description="This Privacy Policy explains how Prometheus Studio collects, uses, stores, and protects your information when you use our AI-powered cinematic video creation and motion graphics platform."
       currentPath="/privacy"
     >
       <LegalSection title="1. Information We Collect">
         <p>
-          We collect information to provide a premium, personalized rendering infrastructure for your
-          brand. This includes:
+          We collect information to provide and secure Prometheus Studio. This includes:
         </p>
         <ul className="list-disc list-inside">
           <li>Account Data: Name, email address, company name, and workspace credentials.</li>
@@ -80,7 +79,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="7. Cookies and Tracking Technologies">
         <p>
-          Prometheus uses essential cookies to maintain your session and workspace state. We do not use
+          Prometheus Studio uses essential cookies to maintain your session and workspace state. We do not use
           third-party advertising cookies or tracking pixels. Analytics data is collected anonymously
           to improve platform performance and is not linked to your personal identity.
         </p>
@@ -98,7 +97,7 @@ export default function PrivacyPage() {
         <p>
           We may update this Privacy Policy from time to time to reflect changes in our practices or
           legal requirements. We will notify you of any material changes via email or through the
-          Prometheus workspace interface. Continued use of the service after changes constitutes
+          Prometheus Studio workspace interface. Continued use of the service after changes constitutes
           acceptance of the updated policy.
         </p>
       </LegalSection>

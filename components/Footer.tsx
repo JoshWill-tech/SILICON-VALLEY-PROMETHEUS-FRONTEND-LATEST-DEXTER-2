@@ -1,21 +1,4 @@
-'use client'
-
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
-
-const FOOTER_EXACT_PATHS = new Set([
-  '/',
-  '/pricing',
-  '/signup',
-  '/login',
-  '/verify',
-  '/forgot-password',
-  '/reset-password',
-  '/terms',
-  '/privacy',
-  '/refund',
-])
 
 const FOOTER_LINKS = [
   { href: '/pricing', label: 'Pricing' },
@@ -24,45 +7,45 @@ const FOOTER_LINKS = [
   { href: '/refund', label: 'Refund Policy' },
 ]
 
-export function shouldRenderFooterForPath(pathname: string | null) {
-  if (!pathname || pathname.startsWith('/api')) return false
-
-  const normalizedPathname =
-    pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
-
-  if (FOOTER_EXACT_PATHS.has(normalizedPathname)) return true
-
-  return normalizedPathname === '/auth' || normalizedPathname.startsWith('/auth/')
-}
-
-export function RouteScopedFooter() {
-  const pathname = usePathname()
-
-  if (!shouldRenderFooterForPath(pathname)) return null
-
-  return <Footer />
-}
-
 export function Footer() {
   return (
-    <footer className="w-full border-t border-white/[0.05] bg-black/20 px-8 py-12 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
-        <div className="flex flex-col items-center gap-4 md:items-start">
-          <p className="text-xs font-medium tracking-[0.2em] text-white/40 uppercase">
-            © 2026 Prometheus AI. All rights reserved.
+    <footer className="w-full border-t border-white/[0.07] bg-[#05060a] px-5 py-10 text-white sm:px-8">
+      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="max-w-md">
+          <Link
+            href="/"
+            className="text-xs font-semibold uppercase tracking-[0.28em] text-white transition-colors hover:text-white/72"
+          >
+            Prometheus Studio
+          </Link>
+          <p className="mt-3 text-sm leading-6 text-white/50">
+            AI-powered cinematic video creation, motion graphics, transcription, and export
+            infrastructure for modern production teams.
+          </p>
+          <p className="mt-4 text-xs uppercase tracking-[0.18em] text-white/34">
+            © 2026 Prometheus Studio. All rights reserved.
           </p>
         </div>
 
-        <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
+        <nav
+          aria-label="Footer navigation"
+          className="flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end"
+        >
           {FOOTER_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium tracking-wider text-slate-400 transition-colors hover:text-white"
+              className="text-sm font-medium text-white/56 transition-colors hover:text-white"
             >
               {link.label}
             </Link>
           ))}
+          <a
+            href="mailto:support@prometheusstudio.tech"
+            className="text-sm font-medium text-white/56 transition-colors hover:text-white"
+          >
+            Support
+          </a>
         </nav>
       </div>
     </footer>
