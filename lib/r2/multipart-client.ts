@@ -140,12 +140,22 @@ function wait(ms: number, signal?: AbortSignal) {
   })
 }
 
+function describeUploadUrl(url: string) {
+  try {
+    const parsed = new URL(url)
+    return `${parsed.origin}${parsed.pathname}`
+  } catch {
+    return 'unparseable upload URL'
+  }
+}
+
 async function uploadPartWithProgress(input: {
   body: Blob
   contentType: string
   onLoaded: (loaded: number) => void
   partNumber: number
   signal?: AbortSignal
+  totalParts: number
   url: string
 }) {
   return new Promise<UploadedPart>((resolve, reject) => {
@@ -153,6 +163,12 @@ async function uploadPartWithProgress(input: {
 
     const xhr = new XMLHttpRequest()
     const abort = () => xhr.abort()
+    const startedAt = Date.now()
+    const uploadUrl = describeUploadUrl(input.url)
+
+    console.log(
+      `[MULTIPART] Uploading part ${input.partNumber}/${input.totalParts}, size: ${input.body.size} bytes`,
+    )
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -162,8 +178,11 @@ async function uploadPartWithProgress(input: {
 
     xhr.onload = () => {
       input.signal?.removeEventListener('abort', abort)
+      const duration = Date.now() - startedAt
       const responseHeaders = xhr.getAllResponseHeaders()
       const eTag = xhr.getResponseHeader('ETag')
+
+      console.log(`[MULTIPART] Part ${input.partNumber} result: ${xhr.status} in ${duration}ms`)
 
       if (xhr.status >= 200 && xhr.status < 300 && eTag) {
         input.onLoaded(input.body.size)
@@ -174,23 +193,32 @@ async function uploadPartWithProgress(input: {
         return
       }
 
+      const failureBody = xhr.responseText || 'No body'
+      const failureReason =
+        xhr.status >= 200 && xhr.status < 300 && !eTag
+          ? 'Missing readable ETag. Check R2 CORS ExposeHeaders includes ETag.'
+          : failureBody
+
+      console.error(`[MULTIPART] Part ${input.partNumber} failed: ${xhr.status} ${failureReason}`)
       console.error('[R2_MULTIPART_PART_ERROR]', {
         partNumber: input.partNumber,
         requestHeaders: {
           'Content-Type': input.contentType,
         },
-        response: xhr.responseText,
+        response: failureBody,
         responseHeaders,
         status: xhr.status,
-        url: input.url,
+        uploadUrl,
       })
 
       reject(
         new MultipartUploadError(
-          `Part ${input.partNumber} failed with HTTP ${xhr.status || 'network error'}.`,
+          xhr.status >= 200 && xhr.status < 300 && !eTag
+            ? `Part ${input.partNumber} uploaded but R2 did not expose ETag. Check R2 bucket CORS ExposeHeaders.`
+            : `Part ${input.partNumber} failed with HTTP ${xhr.status || 'network error'}.`,
           {
             partNumber: input.partNumber,
-            responseBody: xhr.responseText,
+            responseBody: failureBody,
             status: xhr.status,
           },
         ),
@@ -199,6 +227,8 @@ async function uploadPartWithProgress(input: {
 
     xhr.onerror = () => {
       input.signal?.removeEventListener('abort', abort)
+      const duration = Date.now() - startedAt
+      console.error(`[MULTIPART] Part ${input.partNumber} failed: network error in ${duration}ms`)
       reject(
         new MultipartUploadError(`Network error while uploading part ${input.partNumber}.`, {
           partNumber: input.partNumber,
@@ -208,6 +238,8 @@ async function uploadPartWithProgress(input: {
 
     xhr.onabort = () => {
       input.signal?.removeEventListener('abort', abort)
+      const duration = Date.now() - startedAt
+      console.warn(`[MULTIPART] Part ${input.partNumber} aborted after ${duration}ms`)
       reject(new DOMException('Upload cancelled by user.', 'AbortError'))
     }
 
@@ -333,6 +365,7 @@ export async function uploadProjectSourceMultipart({
             contentType: file.type || 'application/octet-stream',
             partNumber,
             signal,
+            totalParts,
             url: signedPart.url,
             onLoaded: (loaded) => {
               lastPartProgressBytes = loaded

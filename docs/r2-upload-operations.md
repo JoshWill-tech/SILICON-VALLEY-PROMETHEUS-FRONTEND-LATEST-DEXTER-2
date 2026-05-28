@@ -2,7 +2,7 @@
 
 Prometheus source uploads use project-scoped Cloudflare R2 multipart uploads.
 
-Required R2 bucket CORS for `R2_BUCKET_SOURCES`:
+Required R2 bucket CORS for browser uploads to `R2_BUCKET_SOURCES`:
 
 ```json
 [
@@ -12,18 +12,24 @@ Required R2 bucket CORS for `R2_BUCKET_SOURCES`:
       "https://www.prometheusstudio.tech",
       "http://localhost:3000"
     ],
-    "AllowedMethods": ["PUT", "POST", "OPTIONS"],
+    "AllowedMethods": ["PUT"],
     "AllowedHeaders": [
-      "content-type",
-      "content-disposition",
-      "x-amz-content-sha256",
-      "authorization"
+      "Content-Type",
+      "Content-Disposition"
     ],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
+
+`ETag` must be exposed because the browser sends it back to
+`/api/projects/[id]/upload-multipart/complete` for `CompleteMultipartUpload`.
+If production uploads fail before the first part completes, verify the bucket
+preflight returns `Access-Control-Allow-Origin` for the exact production origin
+and `Access-Control-Allow-Methods: PUT`.
+If the same bucket/custom domain is also used for browser playback, keep a
+separate read rule or include `GET` and `HEAD` as required by that surface.
 
 Required token permissions:
 
