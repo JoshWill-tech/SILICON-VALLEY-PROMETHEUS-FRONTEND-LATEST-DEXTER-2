@@ -10,6 +10,7 @@ import type {
   TranscriptSegment,
 } from '@/lib/types'
 import { normalizeSourceProfile } from '@/lib/media/source-profile'
+import { projects as projectManager } from '@/lib/projects'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 
 const STORAGE = {
@@ -19,6 +20,10 @@ const STORAGE = {
 } as const
 
 export const PROJECTS_UPDATED_EVENT = 'prometheus:projects-updated'
+
+// Merged: added from teammate/main.
+// The new editor route imports the client-side project singleton directly.
+export { projectManager as projects }
 
 function nowIso() {
   return new Date().toISOString()
@@ -60,6 +65,10 @@ export function getActiveStyleId(): string | null {
 }
 
 export function setActiveStyleId(styleId: string | null) {
+  // Merged: added from teammate/main.
+  // Keep the project singleton in sync with the legacy mock storage helpers.
+  projectManager.setActiveStyleId(styleId)
+
   if (!styleId) {
     writeLocalStorageJSON(STORAGE.activeStyleId, '')
     return
@@ -81,14 +90,19 @@ export function getMostRecentProject(): Project | null {
 export function resetProjectData(): void {
   writeLocalStorageJSON<Project[]>(STORAGE.projects, [])
   writeLocalStorageJSON<Record<string, ProcessingJob>>(STORAGE.jobsByProjectId, {})
+  // Merged: added from teammate/main.
+  projectManager.reset()
   dispatchProjectsUpdated()
 }
 
+// Merged: kept from HEAD.
+// This helper remains the compatibility bridge for current upload/dashboard code.
 export function upsertProject(project: Project): void {
   const normalizedProject = normalizeProject(project)
   const current = listProjects()
   const next = [normalizedProject, ...current.filter((p) => p.id !== normalizedProject.id)]
   writeLocalStorageJSON(STORAGE.projects, next)
+  syncProjectManagerCache(normalizedProject)
   dispatchProjectsUpdated()
 }
 
@@ -117,6 +131,7 @@ export function createProject(params?: {
   sourceProfile?: Project['sourceProfile']
   sourceAssetId?: string
 }): Project {
+  // Merged: kept from HEAD.
   const project = normalizeProject({
     id: uid('proj'),
     title: params?.title ?? 'Untitled Project',
@@ -221,6 +236,8 @@ export function createProcessingJob(params: {
   projectId: string
   input: ProcessingJobInput
 }): ProcessingJob {
+  // Merged: kept from HEAD.
+  // Current callers create a job first, then persist it with startProcessing(job).
   const startedAt = nowIso()
   const artifacts = buildArtifacts(params.projectId)
   
@@ -246,10 +263,23 @@ export function createProcessingJob(params: {
   }
 }
 
-export function startProcessing(job: ProcessingJob): ProcessingJob {
+// Merged: kept from HEAD and added teammate/main's newer signature.
+export function startProcessing(job: ProcessingJob): ProcessingJob
+export function startProcessing(projectId: string, input: ProcessingJobInput): ProcessingJob | null
+export function startProcessing(
+  jobOrProjectId: ProcessingJob | string,
+  input?: ProcessingJobInput,
+): ProcessingJob | null {
+  if (typeof jobOrProjectId === 'string') {
+    if (!input) return null
+    return projectManager.process(jobOrProjectId, input)
+  }
+
+  const job = jobOrProjectId
   const jobs = readJobs()
   jobs[job.projectId] = job
   writeJobs(jobs)
+  syncProjectManagerJobCache(jobs)
 
   const project = getProject(job.projectId)
   if (project) {
@@ -273,6 +303,8 @@ export function setJobAnimationPlan(projectId: string, animationPlan: AnimationP
 
   jobs[projectId] = next
   writeJobs(jobs)
+  syncProjectManagerJobCache(jobs)
+  projectManager.setAnimationPlan(projectId, animationPlan)
   return next
 }
 
@@ -329,6 +361,7 @@ export function getJobStatus(projectId: string): ProcessingJob | null {
   }
   jobs[projectId] = next
   writeJobs(jobs)
+  syncProjectManagerJobCache(jobs)
 
   const project = getProject(projectId)
   if (project) {
@@ -339,4 +372,22 @@ export function getJobStatus(projectId: string): ProcessingJob | null {
   }
 
   return next
+}
+
+function syncProjectManagerCache(project: Project) {
+  // Merged: added from teammate/main.
+  // MockProjectManager owns an in-memory cache; update it when legacy helpers write localStorage.
+  const manager = projectManager as unknown as {
+    upsertProject?: (value: Project) => void
+    dispatchUpdate?: () => void
+  }
+
+  manager.upsertProject?.(project)
+  manager.dispatchUpdate?.()
+}
+
+function syncProjectManagerJobCache(jobs: JobsByProjectId) {
+  // Merged: added from teammate/main.
+  // TS private is runtime-visible here; this keeps projects.getJob() aligned with old helpers.
+  ;(projectManager as unknown as { _jobsCache?: JobsByProjectId })._jobsCache = jobs
 }

@@ -4,7 +4,7 @@
  * Upload verification plan:
  * 1. Test a 50MB MP4 on fast WiFi. It should complete through R2 multipart upload with a smooth progress bar.
  * 2. Test a 2GB MP4 on throttled "Slow 3G" in DevTools. It should upload in 50MB parts and retry failed parts without crashing the browser.
- * 3. Test an MKV/AVI. It should reject immediately with a clear unsupported-format error before any R2 multipart session starts.
+ * 3. Test an MKV. It should pass validation and upload to R2; AVI should reject with a clear unsupported-format error.
  * 4. Test unplugging WiFi mid-upload. It should show the retrying state and retry the failed part with exponential backoff.
  * 5. Test with expired/invalid auth. The UI should surface the exact 401/403 status and response body in console logs, not a generic upload failure.
  */
@@ -422,11 +422,11 @@ function detectUploadKind(file: File): PendingUploadKind {
 function validateStudioUpload(file: File) {
     const kind = detectUploadKind(file);
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const supportedVideoExtensions = new Set(["mp4", "mov", "webm", "m4v"]);
-    const supportedVideoMimeTypes = new Set(["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"]);
+    const supportedVideoExtensions = new Set(["mp4", "mov", "webm", "m4v", "mkv"]);
+    const supportedVideoMimeTypes = new Set(["video/mp4", "video/quicktime", "video/webm", "video/x-m4v", "video/x-matroska"]);
 
     if (kind !== "video" || (!supportedVideoMimeTypes.has(file.type.toLowerCase()) && !supportedVideoExtensions.has(extension))) {
-        return "Unsupported format. Upload an MP4, MOV, M4V, or WEBM video.";
+        return "Unsupported format. Upload an MP4, MOV, M4V, WEBM, or MKV video.";
     }
 
     if (file.size > STUDIO_SOURCE_MAX_BYTES) {
@@ -2571,7 +2571,7 @@ export function VideoUploadInterface() {
                                                                 <Upload className="h-4 w-4" />
                                                             </div>
                                                             <p className="text-base font-medium text-[#2f2b34]">Drop video</p>
-                                                            <p className="mt-1 text-xs text-[#6f6a62]">MP4, MOV, WEBM supported</p>
+                                                            <p className="mt-1 text-xs text-[#6f6a62]">MP4, MOV, M4V, WEBM, MKV supported</p>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"

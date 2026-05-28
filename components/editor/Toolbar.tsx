@@ -64,10 +64,6 @@ export function Toolbar({
             <SlidersHorizontal className="size-4" />
           </button>
         </div>
-
-        <div className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5 text-xs text-white/52">
-          Preview may be choppy. Exports stay frame-perfect.
-        </div>
       </div>
     </motion.div>
   )

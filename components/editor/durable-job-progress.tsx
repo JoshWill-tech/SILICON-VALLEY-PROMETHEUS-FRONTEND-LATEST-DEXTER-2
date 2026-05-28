@@ -5,15 +5,12 @@ import { motion, AnimatePresence, useSpring, useTransform, useMotionValueEvent }
 import { CheckCircle2, Loader2, AlertCircle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DurableJobStatus, DurableJobType } from '@/lib/types/jobs'
-import type { DurableJobConnectionState } from '@/hooks/use-durable-job'
-import { normalizeUxError } from '@/lib/ux/errors'
 
 interface DurableJobProgressProps {
   status: DurableJobStatus | 'idle'
   progress: number
   type?: DurableJobType | string
   errorMessage?: string | null
-  connectionState?: DurableJobConnectionState
   className?: string
 }
 
@@ -31,12 +28,11 @@ export function DurableJobProgress({
   progress,
   type,
   errorMessage,
-  connectionState = 'idle',
   className,
 }: DurableJobProgressProps) {
   const [isVisible, setIsVisible] = React.useState(false)
   const [roundedProgress, setRoundedProgress] = React.useState(0)
-  
+
   // Spring-based progress for cinematic smoothness
   const springProgress = useSpring(0, {
     stiffness: 40,
@@ -53,7 +49,7 @@ export function DurableJobProgress({
   })
 
   React.useEffect(() => {
-    if (status === 'processing' || status === 'pending' || connectionState === 'reconnecting' || connectionState === 'offline') {
+    if (status === 'processing' || status === 'pending') {
       setIsVisible(true)
     } else if (status === 'completed') {
       // Keep visible for a moment to show success state
@@ -64,12 +60,9 @@ export function DurableJobProgress({
     } else {
       setIsVisible(false)
     }
-  }, [connectionState, status])
+  }, [status])
 
   if (!isVisible && status !== 'completed' && status !== 'failed') return null
-
-  const isReconnecting = connectionState === 'reconnecting' || connectionState === 'offline'
-  const sanitizedError = errorMessage ? normalizeUxError(errorMessage, 'job') : null
 
   return (
     <AnimatePresence>
@@ -87,7 +80,7 @@ export function DurableJobProgress({
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-4 backdrop-blur-2xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]">
             {/* Liquid Background Glow */}
             <div className="absolute -left-12 -top-12 size-32 rounded-full bg-blue-500/10 blur-3xl" />
-            
+
             <div className="relative flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -96,7 +89,7 @@ export function DurableJobProgress({
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                         <CheckCircle2 className="size-4 text-emerald-400" />
                       </motion.div>
-                    ) : status === 'failed' || isReconnecting ? (
+                    ) : status === 'failed' ? (
                       <AlertCircle className="size-4 text-rose-400" />
                     ) : (
                       <Loader2 className="size-4 animate-spin text-blue-400" />
@@ -104,34 +97,34 @@ export function DurableJobProgress({
                   </div>
                   <div>
                     <h4 className="text-[13px] font-bold tracking-tight text-white/90">
-                      {isReconnecting ? 'Reconnecting to Render Engine' : status === 'completed' ? 'Processing Complete' : (type ? (JOB_LABELS[type] || type) : 'Processing...')}
+                      {status === 'completed' ? 'Processing Complete' : (type ? (JOB_LABELS[type] || type) : 'Processing...')}
                     </h4>
                     <p className="text-[11px] font-medium text-white/40 uppercase tracking-widest">
-                      {isReconnecting ? 'Connection recovery' : status === 'pending' ? 'Queued in pipeline' : status === 'completed' ? 'Assets Ready' : status === 'failed' ? 'Error encountered' : 'Active Task'}
+                      {status === 'pending' ? 'Queued in pipeline' : status === 'completed' ? 'Assets Ready' : status === 'failed' ? 'Error encountered' : 'Active Task'}
                     </p>
                   </div>
                 </div>
-                
+
                 <span className="text-sm font-mono font-medium text-white/60">
                   {status === 'completed' ? '100%' : `${roundedProgress}%`}
                 </span>
               </div>
 
-              {(status === 'failed' || isReconnecting) && sanitizedError ? (
+              {status === 'failed' && errorMessage ? (
                 <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-2 text-[11px] text-rose-300">
-                  {sanitizedError}
+                  {errorMessage}
                 </div>
               ) : (
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5">
                   {/* The actual progress track */}
-                  <motion.div 
+                  <motion.div
                     className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#3b82f6,#60a5fa)] shadow-[0_0_12px_rgba(59,130,246,0.5)]"
                     style={{ width: `${roundedProgress}%` }}
                   />
-                  
+
                   {/* Animated Shimmer Over Progress */}
                   {status === 'processing' && (
-                    <motion.div 
+                    <motion.div
                       animate={{ translateX: ['-100%', '100%'] }}
                       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                       className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.2)_50%,transparent_100%)]"
@@ -139,11 +132,11 @@ export function DurableJobProgress({
                   )}
                 </div>
               )}
-              
+
               {status === 'completed' && (
-                <motion.div 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="flex items-center gap-1.5 pt-1"
                 >
                   <Sparkles className="size-3 text-emerald-400" />

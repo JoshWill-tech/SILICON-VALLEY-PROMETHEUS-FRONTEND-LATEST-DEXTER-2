@@ -2,21 +2,21 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FileVideo, 
-  Sparkles, 
-  PlayCircle, 
-  CheckCircle2, 
+import {
+  FileVideo,
+  Sparkles,
+  PlayCircle,
+  CheckCircle2,
   History,
   Zap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type PreviewOutputState = 
-  | 'source' 
-  | 'building' 
-  | 'sample_ready' 
-  | 'revision_requested' 
+export type PreviewOutputState =
+  | 'source'
+  | 'building'
+  | 'sample_ready'
+  | 'revision_requested'
   | 'export_ready'
 
 interface BadgeConfig {

@@ -2,12 +2,12 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { 
-  Music4, 
-  Zap, 
-  Activity, 
-  MicOff, 
-  ShieldCheck, 
+import {
+  Music4,
+  Zap,
+  Activity,
+  MicOff,
+  ShieldCheck,
   Ban,
   Sparkles,
   Volume2,
@@ -43,7 +43,7 @@ export function MusicDirectionCard({
   }
 
   return (
-    <motion.div 
+    <motion.div
       layout
       className={cn(
         "relative overflow-hidden rounded-[28px] border bg-[linear-gradient(180deg,rgba(16,18,24,0.95)_0%,rgba(10,10,14,0.98)_100%)] p-6 shadow-[0_32px_64px_-24px_rgba(0,0,0,0.9)] backdrop-blur-2xl",
@@ -65,7 +65,7 @@ export function MusicDirectionCard({
           <Award className="size-3.5" />
           Recommended for your brief
         </div>
-        
+
         {intent.voiceoverSafe && (
           <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium tracking-wide text-emerald-300">
             <ShieldCheck className="size-3.5" />
@@ -94,23 +94,23 @@ export function MusicDirectionCard({
       {/* Grid of Intent Details */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <div className="col-span-1 space-y-4">
-          <IntentMetric 
-            icon={Activity} 
-            label="Energy" 
-            value={intent.energy} 
+          <IntentMetric
+            icon={Activity}
+            label="Energy"
+            value={intent.energy}
             color="amber"
           />
-          <IntentMetric 
-            icon={Zap} 
-            label="Tempo" 
-            value={intent.bpmRange} 
+          <IntentMetric
+            icon={Zap}
+            label="Tempo"
+            value={intent.bpmRange}
             sub="BPM"
             color="cyan"
           />
-          <IntentMetric 
-            icon={MicOff} 
-            label="Vocals" 
-            value={intent.vocalPolicy.replace(/_/g, ' ')} 
+          <IntentMetric
+            icon={MicOff}
+            label="Vocals"
+            value={intent.vocalPolicy.replace(/_/g, ' ')}
             color="rose"
           />
         </div>
@@ -159,54 +159,54 @@ export function MusicDirectionCard({
             </span>
           )}
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-3">
-          <ActionButton 
-            icon={Check} 
-            label={locked ? "Direction Kept" : "Keep this"} 
-            primary 
+          <ActionButton
+            icon={Check}
+            label={locked ? "Direction Kept" : "Keep this"}
+            primary
             active={locked}
             onClick={() => handleModify('keep')}
           />
-          
+
           <div className="mx-2 h-8 w-px bg-white/10" />
-          
-          <ActionButton 
-            icon={Volume2} 
-            label="Softer" 
+
+          <ActionButton
+            icon={Volume2}
+            label="Softer"
             onClick={() => handleModify('softer')}
             disabled={locked}
           />
-          <ActionButton 
-            icon={Sparkles} 
-            label="More cinematic" 
+          <ActionButton
+            icon={Sparkles}
+            label="More cinematic"
             onClick={() => handleModify('cinematic')}
             disabled={locked}
           />
-          <ActionButton 
-            icon={Zap} 
-            label="More energetic" 
+          <ActionButton
+            icon={Zap}
+            label="More energetic"
             onClick={() => handleModify('energetic')}
             disabled={locked}
           />
-          <ActionButton 
-            icon={MicOff} 
-            label="Less distracting" 
+          <ActionButton
+            icon={MicOff}
+            label="Less distracting"
             onClick={() => handleModify('less-distracting')}
             disabled={locked}
           />
-          
+
           <div className="mx-2 h-8 w-px bg-white/10" />
 
-          <ActionButton 
-            icon={VolumeX} 
-            label="Remove music" 
+          <ActionButton
+            icon={VolumeX}
+            label="Remove music"
             danger
             onClick={() => handleModify('remove')}
             disabled={locked}
           />
-          
-          <motion.button 
+
+          <motion.button
             whileHover={{ x: 2 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleModify('pick-another')}
@@ -225,18 +225,18 @@ export function MusicDirectionCard({
   )
 }
 
-function IntentMetric({ 
-  icon: Icon, 
-  label, 
-  value, 
+function IntentMetric({
+  icon: Icon,
+  label,
+  value,
   sub,
-  color 
-}: { 
-  icon: any, 
-  label: string, 
-  value: string, 
+  color
+}: {
+  icon: any,
+  label: string,
+  value: string,
   sub?: string,
-  color: 'amber' | 'cyan' | 'rose' | 'emerald' 
+  color: 'amber' | 'cyan' | 'rose' | 'emerald'
 }) {
   const colorClasses = {
     amber: "text-amber-400/80 bg-amber-400/5 border-amber-400/20 group-hover:bg-amber-400/10",
@@ -261,17 +261,17 @@ function IntentMetric({
   )
 }
 
-function ActionButton({ 
-  icon: Icon, 
-  label, 
+function ActionButton({
+  icon: Icon,
+  label,
   onClick,
   primary,
   danger,
   active,
   disabled
-}: { 
-  icon: any, 
-  label: string, 
+}: {
+  icon: any,
+  label: string,
   onClick: () => void,
   primary?: boolean,
   danger?: boolean,
@@ -287,20 +287,20 @@ function ActionButton({
       className={cn(
         "group flex items-center gap-2 rounded-full border px-4 py-2.5 text-[12px] font-semibold transition-all duration-200",
         disabled && "opacity-50 cursor-not-allowed",
-        primary 
+        primary
           ? active
             ? "border-emerald-500/50 bg-emerald-500/20 text-emerald-200 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
-            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:border-emerald-500/50 hover:bg-emerald-500/20" 
+            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:border-emerald-500/50 hover:bg-emerald-500/20"
           : danger
             ? "border-white/10 bg-white/5 text-rose-300 hover:border-rose-500/30 hover:bg-rose-500/10"
             : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
       )}
     >
       <Icon className={cn(
-        "size-4 transition-colors", 
-        primary 
-          ? active ? "text-emerald-300" : "text-emerald-400" 
-          : danger 
+        "size-4 transition-colors",
+        primary
+          ? active ? "text-emerald-300" : "text-emerald-400"
+          : danger
             ? "text-rose-400"
             : "text-white/40 group-hover:text-white/90"
       )} />

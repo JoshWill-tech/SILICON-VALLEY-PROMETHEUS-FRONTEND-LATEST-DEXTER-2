@@ -4,7 +4,6 @@ import * as React from 'react'
 import { Player, type PlayerRef } from '@remotion/player'
 
 import { CinematicRemotionComposition, type CinematicRemotionCompositionProps } from '@/components/remotion/cinematic-composition'
-import { normalizeUxError } from '@/lib/ux/errors'
 
 type RemotionCinematicPlayerProps = CinematicRemotionCompositionProps & {
   durationInFrames: number
@@ -62,7 +61,7 @@ export function RemotionCinematicPlayer({
         <div className="grid h-full w-full place-items-center bg-black text-center text-white/72">
           <div className="max-w-[360px] rounded-[20px] border border-white/10 bg-white/[0.03] px-6 py-5">
             <div className="text-[11px] uppercase tracking-[0.24em] text-white/38">Remotion Preview</div>
-            <div className="mt-3 text-sm leading-6 text-white/72">{normalizeUxError(error, 'render')}</div>
+            <div className="mt-3 text-sm leading-6 text-white/72">{error.message}</div>
           </div>
         </div>
       )}

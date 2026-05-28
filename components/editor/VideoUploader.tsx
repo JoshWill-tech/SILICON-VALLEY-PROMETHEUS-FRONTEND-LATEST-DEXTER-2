@@ -8,7 +8,6 @@ import Uppy, { type UppyFile } from '@uppy/core'
 import AwsS3Multipart from '@uppy/aws-s3-multipart'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { normalizeUxError } from '@/lib/ux/errors'
 
 export interface VideoUploaderProps {
   onUploadSuccess: (url: string, filename: string) => void
@@ -16,22 +15,8 @@ export interface VideoUploaderProps {
   className?: string
 }
 
-const MAX_VIDEO_BYTES = 3 * 1024 * 1024 * 1024
-
-function validateVideoFile(file: File) {
-  if (!file.type.startsWith('video/')) {
-    return 'That file type is not supported here. Upload an MP4, MOV, or WEBM video.'
-  }
-
-  if (file.size > MAX_VIDEO_BYTES) {
-    return 'That video is over the 3GB ingestion limit. Choose a smaller source for this workspace.'
-  }
-
-  return null
-}
-
 export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUploaderProps) {
-  const [uppy] = React.useState(() => 
+  const [uppy] = React.useState(() =>
     new Uppy({
       id: 'video-ingestion-engine',
       autoProceed: true,
@@ -110,8 +95,8 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
   React.useEffect(() => {
     uppy.on('upload', () => {
       const file = uppy.getFiles()[0]
-      setUploadState(prev => ({ 
-        ...prev, 
+      setUploadState(prev => ({
+        ...prev,
         status: 'uploading',
         fileName: file?.name || 'Video'
       }))
@@ -124,9 +109,9 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
       const duration = (Date.now() - startTime) / 1000
       const bytesPerSecond = duration > 0 ? progress.bytesUploaded / duration : 0
       const speedMb = (bytesPerSecond / (1024 * 1024)).toFixed(1)
-      
-      setUploadState(prev => ({ 
-        ...prev, 
+
+      setUploadState(prev => ({
+        ...prev,
         progress: Math.round(progress.percentage || 0),
         speed: `${speedMb} MB/s`
       }))
@@ -143,10 +128,10 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
 
     uppy.on('upload-error', (file, error) => {
       setUploadState(prev => ({ ...prev, status: 'error' }))
-      toast.error('Upload failed', { description: normalizeUxError(error, 'upload') })
+      toast.error('Upload failed', { description: error.message })
     })
 
-    // Uppy 4.x uses logout/close cleanup depending on version, 
+    // Uppy 4.x uses logout/close cleanup depending on version,
     // but the proper way to prevent memory leaks is:
     return () => {
       // @ts-ignore
@@ -165,7 +150,7 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
             exit={{ opacity: 0, scale: 0.95 }}
             className="group relative"
           >
-            <div 
+            <div
               className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.02] p-12 backdrop-blur-2xl transition-all hover:border-white/20"
               onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
               onDrop={(e) => {
@@ -174,11 +159,6 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
                 const files = Array.from(e.dataTransfer.files)
                 if (files.length > 0) {
                   const file = files[0]
-                  const validationError = validateVideoFile(file)
-                  if (validationError) {
-                    toast.error('Source rejected', { description: validationError })
-                    return
-                  }
                   uppy.addFile({
                     name: file.name,
                     type: file.type,
@@ -189,50 +169,42 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
               }}
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(127,242,212,0.12)_0%,rgba(127,242,212,0)_50%)]" />
-              
+
               <div className="relative flex flex-col items-center text-center">
                 <div className="mb-6 flex size-20 items-center justify-center rounded-3xl border border-white/10 bg-white/5 shadow-2xl transition-transform group-hover:scale-110">
                   <Upload className="size-8 text-[#9ff6e3] transition-colors group-hover:text-white" />
                 </div>
-                
+
                 <h3 className="mb-2 text-2xl font-medium tracking-tight text-white/90">
                   Ingest Cinematic Source
                 </h3>
                 <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/40">
                   Drop your master video here. We support 4K/8K ingestions up to 3GB directly to the edge.
                 </p>
-                
+
                 <label className="cursor-pointer">
                   <span className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition-all hover:bg-white/90 active:scale-95">
                     Select File
                   </span>
-                  <input 
-                    type="file" 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    className="hidden"
                     accept="video/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
-                      if (file) {
-                        const validationError = validateVideoFile(file)
-                        if (validationError) {
-                          toast.error('Source rejected', { description: validationError })
-                          e.currentTarget.value = ''
-                          return
-                        }
-                        uppy.addFile({
-                          name: file.name,
-                          type: file.type,
-                          data: file,
-                          meta: { startTime: Date.now() }
-                        })
-                      }
+                      if (file) uppy.addFile({
+                        name: file.name,
+                        type: file.type,
+                        data: file,
+                        meta: { startTime: Date.now() }
+                      })
                     }}
                   />
                 </label>
               </div>
             </div>
             {onCancel && (
-              <button 
+              <button
                 onClick={onCancel}
                 className="absolute -right-4 -top-4 size-8 grid place-items-center rounded-full border border-white/10 bg-black/40 text-white/40 backdrop-blur-md hover:text-white"
               >
@@ -274,7 +246,7 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
                     strokeLinecap="round"
                   />
                 </svg>
-                
+
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="text-4xl font-bold tracking-tighter text-white">
                     {uploadState.progress}%
@@ -286,7 +258,7 @@ export function VideoUploader({ onUploadSuccess, onCancel, className }: VideoUpl
 
                 {uploadState.status === 'uploading' && (
                   <motion.div
-                    animate={{ 
+                    animate={{
                       scale: [1, 1.2, 1],
                       opacity: [0.1, 0.3, 0.1]
                     }}

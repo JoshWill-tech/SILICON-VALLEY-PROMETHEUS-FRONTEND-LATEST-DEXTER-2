@@ -142,7 +142,7 @@ export function PreviewFeedbackShell({
   className,
 }: PreviewFeedbackShellProps) {
   const [state, setState] = React.useState<FeedbackState>('prompt')
-  
+
   // Critique Form State
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>([])
   const [desiredChanges, setDesiredChanges] = React.useState<string[]>([])
@@ -424,7 +424,7 @@ export function PreviewFeedbackShell({
                   {/* Stage 2 (Conditional) */}
                   <AnimatePresence>
                     {availableFollowUps.length > 0 && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
@@ -481,7 +481,7 @@ export function PreviewFeedbackShell({
                         )
                       })}
                     </div>
-                    
+
                     <AnimatePresence>
                       {selectedLocations.includes('Specific timestamp') && (
                         <motion.div

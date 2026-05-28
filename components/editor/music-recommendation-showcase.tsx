@@ -2,11 +2,11 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { 
-  ArrowRight, 
-  RefreshCw, 
-  Sparkles, 
-  SlidersHorizontal, 
+import {
+  ArrowRight,
+  RefreshCw,
+  Sparkles,
+  SlidersHorizontal,
   Wand2,
   Cpu,
   Waves,
@@ -121,7 +121,7 @@ export function MusicRecommendationShowcase({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <MusicDirectionCard 
+            <MusicDirectionCard
               intent={musicIntent}
               onModify={(action) => onRefine(action)}
               reasoning={profile?.reasoningSummary}
@@ -149,11 +149,11 @@ export function MusicRecommendationShowcase({
                   {music.status === 'loading' ? 'Analyzing Video Vibe' : 'Soundtrack Intelligence'}
                 </div>
               </div>
-              
+
               <div className="text-xl font-black tracking-tight text-white/95">
                 {profile?.contentCategory ?? 'Synthesizing Soundtrack Lanes'}
               </div>
-              
+
               <p className="max-w-2xl text-[14px] leading-relaxed text-white/50 font-medium italic">
                 {music.status === 'loading'
                   ? music.contextSummary || 'The system is reading pacing, mood, and local archive signals before ranking tracks.'

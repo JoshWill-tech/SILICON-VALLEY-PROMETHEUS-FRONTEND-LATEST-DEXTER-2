@@ -11,9 +11,10 @@ const SUPPORTED_VIDEO_MIME_TYPES = new Set([
   'video/quicktime',
   'video/webm',
   'video/x-m4v',
+  'video/x-matroska',
 ])
 
-const SUPPORTED_VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'm4v'])
+const SUPPORTED_VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'm4v', 'mkv'])
 
 export type ProjectSourceUploadContext = {
   assetId: string
@@ -60,7 +61,7 @@ export function validateProjectSourceUploadInput(input: {
   }
 
   if (!isSupportedProjectSourceVideo(input.filename, input.contentType)) {
-    return 'Unsupported format. Upload an MP4, MOV, M4V, or WEBM video.'
+    return 'Unsupported format. Upload an MP4, MOV, M4V, WEBM, or MKV video.'
   }
 
   if (!input.sizeBytes || input.sizeBytes <= 0) {

@@ -39,7 +39,7 @@ export function PreviewGenerationState({
     }
 
     const stepDuration = durationMs / steps.length
-    
+
     const interval = setInterval(() => {
       setCurrentStep((prev) => {
         if (prev < steps.length - 1) return prev + 1
@@ -70,15 +70,15 @@ export function PreviewGenerationState({
           )}
         >
           {/* Cinematic Animated Orb */}
-          <motion.div 
+          <motion.div
             className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-70"
             animate={{ rotate: 360 }}
             transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
           >
-            <motion.div 
+            <motion.div
               animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
               transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-              className="absolute h-[50vh] w-[50vh] max-h-[400px] max-w-[400px] rounded-full bg-blue-500/20 blur-[100px]" 
+              className="absolute h-[50vh] w-[50vh] max-h-[400px] max-w-[400px] rounded-full bg-blue-500/20 blur-[100px]"
             />
             <div className="absolute h-[40vh] w-[40vh] max-h-[300px] max-w-[300px] translate-x-12 translate-y-12 rounded-full bg-indigo-500/20 blur-[80px]" />
             <div className="absolute h-[35vh] w-[35vh] max-h-[250px] max-w-[250px] -translate-x-12 -translate-y-12 rounded-full bg-cyan-400/10 blur-[60px]" />
@@ -112,7 +112,7 @@ export function PreviewGenerationState({
                 </motion.p>
               </AnimatePresence>
             </div>
-            
+
             {/* Subtle Progress Bar */}
             <div className="mt-6 h-1 w-full overflow-hidden rounded-full bg-white/10">
               <motion.div

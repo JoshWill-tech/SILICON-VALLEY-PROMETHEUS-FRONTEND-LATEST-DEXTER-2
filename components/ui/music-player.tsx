@@ -9,6 +9,9 @@ import { chamberEase } from '@/lib/chamber-motion'
 import { cn } from '@/lib/utils'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 
+const musicDisplayFont = 'tracking-[-0.035em]'
+const musicMetaFont = 'font-serif'
+
 const formatTime = (timeInSeconds: number): string => {
   if (Number.isNaN(timeInSeconds)) return '00:00'
   const minutes = Math.floor(timeInSeconds / 60)
@@ -239,8 +242,12 @@ export function MusicPlayer({
           className="w-full"
         >
           <div className="text-center">
-            <h2 className="text-[1.38rem] font-semibold tracking-[-0.04em] text-white sm:text-[1.55rem]">{songTitle}</h2>
-            <p className="mt-1 text-[0.92rem] text-white/72">{artistName}</p>
+            <h2 className={cn(musicDisplayFont, 'text-[1.38rem] font-normal text-white sm:text-[1.55rem]')}>
+              {songTitle}
+            </h2>
+            <p className={cn(musicMetaFont, 'mt-1 text-[0.92rem] font-normal text-white/72')}>
+              {artistName}
+            </p>
           </div>
         </motion.div>
       </AnimatePresence>

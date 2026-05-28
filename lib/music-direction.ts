@@ -1,7 +1,7 @@
-import type { 
-  MusicDirectionIntent, 
-  MusicSoundtrackProfile, 
-  MusicIntent, 
+import type {
+  MusicDirectionIntent,
+  MusicSoundtrackProfile,
+  MusicIntent,
 } from '@/lib/types'
 import type { CreativeMetadata } from '@/lib/editorial-frame/types'
 

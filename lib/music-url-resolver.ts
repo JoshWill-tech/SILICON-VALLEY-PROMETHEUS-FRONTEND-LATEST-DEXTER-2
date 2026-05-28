@@ -5,7 +5,7 @@
 
 const R2_MUSIC_BASE_URL = process.env.NEXT_PUBLIC_R2_MUSIC_BASE_URL || 'https://assets.prometheusstudio.tech';
 
-export type MusicCategoryFolder = 
+export type MusicCategoryFolder =
   | 'cinematic-trailer'
   | 'classical-orchestra'
   | 'hiphop-trap'

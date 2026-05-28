@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { buildGoogleDriveDownloadUrl, findDriveMusicTrackById } from '@/lib/music-drive'
 import { findMusicTrack, type MusicCatalogTrack } from '@/lib/music-catalog'
+import { buildCloudflareMusicCatalog, findOwnedMusicTrackById } from '@/lib/music-library'
 
 export const runtime = 'nodejs'
 
@@ -39,6 +40,11 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ error: 'Missing trackId.' }, { status: 400 })
+  }
+
+  const ownedTrack = findOwnedMusicTrackById(trackId, buildCloudflareMusicCatalog())
+  if (ownedTrack?.previewUrl && isDirectMusicAssetUrl(ownedTrack.previewUrl)) {
+    return proxyRemotePreview(ownedTrack.previewUrl)
   }
 
   const track = findMusicTrack(trackId)
@@ -98,6 +104,9 @@ function sanitizeRemotePreviewUrl(value: string) {
       hostname.endsWith('apple.com') ||
       hostname.endsWith('scdn.co') ||
       hostname.endsWith('spotifycdn.com') ||
+      hostname.endsWith('prometheusstudio.tech') ||
+      hostname.endsWith('r2.dev') ||
+      hostname.endsWith('cloudflarestream.com') ||
       hostname === 'drive.google.com' ||
       hostname.endsWith('drive.usercontent.google.com')
 
@@ -109,6 +118,16 @@ function sanitizeRemotePreviewUrl(value: string) {
     return parsed.toString()
   } catch {
     return null
+  }
+}
+
+function isDirectMusicAssetUrl(value: string) {
+  try {
+    const parsed = new URL(value)
+    const path = parsed.pathname.toLowerCase()
+    return path.includes('/music/') && (path.endsWith('.mp3') || path.endsWith('.wav') || path.endsWith('.ogg') || path.endsWith('.m4a'))
+  } catch {
+    return false
   }
 }
 

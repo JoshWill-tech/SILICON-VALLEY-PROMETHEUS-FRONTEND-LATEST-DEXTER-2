@@ -4,8 +4,6 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, FolderKanban, RotateCcw } from 'lucide-react'
 
-import { normalizeUxError } from '@/lib/ux/errors'
-
 export default function EditorProjectError({
   error,
   reset,
@@ -45,7 +43,7 @@ export default function EditorProjectError({
                 The editor failed inside this route, so we kept the failure contained here instead of bouncing the whole dashboard.
               </p>
               <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-6 text-white/52">
-                {normalizeUxError(error, 'render')}
+                {error.message || 'Unknown editor error'}
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">

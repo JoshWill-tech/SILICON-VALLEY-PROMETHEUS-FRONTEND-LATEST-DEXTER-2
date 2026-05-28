@@ -1,8 +1,8 @@
-import { 
-  getMusicAudioUrl, 
-  getMusicThumbnailUrl, 
+import {
+  getMusicAudioUrl,
+  getMusicThumbnailUrl,
   getMusicPreviewUrl,
-  type MusicCategoryFolder 
+  type MusicCategoryFolder
 } from '@/lib/music-url-resolver'
 import {
   MUSIC_CATALOG,
@@ -11,12 +11,12 @@ import {
   normalizeMusicPreference,
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
-import type { 
-  MusicPreference, 
-  MusicRecommendation, 
-  MusicVideoContext, 
-  MusicEnergy, 
-  MusicMood 
+import type {
+  MusicPreference,
+  MusicRecommendation,
+  MusicVideoContext,
+  MusicEnergy,
+  MusicMood
 } from '@/lib/types'
 
 export type CloudflareMusicCategory = MusicCategoryFolder
@@ -41,7 +41,7 @@ export const CLOUDFLARE_MUSIC_MANIFEST: CloudflareTrackDef[] = [
   { id: 'cf-cin-4', filename: 'hero-path', title: 'Hero Path', category: 'cinematic-trailer', bpm: 105, energy: 'high', mood: 'uplifting', durationSec: 145 },
   { id: 'cf-cin-5', filename: 'lost-dynasty', title: 'Lost Dynasty', category: 'cinematic-trailer', bpm: 88, energy: 'medium', mood: 'dark', durationSec: 160 },
   { id: 'cf-cin-6', filename: 'warrior-spirit', title: 'Warrior Spirit', category: 'cinematic-trailer', bpm: 135, energy: 'high', mood: 'cinematic', durationSec: 115 },
-  
+
   // Lofi Chill
   { id: 'cf-lofi-1', filename: 'midnight-coffee', title: 'Midnight Coffee', category: 'lofi-chill-soft', bpm: 85, energy: 'low', mood: 'minimal', durationSec: 180 },
   { id: 'cf-lofi-2', filename: 'rainy-afternoon', title: 'Rainy Afternoon', category: 'lofi-chill-soft', bpm: 80, energy: 'low', mood: 'minimal', durationSec: 165 },
@@ -85,10 +85,16 @@ export const CLOUDFLARE_MUSIC_MANIFEST: CloudflareTrackDef[] = [
   { id: 'cf-pop-4', filename: 'acoustic-soul', title: 'Acoustic Soul', category: 'pop-indie-life', bpm: 112, energy: 'low', mood: 'minimal', durationSec: 170 },
 ]
 
+function uniqueTokens(values: Array<string | undefined>) {
+  return values
+    .map((value) => value?.trim() ?? '')
+    .filter(Boolean)
+    .filter((value, index, all) => all.findIndex((candidate) => normalizeText(candidate) === normalizeText(value)) === index)
+}
+
 export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommendation {
   const audioUrl = getMusicAudioUrl(def.category, def.filename)
   const thumbnailUrl = getMusicThumbnailUrl(def.category, def.filename)
-  const previewSnippetUrl = getMusicPreviewUrl(def.category, def.filename)
 
   return {
     id: def.id,
@@ -108,6 +114,70 @@ export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommenda
     durationSec: def.durationSec || 60,
     matchScore: 99,
   } as MusicRecommendation
+}
+
+export function buildCloudflareMusicCatalog(): MusicCatalogTrack[] {
+  return CLOUDFLARE_MUSIC_MANIFEST.map((def, index) => {
+    const audioUrl = getMusicAudioUrl(def.category, def.filename)
+    const thumbnailUrl = getMusicThumbnailUrl(def.category, def.filename)
+    const previewUrl = getMusicPreviewUrl(def.category, def.filename)
+    const categoryLabel = def.category.replace(/-/g, ' ')
+    const mood = def.mood || 'cinematic'
+    const energy = def.energy || 'medium'
+
+    return {
+      id: def.id,
+      title: def.title,
+      subtitle: 'Cloudflare R2 master',
+      description: `${def.title} is served directly from the Prometheus Cloudflare music library for production playback and search.`,
+      artist: 'Prometheus R2 Library',
+      producer: 'Prometheus',
+      genre: categoryLabel,
+      subgenre: categoryLabel,
+      bpm: def.bpm || 108,
+      mood,
+      energy,
+      vibeTags: uniqueTokens([categoryLabel, mood, energy, 'cloudflare', 'r2', 'owned']),
+      moodTags: uniqueTokens([mood, categoryLabel, energy]),
+      rankingKeywords: uniqueTokens([
+        def.id,
+        def.title,
+        def.filename,
+        def.category,
+        categoryLabel,
+        mood,
+        energy,
+        'cloudflare',
+        'r2',
+        'owned music',
+      ]),
+      energyScore: energy === 'high' ? 86 : energy === 'low' ? 28 : 58,
+      tempoRange: inferCloudflareTempoRange(def.bpm || 108, energy),
+      instrumentation: inferCloudflareInstrumentation(def.category),
+      cinematicTags: uniqueTokens([categoryLabel, mood, 'editorial', 'owned']),
+      tensionLevel: mood === 'dark' ? 76 : energy === 'high' ? 62 : energy === 'low' ? 18 : 44,
+      emotionalTone: inferCloudflareTone(mood, energy),
+      idealUseCases: inferCloudflareUseCases(def.category, energy),
+      avoidContexts: energy === 'high' ? ['quiet documentary beds', 'soft dialogue'] : ['aggressive trailer pacing'],
+      coverArtUrl: thumbnailUrl,
+      coverArtPosition: 'center',
+      releaseYear: 2026,
+      durationSec: def.durationSec || 90,
+      sourcePlatform: 'local',
+      storageKey: `${def.category}/${def.filename}.mp3`,
+      sourceUrl: audioUrl,
+      license: 'owned',
+      qualityScore: 96,
+      usageCount: index % 5,
+      freshnessScore: 94 - (index % 6),
+      previewTone: {
+        rootHz: mood === 'dark' ? 98 : mood === 'uplifting' ? 146.83 : mood === 'minimal' ? 88 : 110,
+        harmonyHz: mood === 'dark' ? 196 : mood === 'uplifting' ? 293.66 : mood === 'minimal' ? 176 : 220,
+        bassHz: mood === 'dark' ? 49 : mood === 'uplifting' ? 73.42 : mood === 'minimal' ? 44 : 55,
+        pulseHz: Math.max(2.2, (def.bpm || 108) / 36),
+      },
+    }
+  })
 }
 
 export function getCloudflareTracksByCategory(category: CloudflareMusicCategory): MusicRecommendation[] {
@@ -311,6 +381,8 @@ function mapTrackToRecommendation(
     exactMatch: boolean
   },
 ): MusicRecommendation {
+  const directCloudflareUrl = resolveDirectCloudflareAudioUrl(track)
+
   return {
     id: track.id,
     title: track.title,
@@ -324,7 +396,7 @@ function mapTrackToRecommendation(
     vibeTags: track.vibeTags,
     coverArtUrl: track.coverArtUrl,
     coverArtPosition: track.coverArtPosition,
-    previewUrl: buildMusicPreviewUrl(track.id),
+    previewUrl: directCloudflareUrl ?? buildMusicPreviewUrl(track.id),
     reason: buildLibraryReason(track, matchedTerms, preference, exactMatch),
     mood: track.mood,
     energy: track.energy,
@@ -338,6 +410,69 @@ function mapTrackToRecommendation(
     matchedTerms,
     exactMatch,
   }
+}
+
+function resolveDirectCloudflareAudioUrl(track: MusicCatalogTrack) {
+  if (!track.sourceUrl) return null
+
+  try {
+    const parsed = new URL(track.sourceUrl)
+    const pathname = parsed.pathname.toLowerCase()
+    if (pathname.includes('/music/') && (pathname.endsWith('.mp3') || pathname.endsWith('.wav') || pathname.endsWith('.ogg') || pathname.endsWith('.m4a'))) {
+      return track.sourceUrl
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+function inferCloudflareTempoRange(bpm: number, energy: MusicEnergy): [number, number] {
+  const spread = energy === 'high' ? 12 : energy === 'low' ? 8 : 10
+  return [Math.max(60, bpm - spread), Math.min(160, bpm + spread)]
+}
+
+function inferCloudflareInstrumentation(category: CloudflareMusicCategory) {
+  switch (category) {
+    case 'cinematic-trailer':
+      return ['trailer drums', 'hybrid strings', 'risers', 'impacts']
+    case 'classical-orchestra':
+      return ['strings', 'piano', 'orchestral room', 'bowed texture']
+    case 'hiphop-trap':
+      return ['808', 'trap hats', 'sub bass', 'snare']
+    case 'lofi-chill-soft':
+      return ['soft keys', 'vinyl texture', 'dusty drums', 'warm bass']
+    case 'motivational-beats':
+      return ['clean drums', 'uplift synth', 'pulse bass', 'bright keys']
+    case 'pop-indie-life':
+      return ['guitar', 'indie drums', 'warm synth', 'hand percussion']
+    case 'tech-futuristic':
+      return ['synth arps', 'digital pulse', 'sub bass', 'glitch percussion']
+  }
+}
+
+function inferCloudflareTone(mood: MusicMood, energy: MusicEnergy) {
+  if (mood === 'dark') return energy === 'high' ? 'urgent and shadowed' : 'controlled and cinematic'
+  if (mood === 'uplifting') return energy === 'high' ? 'bright and propulsive' : 'optimistic and clean'
+  if (mood === 'minimal') return 'quiet and editorial'
+  if (mood === 'playful') return 'social and kinetic'
+  return 'cinematic and polished'
+}
+
+function inferCloudflareUseCases(category: CloudflareMusicCategory, energy: MusicEnergy) {
+  const base =
+    category === 'cinematic-trailer'
+      ? ['hero reveal', 'launch trailer', 'high-impact reel']
+      : category === 'tech-futuristic'
+        ? ['AI product edit', 'SaaS walkthrough', 'futuristic montage']
+        : category === 'lofi-chill-soft'
+          ? ['under-dialogue bed', 'reflective edit', 'soft founder story']
+          : category === 'hiphop-trap'
+            ? ['social hook', 'fast product reel', 'creator clip']
+            : ['brand film', 'editorial montage', 'promo cut']
+
+  return energy === 'high' ? [...base, 'fast-cut sequence'] : base
 }
 
 function buildLibraryReason(

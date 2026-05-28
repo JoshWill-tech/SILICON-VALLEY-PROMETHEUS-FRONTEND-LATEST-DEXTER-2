@@ -10,11 +10,11 @@ import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell
 import { InfinityTrailLoader } from '@/components/editor/infinity-trail-loader'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { cn } from '@/lib/utils'
-import type { 
-  Project, 
-  ProcessingJob, 
-  HeaderNavMode, 
-  PreviewMediaKind, 
+import type {
+  Project,
+  ProcessingJob,
+  HeaderNavMode,
+  PreviewMediaKind,
   AnimationPlan,
   TranscriptStatus
 } from '@/lib/types'

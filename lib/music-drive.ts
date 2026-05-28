@@ -3,6 +3,7 @@ import {
   normalizeMusicPreference,
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
+import { buildCloudflareMusicCatalog } from '@/lib/music-library'
 import { GOOGLE_DRIVE_MUSIC_CATALOG_SNAPSHOT } from '@/lib/generated/google-drive-music-catalog'
 
 const DEFAULT_GOOGLE_DRIVE_MUSIC_FOLDER_ID = '1oczdEdER5h0_6Bv4WqaDZTDZ8rP4DNDa'
@@ -102,15 +103,32 @@ export async function fetchDriveMusicCatalog() {
 }
 
 export async function listAvailableMusicCatalog() {
-  const driveTracks = await fetchDriveMusicCatalog()
-  return driveTracks.length > 0 ? driveTracks : MUSIC_CATALOG
+  const cloudflareTracks = buildCloudflareMusicCatalog()
+  if (cloudflareTracks.length > 0) {
+    return cloudflareTracks
+  }
+
+  try {
+    const driveTracks = await fetchDriveMusicCatalog()
+    return driveTracks.length > 0 ? driveTracks : MUSIC_CATALOG
+  } catch (error) {
+    console.warn('[music-drive] Falling back to bundled music catalog.', error)
+    return MUSIC_CATALOG
+  }
 }
 
 export async function findDriveMusicTrackById(trackId: string) {
   const normalizedTrackId = normalizeDriveText(trackId)
   if (!normalizedTrackId) return null
 
-  const tracks = await fetchDriveMusicCatalog()
+  let tracks: MusicCatalogTrack[] = []
+  try {
+    tracks = await fetchDriveMusicCatalog()
+  } catch (error) {
+    console.warn('[music-drive] Unable to refresh Drive music catalog for track lookup.', error)
+    return null
+  }
+
   return (
     tracks.find(
       (track) =>

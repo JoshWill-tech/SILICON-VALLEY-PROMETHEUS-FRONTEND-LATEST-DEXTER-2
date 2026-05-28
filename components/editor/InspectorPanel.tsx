@@ -16,13 +16,13 @@ import {
   formatWeightBucket,
   formatDurationBucket,
 } from '@/lib/media/source-profile'
-import type { 
-  Project, 
-  ProcessingJob, 
-  PreviewFramePreset, 
-  BottomMode, 
-  PreviewMediaKind, 
-  AnimationPlan 
+import type {
+  Project,
+  ProcessingJob,
+  PreviewFramePreset,
+  BottomMode,
+  PreviewMediaKind,
+  AnimationPlan
 } from '@/lib/types'
 
 export interface InspectorPanelProps {

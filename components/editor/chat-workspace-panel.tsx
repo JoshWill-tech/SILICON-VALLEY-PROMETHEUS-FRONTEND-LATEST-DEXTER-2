@@ -15,26 +15,26 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { buildRevealVariants } from '@/lib/motion'
-import { 
-  chatEntriesStorageKey, 
-  removeChatEntry, 
-  isMusicIntent, 
-  isGenericMusicRequest, 
-  isEditIntent, 
-  buildAssistantReply, 
-  buildMusicReply, 
-  buildEditAssistantReply, 
-  selectEditStyleTemplate, 
-  extractGroqStreamText, 
-  sanitizeAssistantReply, 
-  safeJsonParse 
+import {
+  chatEntriesStorageKey,
+  removeChatEntry,
+  isMusicIntent,
+  isGenericMusicRequest,
+  isEditIntent,
+  buildAssistantReply,
+  buildMusicReply,
+  buildEditAssistantReply,
+  selectEditStyleTemplate,
+  extractGroqStreamText,
+  sanitizeAssistantReply,
+  safeJsonParse
 } from '@/lib/editor-handlers'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
-import type { 
-  MusicVideoContext, 
-  StyleTemplate, 
-  CreativeMetadata 
+import type {
+  MusicVideoContext,
+  StyleTemplate,
+  CreativeMetadata
 } from '@/lib/types'
 
 import { StagedMusicRail } from '@/components/editor/staged-music-rail'
@@ -155,7 +155,7 @@ export const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       } else if (isEditIntent(text)) {
         const styleTemplate = selectEditStyleTemplate(text, videoContext)
         reply = buildEditAssistantReply({ projectTitle, styleTemplate, input: text })
-        
+
         // Trigger edit request
         onEditRequest({ prompt: text, styleTemplate })
       } else {
@@ -291,7 +291,7 @@ export const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           </div>
         </div>
       </div>
-      
+
       {musicSpotlightPortalTarget && stagedTracks.length > 0
         ? createPortal(
             <AnimatePresence mode="wait" initial={false}>
