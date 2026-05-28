@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   Smartphone,
   Upload,
-  X,
 } from 'lucide-react'
 import { useForm, useWatch, type FieldPath, type FieldPathValue } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -90,7 +89,7 @@ type DensityValue = z.infer<typeof densitySchema>
 type SidebarValue = z.infer<typeof sidebarSchema>
 type ExportQualityValue = z.infer<typeof exportQualitySchema>
 type ExportFormatValue = z.infer<typeof exportFormatSchema>
-type SaveTarget = 'username' | 'displayName' | 'resetPassword' | 'twoFactor' | 'apiKey' | 'session' | null
+type SaveTarget = 'username' | 'displayName' | 'resetPassword' | 'apiKey' | 'session' | null
 type PreferenceTarget =
   | 'theme'
   | 'accent'
@@ -371,7 +370,6 @@ export default function ProfileSettingsPage() {
   }
   const defaultExportQuality = watchedValues.defaultExportQuality ?? DEFAULT_VALUES.defaultExportQuality
   const defaultFormat = watchedValues.defaultFormat ?? DEFAULT_VALUES.defaultFormat
-  const twoFactorEnabled = watchedValues.twoFactorEnabled ?? DEFAULT_VALUES.twoFactorEnabled
   const apiKey = watchedValues.apiKey ?? DEFAULT_VALUES.apiKey
   const usageAnalytics = watchedValues.usageAnalytics ?? DEFAULT_VALUES.usageAnalytics
 
@@ -381,8 +379,6 @@ export default function ProfileSettingsPage() {
   const [savedTarget, setSavedTarget] = React.useState<SaveTarget>(null)
   const [savingPreference, setSavingPreference] = React.useState<PreferenceTarget>(null)
   const [apiRevealed, setApiRevealed] = React.useState(false)
-  const [twoFactorMode, setTwoFactorMode] = React.useState<'enable' | 'disable' | null>(null)
-  const [twoFactorPassword, setTwoFactorPassword] = React.useState('')
   const [sessions, setSessions] = React.useState(MOCK_SESSIONS)
   const [dangerRevealed, setDangerRevealed] = React.useState(false)
   const [dangerChecked, setDangerChecked] = React.useState(false)
@@ -483,17 +479,6 @@ export default function ProfileSettingsPage() {
     }
 
     toast.success('Check your email for reset instructions.')
-  }
-
-  async function completeTwoFactorSetup() {
-    setSavingTarget('twoFactor')
-    await delay()
-    setValue('twoFactorEnabled', twoFactorMode === 'enable', { shouldDirty: true, shouldValidate: true })
-    window.setTimeout(persistCurrentSettings, 0)
-    setSavingTarget(null)
-    setTwoFactorMode(null)
-    setTwoFactorPassword('')
-    toast.success(twoFactorMode === 'enable' ? '2FA enabled' : '2FA disabled')
   }
 
   async function copyApiKey() {
@@ -727,16 +712,11 @@ export default function ProfileSettingsPage() {
 
                 <SecurityRow
                   icon={ShieldCheck}
-                  label="Two-Factor Authentication"
-                  value={
-                    <span className="inline-flex items-center gap-2">
-                      <span className={cn('size-2 rounded-full', twoFactorEnabled ? 'bg-emerald-400' : 'bg-rose-400')} />
-                      {twoFactorEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  }
+                  label="Multi-Factor Authentication"
+                  value="Add an extra layer of security to your account"
                   action={
-                    <Button type="button" size="sm" variant="secondary" onClick={() => setTwoFactorMode(twoFactorEnabled ? 'disable' : 'enable')}>
-                      {twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                    <Button asChild size="sm" className="border-[#6366f1]/80 bg-[#6366f1] text-white hover:border-[#818cf8] hover:bg-[#5558e8]">
+                      <Link href="/settings/profile/mfa">Manage MFA</Link>
                     </Button>
                   }
                 />
@@ -828,18 +808,6 @@ export default function ProfileSettingsPage() {
           </div>
         </div>
       </div>
-
-      <TwoFactorDialog
-        mode={twoFactorMode}
-        password={twoFactorPassword}
-        saving={savingTarget === 'twoFactor'}
-        onClose={() => {
-          setTwoFactorMode(null)
-          setTwoFactorPassword('')
-        }}
-        onPasswordChange={setTwoFactorPassword}
-        onSubmit={() => void completeTwoFactorSetup()}
-      />
 
       <DeactivateModal
         open={deactivateOpen}
@@ -1019,28 +987,30 @@ function NotificationToggle({
   onChange: (checked: boolean) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <button type="button" className="min-w-0 text-left" onClick={() => onChange(!checked)}>
+    <div className="flex w-full items-center justify-between gap-4">
+      <button type="button" className="min-w-0 flex-1 pr-4 text-left" onClick={() => onChange(!checked)}>
         <span className="block text-sm text-white/72">{label}</span>
         {description ? <span className="mt-1 block text-xs leading-5 text-white/38">{description}</span> : null}
       </button>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative h-6 w-11 shrink-0 rounded-full border transition-all duration-150 ease-out',
-          checked ? 'border-[#6366f1]/36 bg-[#6366f1]' : 'border-white/10 bg-white/[0.06]',
-        )}
-      >
-        <span
+      <div className="flex w-14 shrink-0 justify-end">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={() => onChange(!checked)}
           className={cn(
-            'absolute top-1/2 size-4 -translate-y-1/2 rounded-full bg-white transition-transform duration-150 ease-out',
-            checked ? 'translate-x-[22px]' : 'translate-x-1',
+            'relative h-6 w-12 rounded-full border transition-all duration-150 ease-out',
+            checked ? 'border-[#6366f1]/36 bg-[#6366f1]' : 'border-white/10 bg-white/[0.06]',
           )}
-        />
-      </button>
+        >
+          <span
+            className={cn(
+              'absolute left-1 top-1/2 size-4 -translate-y-1/2 rounded-full bg-white transition-transform duration-150 ease-out',
+              checked ? 'translate-x-6' : 'translate-x-0',
+            )}
+          />
+        </button>
+      </div>
     </div>
   )
 }
@@ -1142,65 +1112,6 @@ function ApiKeyField({
         </div>
       </div>
     </div>
-  )
-}
-
-function TwoFactorDialog({
-  mode,
-  onClose,
-  onPasswordChange,
-  onSubmit,
-  password,
-  saving,
-}: {
-  mode: 'enable' | 'disable' | null
-  onClose: () => void
-  onPasswordChange: (value: string) => void
-  onSubmit: () => void
-  password: string
-  saving: boolean
-}) {
-  const enabling = mode === 'enable'
-
-  return (
-    <Dialog open={mode !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="border-white/10 bg-[#0a0a0d]/95 text-white">
-        <DialogHeader>
-          <DialogTitle>{enabling ? 'Enable Two-Factor Authentication' : 'Disable Two-Factor Authentication'}</DialogTitle>
-          <DialogDescription>
-            {enabling ? 'Scan the placeholder code with your authenticator app.' : 'Confirm your password before disabling this protection.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="px-6 py-4">
-          {enabling ? (
-            <div className="mx-auto flex size-44 items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.03]">
-              <div className="grid grid-cols-5 gap-1">
-                {Array.from({ length: 25 }).map((_, index) => (
-                  <span key={index} className={cn('size-4 rounded-[4px]', index % 3 === 0 ? 'bg-white/80' : 'bg-white/12')} />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <Input
-              type="password"
-              value={password}
-              onChange={(event) => onPasswordChange(event.target.value)}
-              placeholder="Confirm password"
-              className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90"
-            />
-          )}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="button" disabled={saving || (!enabling && password.trim().length === 0)} onClick={onSubmit}>
-            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {enabling ? 'I Scanned It' : 'Disable 2FA'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 
