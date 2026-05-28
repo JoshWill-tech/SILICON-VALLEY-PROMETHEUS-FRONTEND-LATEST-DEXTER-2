@@ -1,7 +1,21 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
+
+const FOOTER_EXACT_PATHS = new Set([
+  '/',
+  '/pricing',
+  '/signup',
+  '/login',
+  '/verify',
+  '/forgot-password',
+  '/reset-password',
+  '/terms',
+  '/privacy',
+  '/refund',
+])
 
 const FOOTER_LINKS = [
   { href: '/pricing', label: 'Pricing' },
@@ -9,6 +23,25 @@ const FOOTER_LINKS = [
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/refund', label: 'Refund Policy' },
 ]
+
+export function shouldRenderFooterForPath(pathname: string | null) {
+  if (!pathname || pathname.startsWith('/api')) return false
+
+  const normalizedPathname =
+    pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
+
+  if (FOOTER_EXACT_PATHS.has(normalizedPathname)) return true
+
+  return normalizedPathname === '/auth' || normalizedPathname.startsWith('/auth/')
+}
+
+export function RouteScopedFooter() {
+  const pathname = usePathname()
+
+  if (!shouldRenderFooterForPath(pathname)) return null
+
+  return <Footer />
+}
 
 export function Footer() {
   return (
