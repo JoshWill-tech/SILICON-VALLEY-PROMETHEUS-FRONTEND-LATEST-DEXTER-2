@@ -1,9 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 
-import { LOADING_FACTS, getRandomLoadingFact } from '@/lib/loading-facts'
 import { cn } from '@/lib/utils'
 
 type PremiumLoaderProps = {
@@ -16,108 +14,145 @@ type PremiumLoaderProps = {
 }
 
 const SIZE_CLASS_NAMES = {
-  sm: 'h-16 w-28',
-  md: 'h-24 w-40',
-  lg: 'h-32 w-56',
+  sm: 'h-12 w-24',
+  md: 'h-16 w-32',
+  lg: 'h-20 w-40',
 } as const
 
 export function PremiumLoader({
   className,
-  factClassName,
   label = 'Loading...',
   message,
   size = 'md',
   variant = 'panel',
 }: PremiumLoaderProps) {
-  const glowFilterId = React.useId()
-  const [fact, setFact] = React.useState(() => getRandomLoadingFact())
-
-  React.useEffect(() => {
-    const interval = window.setInterval(() => {
-      setFact((current) => {
-        if (LOADING_FACTS.length <= 1) return current
-        let next = getRandomLoadingFact()
-        while (next === current) {
-          next = getRandomLoadingFact()
-        }
-        return next
-      })
-    }, 8000)
-
-    return () => window.clearInterval(interval)
-  }, [])
+  const gradientId = React.useId().replace(/:/g, '')
 
   return (
     <div
       className={cn(
         'relative flex flex-col items-center justify-center overflow-hidden text-center text-white',
-        variant === 'screen' && 'min-h-[100dvh] bg-[#050505] px-6',
+        variant === 'screen' && 'min-h-screen bg-[#050505] px-6',
         variant === 'panel' && 'rounded-[28px] border border-white/8 bg-[#050505] px-6 py-10 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)]',
         variant === 'inline' && 'bg-transparent px-4 py-5',
         className,
       )}
       role="status"
       aria-live="polite"
+      aria-label={message ? `${label} ${message}` : label}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-[62%] rounded-full bg-[#6366f1]/18 blur-[46px]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-28 w-56 -translate-x-1/2 -translate-y-[60%] rounded-full border border-white/[0.04] bg-white/[0.025] blur-[1px]"
-      />
+      <style>{`
+        @keyframes premium-loader-draw {
+          0% {
+            stroke-dashoffset: 132;
+            opacity: 0.42;
+            filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.48)) drop-shadow(0 0 14px rgba(99, 102, 241, 0.18));
+          }
+          36% {
+            stroke-dashoffset: 0;
+            opacity: 1;
+            filter: drop-shadow(0 0 9px rgba(167, 139, 250, 0.9)) drop-shadow(0 0 24px rgba(139, 92, 246, 0.44));
+          }
+          68% {
+            stroke-dashoffset: -3;
+            opacity: 0.84;
+            filter: drop-shadow(0 0 8px rgba(196, 181, 253, 0.76)) drop-shadow(0 0 19px rgba(99, 102, 241, 0.28));
+          }
+          100% {
+            stroke-dashoffset: -132;
+            opacity: 0.36;
+            filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.42)) drop-shadow(0 0 12px rgba(99, 102, 241, 0.16));
+          }
+        }
 
-      <div className={cn('relative', SIZE_CLASS_NAMES[size])}>
-        <svg viewBox="0 0 220 120" className="h-full w-full overflow-visible" fill="none">
+        @keyframes premium-loader-breathe {
+          0%, 100% {
+            opacity: 0.42;
+            transform: translate(-50%, -50%) scale(1.08);
+          }
+          46% {
+            opacity: 0.76;
+            transform: translate(-50%, -50%) scale(1.28);
+          }
+        }
+
+        @keyframes premium-loader-dot {
+          0%, 100% {
+            opacity: 0.86;
+            transform: scale(0.92);
+            filter: drop-shadow(0 0 8px rgba(255,255,255,0.72)) drop-shadow(0 0 18px rgba(167,139,250,0.46));
+          }
+          48% {
+            opacity: 1;
+            transform: scale(1.14);
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.92)) drop-shadow(0 0 24px rgba(167,139,250,0.68));
+          }
+        }
+
+        @keyframes premium-loader-ghost {
+          0%, 100% { opacity: 0.42; }
+          50% { opacity: 0.62; }
+        }
+      `}</style>
+
+      <div aria-hidden className="relative isolate">
+        <div
+          className="pointer-events-none absolute left-[33%] top-1/2 h-14 w-24 rounded-full bg-violet-500/20 blur-2xl"
+          style={{ animation: 'premium-loader-breathe 3.2s ease-in-out infinite' }}
+        />
+        <div
+          className="pointer-events-none absolute left-[40%] top-1/2 h-8 w-16 rounded-full bg-[#6366f1]/16 blur-xl"
+          style={{ animation: 'premium-loader-breathe 3.2s ease-in-out 0.28s infinite' }}
+        />
+        <svg viewBox="0 0 200 100" className={cn('relative z-10 overflow-visible', SIZE_CLASS_NAMES[size])} fill="none">
           <defs>
-            <filter id={glowFilterId} x="-30%" y="-60%" width="160%" height="220%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feColorMatrix
-                in="blur"
-                type="matrix"
-                values="0 0 0 0 0.388 0 0 0 0 0.4 0 0 0 0 0.945 0 0 0 0.82 0"
-              />
-              <feMerge>
-                <feMergeNode />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a78bfa" />
+              <stop offset="52%" stopColor="#c4b5fd" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </linearGradient>
           </defs>
           <path
-            d="M36 60C36 37 54 24 75 24C101 24 119 96 145 96C166 96 184 83 184 60C184 37 166 24 145 24C119 24 101 96 75 96C54 96 36 83 36 60Z"
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth="8"
+            d="M30,50 C30,20 70,20 100,50 C130,80 170,80 170,50 C170,20 130,20 100,50 C70,80 30,80 30,50"
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth="6"
             strokeLinecap="round"
           />
-          <motion.path
-            d="M36 60C36 37 54 24 75 24C101 24 119 96 145 96C166 96 184 83 184 60C184 37 166 24 145 24C119 24 101 96 75 96C54 96 36 83 36 60Z"
-            stroke="#6366f1"
-            strokeWidth="8"
+          <path
+            d="M100,50 C130,80 170,80 170,50 C170,20 130,20 100,50"
+            stroke="rgba(255,255,255,0.115)"
+            strokeWidth="6"
             strokeLinecap="round"
-            filter={`url(#${glowFilterId})`}
-            strokeDasharray="92 270"
-            initial={{ strokeDashoffset: 0 }}
-            animate={{ strokeDashoffset: -362 }}
-            transition={{ duration: 1.9, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
+            style={{ animation: 'premium-loader-ghost 3.2s ease-in-out infinite' }}
+          />
+          <path
+            d="M30,50 C30,20 70,20 100,50"
+            fill="none"
+            stroke={`url(#${gradientId})`}
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeDasharray="132"
+            strokeDashoffset="132"
+            style={{
+              animation: 'premium-loader-draw 2.9s cubic-bezier(0.52, 0, 0.22, 1) infinite',
+            }}
+          />
+          <circle
+            cx="100"
+            cy="50"
+            r="4"
+            fill="white"
+            style={{
+              transformBox: 'fill-box',
+              transformOrigin: 'center',
+              animation: 'premium-loader-dot 2.9s ease-in-out infinite',
+            }}
           />
         </svg>
       </div>
 
-      <div className="relative mt-5 text-sm font-medium text-white/78">{label}</div>
-      {message ? <div className="relative mt-2 max-w-[32rem] text-xs leading-5 text-white/44">{message}</div> : null}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={fact}
-          initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -4, filter: 'blur(4px)' }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          className={cn('relative mt-4 max-w-[36rem] text-balance text-xs leading-5 text-white/38', factClassName)}
-        >
-          {fact}
-        </motion.div>
-      </AnimatePresence>
+      <p className="relative mt-8 text-sm font-light tracking-wide text-white/30">{label}</p>
+      {message ? <span className="sr-only">{message}</span> : null}
     </div>
   )
 }
