@@ -95,6 +95,7 @@ function uniqueTokens(values: Array<string | undefined>) {
 export type ParsedR2TrackMetadata = {
   artist: string
   title: string
+  composer: string | null
 }
 
 export type EnrichedR2TrackMetadata = {
@@ -102,45 +103,66 @@ export type EnrichedR2TrackMetadata = {
   title?: string | null
 }
 
-function capitalizeWords(str: string): string {
-  return str
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
+const KNOWN_PERFORMERS = [
+  'bloodhound-gang',
+  'carpetman',
+  'damma-beatz',
+  'dayfox',
+  'dj-anemia-crier',
+  'forester-petit-biscuit-emilia-ali',
+  'francois-chaplin',
+  'hans-zimmer-james-newton-howard',
+  'hozier',
+  'imagine-dragons',
+  'irokz',
+  'justin-bieber',
+  'kygo',
+  'kygo-miguel',
+  'lil-tecca',
+  'lonown-riserayss',
+  'lost-frequencies-suark-bastille',
+  'the-score-awolnation',
+] as const
 
-export function parseR2TrackFilename(filename: string, enrichedMetadata?: EnrichedR2TrackMetadata | null): ParsedR2TrackMetadata {
-  if (enrichedMetadata?.artist && enrichedMetadata.artist !== 'Unknown Artist') {
+export function parseR2TrackFilename(filename: string): { 
+  artist: string
+  title: string
+  composer: string | null 
+} {
+  const fileSegment = filename.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '').trim() ?? ''
+  
+  // If filename contains " - " (space-dash-space), it's Artist - Title format
+  if (fileSegment.includes(' - ')) {
+    const [artistPart, ...titleParts] = fileSegment.split(' - ')
     return {
-      artist: enrichedMetadata.artist,
-      title: enrichedMetadata.title || 'Untitled Track',
+      artist: artistPart.trim() || 'Unknown Artist',
+      title: titleParts.join(' - ').trim() || 'Untitled Track',
+      composer: null,
     }
   }
-
-  // Strip path (handles both / and \)
-  const fileSegment = filename.split(/[\\/]/).pop()?.trim() ?? ''
   
-  // Strip extension
-  const baseName = fileSegment.replace(/\.[^.]+$/, '').trim()
+  // If filename contains known performer at the end (for all songs in the bucket), use known-artist logic
+  // Check your existing KNOWN_PERFORMERS list
+  const parts = fileSegment.split('-').filter(Boolean)
   
-  // Split by hyphens
-  const parts = baseName.split('-').filter(Boolean)
-  
-  if (parts.length < 2) {
-    // Single word or empty — use as title, no artist
-    return {
-      artist: 'Unknown Artist',
-      title: capitalizeWords(parts[0]?.replace(/_/g, ' ') || 'Untitled Track'),
+  for (const performer of KNOWN_PERFORMERS) {
+    const suffix = `-${performer}`
+    if (fileSegment.endsWith(suffix)) {
+      const titlePart = fileSegment.slice(0, -suffix.length)
+      return {
+        artist: performer.replace(/-/g, ' '),
+        title: titlePart.replace(/-/g, ' ').trim() || 'Untitled Track',
+        composer: null,
+      }
     }
   }
   
-  // Last segment is artist, everything before is title
-  const rawArtist = parts.pop() || ''
-  const rawTitle = parts.join(' ')
-  
+  // DEFAULT: Entire filename is the title, no artist present
+  // This fixes "brutal-wishes", "cinematic-trailer", etc.
   return {
-    artist: capitalizeWords(rawArtist.replace(/_/g, ' ')) || 'Unknown Artist',
-    title: capitalizeWords(rawTitle.replace(/_/g, ' ')) || 'Untitled Track',
+    artist: 'Unknown Artist',
+    title: fileSegment.replace(/-/g, ' ').trim() || 'Untitled Track',
+    composer: null,
   }
 }
 

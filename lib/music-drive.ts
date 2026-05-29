@@ -296,7 +296,7 @@ function mapR2ObjectToMusicTrack(
     throw new Error(`Unable to parse R2 music object key: ${object.key}`)
   }
 
-  const metadata = parseR2TrackFilename(parsed.filename, enrichedMetadata)
+  const metadata = resolveTrackMetadata(parseR2TrackFilename(parsed.filename), enrichedMetadata)
   const title = metadata.title
   const artist = metadata.artist
   const profile = inferR2TrackProfile(parsed.category, `${artist} ${title}`)
@@ -356,6 +356,21 @@ function resolveR2ThumbnailKey(
     categoryThumbnails[0] ??
     null
   )
+}
+
+function resolveTrackMetadata(
+  parsedMetadata: ReturnType<typeof parseR2TrackFilename>,
+  enrichedMetadata?: EnrichedR2TrackMetadata | null,
+) {
+  if (enrichedMetadata?.artist && enrichedMetadata.artist !== 'Unknown Artist') {
+    return {
+      ...parsedMetadata,
+      artist: enrichedMetadata.artist,
+      title: enrichedMetadata.title || parsedMetadata.title,
+    }
+  }
+
+  return parsedMetadata
 }
 
 function parseR2AssetKey(key: string, prefix: string): ParsedR2AssetKey | null {
