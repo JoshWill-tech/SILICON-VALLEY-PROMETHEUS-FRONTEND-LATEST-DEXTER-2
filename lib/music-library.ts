@@ -124,6 +124,13 @@ const KNOWN_PERFORMERS = [
   'the-score-awolnation',
 ] as const
 
+function capitalizeWords(str: string): string {
+  return str
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export function parseR2TrackFilename(filename: string): { 
   artist: string
   title: string
@@ -150,8 +157,8 @@ export function parseR2TrackFilename(filename: string): {
     if (fileSegment.endsWith(suffix)) {
       const titlePart = fileSegment.slice(0, -suffix.length)
       return {
-        artist: performer.replace(/-/g, ' '),
-        title: titlePart.replace(/-/g, ' ').trim() || 'Untitled Track',
+        artist: capitalizeWords(performer.replace(/-/g, ' ')),
+        title: capitalizeWords(titlePart.replace(/-/g, ' ').trim()) || 'Untitled Track',
         composer: null,
       }
     }
@@ -161,7 +168,7 @@ export function parseR2TrackFilename(filename: string): {
   // This fixes "brutal-wishes", "cinematic-trailer", etc.
   return {
     artist: 'Unknown Artist',
-    title: fileSegment.replace(/-/g, ' ').trim() || 'Untitled Track',
+    title: capitalizeWords(fileSegment.replace(/-/g, ' ').trim()) || 'Untitled Track',
     composer: null,
   }
 }

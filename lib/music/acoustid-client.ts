@@ -40,8 +40,14 @@ async function waitForAcoustIdSlot() {
 }
 
 export async function enrichTrackMetadata(fingerprint: string, duration: number): Promise<TrackMetadata | null> {
+  const client = process.env.ACOUSTID_CLIENT_KEY?.trim() || process.env.ACOUSTID_API_KEY?.trim()
+  if (!client) {
+    console.error('[ACOUSTID] Missing ACOUSTID_CLIENT_KEY or ACOUSTID_API_KEY')
+    return null
+  }
+
   const params = new URLSearchParams({
-    client: process.env.ACOUSTID_CLIENT_KEY?.trim() || 'prometheus-studio',
+    client,
     format: 'json',
     meta: 'recordings+releasegroups+compress',
     duration: String(Math.round(duration)),

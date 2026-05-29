@@ -102,14 +102,10 @@ function ArtistMarquee({ artist }: { artist: string }) {
   return (
     <div
       ref={containerRef}
-      className="relative mt-0.5 overflow-hidden text-xs text-neutral-400"
-      style={{
-        maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
-      }}
+      className="relative mt-0.5 text-xs text-neutral-400"
     >
       <div
-        className={cn('flex w-max whitespace-nowrap', isOverflowing ? 'animate-marquee' : '')}
+        className={cn('flex whitespace-nowrap', isOverflowing ? 'animate-marquee w-max' : '')}
         style={{ animationPlayState: 'running' }}
         onMouseEnter={(event) => {
           event.currentTarget.style.animationPlayState = 'paused'
@@ -118,7 +114,7 @@ function ArtistMarquee({ artist }: { artist: string }) {
           event.currentTarget.style.animationPlayState = 'running'
         }}
       >
-        <span ref={textRef} className={isOverflowing ? 'pr-8' : undefined}>
+        <span ref={textRef} className={isOverflowing ? 'pr-8' : ''}>
           {displayArtist}
         </span>
         {isOverflowing && (
@@ -154,7 +150,7 @@ export function SoundtrackCard({
         }
       }}
       className={cn(
-        'group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-white/[0.03] px-3 py-2.5 text-left transition-all duration-200 ease-out focus:outline-none',
+        'group relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border bg-white/[0.03] px-4 py-3 text-left transition-all duration-200 ease-out focus:outline-none',
         isSelected
           ? 'border-[#6366f1]/36 bg-[#6366f1]/14 shadow-[0_0_30px_rgba(99,102,241,0.18)]'
           : isFocused
