@@ -92,33 +92,39 @@ function uniqueTokens(values: Array<string | undefined>) {
     .filter((value, index, all) => all.findIndex((candidate) => normalizeText(candidate) === normalizeText(value)) === index)
 }
 
-export function parseR2TrackFilename(filename: string): { artist: string; title: string } {
-  const fileSegment = filename.split('/').pop()?.trim() ?? ''
-  const baseName = fileSegment.replace(/\.[^.]+$/, '').trim()
-  const [artistCandidate, ...titleParts] = baseName.split(' - ')
-  const hasArtistDelimiter = titleParts.length > 0
-  const rawArtist = hasArtistDelimiter ? artistCandidate.trim() : ''
-  const rawTitle = hasArtistDelimiter ? titleParts.join(' - ').trim() : baseName
-
-  return {
-    artist: cleanR2TrackMetadata(rawArtist) || 'Unknown Artist',
-    title: cleanR2TrackMetadata(rawTitle) || 'Untitled Track',
-  }
+function capitalizeWords(str: string): string {
+  return str
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
-function cleanR2TrackMetadata(value: string) {
-  const normalized = value.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim()
-  if (!normalized) return ''
-
-  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(normalized)) {
-    return normalized
-      .replace(/-+/g, ' ')
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ')
+export function parseR2TrackFilename(filename: string): { artist: string; title: string } {
+  // Strip path (handles both / and \)
+  const fileSegment = filename.split(/[\\/]/).pop()?.trim() ?? ''
+  
+  // Strip extension
+  const baseName = fileSegment.replace(/\.[^.]+$/, '').trim()
+  
+  // Split by hyphens
+  const parts = baseName.split('-').filter(Boolean)
+  
+  if (parts.length < 2) {
+    // Single word or empty — use as title, no artist
+    return {
+      artist: 'Unknown Artist',
+      title: capitalizeWords(parts[0]?.replace(/_/g, ' ') || 'Untitled Track'),
+    }
   }
-
-  return normalized
+  
+  // Last segment is artist, everything before is title
+  const rawArtist = parts.pop() || ''
+  const rawTitle = parts.join(' ')
+  
+  return {
+    artist: capitalizeWords(rawArtist.replace(/_/g, ' ')) || 'Unknown Artist',
+    title: capitalizeWords(rawTitle.replace(/_/g, ' ')) || 'Untitled Track',
+  }
 }
 
 export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommendation {
