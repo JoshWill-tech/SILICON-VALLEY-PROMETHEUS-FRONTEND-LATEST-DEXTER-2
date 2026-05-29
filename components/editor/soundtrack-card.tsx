@@ -19,8 +19,6 @@ type SoundtrackCardProps = {
   track: MusicRecommendation
 }
 
-const ARTIST_EDGE_MASK = 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)'
-
 function formatDuration(durationSec: number | undefined) {
   const safeDuration = Number.isFinite(durationSec) ? Math.max(0, Math.floor(durationSec ?? 0)) : 0
   const minutes = Math.floor(safeDuration / 60)
@@ -79,56 +77,55 @@ function TrackArtwork({
 
 function ArtistMarquee({ artist }: { artist: string }) {
   const displayArtist = artist.trim() || 'Unknown Artist'
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const textRef = React.useRef<HTMLSpanElement | null>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const textRef = React.useRef<HTMLSpanElement>(null)
   const [isOverflowing, setIsOverflowing] = React.useState(false)
 
   React.useEffect(() => {
-    const container = containerRef.current
-    const text = textRef.current
-    if (!container || !text) return
-
-    const updateOverflow = () => {
-      setIsOverflowing(text.scrollWidth > container.clientWidth + 2)
+    const checkOverflow = () => {
+      const container = containerRef.current
+      const text = textRef.current
+      if (!container || !text) return
+      setIsOverflowing(text.scrollWidth > container.clientWidth + 1)
     }
 
-    updateOverflow()
+    const timer = setTimeout(checkOverflow, 100)
+    const observer = new ResizeObserver(checkOverflow)
+    if (containerRef.current) observer.observe(containerRef.current)
 
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', updateOverflow)
-      return () => window.removeEventListener('resize', updateOverflow)
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
     }
-
-    const observer = new ResizeObserver(updateOverflow)
-    observer.observe(container)
-    observer.observe(text)
-
-    return () => observer.disconnect()
   }, [displayArtist])
 
   return (
     <div
       ref={containerRef}
-      className="mt-0.5 overflow-hidden text-xs text-neutral-400"
+      className="relative mt-0.5 overflow-hidden text-xs text-neutral-400"
       style={{
-        maskImage: ARTIST_EDGE_MASK,
-        WebkitMaskImage: ARTIST_EDGE_MASK,
+        maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
       }}
     >
       <div
-        className={cn(
-          'whitespace-nowrap',
-          isOverflowing ? 'animate-marquee flex w-max' : 'truncate',
-        )}
+        className={cn('flex w-max whitespace-nowrap', isOverflowing ? 'animate-marquee' : '')}
+        style={{ animationPlayState: 'running' }}
+        onMouseEnter={(event) => {
+          event.currentTarget.style.animationPlayState = 'paused'
+        }}
+        onMouseLeave={(event) => {
+          event.currentTarget.style.animationPlayState = 'running'
+        }}
       >
         <span ref={textRef} className={isOverflowing ? 'pr-8' : undefined}>
           {displayArtist}
         </span>
-        {isOverflowing ? (
-          <span className="pr-8" aria-hidden>
+        {isOverflowing && (
+          <span className="pr-8" aria-hidden="true">
             {displayArtist}
           </span>
-        ) : null}
+        )}
       </div>
     </div>
   )
@@ -169,25 +166,6 @@ export function SoundtrackCard({
         @keyframes music-eq {
           from { transform: scaleY(0.38); opacity: 0.58; }
           to { transform: scaleY(1); opacity: 1; }
-        }
-
-        @keyframes soundtrack-artist-marquee {
-          from { transform: translate3d(0, 0, 0); }
-          to { transform: translate3d(-50%, 0, 0); }
-        }
-
-        .animate-marquee {
-          animation: soundtrack-artist-marquee 16s linear infinite;
-          backface-visibility: hidden;
-          transform: translate3d(0, 0, 0);
-          will-change: transform;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .animate-marquee {
-            animation: none;
-            transform: translate3d(0, 0, 0);
-          }
         }
       `}</style>
 

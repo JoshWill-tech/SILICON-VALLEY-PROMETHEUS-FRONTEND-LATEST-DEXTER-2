@@ -418,6 +418,22 @@
   }
 }
 
+@keyframes soundtrack-artist-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-marquee {
+  animation: soundtrack-artist-marquee 12s linear infinite;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
 @layer utilities {
   .scrollbar-hidden {
     -ms-overflow-style: none;

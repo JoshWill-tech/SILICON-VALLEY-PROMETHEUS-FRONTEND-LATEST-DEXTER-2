@@ -1,4 +1,5 @@
 import { ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 import {
   MUSIC_CATALOG,
@@ -6,9 +7,10 @@ import {
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
 import { GOOGLE_DRIVE_MUSIC_CATALOG_SNAPSHOT } from '@/lib/generated/google-drive-music-catalog'
-import { parseR2TrackFilename } from '@/lib/music-library'
+import { parseR2TrackFilename, type EnrichedR2TrackMetadata } from '@/lib/music-library'
 import { r2Client } from '@/lib/r2/client'
 import { resolveR2AssetUrl } from '@/lib/music-url-resolver'
+import { getSupabaseConfig } from '@/lib/supabase/config'
 
 const DEFAULT_GOOGLE_DRIVE_MUSIC_FOLDER_ID = '1oczdEdER5h0_6Bv4WqaDZTDZ8rP4DNDa'
 const DRIVE_FOLDER_CACHE_TTL_MS = 5 * 60 * 1000
@@ -184,13 +186,14 @@ async function loadCloudflareMusicCatalog() {
     listR2Objects(bucket, R2_MUSIC_THUMBNAIL_PREFIX),
   ])
   const thumbnailIndex = buildR2ThumbnailIndex(thumbnailObjects)
+  const enrichedMetadataByTrackId = await loadTrackMetadataCache(audioObjects.map((object) => object.key))
 
   return audioObjects
     .filter((object) => {
       const parsed = parseR2AssetKey(object.key, R2_MUSIC_AUDIO_PREFIX)
       return parsed ? R2_AUDIO_EXTENSIONS.has(parsed.extension) : false
     })
-    .map((object, index) => mapR2ObjectToMusicTrack(object, thumbnailIndex, index))
+    .map((object, index) => mapR2ObjectToMusicTrack(object, thumbnailIndex, index, enrichedMetadataByTrackId.get(object.key)))
 }
 
 async function listR2Objects(bucket: string, prefix: string): Promise<R2ListedObject[]> {
@@ -221,6 +224,47 @@ async function listR2Objects(bucket: string, prefix: string): Promise<R2ListedOb
   return objects
 }
 
+async function loadTrackMetadataCache(trackIds: string[]) {
+  const uniqueTrackIds = [...new Set(trackIds.filter(Boolean))]
+  const enrichedMetadata = new Map<string, EnrichedR2TrackMetadata>()
+  if (!uniqueTrackIds.length) return enrichedMetadata
+
+  try {
+    const { url, publishableKey } = getSupabaseConfig()
+    const supabase = createSupabaseClient(url, publishableKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
+    for (let index = 0; index < uniqueTrackIds.length; index += 500) {
+      const chunk = uniqueTrackIds.slice(index, index + 500)
+      const { data, error } = await supabase
+        .from('track_metadata')
+        .select('track_id, artist, title')
+        .in('track_id', chunk)
+
+      if (error) {
+        console.warn('[music-drive] Unable to read enriched track metadata.', error.message)
+        return enrichedMetadata
+      }
+
+      for (const row of data ?? []) {
+        if (!row.track_id) continue
+        enrichedMetadata.set(row.track_id, {
+          artist: row.artist,
+          title: row.title,
+        })
+      }
+    }
+  } catch (error) {
+    console.warn('[music-drive] Enriched track metadata cache unavailable.', error)
+  }
+
+  return enrichedMetadata
+}
+
 function buildR2ThumbnailIndex(thumbnailObjects: R2ListedObject[]) {
   const exactByCategoryAndBaseName = new Map<string, string>()
   const byCategory = new Map<string, string[]>()
@@ -245,13 +289,14 @@ function mapR2ObjectToMusicTrack(
   object: R2ListedObject,
   thumbnailIndex: ReturnType<typeof buildR2ThumbnailIndex>,
   index: number,
+  enrichedMetadata?: EnrichedR2TrackMetadata | null,
 ): MusicCatalogTrack {
   const parsed = parseR2AssetKey(object.key, R2_MUSIC_AUDIO_PREFIX)
   if (!parsed) {
     throw new Error(`Unable to parse R2 music object key: ${object.key}`)
   }
 
-  const metadata = parseR2TrackFilename(parsed.filename)
+  const metadata = parseR2TrackFilename(parsed.filename, enrichedMetadata)
   const title = metadata.title
   const artist = metadata.artist
   const profile = inferR2TrackProfile(parsed.category, `${artist} ${title}`)

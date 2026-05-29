@@ -92,6 +92,16 @@ function uniqueTokens(values: Array<string | undefined>) {
     .filter((value, index, all) => all.findIndex((candidate) => normalizeText(candidate) === normalizeText(value)) === index)
 }
 
+export type ParsedR2TrackMetadata = {
+  artist: string
+  title: string
+}
+
+export type EnrichedR2TrackMetadata = {
+  artist?: string | null
+  title?: string | null
+}
+
 function capitalizeWords(str: string): string {
   return str
     .split(' ')
@@ -99,7 +109,14 @@ function capitalizeWords(str: string): string {
     .join(' ')
 }
 
-export function parseR2TrackFilename(filename: string): { artist: string; title: string } {
+export function parseR2TrackFilename(filename: string, enrichedMetadata?: EnrichedR2TrackMetadata | null): ParsedR2TrackMetadata {
+  if (enrichedMetadata?.artist && enrichedMetadata.artist !== 'Unknown Artist') {
+    return {
+      artist: enrichedMetadata.artist,
+      title: enrichedMetadata.title || 'Untitled Track',
+    }
+  }
+
   // Strip path (handles both / and \)
   const fileSegment = filename.split(/[\\/]/).pop()?.trim() ?? ''
   
