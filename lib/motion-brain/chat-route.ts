@@ -1,5 +1,6 @@
 import 'server-only'
 
+import Groq from 'groq-sdk'
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -7,11 +8,10 @@ import { NextResponse } from 'next/server'
 
 import type { MusicVideoContext } from '@/lib/types'
 
-const GROQ_CHAT_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_GROQ_MODEL = 'llama-3.1-8b-instant'
+const DEFAULT_GROQ_MODEL = 'llama3-8b-8192'
 const EMBEDDING_MODEL = 'text-embedding-3-small'
-const DEFAULT_MATCH_THRESHOLD = 0.35
-const DEFAULT_MATCH_COUNT = 3
+const MATCH_THRESHOLD = 0.7
+const MATCH_COUNT = 3
 
 type ChatMessage = {
   role: 'assistant' | 'user'
@@ -19,6 +19,8 @@ type ChatMessage = {
 }
 
 type ChatRequestBody = {
+  message?: string
+  prompt?: string
   projectTitle?: string
   originalPrompt?: string
   initialSources?: string[]
@@ -37,6 +39,11 @@ type GroqChatResponse = {
   error?: {
     message?: string
   }
+}
+
+type GroqMessage = {
+  role: 'system' | 'assistant' | 'user'
+  content: string
 }
 
 type MotionKnowledgeMatch = {
@@ -123,7 +130,14 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as ChatRequestBody
-    const messages = normalizeMessages(body.messages || [])
+    const directPrompt = cleanInline(body.message) || cleanInline(body.prompt)
+    const normalizedMessages = normalizeMessages(body.messages || [])
+    const messages =
+      normalizedMessages.length > 0
+        ? normalizedMessages
+        : directPrompt
+          ? [{ role: 'user' as const, text: directPrompt }]
+          : []
     const shouldStream = Boolean(body.stream)
 
     if (messages.length === 0) {
@@ -136,6 +150,7 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey: openaiApiKey })
+    const groq = new Groq({ apiKey: groqApiKey })
     const supabase = createClient<MotionBrainDatabase>(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
@@ -149,68 +164,44 @@ export async function POST(req: Request) {
       prompt: latestPrompt,
     })
 
-    const upstream = await fetch(GROQ_CHAT_COMPLETIONS_URL, {
-      method: 'POST',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${groqApiKey}`,
-        Accept: shouldStream ? 'text/event-stream' : 'application/json',
+    const groqMessages: GroqMessage[] = [
+      {
+        role: 'system',
+        content: buildMotionBrainSystemPrompt({
+          projectTitle: body.projectTitle,
+          originalPrompt: body.originalPrompt,
+          initialSources: body.initialSources,
+          videoContext: body.videoContext,
+          workflow: body.workflow ?? 'chat',
+          knowledge,
+        }),
       },
-      body: JSON.stringify({
-        model,
-        temperature: body.workflow === 'edit' ? 0.42 : 0.55,
-        max_completion_tokens: body.workflow === 'edit' ? 700 : 620,
-        stream: shouldStream,
-        messages: [
-          {
-            role: 'system',
-            content: buildMotionBrainSystemPrompt({
-              projectTitle: body.projectTitle,
-              originalPrompt: body.originalPrompt,
-              initialSources: body.initialSources,
-              videoContext: body.videoContext,
-              workflow: body.workflow ?? 'chat',
-              knowledge,
-            }),
-          },
-          ...messages.map((message) => ({
-            role: message.role,
-            content: message.text,
-          })),
-        ],
-      }),
-    })
-
-    if (!upstream.ok) {
-      const raw = await upstream.text()
-      const payload = raw ? (safeJsonParse(raw) as GroqChatResponse | string) : null
-      const errorMessage =
-        typeof payload === 'object' && payload && 'error' in payload && payload.error?.message
-          ? payload.error.message
-          : `Groq request failed with ${upstream.status} ${upstream.statusText}.`
-
-      return NextResponse.json({ error: errorMessage }, { status: 502 })
-    }
+      ...messages.map((message) => ({
+        role: message.role,
+        content: message.text,
+      })),
+    ]
 
     if (shouldStream) {
-      if (!upstream.body) {
-        return NextResponse.json({ error: 'Groq returned an empty stream.' }, { status: 502 })
-      }
-
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: {
-          'Cache-Control': 'no-store, no-transform',
-          'Content-Type': upstream.headers.get('content-type') || 'text/event-stream; charset=utf-8',
-        },
+      const stream = await groq.chat.completions.create({
+        model,
+        temperature: body.workflow === 'edit' ? 0.42 : 0.55,
+        max_tokens: body.workflow === 'edit' ? 700 : 620,
+        stream: true,
+        messages: groqMessages,
       })
+
+      return streamGroqCompletion(stream)
     }
 
-    const raw = await upstream.text()
-    const payload = raw ? (safeJsonParse(raw) as GroqChatResponse | string) : null
+    const completion = await groq.chat.completions.create({
+      model,
+      temperature: body.workflow === 'edit' ? 0.42 : 0.55,
+      max_tokens: body.workflow === 'edit' ? 700 : 620,
+      messages: groqMessages,
+    })
 
-    const reply = sanitizeAssistantReply(extractReply(payload))
+    const reply = sanitizeAssistantReply(extractReply(completion as GroqChatResponse))
     if (!reply) {
       return NextResponse.json({ error: 'Groq returned an empty reply.' }, { status: 502 })
     }
@@ -227,7 +218,7 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to contact Motion Brain right now.'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: getErrorStatus(error) })
   }
 }
 
@@ -253,12 +244,12 @@ async function retrieveMotionKnowledge({
 
   const { data, error } = await supabase.rpc('search_motion_knowledge', {
     query_embedding: embedding,
-    match_threshold: getMatchThreshold(),
-    match_count: DEFAULT_MATCH_COUNT,
+    match_threshold: MATCH_THRESHOLD,
+    match_count: MATCH_COUNT,
   })
 
   if (error) throw error
-  return ((data || []) as MotionKnowledgeMatch[]).slice(0, DEFAULT_MATCH_COUNT)
+  return ((data || []) as MotionKnowledgeMatch[]).slice(0, MATCH_COUNT)
 }
 
 function buildMotionBrainSystemPrompt({
@@ -284,7 +275,7 @@ function buildMotionBrainSystemPrompt({
   const isEditWorkflow = workflow === 'edit'
 
   return [
-    'You are the Chief Motion Architect for Prometheus. Use the following retrieved video editing breakdowns to answer the user. Do not be generic. Dictate exact cuts, GSAP motion atoms, pacing, and B-roll metaphors.',
+    'You are the Chief Motion Architect for Prometheus. Use the following retrieved video editing breakdowns to answer the user accurately. Dictate exact GSAP motion atoms, pacing, and visual hierarchy.',
     'Answer as a premium cinematic systems lead, not a generic assistant.',
     isEditWorkflow
       ? 'The user is asking for a video edit. Give concrete edit-direction that can drive timeline operations and on-canvas motion.'
@@ -330,7 +321,12 @@ function normalizeMessages(messages: unknown[]) {
       if (!message || typeof message !== 'object') return null
       const record = message as Record<string, unknown>
       const role = record.role === 'assistant' ? 'assistant' : record.role === 'user' ? 'user' : null
-      const text = typeof record.text === 'string' ? record.text.trim() : ''
+      const text =
+        typeof record.text === 'string'
+          ? record.text.trim()
+          : typeof record.content === 'string'
+            ? record.content.trim()
+            : ''
       return role && text ? { role, text } : null
     })
     .filter((message): message is { role: 'assistant' | 'user'; text: string } => Boolean(message))
@@ -384,24 +380,42 @@ function buildVideoContextLine(videoContext?: MusicVideoContext | null) {
   return [pace, summary, signals].filter(Boolean).join(', ')
 }
 
-function getMatchThreshold() {
-  const raw = cleanEnvValue(process.env.MOTION_RAG_MATCH_THRESHOLD)
-  if (!raw) return DEFAULT_MATCH_THRESHOLD
-
-  const parsed = Number.parseFloat(raw)
-  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) return DEFAULT_MATCH_THRESHOLD
-  return parsed
-}
-
 function cleanEnvValue(value: string | undefined) {
   const trimmed = value?.trim()
   return trimmed || undefined
 }
 
-function safeJsonParse(value: string) {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
+function streamGroqCompletion(stream: AsyncIterable<unknown>) {
+  const encoder = new TextEncoder()
+
+  const body = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of stream) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
+        }
+
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+        controller.close()
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+  })
+
+  return new Response(body, {
+    headers: {
+      'Cache-Control': 'no-store, no-transform',
+      'Content-Type': 'text/event-stream; charset=utf-8',
+    },
+  })
+}
+
+function getErrorStatus(error: unknown) {
+  if (typeof error === 'object' && error && 'status' in error) {
+    const status = Number((error as { status?: unknown }).status)
+    if (Number.isInteger(status) && status >= 400 && status < 500) return 502
   }
+
+  return 500
 }

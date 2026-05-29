@@ -4,6 +4,12 @@ import { existsSync, readFileSync } from 'fs'
 import { readFile } from 'fs/promises'
 
 const EMBEDDING_MODEL = 'text-embedding-3-small'
+const DUMMY_MOTION_BEAT: MotionBeatInput = {
+  url: 'https://www.youtube.com/watch?v=prometheus-motion-brain-demo',
+  style: 'Premium cinematic SaaS launch breakdown',
+  breakdown:
+    'Open on a 12-frame black hold, then snap into a macro interface close-up with a clip-path reveal from 0% to 100%. Cut every 18-24 frames on percussion hits. Use GSAP yPercent lifts for captions, a 0.18s scale settle on product UI, and B-roll metaphors of glass, pressure, and velocity to make the software feel expensive.',
+}
 
 type MotionBeatInput = {
   url: string
@@ -35,13 +41,13 @@ const supabase = createClient(
 )
 
 export async function ingestMotionBeat(
-  url: string,
-  style: string,
-  breakdown: string,
+  videoUrl: string,
+  styleRef: string,
+  breakdownText: string,
 ): Promise<IngestResult> {
-  const cleanUrl = requireText(url, 'url')
-  const cleanStyle = requireText(style, 'style')
-  const cleanBreakdown = requireText(breakdown, 'breakdown')
+  const cleanUrl = requireText(videoUrl, 'videoUrl')
+  const cleanStyle = requireText(styleRef, 'styleRef')
+  const cleanBreakdown = requireText(breakdownText, 'breakdownText')
 
   const embeddingResponse = await openai.embeddings.create({
     model: EMBEDDING_MODEL,
@@ -93,6 +99,10 @@ async function runCli() {
 }
 
 async function readInput(args: string[]): Promise<MotionBeatInput | MotionBeatInput[]> {
+  if (args.length === 0) {
+    return DUMMY_MOTION_BEAT
+  }
+
   const filePath = getArgValue(args, '--file')
   if (filePath) {
     const raw = await readFile(filePath, 'utf8')

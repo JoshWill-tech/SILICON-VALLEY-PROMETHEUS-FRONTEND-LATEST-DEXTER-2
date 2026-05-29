@@ -67,6 +67,7 @@
     "embla-carousel-react": "8.5.1",
     "fpcalc-wrapper": "^0.0.3",
     "framer-motion": "12.29.2",
+    "groq-sdk": "^1.2.1",
     "gsap": "^3.15.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",

@@ -11,33 +11,42 @@ export default function RefundPage() {
   return (
     <LegalLayout
       title="Refund Policy"
-      description="Prometheus AI offers a clear 14-day refund policy for Prometheus Studio purchases made through prometheusstudio.tech."
+      description="Prometheus Studio purchases are processed by Paddle as Merchant of Record, and refunds are governed by Paddle's Refund Policy and applicable law."
       currentPath="/refund"
       lastUpdated={LEGAL_LAST_UPDATED}
     >
-      <LegalSection title="1. 14-Day Refund Policy">
+      <LegalSection title="1. Refund Eligibility and 14-Day Discretionary Window">
         <p>
-          Prometheus AI provides a fourteen (14) day refund policy for Prometheus Studio. If you request
-          a refund within 14 calendar days of the original transaction date, we will approve a full refund
-          for that transaction, except where there is evidence of fraud, refund abuse, chargeback abuse,
-          or a transaction that has already been refunded.
+          Refunds for Prometheus Studio purchases are governed by Paddle&apos;s Refund Policy and any
+          mandatory consumer rights that apply. Unless applicable law requires otherwise, transactions
+          are non-refundable and non-exchangeable.
         </p>
         <p>
-          This policy applies to first-time subscription purchases and one-time digital purchases made
-          through prometheusstudio.tech. Your statutory consumer rights are not limited by this policy.
+          For jurisdictions without statutory withdrawal rights, Paddle may review discretionary refund
+          requests submitted within 14 calendar days of the transaction date. Submitting a request within
+          this period does not guarantee a refund. Paddle may approve a full refund, approve a partial
+          refund, or decline the request.
+        </p>
+        <p>
+          Refunds will not be issued where there is evidence of fraud, refund abuse, or other
+          manipulative behaviour. Your statutory consumer rights are not limited by this policy.
         </p>
       </LegalSection>
 
-      <LegalSection title="2. Renewals and Cancellations">
+      <LegalSection title="2. Statutory Rights, Renewals, and Cancellations">
         <p>
-          Subscription renewals are non-refundable after the 14-day window unless required by applicable
-          law or caused by a billing error. You may cancel a subscription at any time to prevent future
-          renewal charges. Cancellation does not remove access already paid for during the active billing
-          period unless a refund is issued for that period.
+          Statutory withdrawal or cancellation rights may apply for consumers in the EU/EEA/UK/CH, TR,
+          IL, KR, BR, CN, CA, and SG. Timing and eligibility vary by jurisdiction. For all other refunds,
+          Paddle decides eligibility at its discretion unless mandatory local law requires otherwise.
         </p>
         <p>
-          If you believe a renewal was charged in error, contact us at support@prometheusstudio.tech or
-          use the Paddle support links in your receipt.
+          Withdrawal rights do not apply to downloaded, streamed, or otherwise used digital content where
+          you gave express consent to waive those rights. Subscription renewals are non-refundable except
+          where applicable law or Paddle&apos;s policy requires or permits a refund.
+        </p>
+        <p>
+          You may cancel a subscription at any time to prevent future renewal charges. Add-ons linked to
+          a main subscription expire when the main subscription ends, unless otherwise stated.
         </p>
       </LegalSection>
 
@@ -50,35 +59,37 @@ export default function RefundPage() {
         <p>
           Refunds approved under this policy are normally returned to the original payment method through
           Paddle. Processing times may depend on Paddle, your payment provider, and your bank.
+          Prometheus AI does not make final refund eligibility decisions for transactions processed by
+          Paddle.
         </p>
       </LegalSection>
 
       <LegalSection title="4. How to Request a Refund">
         <p>
-          To request a refund, contact support@prometheusstudio.tech with your account email, Paddle
-          receipt email, transaction date, and reason for the request. You may also use the &quot;Manage
-          subscription&quot; or support link in your Paddle receipt.
+          To request a refund, use the &quot;Manage subscription&quot; or &quot;View receipt&quot; link in your
+          Paddle transaction confirmation email, the support link in your Paddle receipt or billing page,
+          or Paddle&apos;s buyer support site and select the refund request option.
         </p>
         <p>
-          We review refund requests promptly and will provide instructions for any additional
-          information needed to locate the transaction.
+          If you cannot locate your Paddle receipt or transaction details, contact
+          support@prometheusstudio.tech as a routing contact with your account email, Paddle receipt
+          email, transaction date, and reason for the request.
         </p>
       </LegalSection>
 
       <LegalSection title="5. Technical Issues">
         <p>
           If a technical issue prevents you from accessing the paid service or receiving the deliverables
-          described for your purchase, contact support@prometheusstudio.tech. We will attempt to resolve
-          the issue. If we cannot resolve it and your request is within the 14-day window, we will
-          approve a refund under this policy.
+          described for your purchase, contact support@prometheusstudio.tech first so Prometheus AI can
+          attempt to resolve the issue. If the issue remains unresolved, escalate the request to Paddle
+          support through your receipt, billing page, or Paddle&apos;s buyer support site.
         </p>
       </LegalSection>
 
       <LegalSection title="6. After a Refund">
         <p>
           If a refund is issued, access to the refunded subscription, add-on, export credit, or digital
-          product may be cancelled or reduced. Refunded transactions may not be reused for future service
-          access.
+          product will cease. Refunded transactions may not be reused for future service access.
         </p>
         <p>
           Paddle&apos;s live Refund Policy is available at{' '}
@@ -90,7 +101,8 @@ export default function RefundPage() {
           >
             https://www.paddle.com/legal/refund-policy
           </a>
-          .
+          {' '}for reference. The Paddle policy version in effect at the time of your transaction
+          governs that transaction, not the live linked version.
         </p>
       </LegalSection>
     </LegalLayout>
