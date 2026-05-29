@@ -4,23 +4,23 @@ import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection } from '@/components/lega
 
 export const metadata: Metadata = {
   title: 'Refund Policy | Prometheus Studio',
-  description: 'Refund Policy for Prometheus Studio purchases processed by Paddle.',
+  description: 'Refund Policy for Prometheus Studio purchases from Prometheus AI processed by Paddle.',
 }
 
 export default function RefundPage() {
   return (
     <LegalLayout
       title="Refund Policy"
-      description="Prometheus Studio offers a clear 14-day refund policy for purchases made through prometheusstudio.tech."
+      description="Prometheus AI offers a clear 14-day refund policy for Prometheus Studio purchases made through prometheusstudio.tech."
       currentPath="/refund"
       lastUpdated={LEGAL_LAST_UPDATED}
     >
       <LegalSection title="1. 14-Day Refund Policy">
         <p>
-          Prometheus Studio provides a fourteen (14) day refund policy. If you request a refund within
-          14 calendar days of the original transaction date, we will approve a full refund for that
-          transaction, except where there is evidence of fraud, refund abuse, chargeback abuse, or a
-          transaction that has already been refunded.
+          Prometheus AI provides a fourteen (14) day refund policy for Prometheus Studio. If you request
+          a refund within 14 calendar days of the original transaction date, we will approve a full refund
+          for that transaction, except where there is evidence of fraud, refund abuse, chargeback abuse,
+          or a transaction that has already been refunded.
         </p>
         <p>
           This policy applies to first-time subscription purchases and one-time digital purchases made

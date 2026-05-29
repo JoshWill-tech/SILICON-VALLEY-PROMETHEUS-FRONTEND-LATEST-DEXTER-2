@@ -1,10 +1,13 @@
-// These Terms & Conditions govern the use of Prometheus Studio, operated by JOSHUA WILSON AYOGU
+// These terms govern your use of the software provided by Prometheus AI.
 import type { Metadata } from 'next'
 
 import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
 
+const LEGAL_ENTITY_DECLARATION =
+  'This platform, Prometheus Studio, is owned and operated by the legal entity Prometheus AI.'
+
 const TERMS_OPENING =
-  'These Terms & Conditions govern the use of Prometheus Studio, operated by JOSHUA WILSON AYOGU'
+  'These terms govern your use of the software provided by Prometheus AI, including Prometheus Studio'
 
 export const metadata: Metadata = {
   title: 'Terms & Conditions | Prometheus Studio',
@@ -15,10 +18,11 @@ export default function TermsPage() {
   return (
     <LegalLayout
       title="Terms & Conditions"
-      description={TERMS_OPENING}
+      description={LEGAL_ENTITY_DECLARATION}
       currentPath="/terms"
     >
       <LegalSection title="1. Introduction and Agreement">
+        <p>{LEGAL_ENTITY_DECLARATION}</p>
         <p>{TERMS_OPENING}.</p>
         <p>
           By accessing prometheusstudio.tech, creating an account, starting a checkout, or using our
@@ -129,7 +133,7 @@ export default function TermsPage() {
           non-infringement, uninterrupted availability, and error-free output.
         </p>
         <p>
-          To the fullest extent permitted by law, Prometheus Studio and its operator will not be liable
+          To the fullest extent permitted by law, Prometheus AI will not be liable
           for indirect, incidental, special, consequential, exemplary, or punitive damages, including lost
           profits, lost data, or business interruption.
         </p>

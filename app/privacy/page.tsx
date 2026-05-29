@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 
 import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
 
+const LEGAL_ENTITY_DECLARATION =
+  'This platform, Prometheus Studio, is owned and operated by the legal entity Prometheus AI.'
+
 export const metadata: Metadata = {
   title: 'Privacy Policy | Prometheus Studio',
   description: 'Read the Privacy Policy for Prometheus Studio.',
@@ -11,10 +14,11 @@ export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      description="This Privacy Policy explains how Prometheus Studio collects, uses, stores, and protects your information when you use our AI-powered cinematic video creation and motion graphics platform."
+      description={LEGAL_ENTITY_DECLARATION}
       currentPath="/privacy"
     >
       <LegalSection title="1. Information We Collect">
+        <p>{LEGAL_ENTITY_DECLARATION}</p>
         <p>
           We collect information to provide and secure Prometheus Studio. This includes:
         </p>
@@ -70,7 +74,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="6. AI Training Data Policy (The Enterprise Promise)">
         <p>
-          We respect the proprietary nature of our clients&apos; content. Prometheus does not use your
+          We respect the proprietary nature of our clients&apos; content. Prometheus AI does not use your
           private, uploaded brand Inputs or generated Outputs to train our foundational AI models. Your
           content remains siloed within your workspace environment. This policy applies to all data
           types including raw footage, audio, text, branding assets, and rendered outputs.
