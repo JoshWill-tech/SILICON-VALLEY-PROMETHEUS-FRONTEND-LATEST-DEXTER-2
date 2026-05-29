@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 
-import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
+import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 
 interface EditorLoadingScreenProps {
   caption?: string
@@ -13,5 +13,5 @@ export function EditorLoadingScreen({
   caption = 'Loading...',
   className,
 }: EditorLoadingScreenProps) {
-  return <Hero3DGeometricLoader label={caption} message="Preparing the editor workspace." className={cn(className)} />
+  return <MinimalTypographicLoader label={caption} message="Preparing the editor workspace." className={cn(className)} />
 }

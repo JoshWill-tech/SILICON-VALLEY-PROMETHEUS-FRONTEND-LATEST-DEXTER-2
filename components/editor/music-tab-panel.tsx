@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MusicPlayer } from '@/components/ui/music-player'
-import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
+import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { Button } from '@/components/ui/button'
 import { chamberEase, chamberSpring } from '@/lib/chamber-motion'
 import type { MusicRecommendation } from '@/lib/types'
@@ -1030,7 +1030,7 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <Hero3DGeometricLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
+                  <MinimalTypographicLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (
@@ -1157,7 +1157,7 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <Hero3DGeometricLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
+                  <MinimalTypographicLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (

@@ -51,14 +51,14 @@ import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-r
 import { EditWorkflowPanel } from '@/components/editor/edit-workflow-panel'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { StagedMusicRail } from '@/components/editor/staged-music-rail'
-import { Hero3DGeometricLoader } from '@/components/ui/hero-3d-geometric-loader'
+import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 
 // Always-Fast Lobe System
 const LivingCanvas = dynamic(() => import('@/components/living-canvas').then((mod) => mod.LivingCanvas), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-[#050505] p-6">
-      <Hero3DGeometricLoader label="Loading..." message="Preparing the live AI canvas." size="sm" variant="inline" />
+      <MinimalTypographicLoader label="Loading..." message="Preparing the live AI canvas." size="sm" variant="inline" />
     </div>
   ),
 })
@@ -4723,7 +4723,7 @@ function MobileEditorView({
                 />
               ) : (
                 <div className="flex h-full items-center justify-center px-6 text-center">
-                  <Hero3DGeometricLoader
+                  <MinimalTypographicLoader
                     label="Loading..."
                     message={`Video processing - ${sourceLabel}`}
                     size="sm"
@@ -6827,7 +6827,7 @@ export default function EditorPage() {
 
                                     {!isPreviewMediaReady && isPreviewLoadingVisible ? (
                                       <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                                        <Hero3DGeometricLoader
+                                        <MinimalTypographicLoader
                                           label="Loading..."
                                           message="Preparing the visible video surface."
                                           size="sm"

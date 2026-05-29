@@ -47,7 +47,7 @@ import { BillingRequiredDialog } from "@/components/billing/billing-required-dia
 import { GlassUploadModalView } from "@/components/ui/glass-upload-modal-view";
 import { DynamicFrameLayout } from "@/components/ui/dynamic-frame-layout";
 import { TextEffect } from "@/components/ui/text-effect";
-import { Hero3DGeometricLoader } from "@/components/ui/hero-3d-geometric-loader";
+import { MinimalTypographicLoader } from "@/components/ui/minimal-typographic-loader";
 import type { DynamicFrame } from "@/components/ui/dynamic-frame-layout";
 import { InteractiveOrb } from "@/components/ui/interactive-orb";
 import { STYLE_TEMPLATES } from "@/lib/styles/style-templates";
@@ -2931,7 +2931,7 @@ export function VideoUploadInterface() {
                                 aria-hidden
                                 className="pointer-events-none absolute inset-x-[12%] top-1/2 h-40 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,rgba(145,110,255,0.12)_34%,rgba(3,3,8,0)_74%)] blur-[58px]"
                             />
-                            <Hero3DGeometricLoader
+                            <MinimalTypographicLoader
                                 label={`Opening ${editorLaunchOverlay.title}`}
                                 message={editorLaunchOverlay.detail}
                                 size="lg"
