@@ -6,6 +6,7 @@ import {
   type MusicCatalogTrack,
 } from '@/lib/music-catalog'
 import { GOOGLE_DRIVE_MUSIC_CATALOG_SNAPSHOT } from '@/lib/generated/google-drive-music-catalog'
+import { parseR2TrackFilename } from '@/lib/music-library'
 import { r2Client } from '@/lib/r2/client'
 import { resolveR2AssetUrl } from '@/lib/music-url-resolver'
 
@@ -250,28 +251,30 @@ function mapR2ObjectToMusicTrack(
     throw new Error(`Unable to parse R2 music object key: ${object.key}`)
   }
 
-  const profile = inferR2TrackProfile(parsed.category, parsed.baseName)
-  const title = formatR2DisplayText(parsed.baseName)
+  const metadata = parseR2TrackFilename(parsed.filename)
+  const title = metadata.title
+  const artist = metadata.artist
+  const profile = inferR2TrackProfile(parsed.category, `${artist} ${title}`)
   const categoryLabel = formatR2DisplayText(parsed.category)
   const thumbnailKey = resolveR2ThumbnailKey(parsed, thumbnailIndex)
   const durationSec = estimateR2DurationSec(object.size)
-  const bpm = inferR2Bpm(profile.energy, profile.mood, parsed.baseName)
+  const bpm = inferR2Bpm(profile.energy, profile.mood, `${artist} ${title}`)
 
   return {
     id: buildR2TrackId(parsed.category, parsed.baseName),
     title,
     subtitle: categoryLabel,
-    description: `${title} is served from the Prometheus Cloudflare R2 music library.`,
-    artist: 'Prometheus R2 Library',
+    description: `${title} by ${artist} is served from the Prometheus Cloudflare R2 music library.`,
+    artist,
     producer: 'Prometheus',
     genre: profile.genre,
     subgenre: categoryLabel,
     bpm,
     mood: profile.mood,
     energy: profile.energy,
-    vibeTags: uniqueTokens([categoryLabel, profile.genre, profile.mood, profile.energy, parsed.baseName]),
+    vibeTags: uniqueTokens([categoryLabel, profile.genre, profile.mood, profile.energy, artist, title, parsed.baseName]),
     moodTags: uniqueTokens([profile.mood, categoryLabel, profile.energy]),
-    rankingKeywords: uniqueTokens([title, categoryLabel, parsed.baseName, parsed.category, profile.genre, 'cloudflare', 'r2', 'owned music']),
+    rankingKeywords: uniqueTokens([title, artist, categoryLabel, parsed.baseName, parsed.category, profile.genre, 'cloudflare', 'r2', 'owned music']),
     energyScore: profile.energy === 'high' ? 84 : profile.energy === 'low' ? 30 : 58,
     tempoRange: buildR2TempoRange(bpm, profile.energy),
     instrumentation: profile.instrumentation,

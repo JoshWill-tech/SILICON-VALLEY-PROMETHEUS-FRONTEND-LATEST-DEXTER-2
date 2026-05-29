@@ -92,14 +92,46 @@ function uniqueTokens(values: Array<string | undefined>) {
     .filter((value, index, all) => all.findIndex((candidate) => normalizeText(candidate) === normalizeText(value)) === index)
 }
 
+export function parseR2TrackFilename(filename: string): { artist: string; title: string } {
+  const fileSegment = filename.split('/').pop()?.trim() ?? ''
+  const baseName = fileSegment.replace(/\.[^.]+$/, '').trim()
+  const [artistCandidate, ...titleParts] = baseName.split(' - ')
+  const hasArtistDelimiter = titleParts.length > 0
+  const rawArtist = hasArtistDelimiter ? artistCandidate.trim() : ''
+  const rawTitle = hasArtistDelimiter ? titleParts.join(' - ').trim() : baseName
+
+  return {
+    artist: cleanR2TrackMetadata(rawArtist) || 'Unknown Artist',
+    title: cleanR2TrackMetadata(rawTitle) || 'Untitled Track',
+  }
+}
+
+function cleanR2TrackMetadata(value: string) {
+  const normalized = value.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/i.test(normalized)) {
+    return normalized
+      .replace(/-+/g, ' ')
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
+
+  return normalized
+}
+
 export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommendation {
+  const metadata = parseR2TrackFilename(def.filename)
   const audioUrl = getMusicAudioUrl(def.category, def.filename)
   const thumbnailUrl = getMusicThumbnailUrl(def.category, def.filename)
+  const title = metadata.title
+  const artist = metadata.artist
 
   return {
     id: def.id,
-    title: def.title,
-    artist: 'Prometheus R2 Library',
+    title,
+    artist,
     producer: 'Prometheus',
     genre: def.category.replace('-', ' '),
     bpm: def.bpm || 100,
@@ -107,7 +139,7 @@ export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommenda
     coverArtUrl: thumbnailUrl,
     coverArtPosition: 'center',
     previewUrl: audioUrl,
-    reason: `Resolved from Cloudflare R2 bucket. Matches ${def.category} tone.`,
+    reason: `${title} by ${artist} resolved from Cloudflare R2. Matches ${def.category} tone.`,
     mood: def.mood || 'cinematic',
     energy: def.energy || 'medium',
     sourcePlatform: 'local',
@@ -118,19 +150,23 @@ export function resolveCloudflareTrack(def: CloudflareTrackDef): MusicRecommenda
 
 export function buildCloudflareMusicCatalog(): MusicCatalogTrack[] {
   return CLOUDFLARE_MUSIC_MANIFEST.map((def, index) => {
+    const metadata = parseR2TrackFilename(def.filename)
     const audioUrl = getMusicAudioUrl(def.category, def.filename)
     const thumbnailUrl = getMusicThumbnailUrl(def.category, def.filename)
     const previewUrl = getMusicPreviewUrl(def.category, def.filename)
     const categoryLabel = def.category.replace(/-/g, ' ')
     const mood = def.mood || 'cinematic'
     const energy = def.energy || 'medium'
+    const title = metadata.title
+    const artist = metadata.artist
+    const storageFilename = def.filename.endsWith('.mp3') ? def.filename : `${def.filename}.mp3`
 
     return {
       id: def.id,
-      title: def.title,
+      title,
       subtitle: 'Cloudflare R2 master',
-      description: `${def.title} is served directly from the Prometheus Cloudflare music library for production playback and search.`,
-      artist: 'Prometheus R2 Library',
+      description: `${title} by ${artist} is served directly from the Prometheus Cloudflare music library for production playback and search.`,
+      artist,
       producer: 'Prometheus',
       genre: categoryLabel,
       subgenre: categoryLabel,
@@ -141,7 +177,8 @@ export function buildCloudflareMusicCatalog(): MusicCatalogTrack[] {
       moodTags: uniqueTokens([mood, categoryLabel, energy]),
       rankingKeywords: uniqueTokens([
         def.id,
-        def.title,
+        title,
+        artist,
         def.filename,
         def.category,
         categoryLabel,
@@ -164,7 +201,7 @@ export function buildCloudflareMusicCatalog(): MusicCatalogTrack[] {
       releaseYear: 2026,
       durationSec: def.durationSec || 90,
       sourcePlatform: 'local',
-      storageKey: `${def.category}/${def.filename}.mp3`,
+      storageKey: `${def.category}/${storageFilename}`,
       sourceUrl: audioUrl,
       license: 'owned',
       qualityScore: 96,
