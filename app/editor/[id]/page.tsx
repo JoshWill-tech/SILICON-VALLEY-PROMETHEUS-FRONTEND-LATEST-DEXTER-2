@@ -69,7 +69,6 @@ const EditorialComposerFrameAssist = dynamic(() => import('@/components/editor/e
 const FrameComposerDraftMirror = dynamic(() => import('@/components/editor/frame-composer-draft-mirror').then(mod => mod.FrameComposerDraftMirror), { ssr: false })
 
 import { ViralClipTrigger } from '@/components/editor/viral-clip-trigger'
-import { CommandOverlayShell } from '@/components/editor/command-overlay-shell'
 import { useSourceStage } from '@/hooks/use-source-stage'
 import { useViralClipJob } from '@/hooks/use-viral-clip-job'
 import { clearPendingEditorNavigation, getRememberedEditorReturnPath } from '@/lib/editor-navigation'
@@ -118,7 +117,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import type { CreativeMetadata, FrameAssistSubmission, FrameSuggestion, QueuedPreviewRevisionState } from '@/lib/editorial-frame/types'
+import type { FrameAssistSubmission, FrameSuggestion, QueuedPreviewRevisionState } from '@/lib/editorial-frame/types'
 import type {
   AnimationPlan,
   MusicPreference,
@@ -631,7 +630,7 @@ function buildChatClipVariants({
     timeLabel: formatClipRangeLabel(null, null, index, totalDurationSec),
     durationLabel: 'Scoring',
     scoreLabel: `${Math.max(82, 94 - index * 3)}% fit`,
-    reason: 'Candidate window staged while the backend ranks transcript, motion, and visual clarity.',
+    reason: 'Candidate window staged while timing, motion, and visual clarity are ranked.',
     previewUrl: sourcePreviewUrl ?? null,
     thumbnailUrl: null,
   }))
@@ -810,6 +809,19 @@ function msToTime(ms: number) {
   const seconds = Math.floor(safe / 1000)
   const minutes = Math.floor(seconds / 60)
   return `${minutes}:${`${seconds % 60}`.padStart(2, '0')}`
+}
+
+function formatRelativeThreadTime(timestamp: number | null, now: number) {
+  if (!timestamp) return 'just now'
+
+  const diffMinutes = Math.floor((now - timestamp) / 60000)
+  if (!Number.isFinite(diffMinutes) || diffMinutes < 1) return 'just now'
+  if (diffMinutes < 60) return `${diffMinutes}m ago`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+
+  return `${Math.floor(diffHours / 24)}d ago`
 }
 
 function normalizeChatSources(value: unknown): ChatSource[] {
@@ -1253,7 +1265,7 @@ function buildVideoMusicContext({
   if (hasAny(combinedText, ['coach', 'training', 'trainer', 'motivation', 'motivational'])) {
     signals.add('coach-led')
   }
-  if (hasAny(combinedText, ['tiktok', 'reel', 'short-form', 'short form', 'instagram', 'youtube shorts'])) {
+  if (hasAny(combinedText, ['tiktok', 'reel', 'shorts', 'short-form', 'short form', 'instagram'])) {
     signals.add('short-form')
   }
   if (hasAny(combinedText, ['upbeat', 'energetic', 'fast', 'snappy', 'punchy', 'fun', 'funk'])) {
@@ -1347,7 +1359,7 @@ function sanitizeAssistantReply(value: string) {
     .trim()
 }
 
-type GroqStreamChoice = {
+type ChatStreamChoice = {
   delta?: {
     content?: string | Array<{ type?: string; text?: string }>
   }
@@ -1356,14 +1368,14 @@ type GroqStreamChoice = {
   }
 }
 
-type GroqStreamPayload = {
-  choices?: GroqStreamChoice[]
+type ChatStreamPayload = {
+  choices?: ChatStreamChoice[]
 }
 
-function extractGroqStreamText(payload: unknown) {
+function extractChatStreamText(payload: unknown) {
   if (!payload || typeof payload !== 'object') return ''
 
-  const choices = (payload as GroqStreamPayload).choices
+  const choices = (payload as ChatStreamPayload).choices
   const firstChoice = choices?.[0]
   if (!firstChoice) return ''
 
@@ -1385,14 +1397,14 @@ function safeJsonParse(value: string) {
   }
 }
 
-async function readGroqStreamText(
+async function readChatStreamText(
   response: Response,
   signal: AbortSignal,
   onText: (text: string) => void,
 ) {
   const reader = response.body?.getReader()
   if (!reader) {
-    throw new Error('Groq returned an empty stream.')
+    throw new Error('Chat stream was empty.')
   }
 
   const decoder = new TextDecoder()
@@ -1412,7 +1424,7 @@ async function readGroqStreamText(
     }
 
     const parsed = safeJsonParse(data)
-    const delta = sanitizeAssistantReply(extractGroqStreamText(parsed))
+    const delta = sanitizeAssistantReply(extractChatStreamText(parsed))
     if (!delta) return
 
     accumulated += delta
@@ -1735,16 +1747,18 @@ function CurvedThreadPill({
   const isAssistant = entry.role === 'assistant'
   const isLoading = entry.status === 'loading'
 
-  const timeLabel = React.useMemo(() => {
+  const entryTimestamp = React.useMemo(() => {
     const timestampMatch = entry.id.match(/(\d{10,})/)
-    const timestamp = timestampMatch ? Number(timestampMatch[1]) : Date.now()
-    const diffMinutes = Math.floor((Date.now() - timestamp) / 60000)
-    if (!Number.isFinite(diffMinutes) || diffMinutes < 1) return 'just now'
-    if (diffMinutes < 60) return `${diffMinutes}m ago`
-    const diffHours = Math.floor(diffMinutes / 60)
-    if (diffHours < 24) return `${diffHours}h ago`
-    return `${Math.floor(diffHours / 24)}d ago`
+    if (!timestampMatch) return null
+
+    const timestamp = Number(timestampMatch[1])
+    return Number.isFinite(timestamp) ? timestamp : null
   }, [entry.id])
+  const [timeLabel, setTimeLabel] = React.useState('just now')
+
+  React.useEffect(() => {
+    setTimeLabel(formatRelativeThreadTime(entryTimestamp, Date.now()))
+  }, [entryTimestamp])
 
   if (entry.role === 'system') {
     return (
@@ -1756,17 +1770,17 @@ function CurvedThreadPill({
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+      transition={{ duration: reduceMotion ? 0 : 0.2, delay: reduceMotion ? 0 : Math.min(index, 8) * 0.05, ease: 'easeOut' }}
       className={cn('group relative flex w-full flex-col gap-1', isUser ? 'items-end' : 'items-start')}
     >
       <div
         className={cn(
-          'relative w-full px-3 py-3 text-[14px] leading-relaxed shadow-lg transition-colors md:w-auto md:max-w-[85%] md:px-4 md:text-[15px] min-[1025px]:text-[14px]',
+          'relative max-w-[85%] px-4 py-3 text-sm leading-relaxed transition-colors',
           isUser
-            ? 'rounded-2xl rounded-br-none bg-[#1a1a1a] text-white'
-            : 'rounded-2xl rounded-bl-none bg-[#2a2a2a] text-white',
+            ? 'rounded-2xl rounded-br-none bg-emerald-500/20 text-white'
+            : 'rounded-2xl rounded-bl-none bg-white/5 text-white/90',
         )}
       >
         <div className="relative z-10">
@@ -1781,9 +1795,10 @@ function CurvedThreadPill({
                   initial={{ opacity: 0.3 }}
                   animate={{ opacity: [0.3, 1, 0.3] }}
                   transition={{
-                    duration: reduceMotion ? 0 : 0.48,
-                    delay: i * 0.08,
-                    ease: 'easeOut',
+                    duration: reduceMotion ? 0 : 1.2,
+                    delay: i * 0.12,
+                    ease: 'easeInOut',
+                    repeat: Number.POSITIVE_INFINITY,
                   }}
                   className="size-1.5 rounded-full bg-current"
                 />
@@ -1846,7 +1861,6 @@ function FloatingChatComposer({
   reduceMotion,
   isOpen,
   onOpenChange,
-  onOpenCommandOverlay,
   queuedPreviewRevision,
   onClearQueuedPreview,
   conversationEntries = [],
@@ -1862,7 +1876,6 @@ function FloatingChatComposer({
   reduceMotion: boolean
   isOpen: boolean
   onOpenChange: (nextOpen: boolean) => void
-  onOpenCommandOverlay?: () => void
   queuedPreviewRevision?: QueuedPreviewRevisionState | null
   onClearQueuedPreview?: () => void
   conversationEntries?: ChatEntry[]
@@ -1870,9 +1883,7 @@ function FloatingChatComposer({
   onThreadOpenChange: (nextOpen: boolean) => void
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
-  const responsivePlaceholderText = isMobile
-    ? 'Ask about editing, color, sound...'
-    : 'Ask about video editing techniques...'
+  const responsivePlaceholderText = 'Ask about editing, color, sound...'
   const composerId = React.useId()
   const hasDraft = draft.trim().length > 0
   const composerInputRef = useTextareaResize(draft, 1, 4)
@@ -1883,7 +1894,6 @@ function FloatingChatComposer({
   const draftRef = React.useRef(draft)
   const placeholderTextRef = React.useRef('')
   const eyeSourceRef = React.useRef<'placeholder' | 'caret' | 'pointer'>(hasDraft ? 'caret' : 'placeholder')
-  const [isHandleHovered, setIsHandleHovered] = React.useState(false)
   const [eyeTarget, setEyeTarget] = React.useState<{ x: number; y: number } | null>(null)
   const [placeholderText, setPlaceholderText] = React.useState('')
   const [caretIndex, setCaretIndex] = React.useState(0)
@@ -1891,14 +1901,13 @@ function FloatingChatComposer({
   const [suppressedAssistKey, setSuppressedAssistKey] = React.useState<string | null>(null)
   const [draftScrollLeft, setDraftScrollLeft] = React.useState(0)
   const expandedThreadEndRef = React.useRef<HTMLDivElement | null>(null)
-  const isThreadOpen = threadOpen
+  const isThreadOpen = isOpen || threadOpen
   const frameAssist = useFrameTargeting({ projectId, draft, caretIndex })
   const draftMirrorAnalysis = React.useMemo(() => parseFrameReference(draft, draft.length), [draft])
   const visibleThreadEntries = React.useMemo(
     () => conversationEntries.slice(-12),
     [conversationEntries],
   )
-  const isFrameAssistExpanded = Boolean(frameAssist.previewRegion || queuedPreviewRevision)
   const queuedPreviewRawText = queuedPreviewRevision?.request.rawText ?? null
   const latestThreadEntry = visibleThreadEntries[visibleThreadEntries.length - 1]
 
@@ -1948,7 +1957,7 @@ function FloatingChatComposer({
       x: Math.min(maxX, Math.max(minX, rect.left + paddingLeft + measureWidth - input.scrollLeft)),
       y: rect.top + rect.height / 2,
     })
-  }, [])
+  }, [composerInputRef])
 
   const updatePlaceholderTarget = React.useCallback((text: string) => {
     const input = composerInputRef.current
@@ -1968,7 +1977,7 @@ function FloatingChatComposer({
       x: Math.min(maxX, Math.max(minX, rect.left + paddingLeft + measureWidth)),
       y: rect.top + rect.height / 2,
     })
-  }, [])
+  }, [composerInputRef])
 
   React.useEffect(() => {
     draftRef.current = draft
@@ -1991,7 +2000,7 @@ function FloatingChatComposer({
     })
 
     return () => window.cancelAnimationFrame(rafId)
-  }, [isOpen, isThreadOpen, updateCaretTarget, updatePlaceholderTarget])
+  }, [composerInputRef, isOpen, isThreadOpen, updateCaretTarget, updatePlaceholderTarget])
 
   React.useEffect(() => {
     if (isThreadOpen && isMobile) {
@@ -2130,7 +2139,7 @@ function FloatingChatComposer({
     })
 
     return () => window.cancelAnimationFrame(rafId)
-  }, [pendingSelectionRange])
+  }, [composerInputRef, pendingSelectionRange])
 
   const handleFrameAssistRetarget = React.useCallback(() => {
     setSuppressedAssistKey(null)
@@ -2160,6 +2169,7 @@ function FloatingChatComposer({
   }, [
     frameAssist.analysis.referenceEndIndex,
     frameAssist.analysis.referenceStartIndex,
+    composerInputRef,
     onDraftChange,
     queuedPreviewRawText,
     updateCaretTarget,
@@ -2229,6 +2239,7 @@ function FloatingChatComposer({
       if (event.key === 'Escape' && isThreadOpen) {
         event.preventDefault()
         onThreadOpenChange(false)
+        onOpenChange(false)
         return
       }
 
@@ -2262,30 +2273,32 @@ function FloatingChatComposer({
       hasDraft,
       isFrameAssistSuppressed,
       isThreadOpen,
+      onOpenChange,
       onThreadOpenChange,
     ],
   )
 
   return (
     <div className={cn(
-      'pointer-events-none fixed z-40 flex overflow-visible transition-[transform,opacity] duration-300 ease-in-out',
-      isThreadOpen
-        ? 'inset-0 flex-col justify-end md:inset-auto md:bottom-6 md:right-6 md:top-auto md:justify-center'
-        : 'inset-x-0 bottom-4 justify-center md:bottom-6 md:right-6 md:left-auto',
+      'pointer-events-none fixed inset-0 z-40 flex items-end justify-end overflow-visible transition-[transform,opacity] duration-300 ease-out',
+      isThreadOpen ? 'md:p-6' : 'p-6',
     )}>
-      {isThreadOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => {
-            onThreadOpenChange(false)
-            onOpenChange(false)
-          }}
-          className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm md:hidden"
-        />
-      )}
+      <AnimatePresence initial={false}>
+        {isThreadOpen ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2 } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.15 } }}
+            onClick={() => {
+              onThreadOpenChange(false)
+              onOpenChange(false)
+            }}
+            className="pointer-events-auto fixed inset-0 -z-10 bg-black/45 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
+          />
+        ) : null}
+      </AnimatePresence>
       <motion.div
+        layout
         drag={isMobile && isThreadOpen ? "y" : false}
         dragConstraints={{ top: 0 }}
         dragElastic={0.2}
@@ -2296,66 +2309,51 @@ function FloatingChatComposer({
           }
         }}
         className={cn(
-          'pointer-events-auto relative origin-bottom overflow-visible bg-[linear-gradient(135deg,rgba(146,163,255,0.34)_0%,rgba(127,242,212,0.26)_38%,rgba(255,255,255,0.16)_68%,rgba(140,113,255,0.3)_100%)] p-[1px] transition-[transform,opacity,height,width,border-radius] duration-300 ease-in-out',
+          'pointer-events-auto relative origin-bottom-right overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
           isThreadOpen
             ? [
-                'h-[80dvh] max-h-[80vh] w-full rounded-b-none rounded-t-[28px]',
-                'md:h-[70vh] md:max-h-[70vh] md:w-[480px] md:rounded-[28px]',
-                'min-[1025px]:h-[min(600px,calc(100vh-48px))] min-[1025px]:max-h-[600px] min-[1025px]:w-[420px]',
-                'min-[1025px]:shadow-[0_8px_32px_rgba(0,0,0,0.24)]',
+                'h-[92dvh] max-h-[92dvh] w-full rounded-b-none rounded-t-3xl',
+                'md:h-[min(640px,calc(100vh-48px))] md:max-h-[640px] md:w-[420px] md:rounded-[20px]',
               ]
-            : isOpen
-              ? isFrameAssistExpanded
-                ? 'h-[188px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
-                : 'h-[128px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
-              : isHandleHovered
-                ? 'h-[74px] w-[min(20rem,calc(100vw-4rem))] rounded-[28px]'
-                : 'h-14 w-14 rounded-full',
+            : 'h-14 w-14 rounded-full',
         )}
-        style={CHAT_COMPOSER_FONT_STYLE}
-        initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.96 }}
+        style={{ ...CHAT_COMPOSER_FONT_STYLE, transformOrigin: 'bottom right' }}
+        initial={reduceMotion ? false : { opacity: 0, scale: isThreadOpen ? 0.8 : 0.92 }}
         animate={
           reduceMotion
             ? undefined
             : {
                 opacity: 1,
-                y: isOpen ? 0 : isHandleHovered ? -8 : 0,
                 scale: 1,
               }
         }
+        exit={reduceMotion ? undefined : { opacity: 0, scale: isThreadOpen ? 0.9 : 1 }}
         transition={
           reduceMotion
             ? undefined
             : {
-                duration: 0.3,
-                ease: 'easeInOut',
+                duration: isThreadOpen ? 0.3 : 0.24,
+                ease: [0.22, 1, 0.36, 1],
               }
         }
-        onMouseEnter={() => {
-          if (!isOpen) setIsHandleHovered(true)
-        }}
-        onMouseLeave={() => {
-          if (!isOpen) setIsHandleHovered(false)
-        }}
+        whileHover={!isThreadOpen && !reduceMotion ? { scale: 1.05, boxShadow: '0 18px 42px rgba(0,0,0,0.42)' } : undefined}
+        whileTap={!isThreadOpen && !reduceMotion ? { scale: 0.96 } : undefined}
       >
-        {!isOpen ? (
+        {!isThreadOpen ? (
           <button
             type="button"
             aria-label="Open chat composer"
-            onClick={() => onOpenChange(true)}
+            onClick={() => {
+              onOpenChange(true)
+              onThreadOpenChange(true)
+            }}
             className="absolute inset-0 z-20 cursor-pointer"
           />
         ) : null}
 
-        <div className="relative h-full w-full overflow-visible rounded-[inherit] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_34%),radial-gradient(circle_at_24%_120%,rgba(127,242,212,0.18)_0%,rgba(127,242,212,0)_42%),linear-gradient(180deg,rgba(18,18,24,0.98)_0%,rgba(8,8,12,0.98)_100%)] backdrop-blur-[30px]">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-8 bottom-2 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(127,242,212,0.42)_48%,rgba(255,255,255,0)_100%)] opacity-30"
-          />
-          <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/10" />
-
+        <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-transparent">
           <AnimatePresence initial={false} mode="wait">
-            {isOpen && isThreadOpen ? (
+            {isThreadOpen ? (
               <motion.div
                 key="thread-composer"
                 className="relative flex h-full min-h-0 flex-col px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-4"
@@ -2364,34 +2362,25 @@ function FloatingChatComposer({
                 exit={reduceMotion ? undefined : { opacity: 0, y: 10, filter: 'blur(8px)' }}
                 transition={{ duration: reduceMotion ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="relative flex items-center justify-between gap-3 border-b border-white/8 px-1 pb-3">
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[#7ff2d4]/18 bg-[#7ff2d4]/[0.06] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#c9fff2]/68">
-                      <span
-                        aria-hidden
-                        className="size-1.5 rounded-full bg-[#7ff2d4]"
-                      />
-                      Live Relay
-                    </div>
-                    <div
-                      className="mt-2 truncate text-[1.45rem] italic leading-none text-white"
-                      style={{ fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif' }}
-                    >
-                      Editorial chat
-                    </div>
+                <div className="flex h-5 shrink-0 items-center justify-center md:hidden">
+                  <span className="h-1 w-10 rounded-full bg-white/18" aria-hidden />
+                </div>
+
+                <div className="relative flex min-h-14 items-center justify-between gap-3 border-b border-white/5 px-1 pb-3 md:min-h-[60px] md:px-1">
+                  <div className="inline-flex min-w-0 items-center gap-2">
+                    <motion.span
+                      aria-hidden
+                      className="size-1.5 rounded-full bg-emerald-400"
+                      initial={reduceMotion ? false : { scale: 1 }}
+                      animate={reduceMotion ? undefined : { scale: [1, 1.2, 1] }}
+                      transition={{ duration: reduceMotion ? 0 : 0.4, ease: 'easeOut' }}
+                    />
+                    <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">
+                      EDITOR RELAY
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <motion.button
-                      type="button"
-                      aria-label="Return to compact composer"
-                      onClick={() => onThreadOpenChange(false)}
-                      className="hidden min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-[11px] text-white/52 transition-colors hover:text-white/82 sm:inline-flex"
-                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.02 }}
-                      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                    >
-                      Compact
-                    </motion.button>
                     <motion.button
                       type="button"
                       aria-label="Close chat interface"
@@ -2399,7 +2388,7 @@ function FloatingChatComposer({
                         onThreadOpenChange(false)
                         onOpenChange(false)
                       }}
-                      className="absolute right-0 top-0 z-20 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.07] text-white/68 shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-colors hover:text-white/90 md:static"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white/90"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                     >
@@ -2408,8 +2397,8 @@ function FloatingChatComposer({
                   </div>
                 </div>
 
-                <div className="premium-scroll-mask relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-4 [will-change:transform] md:py-5">
-                  <div className="space-y-2">
+                <div className="premium-scroll-mask relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-4 [scrollbar-color:rgba(255,255,255,0.1)_transparent] [scrollbar-width:thin] [will-change:transform] max-md:[scrollbar-width:none] md:py-5 [&::-webkit-scrollbar]:w-1.5 max-md:[&::-webkit-scrollbar]:hidden [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-track]:bg-transparent">
+                  <div className="flex flex-col gap-2">
                     {visibleThreadEntries.length ? (
                       visibleThreadEntries.map((entry, index) => (
                         <CurvedThreadPill
@@ -2420,20 +2409,23 @@ function FloatingChatComposer({
                         />
                       ))
                     ) : (
-                      <div className="flex min-h-[14rem] items-center justify-center px-6 text-center">
-                        <div
-                          className="max-w-[24rem] text-[1.05rem] italic leading-7 text-white/46"
-                          style={{ fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif' }}
-                        >
-                          Send a direction and the relay opens into this curved exchange.
-                        </div>
-                      </div>
+                      <div className="min-h-[14rem]" aria-hidden />
                     )}
                     <div ref={expandedThreadEndRef} className="h-1" />
                   </div>
                 </div>
 
-                <div className="relative shrink-0 rounded-[24px] border-t border-white/10 bg-black/38 p-3 shadow-[0_-12px_28px_-26px_rgba(255,255,255,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] md:rounded-[28px]">
+                <form
+                  className="relative shrink-0 border-t border-white/5 px-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] pt-3 md:pt-4"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    if (loading) {
+                      onStop()
+                      return
+                    }
+                    void handleComposerSubmit()
+                  }}
+                >
                   <EditorialComposerFrameAssist
                     suggestions={frameAssist.suggestions}
                     activeSuggestionIndex={frameAssist.activeSuggestionIndex}
@@ -2454,78 +2446,65 @@ function FloatingChatComposer({
                     }}
                     onClearFrameTarget={handleFrameAssistClear}
                     onRetargetFrameTarget={handleFrameAssistRetarget}
-                    className="relative z-30 mb-2"
+                    className="relative z-30 mb-3"
                   />
 
-                  <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-                    <div className={cn(
-                      'relative min-h-12 overflow-hidden bg-white/[0.04] px-4 py-2',
-                      isMobile ? 'rounded-full' : 'rounded-lg border border-white/8',
-                    )}>
-                      {!hasDraft ? (
-                        <div className="pointer-events-none absolute inset-x-4 top-1/2 flex -translate-y-1/2 items-center overflow-hidden">
-                          <div
-                            className="flex items-center whitespace-nowrap text-[16px] italic leading-[1.35] tracking-[0.01em] text-white/38"
-                            style={{
-                              fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
-                            }}
-                          >
-                            <span>{responsivePlaceholderText}</span>
-                            <span
-                              aria-hidden
-                              className="ml-1 inline-block h-5 w-px bg-white/42 opacity-70"
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                      <textarea
-                        id={`${composerId}-thread`}
-                        ref={composerInputRef}
-                        value={draft}
-                        rows={1}
-                        onChange={(event) => {
-                          onDraftChange(event.target.value)
-                          setCaretIndex(event.target.selectionStart ?? event.target.value.length)
-                        }}
-                        onClick={() => updateCaretTarget()}
-                        onFocus={() => updateCaretTarget(false)}
-                        onScroll={(event) => {
-                          setDraftScrollLeft(event.currentTarget.scrollLeft)
-                        }}
-                        onKeyUp={() => updateCaretTarget()}
-                        onSelect={() => updateCaretTarget()}
-                        onKeyDown={handleComposerKeyDown}
-                        className="relative z-10 max-h-[calc(1.35em*4)] w-full resize-none overflow-y-auto bg-transparent text-[16px] italic leading-[1.35] tracking-[0.01em] text-white/92 outline-none"
-                        style={{
-                          fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
-                          caretColor: 'rgba(255,255,255,0.78)',
-                        }}
-                      />
-                    </div>
+                  <textarea
+                    id={`${composerId}-thread`}
+                    ref={composerInputRef}
+                    value={draft}
+                    rows={1}
+                    placeholder={responsivePlaceholderText}
+                    onChange={(event) => {
+                      onDraftChange(event.target.value)
+                      setCaretIndex(event.target.selectionStart ?? event.target.value.length)
+                    }}
+                    onClick={() => updateCaretTarget()}
+                    onFocus={() => updateCaretTarget(false)}
+                    onScroll={(event) => {
+                      setDraftScrollLeft(event.currentTarget.scrollLeft)
+                    }}
+                    onKeyUp={() => updateCaretTarget()}
+                    onSelect={() => updateCaretTarget()}
+                    onKeyDown={handleComposerKeyDown}
+                    className="max-h-[calc(1.4em*4)] min-h-16 w-full resize-none overflow-y-auto bg-transparent text-sm leading-[1.4] text-white outline-none placeholder:italic placeholder:text-white/30"
+                    style={{
+                      caretColor: 'rgba(52,211,153,0.95)',
+                    }}
+                  />
 
+                  <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 pt-3 md:gap-4">
                     <motion.button
                       type="button"
-                      onClick={loading ? onStop : () => void handleComposerSubmit()}
+                      aria-label="Attach image"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
+                      whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                    >
+                      <ImageIcon className="size-4" />
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      aria-label="Open grid tools"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
+                      whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                    >
+                      <Layers3 className="size-4" />
+                    </motion.button>
+                    <div aria-hidden />
+                    <motion.button
+                      type="submit"
+                      aria-label={loading ? 'Stop response' : 'Send message'}
                       disabled={!loading && !hasDraft}
-                      className={cn(
-                        'grid min-h-11 shrink-0 place-items-center transition-all disabled:cursor-not-allowed disabled:opacity-45',
-                        isMobile 
-                          ? 'h-12 w-12 rounded-full border border-white/12 bg-white text-black shadow-[0_18px_32px_-20px_rgba(255,255,255,0.88)]' 
-                          : 'h-12 rounded-lg bg-white px-6 text-sm font-semibold text-black',
-                      )}
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
-                      {loading ? (
-                        <div className="h-3.5 w-3.5 rounded-[3px] bg-current" />
-                      ) : isMobile ? (
-                        <ArrowUp className="size-5" />
-                      ) : (
-                        "Send"
-                      )}
+                      {loading ? <div className="h-3 w-3 rounded-[2px] bg-current" /> : <ArrowUp className="size-5" />}
                     </motion.button>
                   </div>
-                </div>
+                </form>
               </motion.div>
             ) : isOpen ? (
               <motion.div
@@ -2661,44 +2640,31 @@ function FloatingChatComposer({
                   />
                 </div>
 
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-1.5 text-white/36">
-                    <motion.button
-                      type="button"
-                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
-                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
-                      whileTap={reduceMotion ? undefined : { scale: 0.95 }}
-                    >
-                      <ImageIcon className="size-2.5" />
-                    </motion.button>
-                    <motion.button
-                      type="button"
-                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
-                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
-                      whileTap={reduceMotion ? undefined : { scale: 0.95 }}
-                    >
-                      <Film className="size-2.5" />
-                    </motion.button>
-
-                    <div className="mx-0.5 h-3 w-px bg-white/10" />
-
-                    <motion.button
-                      type="button"
-                      onClick={() => onOpenCommandOverlay?.()}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#7ff2d4]/20 bg-[#7ff2d4]/5 px-3 text-[9px] font-medium uppercase tracking-wider text-[#7ff2d4] transition-colors hover:bg-[#7ff2d4]/10"
-                      whileHover={reduceMotion ? undefined : { y: -0.5, scale: 1.02 }}
-                      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                    >
-                      <Sparkles className="size-2.5" />
-                      Creative Direction
-                    </motion.button>
-                  </div>
-
+                <div className="mt-2 grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 md:gap-4">
+                  <motion.button
+                    type="button"
+                    aria-label="Attach image"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                    whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
+                    whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                  >
+                    <ImageIcon className="size-4" />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    aria-label="Open grid tools"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                    whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
+                    whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                  >
+                    <Layers3 className="size-4" />
+                  </motion.button>
+                  <div aria-hidden />
                   <motion.button
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
                     disabled={!loading && !hasDraft}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#bebec7] p-0 text-[#101014] shadow-[0_18px_32px_-24px_rgba(255,255,255,0.92)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                   >
@@ -2706,74 +2672,22 @@ function FloatingChatComposer({
                   </motion.button>
                 </div>
               </motion.div>
-            ) : isHandleHovered ? (
-              <motion.div
-                key="closed-composer-expanded"
-                className="relative flex h-full w-full items-start justify-center px-4 pt-3"
-                initial={reduceMotion ? false : { opacity: 0.92 }}
-                animate={reduceMotion ? undefined : { opacity: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0.92 }}
-                transition={{ duration: reduceMotion ? 0 : 0.2 }}
-              >
-                <div className="relative flex w-full items-center gap-3">
-                  <div className="mt-0.5 h-1 w-6 shrink-0 rounded-full bg-white/58" />
-                  <motion.div
-                    className="flex min-w-0 items-center gap-2"
-                    animate={reduceMotion ? undefined : { opacity: isHandleHovered ? 1 : 0.92, x: 0 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.22, ease: 'easeOut' }}
-                  >
-                    <MessageSquare className="size-4 shrink-0 text-white/72" />
-                    <span className="truncate text-sm text-white/72">Open chat</span>
-                  </motion.div>
-                </div>
-
-                <AnimatePresence>
-                  {isHandleHovered ? (
-                    <>
-                      <motion.span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#7ff2d4]/28"
-                        initial={{ opacity: 0, scale: 1 }}
-                        animate={{ opacity: 0.42, scale: 1.05 }}
-                        exit={{ opacity: 0 }}
-                      />
-                      <motion.span
-                        aria-hidden
-                        className="pointer-events-none absolute -inset-x-5 -inset-y-4 rounded-[999px] bg-[radial-gradient(circle_at_center,rgba(127,242,212,0.22)_0%,rgba(127,242,212,0)_58%)] blur-2xl"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 0.34 }}
-                        exit={{ opacity: 0 }}
-                      />
-                    </>
-                  ) : null}
-                </AnimatePresence>
-              </motion.div>
             ) : (
               <motion.div
                 key="closed-composer-icon"
-                className="relative grid h-full w-full place-items-center"
-                initial={reduceMotion ? false : { opacity: 0.92, scale: 0.96 }}
+                className="relative grid h-full w-full place-items-center rounded-full bg-[#0a0a0a]/95 text-white/82"
+                initial={reduceMotion ? false : { opacity: 0.92, scale: 0.94 }}
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0.92, scale: 0.96 }}
-                transition={{ duration: reduceMotion ? 0 : 0.2 }}
+                exit={reduceMotion ? undefined : { opacity: 0.95, scale: 1 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { type: 'spring', stiffness: 420, damping: 22, mass: 0.5 }
+                }
+                whileHover={reduceMotion ? undefined : { scale: 1.05, boxShadow: '0 18px 42px rgba(0,0,0,0.42)' }}
+                whileTap={reduceMotion ? undefined : { scale: 0.96 }}
               >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-[8%] rounded-full bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.08)_24%,rgba(255,255,255,0)_70%)] opacity-60 blur-md"
-                />
-                <motion.span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(15,15,20,0.98)_0%,rgba(8,8,12,0.98)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                />
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-[6px] rounded-full border border-[#7ff2d4]/18 opacity-40"
-                />
-                <motion.span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-[10px] rounded-full bg-[radial-gradient(circle_at_32%_24%,rgba(127,242,212,0.18)_0%,rgba(127,242,212,0)_68%)]"
-                />
-                <MessageSquare className="relative size-4 text-white/78 drop-shadow-[0_0_16px_rgba(255,255,255,0.16)]" />
+                <MessageSquare className="relative size-5" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -2816,7 +2730,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [pendingReplies, setPendingReplies] = React.useState(0)
   const [isComposerOpen, setIsComposerOpen] = React.useState(false)
   const [isComposerThreadOpen, setIsComposerThreadOpen] = React.useState(false)
-  const [isCommandOverlayOpen, setIsCommandOverlayOpen] = React.useState(false)
   const [queuedPreviewRevision, setQueuedPreviewRevision] = React.useState<QueuedPreviewRevisionState | null>(null)
   const [musicPreference, setMusicPreference] = React.useState<MusicPreference>(() =>
     createDefaultMusicPreference(),
@@ -3615,7 +3528,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           : (async () => {
             try {
               const endpoint = shouldEditRequest ? '/api/chat' : '/api/rag'
-              // Normal chat → RAG (Gemini+Supabase). Edit/stream → Motion Brain (OpenAI+Groq).
               const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -3637,8 +3549,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                       }
                     : {
                         query: nextValue,
-                        match_count: 5,
-                        match_threshold: 0.7,
                       },
                 ),
               })
@@ -3648,15 +3558,15 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   const payload = (await response.json().catch(() => null)) as ChatApiResponse | null
                   throw new Error(
                     payload?.error?.trim() ||
-                      `Groq request failed with ${response.status} ${response.statusText}.`,
+                      `Chat request failed with ${response.status} ${response.statusText}.`,
                   )
                 }
 
                 if (!response.body) {
-                  throw new Error('Groq returned an empty stream.')
+                  throw new Error('Chat stream was empty.')
                 }
 
-                const streamedReply = await readGroqStreamText(response, controller.signal, (partialText) => {
+                const streamedReply = await readChatStreamText(response, controller.signal, (partialText) => {
                   latestReplyText = partialText || loadingText
                   mergeEntryInState(assistantId, (entry) => ({
                     ...entry,
@@ -3706,7 +3616,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                 return
               }
 
-              const chatErrorText = nextError || 'Motion Brain could not answer right now.'
+              const chatErrorText = nextError || 'Assistant could not answer right now.'
               latestReplyText = chatErrorText
               replyResolved = true
               chatTaskCompleted = true
@@ -3722,7 +3632,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               const chatErrorText =
                 error instanceof Error
                   ? error.message
-                  : 'The live Motion Brain reply could not be completed right now.'
+                  : 'The assistant reply could not be completed right now.'
 
               if (shouldEditRequest) {
                 const fallbackReply = sanitizeAssistantReply(editReplyFallback || chatErrorText || loadingText)
@@ -3844,7 +3754,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           text:
             error instanceof Error
               ? error.message
-              : 'The live Motion Brain reply could not be completed right now.',
+              : 'The assistant reply could not be completed right now.',
         }
         const withAssistantError = [...entriesRef.current, assistantEntry]
         entriesRef.current = withAssistantError
@@ -3871,14 +3781,11 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   )
 
   const handleSubmit = React.useCallback(
-    async (submission: FrameAssistSubmission, metadata?: CreativeMetadata) => {
+    async (submission: FrameAssistSubmission) => {
       const nextValue = submission.rawText.trim()
       if (!nextValue) return
 
-      const enrichedRevisionRequest = {
-        ...submission.revisionRequest,
-        metadata: metadata || submission.revisionRequest.metadata
-      }
+      const enrichedRevisionRequest = submission.revisionRequest
 
       if (enrichedRevisionRequest.frameTarget) {
         const previewRequestToken = `preview-queue-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -4334,40 +4241,11 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   reduceMotion={reduceMotion}
                   isOpen={isComposerOpen}
                   onOpenChange={setIsComposerOpen}
-                  onOpenCommandOverlay={() => setIsCommandOverlayOpen(true)}
                   queuedPreviewRevision={queuedPreviewRevision}
                   onClearQueuedPreview={clearQueuedPreviewRevision}
                   conversationEntries={entries}
                   threadOpen={isComposerThreadOpen}
                   onThreadOpenChange={setIsComposerThreadOpen}
-                />
-
-                <CommandOverlayShell
-                  open={isCommandOverlayOpen}
-                  onOpenChange={setIsCommandOverlayOpen}
-                  initialPrompt={draft}
-                  onSubmit={(data) => {
-                    setDraft(data.prompt)
-                    // Construct a submission-like object for the manual overlay submit
-                    const submission: FrameAssistSubmission = {
-                      rawText: data.prompt,
-                      analysis: parseFrameReference(data.prompt, data.prompt.length),
-                      revisionRequest: {
-                        rawText: data.prompt,
-                        displayText: data.prompt,
-                        instructionText: data.prompt,
-                        frameTarget: null,
-                        matchedRegionId: null,
-                        matchedRegionLabel: null,
-                        selectedRegionMetadata: null,
-                        previewThumbnailUrl: null,
-                        attachments: [],
-                        intent: 'generic_revision',
-                        metadata: data.metadata,
-                      }
-                    }
-                    void handleSubmit(submission, data.metadata)
-                  }}
                 />
               </>,
               composerPortalTarget,

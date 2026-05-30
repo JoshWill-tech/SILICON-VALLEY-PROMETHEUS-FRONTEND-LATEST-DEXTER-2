@@ -40,7 +40,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 const SAVE_DELAY_MS = 800
@@ -335,7 +334,6 @@ export default function ProfileSettingsPage() {
   const router = useRouter()
   const { session, isLoading: authLoading } = useAuth()
   const email = session?.user?.email ?? ''
-  const supabase = React.useMemo(() => createClient(), [])
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const form = useForm<ProfileSettingsFormValues>({
@@ -461,24 +459,34 @@ export default function ProfileSettingsPage() {
   }
 
   async function handleResetPassword() {
-    if (!email) {
+    const trimmedEmail = email.trim()
+
+    if (!trimmedEmail) {
       toast.error('Sign in before requesting a password reset')
       return
     }
 
     setSavingTarget('resetPassword')
-    await delay()
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    setSavingTarget(null)
+    try {
+      await delay()
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ email: trimmedEmail }),
+      })
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null
 
-    if (error) {
-      toast.error(error.message)
-      return
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Reset password failed')
+      }
+
+      toast.success('Check your email for reset instructions.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Reset password failed')
+    } finally {
+      setSavingTarget(null)
     }
-
-    toast.success('Check your email for reset instructions.')
   }
 
   async function copyApiKey() {
