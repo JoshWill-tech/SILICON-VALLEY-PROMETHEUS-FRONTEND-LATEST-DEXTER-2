@@ -17,7 +17,7 @@ const vogueDisplay = localFont({
 
 export const metadata: Metadata = {
   title: 'Prometheus',
-  description: 'Prometheus is an AI-powered cinematic video creation and motion graphics platform.',
+  description: 'Prometheus Studio is a professional video editing and production workspace for filmmakers.',
   generator: 'Prometheus',
   icons: {
     icon: [

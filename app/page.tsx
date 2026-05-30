@@ -34,7 +34,7 @@ export default function HeroPage() {
               What Prometheus Studio customers receive
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/52 sm:text-base">
-              Prometheus is an AI-powered cinematic video creation and motion graphics platform. Paid plans include concrete production deliverables such as HD Video Exports, Custom Motion Templates, and Caption Timing.
+              Prometheus Studio is a professional video editing and production workspace for filmmakers. Paid plans include concrete production deliverables such as HD Video Exports, Custom Motion Templates, and Caption Timing.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">

@@ -8,6 +8,7 @@ const LEGAL_LINKS = [
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/refund', label: 'Refund' },
+  { href: '/contact', label: 'Contact' },
 ]
 
 type LegalLayoutProps = {

@@ -1,7 +1,7 @@
 // These terms govern your use of the software provided by Prometheus AI.
 import type { Metadata } from 'next'
 
-import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
+import { LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
 
 const LEGAL_ENTITY_DECLARATION =
   'This platform, Prometheus Studio, is owned and operated by the legal entity Prometheus AI.'
@@ -22,21 +22,18 @@ export default function TermsPage() {
       currentPath="/terms"
     >
       <LegalSection title="1. Introduction and Agreement">
-        <p>{LEGAL_ENTITY_DECLARATION}</p>
         <p>{TERMS_OPENING}.</p>
         <p>
           By accessing prometheusstudio.tech, creating an account, starting a checkout, or using our
           services, you agree to these Terms. If you do not agree, do not use Prometheus Studio.
         </p>
-        <p>Last updated: {LEGAL_LAST_UPDATED}</p>
       </LegalSection>
 
       <LegalSection title="2. Product and Deliverables">
         <p>
-          Prometheus Studio is an AI-powered cinematic video creation and motion graphics platform. Paid
-          plans may include HD video exports, custom motion templates, AI caption timing, captioning
-          workflows, cloud-backed project storage, rendering workflows, and related production tools as
-          described on our pricing page.
+          Prometheus Studio is a professional video editing and production workspace for filmmakers and motion designers.
+          Paid plans include AI-assisted transcription, captioning, motion templates, HD export, cloud project storage,
+          and rendering tools. All AI features are assistive and require human creative direction.
         </p>
       </LegalSection>
 
@@ -76,7 +73,7 @@ export default function TermsPage() {
         </LegalSubsection>
         <LegalSubsection title="Your Outputs">
           <p>
-          Subject to your compliance with these Terms and applicable law, you own the finished videos,
+            Subject to your compliance with these Terms and applicable law, you own the finished videos,
             motion graphics, captions, timing notes, and other outputs generated from your Inputs.
           </p>
         </LegalSubsection>
@@ -117,12 +114,22 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
+      <LegalSection title="7A. Prohibited AI and Content Uses">
+        <p>
+          Prometheus Studio’s AI features are assistive only and do not autonomously generate cinematic video. The
+          platform may not be used to create, generate, or distribute: (a) realistic or stylized human faces,
+          likenesses, or avatars without explicit written consent; (b) deepfakes, face swaps, or voice impersonations;
+          (c) non-consensual intimate imagery; (d) content that infringes third-party copyrights, trademarks, or trade
+          secrets. Violations result in immediate termination and reporting to relevant authorities.
+        </p>
+      </LegalSection>
+
       <LegalSection title="8. Refunds, Cancellation, and Support">
         <p>
-          Our refund terms are published at <a href="/refund" className="transition-colors hover:text-white">/refund</a>.
-          You may cancel a subscription through the billing tools provided by Paddle or by contacting
-          support. Cancellation stops future renewal charges but does not automatically refund past
-          charges unless our Refund Policy or applicable law requires a refund.
+          We offer a 30-day money-back guarantee. If you are not satisfied with Prometheus Studio for any reason,
+          contact support@prometheusstudio.tech within 30 days of purchase for a full refund. No questions asked.
+          Refunds are processed by our Merchant of Record, Paddle, and returned to the original payment method. You may
+          cancel your subscription at any time through Paddle’s billing portal or by contacting support.
         </p>
       </LegalSection>
 
@@ -142,8 +149,12 @@ export default function TermsPage() {
       <LegalSection title="10. Governing Law and Contact">
         <p>
           These Terms are governed by the laws of the Federal Republic of Nigeria, without regard to
-          conflict of law principles. If you have questions, contact support@prometheusstudio.tech.
+          conflict of law principles. If you have questions, contact us using the details below.
         </p>
+        <p>Email: support@prometheusstudio.tech</p>
+        <p>Phone: +234 813 146 6596</p>
+        <p>Business WhatsApp: +1 680 240 2281</p>
+        <p>Official Registered Business Address: support@prometheusstudio.tech</p>
       </LegalSection>
     </LegalLayout>
   )

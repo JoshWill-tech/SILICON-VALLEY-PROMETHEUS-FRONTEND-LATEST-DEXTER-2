@@ -6,7 +6,7 @@ import { PrometheusShell } from '@/components/prometheus-shell'
 
 export const metadata: Metadata = {
   title: 'Pricing | Prometheus',
-  description: 'Prometheus AI pricing for automated premium video editing and motion design infrastructure.',
+  description: 'Prometheus Studio pricing for a professional video editing and production workspace for filmmakers.',
 }
 
 export default function PricingPage() {
@@ -31,7 +31,7 @@ export default function PricingPage() {
               Premium video infrastructure, packaged for teams that ship.
             </h1>
             <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-white/58 sm:text-lg">
-              Choose a Prometheus AI plan for automated premium video editing, cinematic motion design, cloud-backed project storage, and export-ready rendering workflows.
+              Choose a Prometheus Studio plan for a professional video editing and production workspace for filmmakers, motion design, cloud-backed project storage, and export-ready rendering workflows.
             </p>
           </header>
 

@@ -5,6 +5,7 @@ const FOOTER_LINKS = [
   { href: '/terms', label: 'Terms & Conditions' },
   { href: '/privacy', label: 'Privacy Policy' },
   { href: '/refund', label: 'Refund Policy' },
+  { href: '/contact', label: 'Contact' },
 ]
 
 export function Footer() {
@@ -19,8 +20,8 @@ export function Footer() {
             Prometheus Studio
           </Link>
           <p className="mt-3 text-sm leading-6 text-white/50">
-            AI-powered cinematic video creation, motion graphics, transcription, and export
-            infrastructure for modern production teams.
+            Professional video editing and production workspace for filmmakers, motion designers,
+            and modern production teams.
           </p>
           <p className="mt-4 text-xs uppercase tracking-[0.18em] text-white/34">
             © 2026 Prometheus Studio. All rights reserved.

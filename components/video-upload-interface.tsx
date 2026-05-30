@@ -2042,7 +2042,7 @@ export function VideoUploadInterface() {
                             delay={0.28}
                             className="max-w-lg text-sm text-white/55"
                         >
-                            Prometheus is an AI-powered cinematic video creation and motion graphics platform.
+                            Prometheus Studio is a professional video editing and production workspace for filmmakers.
                         </TextEffect>
                     </motion.div>
 

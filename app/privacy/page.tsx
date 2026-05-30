@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { LEGAL_LAST_UPDATED, LegalLayout, LegalSection, LegalSubsection } from '@/components/legal/LegalLayout'
+import { LegalLayout, LegalSection } from '@/components/legal/LegalLayout'
 
 const LEGAL_ENTITY_DECLARATION =
   'This platform, Prometheus Studio, is owned and operated by the legal entity Prometheus AI.'
@@ -18,7 +18,6 @@ export default function PrivacyPage() {
       currentPath="/privacy"
     >
       <LegalSection title="1. Information We Collect">
-        <p>{LEGAL_ENTITY_DECLARATION}</p>
         <p>
           We collect information to provide and secure Prometheus Studio. This includes:
         </p>
@@ -48,8 +47,8 @@ export default function PrivacyPage() {
 
       <LegalSection title="3. Data Storage and Cloud Processing">
         <p>
-          To provide high-speed rendering, your data is processed using enterprise-grade cloud
-          providers. Media assets associated with active workspaces are retained to allow for fast
+          To provide high-speed rendering, your data is processed using AWS (us-east-1), Google Cloud Platform,
+          and Cloudflare. Media assets associated with active workspaces are retained to allow for fast
           revisions. If an account is terminated, user-uploaded media and cached renders are scheduled
           for automated deletion within 30 days.
         </p>
@@ -60,7 +59,7 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside">
           <li>Paddle.com: For payment processing and subscription management.</li>
           <li>
-            Cloud Infrastructure Providers: Strictly for the hosting and GPU rendering of your content.
+            AWS, Google Cloud Platform, and Cloudflare: Strictly for the hosting and GPU rendering of your content.
           </li>
         </ul>
       </LegalSection>
@@ -89,6 +88,15 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection title="7A. Consent and GDPR">
+        <p>
+          For users in the EU/EEA and UK, we rely on essential cookies only and do not use tracking or advertising
+          cookies. We process personal data under lawful bases of contract performance and legitimate interest. You
+          have the right to access, rectify, erase, restrict processing, and port your data. To exercise these rights,
+          contact support@prometheusstudio.tech.
+        </p>
+      </LegalSection>
+
       <LegalSection title="8. International Data Transfers">
         <p>
           Your data may be processed by cloud infrastructure providers in multiple jurisdictions to
@@ -111,7 +119,6 @@ export default function PrivacyPage() {
           If you have any questions about this Privacy Policy or our data practices, please contact us
           at support@prometheusstudio.tech.
         </p>
-        <p>Last updated: {LEGAL_LAST_UPDATED}</p>
       </LegalSection>
     </LegalLayout>
   )
