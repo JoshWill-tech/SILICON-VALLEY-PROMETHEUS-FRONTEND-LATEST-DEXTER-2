@@ -1,24 +1,28 @@
-'use client';
+'use client'
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react'
 
-export function useTextareaResize(value: string, minRows = 1) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+export function useTextareaResize(value: string, minRows = 1, maxRows?: number) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
+    const textarea = textareaRef.current
+    if (!textarea) return
 
-    // Reset height to auto to get the correct scrollHeight
-    textarea.style.height = "auto";
+    textarea.style.height = 'auto'
 
-    // Calculate the minimum height based on minRows
-    const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 20;
-    const minHeight = lineHeight * minRows;
+    const computedStyle = getComputedStyle(textarea)
+    const lineHeight = Number.parseInt(computedStyle.lineHeight) || 20
+    const paddingBlock =
+      (Number.parseFloat(computedStyle.paddingTop) || 0) +
+      (Number.parseFloat(computedStyle.paddingBottom) || 0)
+    const minHeight = lineHeight * minRows + paddingBlock
+    const maxHeight = maxRows ? lineHeight * maxRows + paddingBlock : Number.POSITIVE_INFINITY
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight)
 
-    // Set the height to the larger of scrollHeight or minHeight
-    textarea.style.height = `${Math.max(textarea.scrollHeight, minHeight)}px`;
-  }, [value, minRows]);
+    textarea.style.height = `${nextHeight}px`
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [value, minRows, maxRows])
 
-  return textareaRef;
+  return textareaRef
 }

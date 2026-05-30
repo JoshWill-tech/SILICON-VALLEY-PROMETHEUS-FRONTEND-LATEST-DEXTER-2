@@ -98,6 +98,7 @@ import {
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { buildRevealVariants } from '@/lib/motion'
+import { useTextareaResize } from '@/hooks/use-textarea-resize'
 import { buildCinematicAnimationPlan } from '@/lib/cinematic/animation-planner'
 import { cn } from '@/lib/utils'
 import { upsertProject } from '@/lib/mock'
@@ -173,12 +174,22 @@ const PREVIEW_FRAME_PRESETS: PreviewFramePreset[] = ['source', '9:16', '1:1', '4
 
 type ChatEntry = {
   id: string
-  role: 'assistant' | 'user'
+  role: 'assistant' | 'user' | 'system'
   text: string
   status?: 'loading' | 'ready'
   music?: ChatMusicBlock
   task?: ChatTaskBlock
   clip?: ChatClipBlock
+  metadata?: {
+    sources?: ChatSource[]
+  }
+}
+
+type ChatSource = {
+  url?: string
+  title?: string
+  type?: string
+  name?: string
 }
 
 type ChatMusicBlock = MusicRecommendationPipelineResult & {
@@ -234,6 +245,7 @@ type ChatApiResponse = {
   reply?: string
   answer?: string
   error?: string
+  sources?: unknown
 }
 
 type ComposerAutomationRequest = {
@@ -787,16 +799,6 @@ const CHAT_COMPOSER_FONT_STYLE = {
   fontFamily: '"SF Pro Text","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif',
 } satisfies React.CSSProperties
 
-const CHAT_PLACEHOLDER_LINES = [
-  'Sketch the next pass with a more cinematic rhythm...',
-  'Carve the opener into something sharper and calmer...',
-  'Let the pacing breathe, then land the hook earlier...',
-  'Shape the visual beat so the tension rises cleaner...',
-  'Push the framing toward something colder and bolder...',
-  'Refine the cut until the emotional turn feels earned...',
-  'Tune the motion so the whole pass feels more alive...',
-] as const
-
 function debugEditorPreview(event: string, detail?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== 'development') return
 
@@ -808,6 +810,40 @@ function msToTime(ms: number) {
   const seconds = Math.floor(safe / 1000)
   const minutes = Math.floor(seconds / 60)
   return `${minutes}:${`${seconds % 60}`.padStart(2, '0')}`
+}
+
+function normalizeChatSources(value: unknown): ChatSource[] {
+  if (!Array.isArray(value)) return []
+
+  const sources: ChatSource[] = []
+
+  for (const source of value) {
+    if (!source || typeof source !== 'object') continue
+    const record = source as Record<string, unknown>
+    const url = typeof record.url === 'string' ? record.url.trim() : ''
+    const title = typeof record.title === 'string' ? record.title.trim() : ''
+    const type = typeof record.type === 'string' ? record.type.trim() : ''
+    const name = typeof record.name === 'string' ? record.name.trim() : ''
+
+    if (!url && !title && !name) continue
+
+    sources.push({
+      url: url || undefined,
+      title: title || undefined,
+      type: type || undefined,
+      name: name || undefined,
+    })
+  }
+
+  return sources.slice(0, 8)
+}
+
+function toStoredChatEntries(entries: ChatEntry[]): ChatEntry[] {
+  return entries.map((entry) => {
+    if (!entry.metadata) return entry
+    const { metadata: _metadata, ...storedEntry } = entry
+    return storedEntry
+  })
 }
 
 function useMediaQuery(query: string) {
@@ -1499,25 +1535,8 @@ function ChatTaskProcess({
   if (isSimpleReply) {
     return (
       <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[11px] not-italic tracking-[0.01em] text-white/62">
-        <BrainCircuit className="size-3.5 text-[#9ff6e3]" />
+        <BrainCircuit className="size-3.5 text-[#9ff6e3] opacity-70" />
         <span>{loading ? 'Thinking inside the current cut' : 'Reply shaped from the current cut'}</span>
-        {loading ? (
-          <span className="flex items-center gap-1">
-            {[0, 1, 2].map((index) => (
-              <motion.span
-                key={index}
-                className="size-1 rounded-full bg-[#9ff6e3]"
-                animate={reduceMotion ? undefined : { opacity: [0.22, 1, 0.22], y: [0, -2, 0] }}
-                transition={{
-                  duration: 0.9,
-                  delay: index * 0.12,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: 'easeInOut',
-                }}
-              />
-            ))}
-          </span>
-        ) : null}
       </div>
     )
   }
@@ -1572,11 +1591,9 @@ function ChatTaskProcess({
               transition={{ duration: reduceMotion ? 0 : 0.24, delay: index * 0.04, ease: [0.22, 1, 0.36, 1] }}
             >
               {active && !reduceMotion ? (
-                <motion.span
+                <span
                   aria-hidden
-                  className="absolute inset-y-0 -left-1/2 w-1/2 bg-[linear-gradient(90deg,rgba(159,246,227,0)_0%,rgba(159,246,227,0.16)_50%,rgba(159,246,227,0)_100%)]"
-                  animate={{ x: ['0%', '310%'] }}
-                  transition={{ duration: 1.7, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                  className="absolute inset-y-0 left-0 w-full bg-[linear-gradient(90deg,rgba(159,246,227,0)_0%,rgba(159,246,227,0.1)_50%,rgba(159,246,227,0)_100%)] opacity-70"
                 />
               ) : null}
               <span className="relative flex items-start gap-2">
@@ -1677,8 +1694,9 @@ function ChatClipProcessingCard({
                   <motion.div
                     aria-hidden
                     className="absolute inset-y-0 w-1/2 bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.18)_50%,rgba(255,255,255,0)_100%)]"
-                    animate={reduceMotion ? undefined : { x: ['-120%', '240%'] }}
-                    transition={{ duration: 1.45, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                    initial={reduceMotion ? false : { x: '-120%' }}
+                    animate={reduceMotion ? undefined : { x: '240%' }}
+                    transition={{ duration: reduceMotion ? 0 : 0.8, ease: 'easeOut' }}
                   />
                 </div>
               ) : null}
@@ -1714,79 +1732,105 @@ function CurvedThreadPill({
   reduceMotion: boolean
 }) {
   const isUser = entry.role === 'user'
+  const isAssistant = entry.role === 'assistant'
   const isLoading = entry.status === 'loading'
+
+  const timeLabel = React.useMemo(() => {
+    const timestampMatch = entry.id.match(/(\d{10,})/)
+    const timestamp = timestampMatch ? Number(timestampMatch[1]) : Date.now()
+    const diffMinutes = Math.floor((Date.now() - timestamp) / 60000)
+    if (!Number.isFinite(diffMinutes) || diffMinutes < 1) return 'just now'
+    if (diffMinutes < 60) return `${diffMinutes}m ago`
+    const diffHours = Math.floor(diffMinutes / 60)
+    if (diffHours < 24) return `${diffHours}h ago`
+    return `${Math.floor(diffHours / 24)}d ago`
+  }, [entry.id])
+
+  if (entry.role === 'system') {
+    return (
+      <div className="flex w-full justify-center px-4 py-2">
+        <span className="text-[11px] text-white/40">{entry.text}</span>
+      </div>
+    )
+  }
 
   return (
     <motion.div
-      layout
-      initial={reduceMotion ? false : { opacity: 0, y: 14, scale: 0.98, filter: 'blur(8px)' }}
-      animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-      exit={reduceMotion ? undefined : { opacity: 0, y: -8, scale: 0.98, filter: 'blur(6px)' }}
-      transition={{ duration: reduceMotion ? 0 : 0.28, delay: index * 0.035, ease: [0.22, 1, 0.36, 1] }}
-      className={cn('relative flex w-full', isUser ? 'justify-end pr-2' : 'justify-start pl-2')}
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+      className={cn('group relative flex w-full flex-col gap-1', isUser ? 'items-end' : 'items-start')}
     >
-      <div className={cn('relative max-w-[84%]', isUser ? 'pr-7' : 'pl-7')}>
-        <span
-          aria-hidden
-          className={cn(
-            'pointer-events-none absolute top-1/2 h-12 w-14 -translate-y-1/2 border shadow-[0_18px_24px_-18px_rgba(0,0,0,0.88)]',
-            isUser ? 'right-0 rounded-[8px_28px_28px_8px] border-[#8fe1ff]/18' : 'left-0 rounded-[28px_8px_8px_28px] border-white/10',
+      <div
+        className={cn(
+          'relative w-full px-3 py-3 text-[14px] leading-relaxed shadow-lg transition-colors md:w-auto md:max-w-[85%] md:px-4 md:text-[15px] min-[1025px]:text-[14px]',
+          isUser
+            ? 'rounded-2xl rounded-br-none bg-[#1a1a1a] text-white'
+            : 'rounded-2xl rounded-bl-none bg-[#2a2a2a] text-white',
+        )}
+      >
+        <div className="relative z-10">
+          {isAssistant && entry.task ? (
+            <ChatTaskProcess task={entry.task} reduceMotion={reduceMotion} loading={isLoading} />
+          ) : null}
+          {isLoading && !entry.clip ? (
+            <div className="flex min-h-5 items-center gap-1 py-1" aria-label="Assistant is typing">
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0.3 }}
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.48,
+                    delay: i * 0.08,
+                    ease: 'easeOut',
+                  }}
+                  className="size-1.5 rounded-full bg-current"
+                />
+              ))}
+            </div>
+          ) : (
+            <span className="whitespace-pre-wrap">{entry.text}</span>
           )}
-          style={{
-            background: isUser
-              ? 'linear-gradient(135deg, rgba(143,225,255,0.18), rgba(26,42,64,0.72))'
-              : 'linear-gradient(135deg, rgba(255,255,255,0.08), rgba(18,22,31,0.82))',
-            clipPath: isUser
-              ? 'polygon(0 18%, 78% 0, 100% 50%, 78% 100%, 0 82%, 24% 50%)'
-              : 'polygon(100% 18%, 22% 0, 0 50%, 22% 100%, 100% 82%, 76% 50%)',
-          }}
-        />
-        <span
-          aria-hidden
-          className={cn(
-            'pointer-events-none absolute top-1/2 h-14 w-8 -translate-y-1/2 rounded-full bg-[#090a0f]',
-            isUser ? 'right-[1.35rem]' : 'left-[1.35rem]',
-          )}
-        />
+          {entry.clip ? <ChatClipProcessingCard clip={entry.clip} reduceMotion={reduceMotion} /> : null}
 
-        <div
-          className={cn(
-            'relative overflow-hidden border px-4 py-3 text-[14px] italic leading-6 tracking-[0.01em] shadow-[0_22px_42px_-30px_rgba(0,0,0,0.92)]',
-            isUser
-              ? 'border-[#8fe1ff]/24 bg-[linear-gradient(135deg,rgba(143,225,255,0.22)_0%,rgba(75,106,170,0.26)_46%,rgba(13,18,29,0.94)_100%)] text-white'
-              : 'border-white/10 bg-[linear-gradient(135deg,rgba(245,248,255,0.1)_0%,rgba(32,36,48,0.9)_42%,rgba(10,11,16,0.98)_100%)] text-white/78',
-          )}
-          style={{
-            borderRadius: isUser ? '36px 34px 12px 36px' : '34px 36px 36px 12px',
-            fontFamily: 'var(--font-audemars-bold-italic), var(--font-newsreader), "Iowan Old Style", serif',
-          }}
-        >
-          <span
-            aria-hidden
-            className={cn(
-              'pointer-events-none absolute inset-x-5 top-0 h-px',
-              isUser
-                ? 'bg-[linear-gradient(90deg,rgba(143,225,255,0)_0%,rgba(143,225,255,0.68)_48%,rgba(255,255,255,0)_100%)]'
-                : 'bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.28)_48%,rgba(255,255,255,0)_100%)]',
-            )}
-          />
-          <div className="relative z-10">
-            {entry.role === 'assistant' && entry.task ? (
-              <ChatTaskProcess task={entry.task} reduceMotion={reduceMotion} loading={isLoading} />
-            ) : null}
-            {isLoading && !entry.clip ? (
-              <span className="inline-flex items-center gap-1.5 text-white/62">
-                <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:-0.2s]" />
-                <span className="size-1.5 animate-pulse rounded-full bg-current" />
-                <span className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:0.2s]" />
-                <span className="pl-1">{entry.text}</span>
-              </span>
-            ) : (
-              <span className="whitespace-pre-wrap">{entry.text}</span>
-            )}
-            {entry.clip ? <ChatClipProcessingCard clip={entry.clip} reduceMotion={reduceMotion} /> : null}
-          </div>
+          {isAssistant && entry.metadata?.sources?.length ? (
+            <div className="premium-scroll-hide mt-3 flex gap-2 overflow-x-auto pb-1">
+              {entry.metadata.sources.map((source, i) => {
+                const label = source.title || source.name || `Source ${i + 1}`
+                const className =
+                  'inline-flex min-h-11 shrink-0 items-center rounded-full border border-white/10 bg-white/5 px-3 text-[11px] leading-none text-white/68 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20'
+
+                return source.url ? (
+                  <a
+                    key={`${source.url}-${i}`}
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={className}
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <button
+                    key={i}
+                    type="button"
+                    className={className}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
+      </div>
+      <div className={cn(
+        'px-1 text-[10px] text-white/30 transition-opacity',
+        'md:opacity-0 md:group-hover:opacity-100',
+        'max-md:opacity-100',
+      )}>
+        {timeLabel}
       </div>
     </motion.div>
   )
@@ -1825,9 +1869,13 @@ function FloatingChatComposer({
   threadOpen: boolean
   onThreadOpenChange: (nextOpen: boolean) => void
 }) {
+  const isMobile = useMediaQuery('(max-width: 767px)')
+  const responsivePlaceholderText = isMobile
+    ? 'Ask about editing, color, sound...'
+    : 'Ask about video editing techniques...'
   const composerId = React.useId()
   const hasDraft = draft.trim().length > 0
-  const composerInputRef = React.useRef<HTMLInputElement | null>(null)
+  const composerInputRef = useTextareaResize(draft, 1, 4)
   const composerMeasureRef = React.useRef<HTMLSpanElement | null>(null)
   const composerPlaceholderMeasureRef = React.useRef<HTMLSpanElement | null>(null)
   const mouseMoveFrameRef = React.useRef<number | null>(null)
@@ -1837,9 +1885,7 @@ function FloatingChatComposer({
   const eyeSourceRef = React.useRef<'placeholder' | 'caret' | 'pointer'>(hasDraft ? 'caret' : 'placeholder')
   const [isHandleHovered, setIsHandleHovered] = React.useState(false)
   const [eyeTarget, setEyeTarget] = React.useState<{ x: number; y: number } | null>(null)
-  const [placeholderIndex, setPlaceholderIndex] = React.useState(0)
   const [placeholderText, setPlaceholderText] = React.useState('')
-  const [placeholderPhase, setPlaceholderPhase] = React.useState<'typing' | 'holding' | 'deleting'>('typing')
   const [caretIndex, setCaretIndex] = React.useState(0)
   const [pendingSelectionRange, setPendingSelectionRange] = React.useState<{ start: number; end: number } | null>(null)
   const [suppressedAssistKey, setSuppressedAssistKey] = React.useState<string | null>(null)
@@ -1854,15 +1900,6 @@ function FloatingChatComposer({
   )
   const isFrameAssistExpanded = Boolean(frameAssist.previewRegion || queuedPreviewRevision)
   const queuedPreviewRawText = queuedPreviewRevision?.request.rawText ?? null
-  const composerShellClassName = isThreadOpen
-    ? 'h-[min(34rem,calc(100dvh-6rem))] w-[min(44rem,calc(100vw-2rem))] rounded-[34px]'
-    : isOpen
-      ? isFrameAssistExpanded
-        ? 'h-[188px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
-        : 'h-[128px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
-      : isHandleHovered
-        ? 'h-[74px] w-[min(20rem,calc(100vw-4rem))] rounded-[28px]'
-      : 'h-14 w-14 rounded-full'
   const latestThreadEntry = visibleThreadEntries[visibleThreadEntries.length - 1]
 
   React.useEffect(() => {
@@ -1954,13 +1991,35 @@ function FloatingChatComposer({
     })
 
     return () => window.cancelAnimationFrame(rafId)
-  }, [isOpen, updateCaretTarget, updatePlaceholderTarget])
+  }, [isOpen, isThreadOpen, updateCaretTarget, updatePlaceholderTarget])
+
+  React.useEffect(() => {
+    if (isThreadOpen && isMobile) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isThreadOpen, isMobile])
 
   React.useEffect(() => {
     if (!isOpen) {
       onThreadOpenChange(false)
     }
   }, [isOpen, onThreadOpenChange])
+
+  React.useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onThreadOpenChange(false)
+        onOpenChange(false)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onOpenChange, onThreadOpenChange])
 
   React.useEffect(() => {
     if (!isOpen || !hasDraft) return
@@ -1983,41 +2042,8 @@ function FloatingChatComposer({
 
   React.useEffect(() => {
     if (!isOpen || hasDraft) return
-
-    const currentLine = CHAT_PLACEHOLDER_LINES[placeholderIndex]
-    let timeoutId: number | null = null
-
-    if (placeholderPhase === 'typing') {
-      if (placeholderText.length < currentLine.length) {
-        timeoutId = window.setTimeout(() => {
-          setPlaceholderText(currentLine.slice(0, placeholderText.length + 1))
-        }, 55)
-      } else {
-        timeoutId = window.setTimeout(() => {
-          setPlaceholderPhase('holding')
-        }, 1200)
-      }
-    } else if (placeholderPhase === 'holding') {
-      timeoutId = window.setTimeout(() => {
-        setPlaceholderPhase('deleting')
-      }, 450)
-    } else if (placeholderText.length > 0) {
-      timeoutId = window.setTimeout(() => {
-        setPlaceholderText(currentLine.slice(0, placeholderText.length - 1))
-      }, 28)
-    } else {
-      timeoutId = window.setTimeout(() => {
-        setPlaceholderIndex((current) => (current + 1) % CHAT_PLACEHOLDER_LINES.length)
-        setPlaceholderPhase('typing')
-      }, 220)
-    }
-
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
-    }
-  }, [hasDraft, isOpen, placeholderIndex, placeholderPhase, placeholderText])
+    setPlaceholderText(responsivePlaceholderText)
+  }, [hasDraft, isOpen, responsivePlaceholderText])
 
   React.useEffect(() => {
     if (!hasDraft) {
@@ -2189,7 +2215,7 @@ function FloatingChatComposer({
   }, [draft, frameAssist, onSubmit, onThreadOpenChange])
 
   const handleComposerKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLInputElement>) => {
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const hasVisibleSuggestions = frameAssist.isPopoverOpen && !isFrameAssistSuppressed && frameAssist.suggestions.length > 0
 
       if (event.key === 'Escape' && hasVisibleSuggestions) {
@@ -2215,7 +2241,7 @@ function FloatingChatComposer({
         return
       }
 
-      if (event.key === 'Enter') {
+      if (event.key === 'Enter' && !event.shiftKey) {
         if (hasVisibleSuggestions && activeFrameSuggestion) {
           event.preventDefault()
           handleFrameAssistSelect(activeFrameSuggestion)
@@ -2241,11 +2267,50 @@ function FloatingChatComposer({
   )
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center overflow-visible">
+    <div className={cn(
+      'pointer-events-none fixed z-40 flex overflow-visible transition-[transform,opacity] duration-300 ease-in-out',
+      isThreadOpen
+        ? 'inset-0 flex-col justify-end md:inset-auto md:bottom-6 md:right-6 md:top-auto md:justify-center'
+        : 'inset-x-0 bottom-4 justify-center md:bottom-6 md:right-6 md:left-auto',
+    )}>
+      {isThreadOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => {
+            onThreadOpenChange(false)
+            onOpenChange(false)
+          }}
+          className="fixed inset-0 -z-10 bg-black/40 backdrop-blur-sm md:hidden"
+        />
+      )}
       <motion.div
+        drag={isMobile && isThreadOpen ? "y" : false}
+        dragConstraints={{ top: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 100) {
+            onThreadOpenChange(false)
+            onOpenChange(false)
+          }
+        }}
         className={cn(
-          'pointer-events-auto relative origin-bottom overflow-visible bg-[linear-gradient(135deg,rgba(146,163,255,0.34)_0%,rgba(127,242,212,0.26)_38%,rgba(255,255,255,0.16)_68%,rgba(140,113,255,0.3)_100%)] p-[1px] transition-[height,width,border-radius,box-shadow] duration-300',
-          composerShellClassName,
+          'pointer-events-auto relative origin-bottom overflow-visible bg-[linear-gradient(135deg,rgba(146,163,255,0.34)_0%,rgba(127,242,212,0.26)_38%,rgba(255,255,255,0.16)_68%,rgba(140,113,255,0.3)_100%)] p-[1px] transition-[transform,opacity,height,width,border-radius] duration-300 ease-in-out',
+          isThreadOpen
+            ? [
+                'h-[80dvh] max-h-[80vh] w-full rounded-b-none rounded-t-[28px]',
+                'md:h-[70vh] md:max-h-[70vh] md:w-[480px] md:rounded-[28px]',
+                'min-[1025px]:h-[min(600px,calc(100vh-48px))] min-[1025px]:max-h-[600px] min-[1025px]:w-[420px]',
+                'min-[1025px]:shadow-[0_8px_32px_rgba(0,0,0,0.24)]',
+              ]
+            : isOpen
+              ? isFrameAssistExpanded
+                ? 'h-[188px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
+                : 'h-[128px] w-[min(38rem,calc(100vw-3rem))] rounded-[30px]'
+              : isHandleHovered
+                ? 'h-[74px] w-[min(20rem,calc(100vw-4rem))] rounded-[28px]'
+                : 'h-14 w-14 rounded-full',
         )}
         style={CHAT_COMPOSER_FONT_STYLE}
         initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.96 }}
@@ -2255,23 +2320,15 @@ function FloatingChatComposer({
             : {
                 opacity: 1,
                 y: isOpen ? 0 : isHandleHovered ? -8 : 0,
-                boxShadow: isThreadOpen
-                  ? '0 42px 82px -34px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.05), 0 0 80px -52px rgba(127,242,212,0.38)'
-                  : isOpen
-                    ? '0 30px 56px -28px rgba(0,0,0,0.92), 0 0 0 1px rgba(255,255,255,0.04)'
-                    : isHandleHovered
-                      ? '0 24px 42px -28px rgba(0,0,0,0.86), 0 0 42px -24px rgba(127,242,212,0.48)'
-                      : '0 14px 28px -24px rgba(0,0,0,0.86)',
+                scale: 1,
               }
         }
         transition={
           reduceMotion
             ? undefined
             : {
-                type: 'spring',
-                stiffness: 260,
-                damping: 28,
-                mass: 0.86,
+                duration: 0.3,
+                ease: 'easeInOut',
               }
         }
         onMouseEnter={() => {
@@ -2291,26 +2348,9 @@ function FloatingChatComposer({
         ) : null}
 
         <div className="relative h-full w-full overflow-visible rounded-[inherit] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_34%),radial-gradient(circle_at_24%_120%,rgba(127,242,212,0.18)_0%,rgba(127,242,212,0)_42%),linear-gradient(180deg,rgba(18,18,24,0.98)_0%,rgba(8,8,12,0.98)_100%)] backdrop-blur-[30px]">
-          <motion.div
+          <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-8 bottom-2 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(127,242,212,0.72)_48%,rgba(255,255,255,0)_100%)]"
-            animate={
-              reduceMotion
-                ? undefined
-                : {
-                    opacity: isOpen || isHandleHovered ? [0.26, 0.78, 0.34] : 0.22,
-                    x: isOpen || isHandleHovered ? ['-10%', '10%', '-4%'] : '0%',
-                  }
-            }
-            transition={
-              reduceMotion
-                ? undefined
-                : {
-                    duration: 3.4,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: 'easeInOut',
-                  }
-            }
+            className="pointer-events-none absolute inset-x-8 bottom-2 h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(127,242,212,0.42)_48%,rgba(255,255,255,0)_100%)] opacity-30"
           />
           <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/10" />
 
@@ -2318,7 +2358,7 @@ function FloatingChatComposer({
             {isOpen && isThreadOpen ? (
               <motion.div
                 key="thread-composer"
-                className="relative flex h-full min-h-0 flex-col px-3 py-3 sm:px-4"
+                className="relative flex h-full min-h-0 flex-col px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-4"
                 initial={reduceMotion ? false : { opacity: 0, y: 18, filter: 'blur(12px)' }}
                 animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: 10, filter: 'blur(8px)' }}
@@ -2327,11 +2367,9 @@ function FloatingChatComposer({
                 <div className="relative flex items-center justify-between gap-3 border-b border-white/8 px-1 pb-3">
                   <div className="min-w-0">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#7ff2d4]/18 bg-[#7ff2d4]/[0.06] px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-[#c9fff2]/68">
-                      <motion.span
+                      <span
                         aria-hidden
                         className="size-1.5 rounded-full bg-[#7ff2d4]"
-                        animate={reduceMotion ? undefined : { opacity: [0.42, 1, 0.42], scale: [0.9, 1.16, 0.9] }}
-                        transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
                       />
                       Live Relay
                     </div>
@@ -2348,7 +2386,7 @@ function FloatingChatComposer({
                       type="button"
                       aria-label="Return to compact composer"
                       onClick={() => onThreadOpenChange(false)}
-                      className="hidden rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[11px] text-white/52 transition-colors hover:text-white/82 sm:inline-flex"
+                      className="hidden min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-[11px] text-white/52 transition-colors hover:text-white/82 sm:inline-flex"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.02 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                     >
@@ -2361,7 +2399,7 @@ function FloatingChatComposer({
                         onThreadOpenChange(false)
                         onOpenChange(false)
                       }}
-                      className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/58 transition-colors hover:text-white/86"
+                      className="absolute right-0 top-0 z-20 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.07] text-white/68 shadow-[0_12px_28px_rgba(0,0,0,0.28)] transition-colors hover:text-white/90 md:static"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                     >
@@ -2370,8 +2408,8 @@ function FloatingChatComposer({
                   </div>
                 </div>
 
-                <div className="premium-scroll-mask min-h-0 flex-1 overflow-y-auto px-1 py-5">
-                  <div className="space-y-4">
+                <div className="premium-scroll-mask relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-4 [will-change:transform] md:py-5">
+                  <div className="space-y-2">
                     {visibleThreadEntries.length ? (
                       visibleThreadEntries.map((entry, index) => (
                         <CurvedThreadPill
@@ -2395,7 +2433,7 @@ function FloatingChatComposer({
                   </div>
                 </div>
 
-                <div className="relative shrink-0 rounded-[28px] border border-white/10 bg-black/38 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <div className="relative shrink-0 rounded-[24px] border-t border-white/10 bg-black/38 p-3 shadow-[0_-12px_28px_-26px_rgba(255,255,255,0.65),inset_0_1px_0_rgba(255,255,255,0.06)] md:rounded-[28px]">
                   <EditorialComposerFrameAssist
                     suggestions={frameAssist.suggestions}
                     activeSuggestionIndex={frameAssist.activeSuggestionIndex}
@@ -2420,49 +2458,44 @@ function FloatingChatComposer({
                   />
 
                   <div className="grid grid-cols-[1fr_auto] items-center gap-3">
-                    <div className="relative min-h-12 overflow-hidden rounded-[24px] border border-white/8 bg-white/[0.04] px-4 py-2">
+                    <div className={cn(
+                      'relative min-h-12 overflow-hidden bg-white/[0.04] px-4 py-2',
+                      isMobile ? 'rounded-full' : 'rounded-lg border border-white/8',
+                    )}>
                       {!hasDraft ? (
                         <div className="pointer-events-none absolute inset-x-4 top-1/2 flex -translate-y-1/2 items-center overflow-hidden">
                           <div
-                            className="flex items-center whitespace-nowrap text-[18px] italic leading-[1.35] tracking-[0.01em] text-white/38"
+                            className="flex items-center whitespace-nowrap text-[16px] italic leading-[1.35] tracking-[0.01em] text-white/38"
                             style={{
                               fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
                             }}
                           >
-                            <span>{placeholderText}</span>
-                            <motion.span
+                            <span>{responsivePlaceholderText}</span>
+                            <span
                               aria-hidden
-                              className="ml-1 inline-block h-5 w-px bg-white/42"
-                              animate={reduceMotion ? undefined : { opacity: [0.15, 0.9, 0.15] }}
-                              transition={{ duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                              className="ml-1 inline-block h-5 w-px bg-white/42 opacity-70"
                             />
                           </div>
                         </div>
                       ) : null}
-                      <input
-                        type="text"
+                      <textarea
                         id={`${composerId}-thread`}
                         ref={composerInputRef}
                         value={draft}
+                        rows={1}
                         onChange={(event) => {
                           onDraftChange(event.target.value)
                           setCaretIndex(event.target.selectionStart ?? event.target.value.length)
-                          setDraftScrollLeft(event.currentTarget.scrollLeft)
                         }}
                         onClick={() => updateCaretTarget()}
-                        onFocus={() => {
-                          if (draftRef.current.trim().length > 0) {
-                            updateCaretTarget()
-                          }
-                        }}
+                        onFocus={() => updateCaretTarget(false)}
                         onScroll={(event) => {
                           setDraftScrollLeft(event.currentTarget.scrollLeft)
                         }}
                         onKeyUp={() => updateCaretTarget()}
                         onSelect={() => updateCaretTarget()}
                         onKeyDown={handleComposerKeyDown}
-                        placeholder=""
-                        className="relative z-10 h-8 w-full overflow-hidden bg-transparent text-[18px] italic leading-[1.35] tracking-[0.01em] text-white/92 outline-none"
+                        className="relative z-10 max-h-[calc(1.35em*4)] w-full resize-none overflow-y-auto bg-transparent text-[16px] italic leading-[1.35] tracking-[0.01em] text-white/92 outline-none"
                         style={{
                           fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
                           caretColor: 'rgba(255,255,255,0.78)',
@@ -2474,11 +2507,22 @@ function FloatingChatComposer({
                       type="button"
                       onClick={loading ? onStop : () => void handleComposerSubmit()}
                       disabled={!loading && !hasDraft}
-                      className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/12 bg-white text-black shadow-[0_18px_32px_-20px_rgba(255,255,255,0.88)] transition-colors hover:bg-[#f2fbff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-45"
+                      className={cn(
+                        'grid min-h-11 shrink-0 place-items-center transition-all disabled:cursor-not-allowed disabled:opacity-45',
+                        isMobile 
+                          ? 'h-12 w-12 rounded-full border border-white/12 bg-white text-black shadow-[0_18px_32px_-20px_rgba(255,255,255,0.88)]' 
+                          : 'h-12 rounded-lg bg-white px-6 text-sm font-semibold text-black',
+                      )}
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
-                      {loading ? <div className="h-3.5 w-3.5 rounded-[3px] bg-current" /> : <ArrowUp className="size-5" />}
+                      {loading ? (
+                        <div className="h-3.5 w-3.5 rounded-[3px] bg-current" />
+                      ) : isMobile ? (
+                        <ArrowUp className="size-5" />
+                      ) : (
+                        "Send"
+                      )}
                     </motion.button>
                   </div>
                 </div>
@@ -2510,12 +2554,10 @@ function FloatingChatComposer({
                 />
 
                 <div className="relative flex items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-white/38">
-                    <motion.span
+                  <div className="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-[10px] uppercase tracking-[0.28em] text-white/38">
+                    <span
                       aria-hidden
                       className="size-1.5 rounded-full bg-[#7ff2d4]"
-                      animate={reduceMotion ? undefined : { opacity: [0.44, 1, 0.44], scale: [0.92, 1.12, 0.92] }}
-                      transition={{ duration: 2.1, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
                     />
                     Editor Relay
                   </div>
@@ -2531,7 +2573,7 @@ function FloatingChatComposer({
                       onThreadOpenChange(false)
                       onOpenChange(false)
                     }}
-                    className="grid h-7 w-7 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/54 transition-colors hover:text-white/82"
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/54 transition-colors hover:text-white/82"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                   >
@@ -2572,11 +2614,9 @@ function FloatingChatComposer({
                         }}
                       >
                         <span>{placeholderText}</span>
-                        <motion.span
+                        <span
                           aria-hidden
-                          className="ml-1 inline-block h-6 w-px bg-white/42"
-                          animate={reduceMotion ? undefined : { opacity: [0.15, 0.9, 0.15] }}
-                          transition={{ duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                          className="ml-1 inline-block h-6 w-px bg-white/42 opacity-70"
                         />
                       </div>
                     </div>
@@ -2590,20 +2630,19 @@ function FloatingChatComposer({
                       />
                     </div>
                   ) : null}
-                  <input
-                    type="text"
+                  <textarea
                     id={composerId}
                     ref={composerInputRef}
                     value={draft}
+                    rows={1}
                     onChange={(event) => {
                       onDraftChange(event.target.value)
                       setCaretIndex(event.target.selectionStart ?? event.target.value.length)
-                      setDraftScrollLeft(event.currentTarget.scrollLeft)
                     }}
                     onClick={() => updateCaretTarget()}
                     onFocus={() => {
                       if (draftRef.current.trim().length > 0) {
-                        updateCaretTarget()
+                        updateCaretTarget(false)
                       }
                     }}
                     onScroll={(event) => {
@@ -2612,9 +2651,8 @@ function FloatingChatComposer({
                     onKeyUp={() => updateCaretTarget()}
                     onSelect={() => updateCaretTarget()}
                     onKeyDown={handleComposerKeyDown}
-                    placeholder=""
                     className={cn(
-                      'relative z-10 h-full w-full overflow-hidden bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
+                      'relative z-10 max-h-[calc(1.35em*4)] w-full resize-none overflow-y-auto bg-transparent px-0 py-0 text-[20px] italic leading-[1.35] tracking-[0.01em] text-transparent outline-none',
                     )}
                     style={{
                       fontFamily: 'var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", serif',
@@ -2627,7 +2665,7 @@ function FloatingChatComposer({
                   <div className="flex items-center gap-1.5 text-white/36">
                     <motion.button
                       type="button"
-                      className="grid h-6 w-6 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
@@ -2635,7 +2673,7 @@ function FloatingChatComposer({
                     </motion.button>
                     <motion.button
                       type="button"
-                      className="grid h-6 w-6 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
+                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition-colors hover:text-white/76"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
@@ -2647,7 +2685,7 @@ function FloatingChatComposer({
                     <motion.button
                       type="button"
                       onClick={() => onOpenCommandOverlay?.()}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-[#7ff2d4]/20 bg-[#7ff2d4]/5 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-[#7ff2d4] transition-colors hover:bg-[#7ff2d4]/10"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#7ff2d4]/20 bg-[#7ff2d4]/5 px-3 text-[9px] font-medium uppercase tracking-wider text-[#7ff2d4] transition-colors hover:bg-[#7ff2d4]/10"
                       whileHover={reduceMotion ? undefined : { y: -0.5, scale: 1.02 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.98 }}
                     >
@@ -2660,7 +2698,7 @@ function FloatingChatComposer({
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
                     disabled={!loading && !hasDraft}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-[#bebec7] p-0 text-[#101014] shadow-[0_18px_32px_-24px_rgba(255,255,255,0.92)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/10 bg-[#bebec7] p-0 text-[#101014] shadow-[0_18px_32px_-24px_rgba(255,255,255,0.92)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 disabled:cursor-not-allowed disabled:opacity-45"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                   >
@@ -2695,18 +2733,16 @@ function FloatingChatComposer({
                       <motion.span
                         aria-hidden
                         className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#7ff2d4]/28"
-                        initial={{ opacity: 0.42, scale: 0.92 }}
-                        animate={{ opacity: 0, scale: 1.16 }}
+                        initial={{ opacity: 0, scale: 1 }}
+                        animate={{ opacity: 0.42, scale: 1.05 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 1.1, ease: 'easeOut', repeat: Number.POSITIVE_INFINITY }}
                       />
                       <motion.span
                         aria-hidden
                         className="pointer-events-none absolute -inset-x-5 -inset-y-4 rounded-[999px] bg-[radial-gradient(circle_at_center,rgba(127,242,212,0.22)_0%,rgba(127,242,212,0)_58%)] blur-2xl"
-                        initial={{ opacity: 0.34 }}
-                        animate={{ opacity: [0.24, 0.54, 0.26] }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.34 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 1.9, ease: 'easeInOut', repeat: Number.POSITIVE_INFINITY }}
                       />
                     </>
                   ) : null}
@@ -2721,34 +2757,17 @@ function FloatingChatComposer({
                 exit={reduceMotion ? undefined : { opacity: 0.92, scale: 0.96 }}
                 transition={{ duration: reduceMotion ? 0 : 0.2 }}
               >
-                <motion.span
+                <span
                   aria-hidden
-                  className="pointer-events-none absolute inset-[8%] rounded-full bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.08)_24%,rgba(255,255,255,0)_70%)] blur-md"
-                  animate={
-                    reduceMotion
-                      ? undefined
-                      : {
-                          opacity: [0.58, 0.9, 0.62],
-                          scale: [0.98, 1.03, 0.98],
-                        }
-                  }
-                  transition={{ duration: 2.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                  className="pointer-events-none absolute inset-[8%] rounded-full bg-[radial-gradient(circle_at_50%_28%,rgba(255,255,255,0.2)_0%,rgba(255,255,255,0.08)_24%,rgba(255,255,255,0)_70%)] opacity-60 blur-md"
                 />
                 <motion.span
                   aria-hidden
                   className="pointer-events-none absolute inset-[2px] rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(15,15,20,0.98)_0%,rgba(8,8,12,0.98)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                 />
-                <motion.span
+                <span
                   aria-hidden
-                  className="pointer-events-none absolute inset-[6px] rounded-full border border-[#7ff2d4]/18"
-                  animate={
-                    reduceMotion
-                      ? undefined
-                      : {
-                          opacity: [0.52, 0.88, 0.58],
-                        }
-                  }
-                  transition={{ duration: 2.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+                  className="pointer-events-none absolute inset-[6px] rounded-full border border-[#7ff2d4]/18 opacity-40"
                 />
                 <motion.span
                   aria-hidden
@@ -2955,7 +2974,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 
   React.useEffect(() => {
     if (!musicStorageReady) return
-    writeLocalStorageJSON(chatEntriesStorageKey(projectId), entries)
+    writeLocalStorageJSON(chatEntriesStorageKey(projectId), toStoredChatEntries(entries))
   }, [entries, musicStorageReady, projectId])
 
   React.useEffect(() => {
@@ -3669,6 +3688,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                     ? payload.reply.trim()
                     : ''
               const nextError = typeof payload?.error === 'string' ? payload.error.trim() : ''
+              const nextSources = normalizeChatSources(payload?.sources)
 
               if (controller.signal.aborted) return
 
@@ -3681,6 +3701,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   text: nextReply,
                   status: 'ready',
                   task: settleChatTask(entry.task),
+                  metadata: nextSources.length ? { ...entry.metadata, sources: nextSources } : entry.metadata,
                 }))
                 return
               }
@@ -4140,10 +4161,9 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           })}
         </motion.div>
 
-        <motion.div layout className="space-y-3">
+        <motion.div className="space-y-3">
           {isComposerThreadOpen ? (
             <motion.div
-              layout
               initial={reduceMotion ? false : { opacity: 0, y: 10, filter: 'blur(8px)' }}
               animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -8, filter: 'blur(6px)' }}
@@ -4168,7 +4188,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   chatEntryRefs.current.delete(entry.id)
                 }
               }}
-              layout
               initial={reduceMotion ? false : 'hidden'}
               whileInView={reduceMotion ? undefined : 'visible'}
               exit={reduceMotion ? undefined : 'exit'}
@@ -4215,9 +4234,15 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   {entry.status === 'loading' && !entry.music ? (
                     <div className="flex items-start gap-2 text-sm leading-6 text-white/72">
                       <span className="mt-2.5 flex shrink-0 items-center gap-1">
-                        <span className="size-1.5 animate-pulse rounded-full bg-white/48 [animation-delay:-0.2s]" />
-                        <span className="size-1.5 animate-pulse rounded-full bg-white/48" />
-                        <span className="size-1.5 animate-pulse rounded-full bg-white/48 [animation-delay:0.2s]" />
+                        {[0, 1, 2].map((dotIndex) => (
+                          <motion.span
+                            key={dotIndex}
+                            className="size-1.5 rounded-full bg-white/48"
+                            initial={reduceMotion ? false : { opacity: 0.3 }}
+                            animate={reduceMotion ? undefined : { opacity: [0.3, 1, 0.3] }}
+                            transition={{ duration: reduceMotion ? 0 : 0.48, delay: dotIndex * 0.08, ease: 'easeOut' }}
+                          />
+                        ))}
                       </span>
                       <span>{entry.text}</span>
                     </div>
