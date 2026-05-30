@@ -12,8 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { KnowledgeChunk } from './build-knowledge-base'
 
 const KNOWLEDGE_BASE_PATH = join(process.cwd(), 'knowledge-base.json')
-const EMBEDDING_MODEL = 'embedding-001'
-const EMBEDDING_DIMENSIONS = 768
+const EMBEDDING_MODEL = 'gemini-embedding-2'
+const EMBEDDING_DIMENSIONS = 3072
 const INSERT_BATCH_SIZE = 25
 const SOURCE_URL_LOOKUP_BATCH_SIZE = 100
 
@@ -34,7 +34,7 @@ type KnowledgeChunkInsert = {
 }
 
 type KnowledgeChunkRow = KnowledgeChunkInsert & {
-  id: number
+  id: string
   created_at?: string | null
 }
 
@@ -100,6 +100,7 @@ async function main() {
   console.log(`[seed] Embedding ${pendingChunks.length} new chunks with Gemini ${EMBEDDING_MODEL}.`)
 
   const rows: KnowledgeChunkInsert[] = []
+  let quotaReached = false
   for (let index = 0; index < pendingChunks.length; index++) {
     const chunk = pendingChunks[index]
     const label = `${index + 1}/${pendingChunks.length} ${chunk.source_url} :: ${chunk.topic}`
@@ -111,11 +112,20 @@ async function main() {
     } catch (error) {
       summary.embeddingFailed++
       console.error(`[embed:error] ${label}: ${formatError(error)}`)
+      if (isQuotaError(error)) {
+        quotaReached = true
+        console.warn('[warn] Gemini embedding quota reached. Seeding will continue with the rows collected so far.')
+        break
+      }
     }
   }
 
   summary.readyToInsert = rows.length
   await insertRowsInBatches(supabase, rows, summary)
+
+  if (quotaReached) {
+    console.warn(`[warn] Partial seed completed with ${summary.inserted} inserted rows.`)
+  }
 
   console.log('\n=== SUPABASE RAG SEED COMPLETE ===')
   console.log(`Read: ${summary.totalRead}`)
@@ -316,17 +326,23 @@ function createSupabaseClient(env: RequiredEnv): RagSupabaseClient {
 }
 
 function getRequiredEnv(): RequiredEnv {
-  const requiredKeys = ['GEMINI_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const
-  const missing = requiredKeys.filter((key) => !process.env[key]?.trim())
+  const geminiApiKey = process.env.GEMINI_API_KEY?.trim()
+  const supabaseUrl = process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  const missing = [
+    !geminiApiKey ? 'GEMINI_API_KEY' : '',
+    !supabaseUrl ? 'SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL' : '',
+    !supabaseServiceRoleKey ? 'SUPABASE_SERVICE_ROLE_KEY' : '',
+  ].filter(Boolean)
 
   if (missing.length) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`)
   }
 
   return {
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY!.trim(),
-    SUPABASE_URL: process.env.SUPABASE_URL!.trim(),
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY!.trim(),
+    GEMINI_API_KEY: geminiApiKey!,
+    SUPABASE_URL: supabaseUrl!,
+    SUPABASE_SERVICE_ROLE_KEY: supabaseServiceRoleKey!,
   }
 }
 
@@ -341,6 +357,16 @@ function loadEnvLocal() {
       process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '')
     }
   }
+}
+
+function isQuotaError(error: unknown) {
+  const message = formatError(error).toLowerCase()
+  return (
+    message.includes('429') ||
+    message.includes('quota') ||
+    message.includes('resource_exhausted') ||
+    message.includes('generate_content_free_tier_requests')
+  )
 }
 
 function chunkKey(chunk: Pick<KnowledgeChunk, 'source_url' | 'topic'>) {
@@ -361,7 +387,13 @@ function chunkArray<T>(values: T[], size: number): T[][] {
 }
 
 function isKnowledgeType(value: unknown): value is KnowledgeChunk['type'] {
-  return value === 'technique' || value === 'workflow' || value === 'motion_beat' || value === 'qa'
+  return (
+    value === 'technique' ||
+    value === 'workflow' ||
+    value === 'motion_beat' ||
+    value === 'qa' ||
+    value === 'transcript_segment'
+  )
 }
 
 function isKnowledgeSource(value: unknown): value is KnowledgeChunk['source'] {

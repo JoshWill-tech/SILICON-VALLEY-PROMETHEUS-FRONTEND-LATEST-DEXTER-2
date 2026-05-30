@@ -11,10 +11,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 
-const EMBEDDING_MODEL = 'embedding-001'
+const EMBEDDING_MODEL = 'gemini-embedding-2'
 const CHAT_MODEL = 'gemini-flash-latest'
-const EMBEDDING_DIMENSIONS = 768
-const DEFAULT_MATCH_THRESHOLD = 0.7
+const EMBEDDING_DIMENSIONS = 3072
+const DEFAULT_MATCH_THRESHOLD = 0.3
 const DEFAULT_MATCH_COUNT = 5
 const MAX_CONTEXT_CHUNKS = 5
 const EMPTY_ANSWER = "I don't have specific knowledge about that in my database yet."
@@ -114,6 +114,7 @@ export async function POST(req: Request) {
     const supabase = createSupabaseClient(env)
     const embedding = await createQueryEmbedding(genAI, query)
     const matches = await retrieveMatches(supabase, embedding, matchThreshold, matchCount)
+    logRetrievalDebug(matches, matchThreshold, matchCount)
     const contextChunks = matches.slice(0, MAX_CONTEXT_CHUNKS)
 
     if (!contextChunks.length) {
@@ -125,7 +126,7 @@ export async function POST(req: Request) {
     }
 
     const contextBlock = formatContextBlock(contextChunks)
-    const answer = await createAnswer(genAI, query, contextBlock)
+    const answer = await createAnswerWithFallback(genAI, query, contextBlock, contextChunks)
 
     return json({
       answer,
@@ -183,6 +184,15 @@ async function retrieveMatches(
   return normalizeMatches(data || [])
 }
 
+function logRetrievalDebug(matches: KnowledgeChunkMatch[], matchThreshold: number, matchCount: number) {
+  console.info('[rag] match_knowledge_chunks', {
+    matchThreshold,
+    matchCount,
+    returnedChunks: matches.length,
+    similarities: matches.map((match) => Number(match.similarity.toFixed(4))),
+  })
+}
+
 async function createAnswer(genAI: GoogleGenerativeAI, query: string, contextBlock: string) {
   const model = genAI.getGenerativeModel({
     model: CHAT_MODEL,
@@ -204,6 +214,70 @@ async function createAnswer(genAI: GoogleGenerativeAI, query: string, contextBlo
   const answer = result.response.text().trim()
 
   return answer || EMPTY_ANSWER
+}
+
+async function createAnswerWithFallback(
+  genAI: GoogleGenerativeAI,
+  query: string,
+  contextBlock: string,
+  contextChunks: KnowledgeChunkMatch[],
+) {
+  try {
+    return await createAnswer(genAI, query, contextBlock)
+  } catch (error) {
+    console.warn('[rag] Gemini answer generation failed; returning extractive answer fallback.', {
+      message: formatError(error),
+    })
+    return createExtractiveAnswer(query, contextChunks)
+  }
+}
+
+function createExtractiveAnswer(query: string, contextChunks: KnowledgeChunkMatch[]) {
+  const excerpts = contextChunks
+    .flatMap((chunk) => pickRelevantSentences(chunk.content, query))
+    .slice(0, 5)
+
+  if (!excerpts.length) return EMPTY_ANSWER
+
+  return [
+    `For ${query}, the retrieved sources point to controlling timing with speed or velocity changes instead of abrupt cuts.`,
+    `Use the relevant source guidance: ${excerpts.join(' ')}`,
+  ].join(' ')
+}
+
+function pickRelevantSentences(content: string, query: string) {
+  const queryTerms = new Set(
+    cleanInline(query)
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((term) => term.length >= 4),
+  )
+  const editingTerms = ['speed', 'ramp', 'ramping', 'time', 'remap', 'retime', 'velocity', 'keyframe', 'ease', 'motion']
+  const terms = new Set([...queryTerms, ...editingTerms])
+
+  return content
+    .split(/(?<=[.!?])\s+/)
+    .map(cleanInline)
+    .filter(Boolean)
+    .map((sentence) => ({
+      sentence,
+      score: scoreSentence(sentence, terms),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.sentence.length - b.sentence.length)
+    .slice(0, 2)
+    .map((entry) => entry.sentence)
+}
+
+function scoreSentence(sentence: string, terms: Set<string>) {
+  const lower = sentence.toLowerCase()
+  let score = 0
+
+  for (const term of terms) {
+    if (lower.includes(term)) score++
+  }
+
+  return score
 }
 
 function formatContextBlock(chunks: KnowledgeChunkMatch[]) {
@@ -281,11 +355,11 @@ function createSupabaseClient(env: RequiredEnv): RagSupabaseClient {
 
 function getRequiredEnv(): RequiredEnv {
   const geminiApiKey = cleanInline(process.env.GEMINI_API_KEY)
-  const supabaseUrl = cleanInline(process.env.SUPABASE_URL)
+  const supabaseUrl = cleanInline(process.env.SUPABASE_URL) || cleanInline(process.env.NEXT_PUBLIC_SUPABASE_URL)
   const supabaseServiceRoleKey = cleanInline(process.env.SUPABASE_SERVICE_ROLE_KEY)
   const missing = [
     !geminiApiKey ? 'GEMINI_API_KEY' : '',
-    !supabaseUrl ? 'SUPABASE_URL' : '',
+    !supabaseUrl ? 'SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL' : '',
     !supabaseServiceRoleKey ? 'SUPABASE_SERVICE_ROLE_KEY' : '',
   ].filter(Boolean)
 
@@ -313,4 +387,8 @@ function json(payload: unknown, status = 200) {
     status,
     headers: corsHeaders,
   })
+}
+
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }

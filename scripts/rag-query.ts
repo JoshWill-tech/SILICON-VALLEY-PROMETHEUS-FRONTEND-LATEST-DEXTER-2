@@ -7,9 +7,9 @@ import { createInterface } from 'readline/promises'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const EMBEDDING_MODEL = 'embedding-001'
+const EMBEDDING_MODEL = 'gemini-embedding-2'
 const DEFAULT_CHAT_MODEL = 'gemini-flash-latest'
-const EMBEDDING_DIMENSIONS = 768
+const EMBEDDING_DIMENSIONS = 3072
 const MATCH_THRESHOLD = 0.7
 const MATCH_COUNT = 5
 const DEFAULT_MATCH_RPC = 'match_knowledge_chunks'
@@ -20,7 +20,7 @@ type RequiredEnv = {
   SUPABASE_SERVICE_ROLE_KEY: string
 }
 
-type KnowledgeChunkType = 'technique' | 'workflow' | 'motion_beat' | 'qa'
+type KnowledgeChunkType = 'technique' | 'workflow' | 'motion_beat' | 'qa' | 'transcript_segment'
 type KnowledgeChunkSource = 'youtube' | 'reddit'
 
 type KnowledgeChunkMatch = {
@@ -414,7 +414,13 @@ function isKnowledgeChunkMatch(value: KnowledgeChunkMatch | null): value is Know
 }
 
 function isKnowledgeType(value: unknown): value is KnowledgeChunkType {
-  return value === 'technique' || value === 'workflow' || value === 'motion_beat' || value === 'qa'
+  return (
+    value === 'technique' ||
+    value === 'workflow' ||
+    value === 'motion_beat' ||
+    value === 'qa' ||
+    value === 'transcript_segment'
+  )
 }
 
 function isKnowledgeSource(value: unknown): value is KnowledgeChunkSource {

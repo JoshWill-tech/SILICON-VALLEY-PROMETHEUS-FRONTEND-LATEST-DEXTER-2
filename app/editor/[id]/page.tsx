@@ -3595,7 +3595,9 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           ? Promise.resolve()
           : (async () => {
             try {
-              const response = await fetch(shouldEditRequest ? '/api/chat' : '/api/rag', {
+              const endpoint = shouldEditRequest ? '/api/chat' : '/api/rag'
+              // Normal chat → RAG (Gemini+Supabase). Edit/stream → Motion Brain (OpenAI+Groq).
+              const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
