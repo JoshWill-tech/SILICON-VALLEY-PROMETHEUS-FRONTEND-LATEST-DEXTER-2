@@ -1,9 +1,10 @@
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 import { existsSync, readFileSync } from 'fs'
 import { readFile } from 'fs/promises'
 
-const EMBEDDING_MODEL = 'text-embedding-3-small'
+const EMBEDDING_MODEL = 'gemini-embedding-001'
+const EMBEDDING_DIMENSIONS = 1536
 const DUMMY_MOTION_BEAT: MotionBeatInput = {
   url: 'https://www.youtube.com/watch?v=prometheus-motion-brain-demo',
   style: 'Premium cinematic SaaS launch breakdown',
@@ -25,9 +26,7 @@ type IngestResult = {
 
 loadEnvLocal()
 
-const openai = new OpenAI({
-  apiKey: getRequiredEnv('OPENAI_API_KEY'),
-})
+let genAI: GoogleGenerativeAI | null = null
 
 const supabase = createClient(
   getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL'),
@@ -49,15 +48,11 @@ export async function ingestMotionBeat(
   const cleanStyle = requireText(styleRef, 'styleRef')
   const cleanBreakdown = requireText(breakdownText, 'breakdownText')
 
-  const embeddingResponse = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: cleanBreakdown,
-    encoding_format: 'float',
-  })
+  const embedding =
+    process.env.MOCK_MODE === 'true' ? createMockEmbedding() : await createGeminiEmbedding(cleanBreakdown)
 
-  const embedding = embeddingResponse.data[0]?.embedding
   if (!embedding?.length) {
-    throw new Error('OpenAI returned an empty embedding.')
+    throw new Error('Gemini returned an empty embedding.')
   }
 
   const { data, error } = await supabase
@@ -75,6 +70,31 @@ export async function ingestMotionBeat(
   if (!data) throw new Error('Supabase insert succeeded without returning a row.')
 
   return data as IngestResult
+}
+
+async function createGeminiEmbedding(input: string) {
+  const model = getGeminiClient().getGenerativeModel({ model: EMBEDDING_MODEL })
+  const result = await model.embedContent(input)
+  return normalizeEmbeddingDimensions(result.embedding.values)
+}
+
+function createMockEmbedding() {
+  return Array(EMBEDDING_DIMENSIONS)
+    .fill(0)
+    .map(() => Math.random())
+}
+
+function normalizeEmbeddingDimensions(embedding: number[]) {
+  if (embedding.length === EMBEDDING_DIMENSIONS) return embedding
+  if (embedding.length > EMBEDDING_DIMENSIONS) return embedding.slice(0, EMBEDDING_DIMENSIONS)
+
+  return [...embedding, ...Array(EMBEDDING_DIMENSIONS - embedding.length).fill(0)]
+}
+
+function getGeminiClient() {
+  genAI ??= new GoogleGenerativeAI(getRequiredEnv('OPENAI_API_KEY'))
+
+  return genAI
 }
 
 async function runCli() {

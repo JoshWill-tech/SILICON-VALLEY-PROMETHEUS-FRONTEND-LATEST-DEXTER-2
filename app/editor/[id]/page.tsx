@@ -232,6 +232,7 @@ type ChatClipBlock = {
 
 type ChatApiResponse = {
   reply?: string
+  answer?: string
   error?: string
 }
 
@@ -3594,23 +3595,31 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           ? Promise.resolve()
           : (async () => {
             try {
-              const response = await fetch('/api/chat', {
+              const response = await fetch(shouldEditRequest ? '/api/chat' : '/api/rag', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 cache: 'no-store',
                 signal: controller.signal,
-                body: JSON.stringify({
-                  projectTitle,
-                  originalPrompt: initialPrompt,
-                  initialSources,
-                  videoContext,
-                  stream: shouldEditRequest,
-                  workflow: shouldEditRequest ? 'edit' : 'chat',
-                  messages: messageHistory,
-                  revisionRequest: options?.revisionRequest ?? null,
-                }),
+                body: JSON.stringify(
+                  shouldEditRequest
+                    ? {
+                        projectTitle,
+                        originalPrompt: initialPrompt,
+                        initialSources,
+                        videoContext,
+                        stream: true,
+                        workflow: 'edit',
+                        messages: messageHistory,
+                        revisionRequest: options?.revisionRequest ?? null,
+                      }
+                    : {
+                        query: nextValue,
+                        match_count: 5,
+                        match_threshold: 0.7,
+                      },
+                ),
               })
 
               if (shouldEditRequest) {
@@ -3651,7 +3660,12 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               }
 
               const payload = (await response.json().catch(() => null)) as ChatApiResponse | null
-              const nextReply = typeof payload?.reply === 'string' ? payload.reply.trim() : ''
+              const nextReply =
+                typeof payload?.answer === 'string'
+                  ? payload.answer.trim()
+                  : typeof payload?.reply === 'string'
+                    ? payload.reply.trim()
+                    : ''
               const nextError = typeof payload?.error === 'string' ? payload.error.trim() : ''
 
               if (controller.signal.aborted) return
@@ -3669,7 +3683,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                 return
               }
 
-              const chatErrorText = nextError || 'Groq could not answer right now.'
+              const chatErrorText = nextError || 'Motion Brain could not answer right now.'
               latestReplyText = chatErrorText
               replyResolved = true
               chatTaskCompleted = true
@@ -3685,7 +3699,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               const chatErrorText =
                 error instanceof Error
                   ? error.message
-                  : 'The live Groq reply could not be completed right now.'
+                  : 'The live Motion Brain reply could not be completed right now.'
 
               if (shouldEditRequest) {
                 const fallbackReply = sanitizeAssistantReply(editReplyFallback || chatErrorText || loadingText)
@@ -3807,7 +3821,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           text:
             error instanceof Error
               ? error.message
-              : 'The live Groq reply could not be completed right now.',
+              : 'The live Motion Brain reply could not be completed right now.',
         }
         const withAssistantError = [...entriesRef.current, assistantEntry]
         entriesRef.current = withAssistantError

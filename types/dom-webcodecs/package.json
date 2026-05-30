@@ -1,0 +1,6 @@
+{
+  "name": "@types/dom-webcodecs",
+  "version": "0.1.99",
+  "types": "index.d.ts",
+  "private": true
+}
