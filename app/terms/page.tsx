@@ -34,7 +34,7 @@ export default function TermsPage() {
       <LegalSection title="2. Product and Deliverables">
         <p>
           Prometheus Studio is an AI-powered cinematic video creation and motion graphics platform. Paid
-          plans may include HD video exports, custom motion templates, AI transcriptions, captioning
+          plans may include HD video exports, custom motion templates, AI caption timing, captioning
           workflows, cloud-backed project storage, rendering workflows, and related production tools as
           described on our pricing page.
         </p>
@@ -76,8 +76,8 @@ export default function TermsPage() {
         </LegalSubsection>
         <LegalSubsection title="Your Outputs">
           <p>
-            Subject to your compliance with these Terms and applicable law, you own the finished videos,
-            motion graphics, transcripts, captions, and other outputs generated from your Inputs.
+          Subject to your compliance with these Terms and applicable law, you own the finished videos,
+            motion graphics, captions, timing notes, and other outputs generated from your Inputs.
           </p>
         </LegalSubsection>
         <LegalSubsection title="Our Infrastructure">
@@ -90,7 +90,7 @@ export default function TermsPage() {
 
       <LegalSection title="6. AI and Generated Content">
         <p>
-          AI-assisted outputs may contain mistakes, artifacts, transcription errors, similarity to other
+          AI-assisted outputs may contain mistakes, artifacts, caption timing errors, similarity to other
           content, or results that require human review. You are responsible for reviewing outputs before
           publishing, distributing, or relying on them.
         </p>

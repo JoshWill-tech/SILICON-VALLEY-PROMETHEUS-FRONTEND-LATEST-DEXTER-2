@@ -36,6 +36,8 @@ import {
   Volume2,
   VolumeX,
   Wand2,
+  Instagram,
+  Linkedin,
   X,
 } from 'lucide-react'
 
@@ -144,7 +146,7 @@ type PreviewMediaKind = 'video' | 'image'
 type PreviewFitMode = 'fill' | 'fit'
 type BottomMode = 'Original' | 'Music' | 'Timeline'
 type PreviewFramePreset = OutputProfile
-type MobileEditorTabKey = 'status' | 'music' | 'chat' | 'versions' | 'export'
+type MobileEditorTabKey = 'status' | 'music' | 'motion' | 'chat' | 'versions' | 'export'
 type MobileExportQuality = 'draft' | 'standard' | 'max'
 type MobileExportFormat = 'mp4' | 'mov'
 type SessionPreviewState = {
@@ -179,6 +181,7 @@ type ChatEntry = {
   music?: ChatMusicBlock
   task?: ChatTaskBlock
   clip?: ChatClipBlock
+  posting?: SocialPostingBlock
   metadata?: {
     sources?: ChatSource[]
   }
@@ -238,6 +241,24 @@ type ChatClipBlock = {
   sourcePreviewUrl?: string | null
   variants: ChatClipVariant[]
   errorMessage?: string | null
+}
+
+type SocialPostingPlatform = 'linkedin' | 'youtube' | 'instagram' | 'tiktok' | 'x'
+
+type RecentPostingFile = {
+  id: string
+  title: string
+  updatedLabel: string
+  thumbnailUrl?: string | null
+}
+
+type SocialPostingBlock = {
+  status: 'file-picker' | 'platforms' | 'preparing' | 'success'
+  files: RecentPostingFile[]
+  activeFileIndex: number
+  selectedFileId?: string | null
+  selectedPlatforms: SocialPostingPlatform[]
+  note?: string
 }
 
 type ChatApiResponse = {
@@ -701,12 +722,13 @@ const WORKSPACE_TABS: Array<{ key: HeaderNavMode; label: string; icon: React.Com
   { key: 'Motion', label: 'Motion', icon: Sparkles },
 ]
 
-const MOBILE_EDITOR_TABS: Array<{ key: MobileEditorTabKey; label: string }> = [
-  { key: 'status', label: 'Status' },
-  { key: 'music', label: 'Music' },
-  { key: 'chat', label: 'Chat' },
-  { key: 'versions', label: 'Versions' },
-  { key: 'export', label: 'Export' },
+const MOBILE_EDITOR_TABS: Array<{ key: MobileEditorTabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { key: 'status', label: 'Status', icon: Activity },
+  { key: 'music', label: 'Music', icon: Music4 },
+  { key: 'motion', label: 'Motion', icon: Sparkles },
+  { key: 'chat', label: 'Chat', icon: MessageSquare },
+  { key: 'versions', label: 'Versions', icon: GitBranch },
+  { key: 'export', label: 'Export', icon: Download },
 ]
 
 const QUICK_ACTIONS = [
@@ -822,6 +844,32 @@ function formatRelativeThreadTime(timestamp: number | null, now: number) {
   if (diffHours < 24) return `${diffHours}h ago`
 
   return `${Math.floor(diffHours / 24)}d ago`
+}
+
+function isPostingIntent(value: string) {
+  return /\b(post|publish|share|upload to|send to)\b/i.test(value)
+}
+
+function isPostingConfirm(value: string) {
+  return /\b(yes|yep|yeah|that's it|that is it|correct|right one|use this|confirm)\b/i.test(value)
+}
+
+function isPostingReject(value: string) {
+  return /\b(no|nope|not that|wrong|next|different)\b/i.test(value)
+}
+
+function formatRecentFileTime(value?: string | null) {
+  const updatedAt = value ? Date.parse(value) : NaN
+  if (!Number.isFinite(updatedAt)) return 'Recently edited'
+
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - updatedAt) / 60000))
+  if (diffMinutes < 1) return 'Edited just now'
+  if (diffMinutes < 60) return `Edited ${diffMinutes}m ago`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `Edited ${diffHours}h ago`
+
+  return `Edited ${Math.floor(diffHours / 24)}d ago`
 }
 
 function normalizeChatSources(value: unknown): ChatSource[] {
@@ -1734,14 +1782,177 @@ function ChatClipProcessingCard({
   )
 }
 
+const POSTING_PLATFORMS: Array<{
+  id: SocialPostingPlatform
+  label: string
+  className: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
+  { id: 'linkedin', label: 'LinkedIn', className: 'data-[selected=true]:border-[#3b82f6] data-[selected=true]:text-[#93c5fd]', icon: Linkedin },
+  { id: 'youtube', label: 'YouTube', className: 'data-[selected=true]:border-[#ef4444] data-[selected=true]:text-[#fca5a5]', icon: Play },
+  { id: 'instagram', label: 'Instagram', className: 'data-[selected=true]:border-[#d946ef] data-[selected=true]:text-[#f0abfc]', icon: Instagram },
+  { id: 'tiktok', label: 'TikTok', className: 'data-[selected=true]:border-[#22d3ee] data-[selected=true]:text-[#67e8f9]', icon: Music4 },
+  { id: 'x', label: 'Twitter/X', className: 'data-[selected=true]:border-white data-[selected=true]:text-white', icon: X },
+]
+
+function SocialPostingCard({
+  entryId,
+  posting,
+  onConfirmFile,
+  onRejectFile,
+  onTogglePlatform,
+  onPostNow,
+}: {
+  entryId: string
+  posting: SocialPostingBlock
+  onConfirmFile?: (entryId: string, fileId: string) => void
+  onRejectFile?: (entryId: string) => void
+  onTogglePlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onPostNow?: (entryId: string) => void
+}) {
+  const activeFile = posting.files[posting.activeFileIndex] ?? posting.files[0]
+  const selectedFile = posting.files.find((file) => file.id === posting.selectedFileId) ?? activeFile
+  const selectedLabels = posting.selectedPlatforms
+    .map((platform) => POSTING_PLATFORMS.find((item) => item.id === platform)?.label)
+    .filter(Boolean)
+    .join(', ')
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/95 p-3 text-white/86 shadow-[0_18px_38px_rgba(0,0,0,0.26)] backdrop-blur-xl">
+      {posting.status === 'file-picker' ? (
+        <>
+          <div className="text-sm font-medium text-white">I can help you publish your work. Let me fetch your recently edited files.</div>
+          <div className="mt-2 text-xs text-white/52">Is this the file you are referring to?</div>
+          <div className="premium-scroll-hide mt-3 flex gap-2 overflow-x-auto pb-1">
+            {posting.files.map((file, index) => {
+              const active = index === posting.activeFileIndex
+              return (
+                <button
+                  key={file.id}
+                  type="button"
+                  onClick={() => onConfirmFile?.(entryId, file.id)}
+                  className={cn(
+                    'w-36 shrink-0 overflow-hidden rounded-xl border bg-white/[0.03] text-left transition-colors',
+                    active ? 'border-emerald-300/50' : 'border-white/10 hover:border-white/20',
+                  )}
+                >
+                  <div
+                    className="h-20 bg-[#111] bg-cover bg-center"
+                    style={file.thumbnailUrl ? { backgroundImage: `url(${file.thumbnailUrl})` } : undefined}
+                  >
+                    {!file.thumbnailUrl ? (
+                      <div className="grid h-full place-items-center text-white/30">
+                        <Film className="size-5" />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="p-2">
+                    <div className="truncate text-xs font-medium text-white/88">{file.title}</div>
+                    <div className="mt-1 text-[10px] text-white/42">{file.updatedLabel}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => activeFile && onConfirmFile?.(entryId, activeFile.id)}
+              className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-medium text-white"
+            >
+              Confirm file
+            </button>
+            <button
+              type="button"
+              onClick={() => onRejectFile?.(entryId)}
+              className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/62"
+            >
+              Not this one
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {posting.status === 'platforms' ? (
+        <>
+          <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-300/18 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100">
+            <CheckCircle2 className="size-3.5" />
+            <span className="truncate">Selected: {selectedFile?.title ?? 'Recent file'}</span>
+          </div>
+          <div className="mt-3 text-sm font-medium text-white">Which platforms would you like to post to?</div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {POSTING_PLATFORMS.map((platform) => {
+              const Icon = platform.icon
+              const selected = posting.selectedPlatforms.includes(platform.id)
+              return (
+                <button
+                  key={platform.id}
+                  type="button"
+                  data-selected={selected}
+                  onClick={() => onTogglePlatform?.(entryId, platform.id)}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/60 transition-colors hover:text-white',
+                    platform.className,
+                  )}
+                >
+                  <Icon className="size-4" />
+                  {platform.label}
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              onClick={() => onTogglePlatform?.(entryId, 'all')}
+              className="col-span-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-xs font-medium text-white/78"
+            >
+              All Channels
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => onPostNow?.(entryId)}
+            disabled={posting.selectedPlatforms.length === 0}
+            className="mt-3 w-full rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Post Now
+          </button>
+        </>
+      ) : null}
+
+      {posting.status === 'preparing' ? <div className="text-sm text-white/78">Preparing your post...</div> : null}
+
+      {posting.status === 'success' ? (
+        <div>
+          <div className="text-sm text-white/86">
+            Queued for posting to {selectedLabels || 'selected platforms'}. You will receive a notification when complete.
+          </div>
+          <button type="button" className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs text-white/68">
+            Track Status
+          </button>
+        </div>
+      ) : null}
+
+      {posting.note ? <div className="mt-2 text-xs text-white/42">{posting.note}</div> : null}
+    </div>
+  )
+}
+
 function CurvedThreadPill({
   entry,
   index,
   reduceMotion,
+  onConfirmPostingFile,
+  onRejectPostingFile,
+  onTogglePostingPlatform,
+  onPostNow,
 }: {
   entry: ChatEntry
   index: number
   reduceMotion: boolean
+  onConfirmPostingFile?: (entryId: string, fileId: string) => void
+  onRejectPostingFile?: (entryId: string) => void
+  onTogglePostingPlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onPostNow?: (entryId: string) => void
 }) {
   const isUser = entry.role === 'user'
   const isAssistant = entry.role === 'assistant'
@@ -1808,6 +2019,16 @@ function CurvedThreadPill({
             <span className="whitespace-pre-wrap">{entry.text}</span>
           )}
           {entry.clip ? <ChatClipProcessingCard clip={entry.clip} reduceMotion={reduceMotion} /> : null}
+          {entry.posting ? (
+            <SocialPostingCard
+              entryId={entry.id}
+              posting={entry.posting}
+              onConfirmFile={onConfirmPostingFile}
+              onRejectFile={onRejectPostingFile}
+              onTogglePlatform={onTogglePostingPlatform}
+              onPostNow={onPostNow}
+            />
+          ) : null}
 
           {isAssistant && entry.metadata?.sources?.length ? (
             <div className="premium-scroll-hide mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -1866,6 +2087,10 @@ function FloatingChatComposer({
   conversationEntries = [],
   threadOpen,
   onThreadOpenChange,
+  onConfirmPostingFile,
+  onRejectPostingFile,
+  onTogglePostingPlatform,
+  onPostNow,
 }: {
   projectId: string
   draft: string
@@ -1881,6 +2106,10 @@ function FloatingChatComposer({
   conversationEntries?: ChatEntry[]
   threadOpen: boolean
   onThreadOpenChange: (nextOpen: boolean) => void
+  onConfirmPostingFile?: (entryId: string, fileId: string) => void
+  onRejectPostingFile?: (entryId: string) => void
+  onTogglePostingPlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onPostNow?: (entryId: string) => void
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const responsivePlaceholderText = 'Ask about editing, color, sound...'
@@ -2406,6 +2635,10 @@ function FloatingChatComposer({
                           entry={entry}
                           index={index}
                           reduceMotion={reduceMotion}
+                          onConfirmPostingFile={onConfirmPostingFile}
+                          onRejectPostingFile={onRejectPostingFile}
+                          onTogglePostingPlatform={onTogglePostingPlatform}
+                          onPostNow={onPostNow}
                         />
                       ))
                     ) : (
@@ -3065,6 +3298,129 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     })
   }, [])
 
+  const recentPostingFiles = React.useMemo<RecentPostingFile[]>(() => {
+    const storedProjects = typeof window === 'undefined' ? [] : projects.list()
+    const mapped = storedProjects.slice(0, 8).map((item) => ({
+      id: item.id,
+      title: item.title || 'Untitled Project',
+      updatedLabel: formatRecentFileTime(item.updatedAt),
+      thumbnailUrl: item.thumbnailUrl || null,
+    }))
+
+    if (!mapped.some((item) => item.id === projectId)) {
+      mapped.unshift({
+        id: projectId,
+        title: projectTitle || 'Current edit',
+        updatedLabel: 'Current edit',
+        thumbnailUrl: null,
+      })
+    }
+
+    return mapped.slice(0, 6)
+  }, [projectId, projectTitle])
+
+  const findActivePostingEntry = React.useCallback(() => {
+    return [...entriesRef.current]
+      .reverse()
+      .find((entry) => entry.posting && entry.posting.status !== 'success')
+  }, [])
+
+  const confirmPostingFile = React.useCallback((entryId: string, fileId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Which platforms would you like to post to?',
+        posting: {
+          ...entry.posting,
+          status: 'platforms',
+          selectedFileId: fileId,
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const rejectPostingFile = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const nextIndex = entry.posting.activeFileIndex + 1
+      if (nextIndex >= entry.posting.files.length) {
+        return {
+          ...entry,
+          status: 'ready',
+          text: 'Please tell me which project you would like to post.',
+          posting: {
+            ...entry.posting,
+            note: 'Please tell me which project you would like to post.',
+          },
+        }
+      }
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          activeFileIndex: nextIndex,
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const togglePostingPlatform = React.useCallback((entryId: string, platform: SocialPostingPlatform | 'all') => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const allPlatforms = POSTING_PLATFORMS.map((item) => item.id)
+      const selectedPlatforms =
+        platform === 'all'
+          ? entry.posting.selectedPlatforms.length === allPlatforms.length
+            ? []
+            : allPlatforms
+          : entry.posting.selectedPlatforms.includes(platform)
+            ? entry.posting.selectedPlatforms.filter((item) => item !== platform)
+            : [...entry.posting.selectedPlatforms, platform]
+
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          selectedPlatforms,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const completePostingMock = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting || entry.posting.selectedPlatforms.length === 0) return entry
+      return {
+        ...entry,
+        status: 'loading',
+        text: 'Preparing your post...',
+        posting: {
+          ...entry.posting,
+          status: 'preparing',
+        },
+      }
+    })
+
+    window.setTimeout(() => {
+      mergeEntryInState(entryId, (entry) => {
+        if (!entry.posting) return entry
+        return {
+          ...entry,
+          status: 'ready',
+          text: 'Posting queued.',
+          posting: {
+            ...entry.posting,
+            status: 'success',
+          },
+        }
+      })
+    }, 900)
+  }, [mergeEntryInState])
+
   const collectRecentMusicTrackIds = React.useCallback(() => {
     const trackIds = new Set<string>()
 
@@ -3449,6 +3805,48 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           }
         : null
       const displayEntries = userEntry ? [...baseEntries, userEntry] : baseEntries
+      const activePostingEntry = findActivePostingEntry()
+
+      if (activePostingEntry?.posting?.status === 'file-picker' && shouldShowUserMessage) {
+        entriesRef.current = displayEntries
+        setEntries(displayEntries)
+        pendingReplyScrollEntryIdRef.current = activePostingEntry.id
+
+        if (isPostingConfirm(nextValue)) {
+          const activeFile =
+            activePostingEntry.posting.files[activePostingEntry.posting.activeFileIndex] ??
+            activePostingEntry.posting.files[0]
+          if (activeFile) confirmPostingFile(activePostingEntry.id, activeFile.id)
+          return
+        }
+
+        if (isPostingReject(nextValue)) {
+          rejectPostingFile(activePostingEntry.id)
+          return
+        }
+      }
+
+      if (!shouldEditRequest && !shouldRecommendMusic && isPostingIntent(nextValue)) {
+        const postingAssistant: ChatEntry = {
+          id: `assistant-posting-${Date.now()}`,
+          role: 'assistant',
+          text: 'I can help you publish your work. Let me fetch your recently edited files.',
+          status: 'ready',
+          posting: {
+            status: 'file-picker',
+            files: recentPostingFiles,
+            activeFileIndex: 0,
+            selectedFileId: null,
+            selectedPlatforms: [],
+          },
+        }
+        const nextEntries = [...displayEntries, postingAssistant]
+        entriesRef.current = nextEntries
+        setEntries(nextEntries)
+        pendingReplyScrollEntryIdRef.current = postingAssistant.id
+        return
+      }
+
       const messageHistory = [
         ...baseEntries.map((entry) => ({
           role: entry.role,
@@ -3770,11 +4168,15 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     [
       initialPrompt,
       initialSources,
+      confirmPostingFile,
+      findActivePostingEntry,
       onEditRequest,
       musicPreference,
       projectTitle,
       mergeEntryInState,
       removeEntryInState,
+      recentPostingFiles,
+      rejectPostingFile,
       resolveMusicRecommendations,
       videoContext,
     ],
@@ -4246,6 +4648,10 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   conversationEntries={entries}
                   threadOpen={isComposerThreadOpen}
                   onThreadOpenChange={setIsComposerThreadOpen}
+                  onConfirmPostingFile={confirmPostingFile}
+                  onRejectPostingFile={rejectPostingFile}
+                  onTogglePostingPlatform={togglePostingPlatform}
+                  onPostNow={completePostingMock}
                 />
               </>,
               composerPortalTarget,
@@ -4309,6 +4715,15 @@ type MobileEditorViewProps = {
   previewKind: PreviewMediaKind
   hasPreviewMedia: boolean
   sourceLabel: string
+  objectFit: 'cover' | 'contain'
+  mediaTransformStyle?: React.CSSProperties
+  currentTimeLabel: string
+  durationLabel: string
+  currentTimeSec: number
+  durationSec: number
+  previewPlaying: boolean
+  previewMuted: boolean
+  motionVideoRef: React.Ref<HTMLVideoElement>
   musicTracks: MusicRecommendation[]
   selectedMusicTrackId: string | null
   videoContext: MusicVideoContext
@@ -4321,6 +4736,18 @@ type MobileEditorViewProps = {
   automationRequest: ComposerAutomationRequest | null
   onBack: () => void
   onOpenUploadNewProject: () => void
+  onTogglePlayback: () => void
+  onSeekPreview: (timeSec: number) => void
+  onVideoLoadedMetadata: React.ReactEventHandler<HTMLVideoElement>
+  onVideoLoadedData: React.ReactEventHandler<HTMLVideoElement>
+  onVideoCanPlay: React.ReactEventHandler<HTMLVideoElement>
+  onVideoTimeUpdate: React.ReactEventHandler<HTMLVideoElement>
+  onVideoEnded: React.ReactEventHandler<HTMLVideoElement>
+  onVideoPlay: React.ReactEventHandler<HTMLVideoElement>
+  onVideoPause: React.ReactEventHandler<HTMLVideoElement>
+  onVideoError: React.ReactEventHandler<HTMLVideoElement>
+  onImageLoaded: React.ReactEventHandler<HTMLImageElement>
+  onApplyMotionPrompt: (prompt: string) => void
   onSelectMusicTrack: (track: MusicRecommendation) => void
   onEditRequest: (request: { prompt: string; styleTemplate: StyleTemplate }) => void
   onSave: (editorState: any) => Promise<void>
@@ -4341,6 +4768,15 @@ function MobileEditorView({
   previewKind,
   hasPreviewMedia,
   sourceLabel,
+  objectFit,
+  mediaTransformStyle,
+  currentTimeLabel,
+  durationLabel,
+  currentTimeSec,
+  durationSec,
+  previewPlaying,
+  previewMuted,
+  motionVideoRef,
   musicTracks,
   selectedMusicTrackId,
   videoContext,
@@ -4352,6 +4788,18 @@ function MobileEditorView({
   clipRelayState,
   automationRequest,
   onBack,
+  onTogglePlayback,
+  onSeekPreview,
+  onVideoLoadedMetadata,
+  onVideoLoadedData,
+  onVideoCanPlay,
+  onVideoTimeUpdate,
+  onVideoEnded,
+  onVideoPlay,
+  onVideoPause,
+  onVideoError,
+  onImageLoaded,
+  onApplyMotionPrompt,
   onSelectMusicTrack,
   onEditRequest,
   onSave,
@@ -4399,6 +4847,40 @@ function MobileEditorView({
               selectedTrackId={selectedMusicTrackId}
               onSelectTrack={onSelectMusicTrack}
               variant="mobile"
+            />
+          </div>
+        )
+      case 'motion':
+        return (
+          <div className="relative h-full min-h-0">
+            <MotionPropertyCanvas
+              projectTitle={projectTitle}
+              previewUrl={previewUrl}
+              previewKind={previewKind}
+              hasPreviewMedia={hasPreviewMedia}
+              sourceLabel={sourceLabel}
+              objectFit={objectFit}
+              mediaTransformStyle={mediaTransformStyle}
+              currentTimeLabel={currentTimeLabel}
+              durationLabel={durationLabel}
+              currentTimeSec={currentTimeSec}
+              durationSec={durationSec}
+              previewPlaying={previewPlaying}
+              previewMuted={previewMuted}
+              videoRef={motionVideoRef}
+              onTogglePlayback={onTogglePlayback}
+              onPickSource={onOpenUploadNewProject}
+              onSeek={onSeekPreview}
+              onVideoLoadedMetadata={onVideoLoadedMetadata}
+              onVideoLoadedData={onVideoLoadedData}
+              onVideoCanPlay={onVideoCanPlay}
+              onVideoTimeUpdate={onVideoTimeUpdate}
+              onVideoEnded={onVideoEnded}
+              onVideoPlay={onVideoPlay}
+              onVideoPause={onVideoPause}
+              onVideoError={onVideoError}
+              onImageLoaded={onImageLoaded}
+              onApplyPrompt={onApplyMotionPrompt}
             />
           </div>
         )
@@ -4658,6 +5140,7 @@ function MobileEditorView({
             <div className="flex min-w-max gap-5">
               {MOBILE_EDITOR_TABS.map((tab) => {
                 const active = activeTab === tab.key
+                const Icon = tab.icon
                 return (
                   <button
                     key={tab.key}
@@ -4665,10 +5148,11 @@ function MobileEditorView({
                     onClick={() => setActiveTab(tab.key)}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'relative h-11 text-sm font-medium transition-colors',
+                      'relative inline-flex h-11 items-center gap-1.5 text-sm font-medium transition-colors',
                       active ? 'text-white' : 'text-white/46',
                     )}
                   >
+                    <Icon className="size-3.5" />
                     {tab.label}
                     {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[#6366f1]" /> : null}
                   </button>
@@ -6073,6 +6557,16 @@ export default function EditorPage() {
     setPreviewCurrentTimeSec(nextTime)
   }, [transportDurationSec])
 
+  const handlePreviewSeekSeconds = React.useCallback((nextTimeSec: number) => {
+    if (!transportDurationSec) return
+    const nextTime = Math.min(transportDurationSec, Math.max(0, nextTimeSec))
+    const video = previewVideoRef.current
+    if (video) {
+      video.currentTime = nextTime
+    }
+    setPreviewCurrentTimeSec(nextTime)
+  }, [transportDurationSec])
+
   const pausePreviewPlayback = React.useCallback(() => {
     const video = previewVideoRef.current
     previewPlaybackIntentRef.current = 'paused'
@@ -6270,6 +6764,15 @@ export default function EditorPage() {
           previewKind={previewKind}
           hasPreviewMedia={hasPreviewMedia}
           sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
+          objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
+          mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+          currentTimeLabel={transportCurrentTime}
+          durationLabel={transportTime}
+          currentTimeSec={previewCurrentTimeSec}
+          durationSec={transportDurationSec}
+          previewPlaying={previewPlaying}
+          previewMuted={isPreviewMuted}
+          motionVideoRef={previewVideoRef}
           musicTracks={editorMusicRecommendations}
           selectedMusicTrackId={selectedEditorMusicTrackId}
           videoContext={videoContext}
@@ -6280,6 +6783,18 @@ export default function EditorPage() {
           isDownloading={isDownloading}
           clipRelayState={clipRelayState}
           automationRequest={composerAutomationRequest}
+          onTogglePlayback={togglePreviewPlayback}
+          onSeekPreview={handlePreviewSeekSeconds}
+          onVideoLoadedMetadata={handlePreviewMetadataLoaded}
+          onVideoLoadedData={handlePreviewVideoReady}
+          onVideoCanPlay={handlePreviewVideoReady}
+          onVideoTimeUpdate={handlePreviewTimeUpdate}
+          onVideoEnded={handlePreviewEnded}
+          onVideoPlay={handlePreviewVideoPlay}
+          onVideoPause={handlePreviewVideoPause}
+          onVideoError={handlePreviewVideoError}
+          onImageLoaded={handlePreviewImageLoaded}
+          onApplyMotionPrompt={handleMotionCanvasPrompt}
           onBack={handleMobileBackNavigation}
           onOpenUploadNewProject={() => setIsNewProjectUploadOpen(true)}
           onSelectMusicTrack={handleEditorMusicTrackSelect}
@@ -6606,11 +7121,14 @@ export default function EditorPage() {
                     mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
                     currentTimeLabel={transportCurrentTime}
                     durationLabel={transportTime}
+                    currentTimeSec={previewCurrentTimeSec}
+                    durationSec={transportDurationSec}
                     previewPlaying={previewPlaying}
                     previewMuted={isPreviewMuted}
                     videoRef={previewVideoRef}
                     onTogglePlayback={togglePreviewPlayback}
                     onPickSource={openInlineSourcePicker}
+                    onSeek={handlePreviewSeekSeconds}
                     onVideoLoadedMetadata={handlePreviewMetadataLoaded}
                     onVideoLoadedData={handlePreviewVideoReady}
                     onVideoCanPlay={handlePreviewVideoReady}
