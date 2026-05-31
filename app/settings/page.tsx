@@ -88,6 +88,16 @@ export default function SettingsPage() {
               </div>
               <Badge variant="secondary">Mock</Badge>
             </div>
+            <Link
+              href="/settings/social-accounts"
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12] hover:bg-white/[0.06]"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-white/85">Social Accounts</div>
+                <div className="mt-1 truncate text-xs text-white/45">Connect publishing channels.</div>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-white/42" />
+            </Link>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-white/85">Dropbox</div>
