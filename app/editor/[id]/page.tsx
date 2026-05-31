@@ -16,18 +16,23 @@ import {
   Code2,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
+  Facebook,
   Film,
   FolderOpen,
   Download,
   GitBranch,
   ImageIcon,
   Layers3,
+  Lock,
   MessageSquare,
   Music4,
   Palette,
   Pause,
   PenSquare,
   Play,
+  RefreshCw,
+  Search,
   Settings2,
   SlidersHorizontal,
   Scissors,
@@ -243,21 +248,48 @@ type ChatClipBlock = {
   errorMessage?: string | null
 }
 
-type SocialPostingPlatform = 'linkedin' | 'youtube' | 'instagram' | 'tiktok' | 'x'
+type SocialPostingPlatform = 'linkedin' | 'youtube' | 'instagram' | 'tiktok' | 'x' | 'facebook'
 
 type RecentPostingFile = {
   id: string
   title: string
+  projectTitle?: string
+  durationLabel: string
   updatedLabel: string
+  topic: string
   thumbnailUrl?: string | null
 }
 
+type PostingProjectGroup = {
+  id: string
+  title: string
+  videos: RecentPostingFile[]
+}
+
+type SocialCaptionDraft = {
+  text: string
+  variationIndex: number
+  approved: boolean
+}
+
+type SocialPostingResult = {
+  status: 'posting' | 'success' | 'failed'
+  progress: number
+  url?: string
+  error?: string
+}
+
 type SocialPostingBlock = {
-  status: 'file-picker' | 'platforms' | 'preparing' | 'success'
+  status: 'browser' | 'confirm' | 'captions' | 'platforms' | 'accounts' | 'preparing' | 'success'
   files: RecentPostingFile[]
+  projects: PostingProjectGroup[]
   activeFileIndex: number
+  selectedVideo?: RecentPostingFile | null
   selectedFileId?: string | null
   selectedPlatforms: SocialPostingPlatform[]
+  captions: Partial<Record<SocialPostingPlatform, SocialCaptionDraft>>
+  captionGenerating?: boolean
+  postingResults?: Partial<Record<SocialPostingPlatform, SocialPostingResult>>
   note?: string
 }
 
@@ -847,7 +879,11 @@ function formatRelativeThreadTime(timestamp: number | null, now: number) {
 }
 
 function isPostingIntent(value: string) {
-  return /\b(post|publish|share|upload to|send to)\b/i.test(value)
+  return /\b(post|publish|share|upload|send to|schedule)\b/i.test(value)
+}
+
+function hasPostingTemporalReference(value: string) {
+  return /\b(last video|latest|first video|video before last|recent project|my last two videos|last two videos|recent video|newest)\b/i.test(value)
 }
 
 function isPostingConfirm(value: string) {
@@ -1787,13 +1823,79 @@ const POSTING_PLATFORMS: Array<{
   label: string
   className: string
   icon: React.ComponentType<{ className?: string }>
+  limit: number
+  connected: boolean
+  mockUrl: string
 }> = [
-  { id: 'linkedin', label: 'LinkedIn', className: 'data-[selected=true]:border-[#3b82f6] data-[selected=true]:text-[#93c5fd]', icon: Linkedin },
-  { id: 'youtube', label: 'YouTube', className: 'data-[selected=true]:border-[#ef4444] data-[selected=true]:text-[#fca5a5]', icon: Play },
-  { id: 'instagram', label: 'Instagram', className: 'data-[selected=true]:border-[#d946ef] data-[selected=true]:text-[#f0abfc]', icon: Instagram },
-  { id: 'tiktok', label: 'TikTok', className: 'data-[selected=true]:border-[#22d3ee] data-[selected=true]:text-[#67e8f9]', icon: Music4 },
-  { id: 'x', label: 'Twitter/X', className: 'data-[selected=true]:border-white data-[selected=true]:text-white', icon: X },
+  { id: 'linkedin', label: 'LinkedIn', className: 'data-[selected=true]:border-[#0A66C2] data-[selected=true]:text-[#93c5fd]', icon: Linkedin, limit: 3000, connected: true, mockUrl: 'https://linkedin.com/feed/update/mock-prometheus' },
+  { id: 'youtube', label: 'YouTube', className: 'data-[selected=true]:border-[#FF0000] data-[selected=true]:text-[#fca5a5]', icon: Play, limit: 5000, connected: false, mockUrl: 'https://youtube.com/watch?v=mock-prometheus' },
+  { id: 'instagram', label: 'Instagram', className: 'data-[selected=true]:border-[#d946ef] data-[selected=true]:text-[#f0abfc]', icon: Instagram, limit: 2200, connected: false, mockUrl: 'https://instagram.com/p/mock-prometheus' },
+  { id: 'tiktok', label: 'TikTok', className: 'data-[selected=true]:border-[#22d3ee] data-[selected=true]:text-[#67e8f9]', icon: Music4, limit: 2200, connected: false, mockUrl: 'https://tiktok.com/@prometheus/video/mock' },
+  { id: 'x', label: 'Twitter/X', className: 'data-[selected=true]:border-white data-[selected=true]:text-white', icon: X, limit: 280, connected: false, mockUrl: 'https://x.com/prometheus/status/mock' },
+  { id: 'facebook', label: 'Facebook', className: 'data-[selected=true]:border-[#1877F2] data-[selected=true]:text-[#bfdbfe]', icon: Facebook, limit: 63206, connected: false, mockUrl: 'https://facebook.com/prometheus/posts/mock' },
 ]
+
+const MOCK_CAPTION_VARIATIONS: Record<SocialPostingPlatform, string[]> = {
+  instagram: [
+    'This is a mock Instagram caption for your video about {topic}. Built for visual rhythm, audience energy, and a polished release. #filmmaking #motiondesign #creatorworkflow',
+    'A new cut from the studio: {topic}. Clean pacing, sharp timing, and a final frame built for the feed. #videoediting #cinematic',
+    'Fresh from Prometheus Studio. {topic} with tighter motion, caption timing, and an edit ready to share. ✨ #editors',
+  ],
+  linkedin: [
+    'This is a mock LinkedIn caption for your video about {topic}.\n\nThe edit focuses on clear narrative structure, polished pacing, and production-ready delivery for a professional audience.',
+    'Sharing a new production workflow note: {topic}.\n\nThis cut was prepared with attention to timing, structure, and brand-safe presentation.',
+    'A concise production update from Prometheus Studio: {topic}.\n\nThe final video emphasizes clarity, visual discipline, and a professional viewing experience.',
+  ],
+  tiktok: [
+    'This is a mock TikTok caption for your video about {topic}. Quick hook, clean cut, strong finish. #videotok #editingtips #fyp',
+    'POV: the edit finally clicks. {topic}. #filmmaker #motiondesign #creator',
+    'Fast cut. Clear hook. {topic}. #postproduction #viraledit',
+  ],
+  youtube: [
+    'Title: This is a mock YouTube title for {topic}\n\nDescription: This video explores {topic} with a polished edit, caption timing, and production-ready pacing.\n\nTags: filmmaking, video editing, motion design, Prometheus Studio',
+    'Title: {topic} | Prometheus Studio Edit\n\nDescription: A refined production cut built for clarity, retention, and clean delivery.\n\nTags: editing workflow, video production, captions',
+    'Title: How This Cut Came Together\n\nDescription: A behind-the-scenes style description for {topic}, ready for YouTube publishing.\n\nTags: filmmakers, editors, studio workflow',
+  ],
+  x: [
+    'This is a mock X/Twitter caption for your video about {topic}. Clean cut, tight pacing, ready to ship.',
+    'New edit ready: {topic}. Built with sharper timing and a cleaner final pass.',
+    'Cut locked. Caption pass done. {topic}.',
+  ],
+  facebook: [
+    'This is a mock Facebook caption for your video about {topic}. Sharing the finished cut with a community-focused note and a clear reason to watch.',
+    'New from Prometheus Studio: {topic}. A polished video update prepared for viewers who want the full story.',
+    'We finished a new production pass around {topic}. Watch the cut, share your thoughts, and tell us what you want to see next.',
+  ],
+}
+
+function getPostingPlatform(platformId: SocialPostingPlatform) {
+  return POSTING_PLATFORMS.find((platform) => platform.id === platformId) ?? POSTING_PLATFORMS[0]!
+}
+
+function buildMockCaption(platformId: SocialPostingPlatform, topic: string, variationIndex: number) {
+  const variations = MOCK_CAPTION_VARIATIONS[platformId]
+  const template = variations[variationIndex % variations.length] ?? variations[0]!
+  return template.replaceAll('{topic}', topic || 'your project')
+}
+
+function buildCaptionDrafts(video: RecentPostingFile): Partial<Record<SocialPostingPlatform, SocialCaptionDraft>> {
+  return POSTING_PLATFORMS.reduce<Partial<Record<SocialPostingPlatform, SocialCaptionDraft>>>((drafts, platform) => {
+    drafts[platform.id] = {
+      text: buildMockCaption(platform.id, video.topic, 0),
+      variationIndex: 0,
+      approved: false,
+    }
+    return drafts
+  }, {})
+}
+
+function normalizePostingVideo(file: RecentPostingFile): RecentPostingFile {
+  return {
+    ...file,
+    durationLabel: file.durationLabel || '0:45',
+    topic: file.topic || file.title || 'your project',
+  }
+}
 
 function SocialPostingCard({
   entryId,
@@ -1801,6 +1903,17 @@ function SocialPostingCard({
   onConfirmFile,
   onRejectFile,
   onTogglePlatform,
+  onSelectVideo,
+  onConfirmVideo,
+  onChangeVideo,
+  onGenerateCaptions,
+  onUpdateCaption,
+  onRegenerateCaption,
+  onToggleCaptionApproval,
+  onProceedToPlatforms,
+  onReviewAccounts,
+  onOpenSocialSettings,
+  onDonePosting,
   onPostNow,
 }: {
   entryId: string
@@ -1808,69 +1921,291 @@ function SocialPostingCard({
   onConfirmFile?: (entryId: string, fileId: string) => void
   onRejectFile?: (entryId: string) => void
   onTogglePlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onSelectVideo?: (entryId: string, video: RecentPostingFile) => void
+  onConfirmVideo?: (entryId: string) => void
+  onChangeVideo?: (entryId: string) => void
+  onGenerateCaptions?: (entryId: string) => void
+  onUpdateCaption?: (entryId: string, platform: SocialPostingPlatform, value: string) => void
+  onRegenerateCaption?: (entryId: string, platform: SocialPostingPlatform) => void
+  onToggleCaptionApproval?: (entryId: string, platform: SocialPostingPlatform) => void
+  onProceedToPlatforms?: (entryId: string) => void
+  onReviewAccounts?: (entryId: string) => void
+  onOpenSocialSettings?: () => void
+  onDonePosting?: (entryId: string) => void
   onPostNow?: (entryId: string) => void
 }) {
+  const [browserTab, setBrowserTab] = React.useState<'recent' | 'projects'>('recent')
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [expandedProjectId, setExpandedProjectId] = React.useState<string | null>(posting.projects[0]?.id ?? null)
+  const [editingCaption, setEditingCaption] = React.useState<SocialPostingPlatform | null>(null)
+
   const activeFile = posting.files[posting.activeFileIndex] ?? posting.files[0]
-  const selectedFile = posting.files.find((file) => file.id === posting.selectedFileId) ?? activeFile
+  const selectedFile = posting.selectedVideo ?? posting.files.find((file) => file.id === posting.selectedFileId) ?? activeFile
   const selectedLabels = posting.selectedPlatforms
     .map((platform) => POSTING_PLATFORMS.find((item) => item.id === platform)?.label)
     .filter(Boolean)
     .join(', ')
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filteredRecentFiles = posting.files.filter((file) => {
+    if (!normalizedQuery) return true
+    return `${file.title} ${file.projectTitle ?? ''}`.toLowerCase().includes(normalizedQuery)
+  })
+  const filteredProjects = posting.projects.filter((project) => {
+    if (!normalizedQuery) return true
+    return (
+      project.title.toLowerCase().includes(normalizedQuery) ||
+      project.videos.some((video) => video.title.toLowerCase().includes(normalizedQuery))
+    )
+  })
+  const captionPlatforms = POSTING_PLATFORMS
+  const captionsReady = captionPlatforms.every((platform) => posting.captions[platform.id]?.approved)
+  const unconnectedPlatforms = posting.selectedPlatforms.filter((platformId) => !getPostingPlatform(platformId).connected)
+  const allAccountsReady = posting.selectedPlatforms.length > 0 && unconnectedPlatforms.length === 0
+  const averagePostingProgress =
+    posting.selectedPlatforms.length > 0
+      ? posting.selectedPlatforms.reduce((total, platformId) => total + (posting.postingResults?.[platformId]?.progress ?? 0), 0) /
+        posting.selectedPlatforms.length
+      : 0
+
+  const renderVideoCard = (video: RecentPostingFile, compact = false) => (
+    <div
+      key={video.id}
+      className={cn(
+        'rounded-xl border border-white/10 bg-white/[0.035] p-2',
+        compact ? 'min-w-44' : 'min-w-48',
+      )}
+    >
+      <div
+        className="h-20 rounded-lg border border-white/8 bg-[#111] bg-cover bg-center"
+        style={video.thumbnailUrl ? { backgroundImage: `url(${video.thumbnailUrl})` } : undefined}
+      >
+        {!video.thumbnailUrl ? (
+          <div className="grid h-full place-items-center text-white/30">
+            <Film className="size-5" />
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-2 min-w-0">
+        <div className="truncate text-xs font-medium text-white/90">{video.title}</div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-white/42">
+          <span>{video.durationLabel}</span>
+          <span className="truncate">{video.updatedLabel}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onSelectVideo?.(entryId, normalizePostingVideo(video))}
+        className="mt-2 w-full rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/74 transition-colors hover:bg-white/[0.08] hover:text-white"
+      >
+        Select
+      </button>
+    </div>
+  )
 
   return (
-    <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/95 p-3 text-white/86 shadow-[0_18px_38px_rgba(0,0,0,0.26)] backdrop-blur-xl">
-      {posting.status === 'file-picker' ? (
-        <>
-          <div className="text-sm font-medium text-white">I can help you publish your work. Let me fetch your recently edited files.</div>
-          <div className="mt-2 text-xs text-white/52">Is this the file you are referring to?</div>
-          <div className="premium-scroll-hide mt-3 flex gap-2 overflow-x-auto pb-1">
-            {posting.files.map((file, index) => {
-              const active = index === posting.activeFileIndex
-              return (
-                <button
-                  key={file.id}
-                  type="button"
-                  onClick={() => onConfirmFile?.(entryId, file.id)}
-                  className={cn(
-                    'w-36 shrink-0 overflow-hidden rounded-xl border bg-white/[0.03] text-left transition-colors',
-                    active ? 'border-emerald-300/50' : 'border-white/10 hover:border-white/20',
-                  )}
-                >
-                  <div
-                    className="h-20 bg-[#111] bg-cover bg-center"
-                    style={file.thumbnailUrl ? { backgroundImage: `url(${file.thumbnailUrl})` } : undefined}
-                  >
-                    {!file.thumbnailUrl ? (
-                      <div className="grid h-full place-items-center text-white/30">
-                        <Film className="size-5" />
+    <div className="relative mt-3 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]/95 p-3 text-white/86 shadow-[0_18px_38px_rgba(0,0,0,0.26)] backdrop-blur-xl">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-sm font-medium text-white">Social publishing</div>
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/16 bg-emerald-400/8 px-2.5 py-1 text-[10px] text-emerald-100">
+          <Lock className="size-3" />
+          OAuth ready
+        </div>
+      </div>
+
+      {posting.status === 'browser' ? (
+        <div className="max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-[80] max-sm:max-h-[92dvh] max-sm:overflow-y-auto max-sm:rounded-t-3xl max-sm:border max-sm:border-white/12 max-sm:bg-[#0a0a0a] max-sm:p-4 md:w-[400px]">
+          <div className="text-sm font-medium text-white">Pick the video to post</div>
+          <div className="mt-2 text-xs leading-5 text-white/52">
+            Use recent edits or search across mock projects without leaving the chat.
+          </div>
+          <label className="mt-3 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-2">
+            <Search className="size-3.5 text-white/42" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search projects or videos"
+              className="min-w-0 flex-1 bg-transparent text-sm text-white/84 outline-none placeholder:text-white/28"
+            />
+          </label>
+          <div className="mt-3 grid grid-cols-2 rounded-full border border-white/10 bg-white/[0.025] p-1 text-xs">
+            {(['recent', 'projects'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setBrowserTab(tab)}
+                className={cn(
+                  'rounded-full px-3 py-2 capitalize transition-colors',
+                  browserTab === tab ? 'bg-white text-black' : 'text-white/54 hover:text-white',
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {browserTab === 'recent' ? (
+            <div className="premium-scroll-hide mt-3 flex gap-2 overflow-x-auto pb-1">
+              {filteredRecentFiles.map((file) => renderVideoCard(file, true))}
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {filteredProjects.map((project) => {
+                const expanded = expandedProjectId === project.id
+                return (
+                  <div key={project.id} className="rounded-xl border border-white/10 bg-white/[0.025]">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedProjectId(expanded ? null : project.id)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-white/82"
+                    >
+                      <span className="truncate">{project.title}</span>
+                      <ChevronRight className={cn('size-4 shrink-0 transition-transform', expanded && 'rotate-90')} />
+                    </button>
+                    {expanded ? (
+                      <div className="grid gap-2 border-t border-white/8 p-2 sm:grid-cols-2">
+                        {project.videos.map((video) => renderVideoCard(video))}
                       </div>
                     ) : null}
                   </div>
-                  <div className="p-2">
-                    <div className="truncate text-xs font-medium text-white/88">{file.title}</div>
-                    <div className="mt-1 text-[10px] text-white/42">{file.updatedLabel}</div>
-                  </div>
-                </button>
-              )
-            })}
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {posting.status === 'confirm' && selectedFile ? (
+        <>
+          <div className="text-sm font-medium text-white">Post this video?</div>
+          <div className="mt-3 flex gap-3 rounded-xl border border-white/10 bg-white/[0.035] p-2">
+            <div
+              className="h-20 w-28 shrink-0 rounded-lg border border-white/8 bg-[#111] bg-cover bg-center"
+              style={selectedFile.thumbnailUrl ? { backgroundImage: `url(${selectedFile.thumbnailUrl})` } : undefined}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-white">{selectedFile.title}</div>
+              <div className="mt-1 text-xs text-white/46">{selectedFile.durationLabel}</div>
+              <div className="mt-1 truncate text-xs text-white/36">{selectedFile.projectTitle ?? 'Recent project'}</div>
+            </div>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
             <button
               type="button"
-              onClick={() => activeFile && onConfirmFile?.(entryId, activeFile.id)}
+              onClick={() => onConfirmVideo?.(entryId)}
               className="rounded-full bg-emerald-500 px-3 py-2 text-xs font-medium text-white"
             >
-              Confirm file
+              Yes, proceed
             </button>
             <button
               type="button"
-              onClick={() => onRejectFile?.(entryId)}
+              onClick={() => onChangeVideo?.(entryId)}
               className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/62"
             >
-              Not this one
+              No, pick another
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirmVideo?.(entryId)}
+              className="rounded-full border border-white/10 px-3 py-2 text-xs text-white/62"
+            >
+              Change caption
             </button>
           </div>
         </>
+      ) : null}
+
+      {posting.status === 'captions' ? (
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-white">Caption previews</div>
+              <div className="mt-1 text-xs text-white/46">Approve each caption before platform selection.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onGenerateCaptions?.(entryId)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/76"
+            >
+              <RefreshCw className={cn('size-3.5', posting.captionGenerating && 'animate-spin')} />
+              Generate All
+            </button>
+          </div>
+          <div className="premium-scroll-hide mt-3 grid gap-2 md:grid-cols-2">
+            {captionPlatforms.map((platform) => {
+              const Icon = platform.icon
+              const draft = posting.captions[platform.id]
+              const count = draft?.text.length ?? 0
+              return (
+                <div
+                  key={platform.id}
+                  className={cn(
+                    'rounded-xl border bg-white/[0.025] p-3',
+                    draft?.approved ? 'border-emerald-300/24' : 'border-white/10',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-white">
+                      <Icon className="size-4" />
+                      {platform.label}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onToggleCaptionApproval?.(entryId, platform.id)}
+                      className={cn(
+                        'rounded-full border px-2 py-1 text-[10px]',
+                        draft?.approved
+                          ? 'border-emerald-300/28 bg-emerald-400/10 text-emerald-100'
+                          : 'border-white/10 text-white/46',
+                      )}
+                    >
+                      {draft?.approved ? 'Approved' : 'Approve'}
+                    </button>
+                  </div>
+                  {posting.captionGenerating ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="h-3 rounded-full bg-white/10" />
+                      <div className="h-3 w-2/3 rounded-full bg-white/10" />
+                    </div>
+                  ) : editingCaption === platform.id ? (
+                    <textarea
+                      value={draft?.text ?? ''}
+                      onChange={(event) => onUpdateCaption?.(entryId, platform.id, event.target.value)}
+                      className="mt-3 min-h-24 w-full resize-none rounded-xl border border-white/10 bg-black/24 px-3 py-2 text-xs leading-5 text-white/78 outline-none"
+                    />
+                  ) : (
+                    <div className="mt-3 line-clamp-5 whitespace-pre-wrap text-xs leading-5 text-white/62">
+                      {draft?.text ?? `This is a mock ${platform.label} caption for your video about ${selectedFile?.topic ?? 'your project'}.`}
+                    </div>
+                  )}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className={cn('text-[10px] tabular-nums', count > platform.limit ? 'text-rose-300' : 'text-white/36')}>
+                      {count}/{platform.limit.toLocaleString()}
+                    </span>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={() => setEditingCaption(editingCaption === platform.id ? null : platform.id)} className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-white/58">
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => onRegenerateCaption?.(entryId, platform.id)} className="rounded-full border border-white/10 px-2 py-1 text-[10px] text-white/58">
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className={cn('mt-3 rounded-xl border px-3 py-2 text-xs', captionsReady ? 'border-emerald-300/18 bg-emerald-400/8 text-emerald-100' : 'border-amber-300/18 bg-amber-400/8 text-amber-100')}>
+            {captionsReady ? 'All captions ready. Proceed to posting?' : 'Approve every caption to continue.'}
+          </div>
+          <button
+            type="button"
+            disabled={!captionsReady}
+            onClick={() => onProceedToPlatforms?.(entryId)}
+            className="mt-3 w-full rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Proceed to platform selection
+          </button>
+        </div>
       ) : null}
 
       {posting.status === 'platforms' ? (
@@ -1910,24 +2245,118 @@ function SocialPostingCard({
           </div>
           <button
             type="button"
-            onClick={() => onPostNow?.(entryId)}
+            onClick={() => onReviewAccounts?.(entryId)}
             disabled={posting.selectedPlatforms.length === 0}
             className="mt-3 w-full rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Post Now
+            Review accounts
           </button>
         </>
       ) : null}
 
-      {posting.status === 'preparing' ? <div className="text-sm text-white/78">Preparing your post...</div> : null}
+      {posting.status === 'accounts' ? (
+        <div>
+          <div className="text-sm font-medium text-white">Account readiness</div>
+          <div className="mt-3 space-y-2">
+            {posting.selectedPlatforms.map((platformId) => {
+              const platform = getPostingPlatform(platformId)
+              const Icon = platform.icon
+              return platform.connected ? (
+                <div key={platform.id} className="flex items-center gap-2 rounded-xl border border-emerald-300/18 bg-emerald-400/8 px-3 py-2 text-xs text-emerald-100">
+                  <CheckCircle2 className="size-4" />
+                  <Icon className="size-4" />
+                  {platform.label} account ready
+                </div>
+              ) : (
+                <div key={platform.id} className="rounded-xl border border-rose-300/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                  <div className="flex items-center gap-2 font-medium">
+                    <AlertCircle className="size-4" />
+                    {platform.label} account not connected.
+                  </div>
+                  <div className="mt-1 text-rose-100/70">Connect in Settings → Social Accounts.</div>
+                  <button type="button" onClick={onOpenSocialSettings} className="mt-2 rounded-full border border-rose-200/20 px-3 py-1.5 text-[11px] text-rose-50">
+                    Go to Settings
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          {allAccountsReady ? (
+            <div className="mt-3 rounded-xl border border-emerald-300/18 bg-emerald-400/8 px-3 py-2 text-xs text-emerald-100">
+              All accounts ready
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onPostNow?.(entryId)}
+            disabled={!allAccountsReady}
+            className="mt-3 w-full rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Post Now
+          </button>
+        </div>
+      ) : null}
+
+      {posting.status === 'preparing' ? (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="text-sm font-medium text-white">Posting to {selectedLabels || 'selected platforms'}...</div>
+          <div className="mt-3 space-y-3">
+            {posting.selectedPlatforms.map((platformId) => {
+              const platform = getPostingPlatform(platformId)
+              const Icon = platform.icon
+              const result = posting.postingResults?.[platformId]
+              return (
+                <div key={platformId}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-xs text-white/62">
+                    <span className="inline-flex items-center gap-2"><Icon className="size-3.5" />{platform.label}</span>
+                    <span>{Math.round(result?.progress ?? 0)}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${result?.progress ?? 0}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <button type="button" disabled={averagePostingProgress >= 50} className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs text-white/58 disabled:opacity-40">
+            Cancel
+          </button>
+        </div>
+      ) : null}
 
       {posting.status === 'success' ? (
         <div>
-          <div className="text-sm text-white/86">
-            Queued for posting to {selectedLabels || 'selected platforms'}. You will receive a notification when complete.
+          <div className="text-sm font-medium text-white">Posting complete</div>
+          <div className="mt-3 space-y-2">
+            {posting.selectedPlatforms.map((platformId) => {
+              const platform = getPostingPlatform(platformId)
+              const Icon = platform.icon
+              const result = posting.postingResults?.[platformId]
+              const failed = result?.status === 'failed'
+              return (
+                <div key={platformId} className={cn('rounded-xl border px-3 py-2 text-xs', failed ? 'border-rose-300/20 bg-rose-500/10 text-rose-100' : 'border-emerald-300/18 bg-emerald-400/8 text-emerald-100')}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-2">
+                      {failed ? <AlertCircle className="size-4" /> : <CheckCircle2 className="size-4" />}
+                      <Icon className="size-4" />
+                      {platform.label}
+                    </span>
+                    {failed ? (
+                      <button type="button" onClick={() => onPostNow?.(entryId)} className="rounded-full border border-rose-200/20 px-2 py-1 text-[10px]">Retry</button>
+                    ) : (
+                      <a href={result?.url ?? platform.mockUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px]">
+                        View <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                  </div>
+                  {failed ? <div className="mt-1 text-rose-100/72">{result?.error ?? 'LinkedIn API rate limited. Retry in 5 minutes.'}</div> : null}
+                  {!failed ? <button type="button" className="mt-2 rounded-full border border-emerald-200/20 px-2 py-1 text-[10px]">Copy share link</button> : null}
+                </div>
+              )
+            })}
           </div>
-          <button type="button" className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs text-white/68">
-            Track Status
+          <button type="button" onClick={() => onDonePosting?.(entryId)} className="mt-3 rounded-full border border-white/10 px-3 py-2 text-xs text-white/68">
+            Done
           </button>
         </div>
       ) : null}
@@ -1944,6 +2373,17 @@ function CurvedThreadPill({
   onConfirmPostingFile,
   onRejectPostingFile,
   onTogglePostingPlatform,
+  onSelectPostingVideo,
+  onConfirmPostingVideo,
+  onChangePostingVideo,
+  onGeneratePostingCaptions,
+  onUpdatePostingCaption,
+  onRegeneratePostingCaption,
+  onTogglePostingCaptionApproval,
+  onProceedPostingPlatforms,
+  onReviewPostingAccounts,
+  onOpenSocialSettings,
+  onDonePosting,
   onPostNow,
 }: {
   entry: ChatEntry
@@ -1952,6 +2392,17 @@ function CurvedThreadPill({
   onConfirmPostingFile?: (entryId: string, fileId: string) => void
   onRejectPostingFile?: (entryId: string) => void
   onTogglePostingPlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onSelectPostingVideo?: (entryId: string, video: RecentPostingFile) => void
+  onConfirmPostingVideo?: (entryId: string) => void
+  onChangePostingVideo?: (entryId: string) => void
+  onGeneratePostingCaptions?: (entryId: string) => void
+  onUpdatePostingCaption?: (entryId: string, platform: SocialPostingPlatform, value: string) => void
+  onRegeneratePostingCaption?: (entryId: string, platform: SocialPostingPlatform) => void
+  onTogglePostingCaptionApproval?: (entryId: string, platform: SocialPostingPlatform) => void
+  onProceedPostingPlatforms?: (entryId: string) => void
+  onReviewPostingAccounts?: (entryId: string) => void
+  onOpenSocialSettings?: () => void
+  onDonePosting?: (entryId: string) => void
   onPostNow?: (entryId: string) => void
 }) {
   const isUser = entry.role === 'user'
@@ -2026,6 +2477,17 @@ function CurvedThreadPill({
               onConfirmFile={onConfirmPostingFile}
               onRejectFile={onRejectPostingFile}
               onTogglePlatform={onTogglePostingPlatform}
+              onSelectVideo={onSelectPostingVideo}
+              onConfirmVideo={onConfirmPostingVideo}
+              onChangeVideo={onChangePostingVideo}
+              onGenerateCaptions={onGeneratePostingCaptions}
+              onUpdateCaption={onUpdatePostingCaption}
+              onRegenerateCaption={onRegeneratePostingCaption}
+              onToggleCaptionApproval={onTogglePostingCaptionApproval}
+              onProceedToPlatforms={onProceedPostingPlatforms}
+              onReviewAccounts={onReviewPostingAccounts}
+              onOpenSocialSettings={onOpenSocialSettings}
+              onDonePosting={onDonePosting}
               onPostNow={onPostNow}
             />
           ) : null}
@@ -2090,6 +2552,17 @@ function FloatingChatComposer({
   onConfirmPostingFile,
   onRejectPostingFile,
   onTogglePostingPlatform,
+  onSelectPostingVideo,
+  onConfirmPostingVideo,
+  onChangePostingVideo,
+  onGeneratePostingCaptions,
+  onUpdatePostingCaption,
+  onRegeneratePostingCaption,
+  onTogglePostingCaptionApproval,
+  onProceedPostingPlatforms,
+  onReviewPostingAccounts,
+  onOpenSocialSettings,
+  onDonePosting,
   onPostNow,
 }: {
   projectId: string
@@ -2109,6 +2582,17 @@ function FloatingChatComposer({
   onConfirmPostingFile?: (entryId: string, fileId: string) => void
   onRejectPostingFile?: (entryId: string) => void
   onTogglePostingPlatform?: (entryId: string, platform: SocialPostingPlatform | 'all') => void
+  onSelectPostingVideo?: (entryId: string, video: RecentPostingFile) => void
+  onConfirmPostingVideo?: (entryId: string) => void
+  onChangePostingVideo?: (entryId: string) => void
+  onGeneratePostingCaptions?: (entryId: string) => void
+  onUpdatePostingCaption?: (entryId: string, platform: SocialPostingPlatform, value: string) => void
+  onRegeneratePostingCaption?: (entryId: string, platform: SocialPostingPlatform) => void
+  onTogglePostingCaptionApproval?: (entryId: string, platform: SocialPostingPlatform) => void
+  onProceedPostingPlatforms?: (entryId: string) => void
+  onReviewPostingAccounts?: (entryId: string) => void
+  onOpenSocialSettings?: () => void
+  onDonePosting?: (entryId: string) => void
   onPostNow?: (entryId: string) => void
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
@@ -2638,6 +3122,17 @@ function FloatingChatComposer({
                           onConfirmPostingFile={onConfirmPostingFile}
                           onRejectPostingFile={onRejectPostingFile}
                           onTogglePostingPlatform={onTogglePostingPlatform}
+                          onSelectPostingVideo={onSelectPostingVideo}
+                          onConfirmPostingVideo={onConfirmPostingVideo}
+                          onChangePostingVideo={onChangePostingVideo}
+                          onGeneratePostingCaptions={onGeneratePostingCaptions}
+                          onUpdatePostingCaption={onUpdatePostingCaption}
+                          onRegeneratePostingCaption={onRegeneratePostingCaption}
+                          onTogglePostingCaptionApproval={onTogglePostingCaptionApproval}
+                          onProceedPostingPlatforms={onProceedPostingPlatforms}
+                          onReviewPostingAccounts={onReviewPostingAccounts}
+                          onOpenSocialSettings={onOpenSocialSettings}
+                          onDonePosting={onDonePosting}
                           onPostNow={onPostNow}
                         />
                       ))
@@ -3300,10 +3795,14 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 
   const recentPostingFiles = React.useMemo<RecentPostingFile[]>(() => {
     const storedProjects = typeof window === 'undefined' ? [] : projects.list()
-    const mapped = storedProjects.slice(0, 8).map((item) => ({
+    // TODO: Backend — Fetch real projects and videos from Supabase
+    const mapped = storedProjects.slice(0, 8).map((item, index) => ({
       id: item.id,
       title: item.title || 'Untitled Project',
+      projectTitle: item.title || 'Untitled Project',
+      durationLabel: ['0:42', '1:18', '2:04', '0:56'][index % 4] ?? '0:45',
       updatedLabel: formatRecentFileTime(item.updatedAt),
+      topic: item.title || projectTitle || 'your project',
       thumbnailUrl: item.thumbnailUrl || null,
     }))
 
@@ -3311,13 +3810,69 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       mapped.unshift({
         id: projectId,
         title: projectTitle || 'Current edit',
+        projectTitle: projectTitle || 'Current edit',
+        durationLabel: '0:58',
         updatedLabel: 'Current edit',
+        topic: projectTitle || 'your current edit',
         thumbnailUrl: null,
       })
     }
 
     return mapped.slice(0, 6)
   }, [projectId, projectTitle])
+
+  const postingProjectGroups = React.useMemo<PostingProjectGroup[]>(() => {
+    // TODO: Backend — Fetch real projects and videos from Supabase
+    const baseVideos = recentPostingFiles.length > 0 ? recentPostingFiles : [
+      {
+        id: `${projectId}-fallback`,
+        title: projectTitle || 'Current edit',
+        projectTitle: projectTitle || 'Current edit',
+        durationLabel: '0:58',
+        updatedLabel: 'Current edit',
+        topic: projectTitle || 'your current edit',
+        thumbnailUrl: null,
+      },
+    ]
+
+    return [
+      {
+        id: 'current-project',
+        title: projectTitle || 'Current project',
+        videos: baseVideos.slice(0, 3).map((video, index) => ({
+          ...video,
+          id: `${video.id}-current-${index}`,
+          projectTitle: projectTitle || 'Current project',
+        })),
+      },
+      {
+        id: 'launch-cuts',
+        title: 'Launch Cuts',
+        videos: [0, 1, 2, 3].map((index) => ({
+          id: `launch-cut-${index}`,
+          title: ['Founder story reel', 'Product teaser', 'Motion breakdown', 'Client proof'][index] ?? 'Launch cut',
+          projectTitle: 'Launch Cuts',
+          durationLabel: ['0:36', '1:04', '0:48', '1:22'][index] ?? '0:45',
+          updatedLabel: [`Edited ${index + 1}h ago`][0],
+          topic: ['founder story', 'product teaser', 'motion design workflow', 'client proof'][index] ?? 'launch cut',
+          thumbnailUrl: baseVideos[index % baseVideos.length]?.thumbnailUrl ?? null,
+        })),
+      },
+      {
+        id: 'client-social',
+        title: 'Client Social Package',
+        videos: [0, 1, 2].map((index) => ({
+          id: `client-social-${index}`,
+          title: ['Vertical hero cut', 'Behind the scenes', 'Caption-first short'][index] ?? 'Client social video',
+          projectTitle: 'Client Social Package',
+          durationLabel: ['0:29', '0:52', '0:41'][index] ?? '0:45',
+          updatedLabel: [`Edited ${index + 2}d ago`][0],
+          topic: ['vertical launch video', 'behind the scenes', 'caption-first short'][index] ?? 'client video',
+          thumbnailUrl: baseVideos[(index + 1) % baseVideos.length]?.thumbnailUrl ?? null,
+        })),
+      },
+    ]
+  }, [projectId, projectTitle, recentPostingFiles])
 
   const findActivePostingEntry = React.useCallback(() => {
     return [...entriesRef.current]
@@ -3328,14 +3883,16 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const confirmPostingFile = React.useCallback((entryId: string, fileId: string) => {
     mergeEntryInState(entryId, (entry) => {
       if (!entry.posting) return entry
+      const selectedVideo = entry.posting.files.find((file) => file.id === fileId) ?? entry.posting.files[0] ?? null
       return {
         ...entry,
         status: 'ready',
-        text: 'Which platforms would you like to post to?',
+        text: 'Post this video?',
         posting: {
           ...entry.posting,
-          status: 'platforms',
+          status: 'confirm',
           selectedFileId: fileId,
+          selectedVideo,
           note: undefined,
         },
       }
@@ -3368,6 +3925,198 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     })
   }, [mergeEntryInState])
 
+  const selectPostingVideo = React.useCallback((entryId: string, video: RecentPostingFile) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const selectedVideo = normalizePostingVideo(video)
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Post this video?',
+        posting: {
+          ...entry.posting,
+          status: 'confirm',
+          selectedFileId: selectedVideo.id,
+          selectedVideo,
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const changePostingVideo = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Choose the video you want to post.',
+        posting: {
+          ...entry.posting,
+          status: 'browser',
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const confirmPostingVideo = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const selectedVideo = entry.posting.selectedVideo ?? entry.posting.files[0] ?? null
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'I generated platform-specific caption previews. Approve each one before posting.',
+        posting: {
+          ...entry.posting,
+          status: 'captions',
+          selectedVideo,
+          captions: selectedVideo ? buildCaptionDrafts(selectedVideo) : entry.posting.captions,
+          captionGenerating: false,
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const generatePostingCaptions = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          captionGenerating: true,
+        },
+      }
+    })
+
+    window.setTimeout(() => {
+      mergeEntryInState(entryId, (entry) => {
+        if (!entry.posting?.selectedVideo) return entry
+        // TODO: Backend — AI caption generation per platform
+        return {
+          ...entry,
+          posting: {
+            ...entry.posting,
+            captions: buildCaptionDrafts(entry.posting.selectedVideo),
+            captionGenerating: false,
+          },
+        }
+      })
+    }, 650)
+  }, [mergeEntryInState])
+
+  const updatePostingCaption = React.useCallback((entryId: string, platform: SocialPostingPlatform, value: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const currentDraft = entry.posting.captions[platform] ?? {
+        text: '',
+        variationIndex: 0,
+        approved: false,
+      }
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          captions: {
+            ...entry.posting.captions,
+            [platform]: {
+              ...currentDraft,
+              text: value,
+              approved: false,
+            },
+          },
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const regeneratePostingCaption = React.useCallback((entryId: string, platform: SocialPostingPlatform) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting?.selectedVideo) return entry
+      const currentDraft = entry.posting.captions[platform] ?? {
+        text: '',
+        variationIndex: 0,
+        approved: false,
+      }
+      const nextVariationIndex = currentDraft.variationIndex + 1
+      // TODO: Backend — AI caption generation per platform
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          captions: {
+            ...entry.posting.captions,
+            [platform]: {
+              text: buildMockCaption(platform, entry.posting.selectedVideo.topic, nextVariationIndex),
+              variationIndex: nextVariationIndex,
+              approved: false,
+            },
+          },
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const togglePostingCaptionApproval = React.useCallback((entryId: string, platform: SocialPostingPlatform) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      const currentDraft = entry.posting.captions[platform]
+      if (!currentDraft) return entry
+      return {
+        ...entry,
+        posting: {
+          ...entry.posting,
+          captions: {
+            ...entry.posting.captions,
+            [platform]: {
+              ...currentDraft,
+              approved: !currentDraft.approved,
+            },
+          },
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const proceedPostingPlatforms = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Which platforms would you like to post to?',
+        posting: {
+          ...entry.posting,
+          status: 'platforms',
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const reviewPostingAccounts = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Checking account connections before posting.',
+        posting: {
+          ...entry.posting,
+          status: 'accounts',
+          note: undefined,
+        },
+      }
+    })
+  }, [mergeEntryInState])
+
+  const openSocialSettings = React.useCallback(() => {
+    window.open('/settings/social-accounts', '_blank', 'noopener,noreferrer')
+  }, [])
+
   const togglePostingPlatform = React.useCallback((entryId: string, platform: SocialPostingPlatform | 'all') => {
     mergeEntryInState(entryId, (entry) => {
       if (!entry.posting) return entry
@@ -3394,6 +4143,13 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const completePostingMock = React.useCallback((entryId: string) => {
     mergeEntryInState(entryId, (entry) => {
       if (!entry.posting || entry.posting.selectedPlatforms.length === 0) return entry
+      const postingResults = entry.posting.selectedPlatforms.reduce<Partial<Record<SocialPostingPlatform, SocialPostingResult>>>((results, platformId) => {
+        results[platformId] = {
+          status: 'posting',
+          progress: 0,
+        }
+        return results
+      }, {})
       return {
         ...entry,
         status: 'loading',
@@ -3401,8 +4157,63 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         posting: {
           ...entry.posting,
           status: 'preparing',
+          postingResults,
         },
       }
+    })
+
+    const selectedPlatforms =
+      entriesRef.current.find((entry) => entry.id === entryId)?.posting?.selectedPlatforms ?? []
+
+    selectedPlatforms.forEach((platformId, index) => {
+      window.setTimeout(() => {
+        mergeEntryInState(entryId, (entry) => {
+          if (!entry.posting) return entry
+          return {
+            ...entry,
+            posting: {
+              ...entry.posting,
+              postingResults: {
+                ...entry.posting.postingResults,
+                [platformId]: {
+                  ...(entry.posting.postingResults?.[platformId] ?? { status: 'posting' as const }),
+                  status: 'posting',
+                  progress: 55,
+                },
+              },
+            },
+          }
+        })
+      }, 900 + index * 450)
+
+      window.setTimeout(() => {
+        mergeEntryInState(entryId, (entry) => {
+          if (!entry.posting) return entry
+          const platform = getPostingPlatform(platformId)
+          // TODO: Backend — Actual social media API posting
+          const failed = Math.random() > 0.8
+          return {
+            ...entry,
+            posting: {
+              ...entry.posting,
+              postingResults: {
+                ...entry.posting.postingResults,
+                [platformId]: failed
+                  ? {
+                      status: 'failed',
+                      progress: 100,
+                      error: `${platform.label} API rate limited. Retry in 5 minutes.`,
+                    }
+                  : {
+                      status: 'success',
+                      progress: 100,
+                      url: platform.mockUrl,
+                    },
+              },
+            },
+          }
+        })
+      }, 3000 + index * 550)
     })
 
     window.setTimeout(() => {
@@ -3411,14 +4222,30 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         return {
           ...entry,
           status: 'ready',
-          text: 'Posting queued.',
+          text: 'Posting finished.',
           posting: {
             ...entry.posting,
             status: 'success',
           },
         }
       })
-    }, 900)
+    }, 3500 + selectedPlatforms.length * 650)
+  }, [mergeEntryInState])
+
+  const donePostingMock = React.useCallback((entryId: string) => {
+    mergeEntryInState(entryId, (entry) => {
+      if (!entry.posting) return entry
+      return {
+        ...entry,
+        status: 'ready',
+        text: 'Posting workflow complete.',
+        posting: {
+          ...entry.posting,
+          note: 'Posting workflow complete.',
+          postingResults: undefined,
+        },
+      }
+    })
   }, [mergeEntryInState])
 
   const collectRecentMusicTrackIds = React.useCallback(() => {
@@ -3807,37 +4634,40 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const displayEntries = userEntry ? [...baseEntries, userEntry] : baseEntries
       const activePostingEntry = findActivePostingEntry()
 
-      if (activePostingEntry?.posting?.status === 'file-picker' && shouldShowUserMessage) {
+      if (activePostingEntry?.posting?.status === 'confirm' && shouldShowUserMessage) {
         entriesRef.current = displayEntries
         setEntries(displayEntries)
         pendingReplyScrollEntryIdRef.current = activePostingEntry.id
 
         if (isPostingConfirm(nextValue)) {
-          const activeFile =
-            activePostingEntry.posting.files[activePostingEntry.posting.activeFileIndex] ??
-            activePostingEntry.posting.files[0]
-          if (activeFile) confirmPostingFile(activePostingEntry.id, activeFile.id)
+          confirmPostingVideo(activePostingEntry.id)
           return
         }
 
         if (isPostingReject(nextValue)) {
-          rejectPostingFile(activePostingEntry.id)
+          changePostingVideo(activePostingEntry.id)
           return
         }
       }
 
       if (!shouldEditRequest && !shouldRecommendMusic && isPostingIntent(nextValue)) {
+        const temporalReference = hasPostingTemporalReference(nextValue)
         const postingAssistant: ChatEntry = {
           id: `assistant-posting-${Date.now()}`,
           role: 'assistant',
-          text: 'I can help you publish your work. Let me fetch your recently edited files.',
+          text: temporalReference
+            ? 'I found a temporal reference. Pick the exact video from your recent edits or project library.'
+            : 'I can help you publish your work. Pick the video you want to post.',
           status: 'ready',
           posting: {
-            status: 'file-picker',
+            status: 'browser',
             files: recentPostingFiles,
+            projects: postingProjectGroups,
             activeFileIndex: 0,
             selectedFileId: null,
+            selectedVideo: null,
             selectedPlatforms: [],
+            captions: {},
           },
         }
         const nextEntries = [...displayEntries, postingAssistant]
@@ -4168,15 +4998,16 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     [
       initialPrompt,
       initialSources,
-      confirmPostingFile,
+      changePostingVideo,
+      confirmPostingVideo,
       findActivePostingEntry,
       onEditRequest,
       musicPreference,
+      postingProjectGroups,
       projectTitle,
       mergeEntryInState,
       removeEntryInState,
       recentPostingFiles,
-      rejectPostingFile,
       resolveMusicRecommendations,
       videoContext,
     ],
@@ -4651,6 +5482,17 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   onConfirmPostingFile={confirmPostingFile}
                   onRejectPostingFile={rejectPostingFile}
                   onTogglePostingPlatform={togglePostingPlatform}
+                  onSelectPostingVideo={selectPostingVideo}
+                  onConfirmPostingVideo={confirmPostingVideo}
+                  onChangePostingVideo={changePostingVideo}
+                  onGeneratePostingCaptions={generatePostingCaptions}
+                  onUpdatePostingCaption={updatePostingCaption}
+                  onRegeneratePostingCaption={regeneratePostingCaption}
+                  onTogglePostingCaptionApproval={togglePostingCaptionApproval}
+                  onProceedPostingPlatforms={proceedPostingPlatforms}
+                  onReviewPostingAccounts={reviewPostingAccounts}
+                  onOpenSocialSettings={openSocialSettings}
+                  onDonePosting={donePostingMock}
                   onPostNow={completePostingMock}
                 />
               </>,
