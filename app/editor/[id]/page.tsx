@@ -144,6 +144,12 @@ import type {
   ProjectExport,
 } from '@/lib/types'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
+import { EditorProvider, useEditor } from "@/components/editor/EditorContext";
+import { TimelineEngine } from "@/components/editor/TimelineEngine";
+import { SceneEditor } from "@/components/editor/SceneEditor";
+import { CommandBubble } from "@/components/editor/CommandBubble";
+import { ExportDrawer } from "@/components/editor/ExportDrawer";
+import { CircularToast } from "@/components/editor/CircularToast";
 
 type LeftTabKey = 'chat' | 'edit' | 'design' | 'assets'
 type HeaderNavMode = 'Editor' | 'Music' | 'Motion'
@@ -6023,7 +6029,7 @@ function MobileEditorView({
   )
 }
 
-export default function EditorPage() {
+function OriginalEditorPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const projectId = params.id
@@ -7953,35 +7959,39 @@ export default function EditorPage() {
                 ) : null}
 
                 {activeWorkspaceTab === 'Motion' ? (
-                  <MotionPropertyCanvas
-                    projectTitle={project?.title ?? 'Untitled Project'}
-                    previewUrl={previewUrl}
-                    previewKind={previewKind}
-                    hasPreviewMedia={hasPreviewMedia}
-                    sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
-                    objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
-                    mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                    currentTimeLabel={transportCurrentTime}
-                    durationLabel={transportTime}
-                    currentTimeSec={previewCurrentTimeSec}
-                    durationSec={transportDurationSec}
-                    previewPlaying={previewPlaying}
-                    previewMuted={isPreviewMuted}
-                    videoRef={previewVideoRef}
-                    onTogglePlayback={togglePreviewPlayback}
-                    onPickSource={openInlineSourcePicker}
-                    onSeek={handlePreviewSeekSeconds}
-                    onVideoLoadedMetadata={handlePreviewMetadataLoaded}
-                    onVideoLoadedData={handlePreviewVideoReady}
-                    onVideoCanPlay={handlePreviewVideoReady}
-                    onVideoTimeUpdate={handlePreviewTimeUpdate}
-                    onVideoEnded={handlePreviewEnded}
-                    onVideoPlay={handlePreviewVideoPlay}
-                    onVideoPause={handlePreviewVideoPause}
-                    onVideoError={handlePreviewVideoError}
-                    onImageLoaded={handlePreviewImageLoaded}
-                    onApplyPrompt={handleMotionCanvasPrompt}
-                  />
+                  <>
+                    <MotionPropertyCanvas
+                      projectTitle={project?.title ?? 'Untitled Project'}
+                      previewUrl={previewUrl}
+                      previewKind={previewKind}
+                      hasPreviewMedia={hasPreviewMedia}
+                      sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
+                      objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
+                      mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                      currentTimeLabel={transportCurrentTime}
+                      durationLabel={transportTime}
+                      currentTimeSec={previewCurrentTimeSec}
+                      durationSec={transportDurationSec}
+                      previewPlaying={previewPlaying}
+                      previewMuted={isPreviewMuted}
+                      videoRef={previewVideoRef}
+                      onTogglePlayback={togglePreviewPlayback}
+                      onPickSource={openInlineSourcePicker}
+                      onSeek={handlePreviewSeekSeconds}
+                      onVideoLoadedMetadata={handlePreviewMetadataLoaded}
+                      onVideoLoadedData={handlePreviewVideoReady}
+                      onVideoCanPlay={handlePreviewVideoReady}
+                      onVideoTimeUpdate={handlePreviewTimeUpdate}
+                      onVideoEnded={handlePreviewEnded}
+                      onVideoPlay={handlePreviewVideoPlay}
+                      onVideoPause={handlePreviewVideoPause}
+                      onVideoError={handlePreviewVideoError}
+                      onImageLoaded={handlePreviewImageLoaded}
+                      onApplyPrompt={handleMotionCanvasPrompt}
+                    />
+                    <TimelineEngine />
+                    <SceneEditor />
+                  </>
                 ) : null}
 
                 <div className={cn('w-full max-w-[min(100%,54rem)] self-center rounded-[18px] border border-white/8 bg-[#09090c] p-3', (activeWorkspaceTab === 'Music' || activeWorkspaceTab === 'Motion') && 'hidden')}>
@@ -8747,5 +8757,26 @@ function InspectorMeta({
       <span className="text-white/42">{label}</span>
       <span className="max-w-[60%] truncate text-right text-white/78">{value}</span>
     </motion.div>
+  )
+}
+
+function EditorShell({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      {children}
+      <CommandBubble />
+      <ExportDrawer />
+      <CircularToast />
+    </>
+  )
+}
+
+export default function EditorPageWrapper(props: any) {
+  return (
+    <EditorProvider>
+      <EditorShell>
+        <OriginalEditorPage {...props} />
+      </EditorShell>
+    </EditorProvider>
   )
 }
