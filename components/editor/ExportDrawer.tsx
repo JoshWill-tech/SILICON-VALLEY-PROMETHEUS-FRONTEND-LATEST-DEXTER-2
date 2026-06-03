@@ -12,7 +12,7 @@ interface ExportTarget {
   id: string
   type: 'local' | 'social' | 'cloud'
   name: string
-  icon: React.RefNode
+  icon: React.ReactNode
   color: string
 }
 

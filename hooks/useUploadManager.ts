@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useEffect } from 'react'
-import { useEditor } from '@/components/editor/EditorContext'
+import { useEditor, type UploadTask } from '@/components/editor/EditorContext'
 
 export function useUploadManager() {
   const { uploadTasks, addTask, updateTask, removeTask } = useEditor()
@@ -30,7 +30,7 @@ export function useUploadManager() {
         const rand = Math.random()
         let networkState = task.networkState
         let progress = task.progress
-        let status = task.status
+        let status: UploadTask['status'] = task.status
 
         if (rand > 0.96) {
           networkState = 'offline'
