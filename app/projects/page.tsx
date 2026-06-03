@@ -46,6 +46,9 @@ import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { formatStorage, getStorageLimit } from '@/lib/storage-limits'
 import type { ProcessingJob, Project, ProjectExport } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { EditorProvider, useEditor } from '@/components/editor/EditorContext'
+import { ExportDrawer } from '@/components/editor/ExportDrawer'
+import { CircularToast } from '@/components/editor/CircularToast'
 
 type StatusFilter = 'all' | 'processing' | 'completed' | 'failed'
 type SortKey = 'recent' | 'name' | 'duration' | 'size' | 'last-exported'
@@ -303,10 +306,11 @@ function SkeletonGrid() {
   )
 }
 
-export default function ProjectsPage() {
+function OriginalProjectsPage() {
   const router = useRouter()
   const searchInputRef = React.useRef<HTMLInputElement | null>(null)
   const { usage } = useBillingData()
+  const { setShowExport } = useEditor()
 
   const [projects, setProjects] = React.useState<Project[]>([])
   const [latestExports, setLatestExports] = React.useState<Record<string, ProjectExport | null>>({})
@@ -564,9 +568,9 @@ export default function ProjectsPage() {
         mergeProjectMetadata(current, { lastExportedAt: new Date().toISOString() }),
       )
       setExportSettingsProject(null)
-      toast.success('Export queued')
+      setShowExport(true)
     },
-    [optimisticUpdateProject],
+    [optimisticUpdateProject, setShowExport],
   )
 
   const bulkApplyTag = React.useCallback(() => {
@@ -1640,5 +1644,15 @@ function FloatingBulkActionBar({
       </div>
       <div className="sr-only">{selectedProjects.map((project) => project.title).join(', ')}</div>
     </div>
+  )
+}
+
+export default function ProjectsPageWrapper(props: any) {
+  return (
+    <EditorProvider>
+      <OriginalProjectsPage {...props} />
+      <ExportDrawer />
+      <CircularToast />
+    </EditorProvider>
   )
 }

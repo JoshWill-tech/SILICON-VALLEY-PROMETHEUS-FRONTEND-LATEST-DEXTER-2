@@ -6034,6 +6034,7 @@ function OriginalEditorPage() {
   const router = useRouter()
   const projectId = params.id
   const isMobile = useMediaQuery('(max-width: 1024px)')
+  const { setShowExport } = useEditor()
 
   const [project, setProject] = React.useState<Project | null>(null)
   const [job, setJob] = React.useState<ProcessingJob | null>(null)
@@ -6987,53 +6988,8 @@ function OriginalEditorPage() {
   ])
 
   const handlePrepareExport = React.useCallback(async (options?: { quality: MobileExportQuality; format: MobileExportFormat }) => {
-    if (isExporting) return
-
-    setIsExporting(true)
-    try {
-      const exportPayload = options
-        ? {
-            preset: options.quality,
-            metadata: {
-              source: 'editor_mobile_export',
-              quality: options.quality,
-              format: options.format,
-            },
-          }
-        : {
-            preset: 'default',
-            metadata: {
-              source: 'editor_prepare_export',
-            },
-          }
-      const res = await fetch(`/api/projects/${projectId}/exports`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportPayload),
-      })
-
-      const payload = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(payload.error || 'Failed to initialize export')
-      }
-
-      setLatestExport(payload.export || null)
-
-      toast.success('Export job queued', {
-        description: 'Your project is saved and ready. Rendering will be enabled next.',
-        duration: 5000,
-      })
-    } catch (err: any) {
-      console.error('Export error:', err)
-      toast.error('Could not queue export', {
-        description: err.message || 'An unexpected error occurred.',
-      })
-    } finally {
-      setIsExporting(false)
-    }
-  }, [projectId, isExporting])
+    setShowExport(true)
+  }, [setShowExport])
 
   const handleDownload = React.useCallback(() => {
     if (!latestExport) return
@@ -7959,39 +7915,41 @@ function OriginalEditorPage() {
                 ) : null}
 
                 {activeWorkspaceTab === 'Motion' ? (
-                  <>
-                    <MotionPropertyCanvas
-                      projectTitle={project?.title ?? 'Untitled Project'}
-                      previewUrl={previewUrl}
-                      previewKind={previewKind}
-                      hasPreviewMedia={hasPreviewMedia}
-                      sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
-                      objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
-                      mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                      currentTimeLabel={transportCurrentTime}
-                      durationLabel={transportTime}
-                      currentTimeSec={previewCurrentTimeSec}
-                      durationSec={transportDurationSec}
-                      previewPlaying={previewPlaying}
-                      previewMuted={isPreviewMuted}
-                      videoRef={previewVideoRef}
-                      onTogglePlayback={togglePreviewPlayback}
-                      onPickSource={openInlineSourcePicker}
-                      onSeek={handlePreviewSeekSeconds}
-                      onVideoLoadedMetadata={handlePreviewMetadataLoaded}
-                      onVideoLoadedData={handlePreviewVideoReady}
-                      onVideoCanPlay={handlePreviewVideoReady}
-                      onVideoTimeUpdate={handlePreviewTimeUpdate}
-                      onVideoEnded={handlePreviewEnded}
-                      onVideoPlay={handlePreviewVideoPlay}
-                      onVideoPause={handlePreviewVideoPause}
-                      onVideoError={handlePreviewVideoError}
-                      onImageLoaded={handlePreviewImageLoaded}
-                      onApplyPrompt={handleMotionCanvasPrompt}
-                    />
+                  <div className="flex flex-col flex-1 min-h-0 bg-[#050608]">
+                    <div className="flex-1 min-h-0 relative">
+                      <MotionPropertyCanvas
+                        projectTitle={project?.title ?? 'Untitled Project'}
+                        previewUrl={previewUrl}
+                        previewKind={previewKind}
+                        hasPreviewMedia={hasPreviewMedia}
+                        sourceLabel={sourceAssetLabel ?? project?.title ?? 'Source video'}
+                        objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
+                        mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                        currentTimeLabel={transportCurrentTime}
+                        durationLabel={transportTime}
+                        currentTimeSec={previewCurrentTimeSec}
+                        durationSec={transportDurationSec}
+                        previewPlaying={previewPlaying}
+                        previewMuted={isPreviewMuted}
+                        videoRef={previewVideoRef}
+                        onTogglePlayback={togglePreviewPlayback}
+                        onPickSource={openInlineSourcePicker}
+                        onSeek={handlePreviewSeekSeconds}
+                        onVideoLoadedMetadata={handlePreviewMetadataLoaded}
+                        onVideoLoadedData={handlePreviewVideoReady}
+                        onVideoCanPlay={handlePreviewVideoReady}
+                        onVideoTimeUpdate={handlePreviewTimeUpdate}
+                        onVideoEnded={handlePreviewEnded}
+                        onVideoPlay={handlePreviewVideoPlay}
+                        onVideoPause={handlePreviewVideoPause}
+                        onVideoError={handlePreviewVideoError}
+                        onImageLoaded={handlePreviewImageLoaded}
+                        onApplyPrompt={handleMotionCanvasPrompt}
+                      />
+                    </div>
                     <TimelineEngine />
                     <SceneEditor />
-                  </>
+                  </div>
                 ) : null}
 
                 <div className={cn('w-full max-w-[min(100%,54rem)] self-center rounded-[18px] border border-white/8 bg-[#09090c] p-3', (activeWorkspaceTab === 'Music' || activeWorkspaceTab === 'Motion') && 'hidden')}>
