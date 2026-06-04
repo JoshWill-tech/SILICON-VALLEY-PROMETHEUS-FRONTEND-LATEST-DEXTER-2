@@ -35,6 +35,7 @@ export interface AIPrompt {
 }
 
 interface EditorState {
+  projectId: string | null
   currentTime: number
   duration: number
   isPlaying: boolean
@@ -44,6 +45,7 @@ interface EditorState {
   showExport: boolean
   showCommandBubble: boolean
   uploadTasks: UploadTask[]
+  currentVideoUrl: string | null
 }
 
 type EditorAction =
@@ -58,8 +60,10 @@ type EditorAction =
   | { type: 'ADD_TASK'; payload: UploadTask }
   | { type: 'UPDATE_TASK'; payload: { id: string; progress?: number; status?: UploadTask['status']; networkState?: UploadTask['networkState'] } }
   | { type: 'REMOVE_TASK'; payload: string }
+  | { type: 'SET_VIDEO_URL'; payload: string | null }
 
 const initialState: EditorState = {
+  projectId: null,
   currentTime: 0,
   duration: 180,
   isPlaying: false,
@@ -76,6 +80,7 @@ const initialState: EditorState = {
   showExport: false,
   showCommandBubble: false,
   uploadTasks: [],
+  currentVideoUrl: null,
 }
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -114,6 +119,8 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       }
     case 'REMOVE_TASK':
       return { ...state, uploadTasks: state.uploadTasks.filter((t) => t.id !== action.payload) }
+    case 'SET_VIDEO_URL':
+      return { ...state, currentVideoUrl: action.payload }
     default:
       return state
   }
@@ -130,6 +137,7 @@ interface EditorContextValue extends EditorState {
   addTask: (task: UploadTask) => void
   updateTask: (id: string, updates: Partial<Omit<UploadTask, 'id'>>) => void
   removeTask: (id: string) => void
+  setCurrentVideoUrl: (url: string | null) => void
 }
 
 const EditorContext = createContext<EditorContextValue | null>(null)
@@ -143,6 +151,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const clearSelection = useCallback(() => dispatch({ type: 'CLEAR_SELECTION' }), [])
   const setShowExport = useCallback((s: boolean) => dispatch({ type: 'TOGGLE_EXPORT', payload: s }), [])
   const setShowCommandBubble = useCallback((s: boolean) => dispatch({ type: 'TOGGLE_COMMAND', payload: s }), [])
+  const setCurrentVideoUrl = useCallback((url: string | null) => dispatch({ type: 'SET_VIDEO_URL', payload: url }), [])
 
   const addPrompt = useCallback((segmentId: string, promptText: string) => {
     const newPrompt: AIPrompt = {
@@ -185,6 +194,7 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         addTask,
         updateTask,
         removeTask,
+        setCurrentVideoUrl,
       }}
     >
       {children}

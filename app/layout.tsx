@@ -5,6 +5,7 @@ import localFont from 'next/font/local'
 import { RootClientEffects } from '@/components/root-client-effects'
 import { WorkspaceFrame } from '@/components/workspace-frame'
 import { AuthProvider } from '@/components/auth/auth-provider'
+import { ReactQueryProvider } from '@/components/ReactQueryProvider'
 import { Footer } from '@/components/Footer'
 import './globals.css'
 import './premium-vignette.css'
@@ -46,17 +47,19 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${vogueDisplay.variable} bg-[#05060a] font-sans text-foreground antialiased`}>
-        <AuthProvider>
-          <div className="flex min-h-screen flex-col">
-            <div className="flex-1">
-              <WorkspaceFrame>{children}</WorkspaceFrame>
+        <ReactQueryProvider>
+          <AuthProvider>
+            <div className="flex min-h-screen flex-col">
+              <div className="flex-1">
+                <WorkspaceFrame>{children}</WorkspaceFrame>
+              </div>
+              <Footer />
             </div>
-            <Footer />
-          </div>
-          <RootClientEffects />
-          <Analytics />
-          <SpeedInsights />
-        </AuthProvider>
+            <RootClientEffects />
+            <Analytics />
+            <SpeedInsights />
+          </AuthProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   )

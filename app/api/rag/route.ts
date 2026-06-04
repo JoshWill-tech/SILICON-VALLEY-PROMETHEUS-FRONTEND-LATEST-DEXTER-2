@@ -81,30 +81,46 @@ type RagDatabase = {
 
 type RagSupabaseClient = SupabaseClient<RagDatabase>
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': process.env.RAG_CORS_ORIGIN?.trim() || '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+function getCorsHeaders(req: Request) {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  ]
+  const origin = req.headers.get('origin')
+  const headers = new Headers({
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Credentials': 'true',
+  })
+
+  if (origin && allowedOrigins.includes(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin)
+  } else if (!origin && process.env.NODE_ENV === 'development') {
+    // Allow server-to-server or tools like curl in dev
+    headers.set('Access-Control-Allow-Origin', '*')
+  }
+
+  return headers
 }
 
-export function OPTIONS() {
+export function OPTIONS(req: Request) {
   return new Response(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: getCorsHeaders(req),
   })
 }
 
 export async function POST(req: Request) {
+  const corsHeaders = getCorsHeaders(req)
   try {
     const body = (await req.json().catch(() => null)) as RagRequestBody | null
     const query = cleanInline(body?.query)
 
     if (!query) {
-      return json({ error: 'Query is required.' }, 400)
+      return json({ error: 'Query is required.' }, 400, corsHeaders)
     }
 
     if (query.length >= 500) {
-      return json({ error: 'Query must be under 500 characters.' }, 400)
+      return json({ error: 'Query must be under 500 characters.' }, 400, corsHeaders)
     }
 
     const env = getRequiredEnv()
@@ -122,7 +138,7 @@ export async function POST(req: Request) {
         answer: EMPTY_ANSWER,
         sources: [],
         chunks: [],
-      })
+      }, 200, corsHeaders)
     }
 
     const contextBlock = formatContextBlock(contextChunks)
@@ -140,10 +156,10 @@ export async function POST(req: Request) {
         content: chunk.content,
         similarity: chunk.similarity,
       })),
-    })
+    }, 200, corsHeaders)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'RAG lookup failed.'
-    return json({ error: message }, 500)
+    return json({ error: message }, 500, corsHeaders)
   }
 }
 
@@ -382,10 +398,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function json(payload: unknown, status = 200) {
+function json(payload: unknown, status = 200, headers?: Headers) {
   return NextResponse.json(payload, {
     status,
-    headers: corsHeaders,
+    headers,
   })
 }
 

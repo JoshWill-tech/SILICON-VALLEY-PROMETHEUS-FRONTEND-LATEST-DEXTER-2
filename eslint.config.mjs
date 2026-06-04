@@ -8,6 +8,17 @@ const config = [
     },
   },
   {
+    files: ["app/**/*.tsx", "components/**/*.tsx", "hooks/**/*.ts"],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{ 
+          name: '@/lib/crypto/token-vault', 
+          message: 'Token vault is server-only. Never import in frontend code.' 
+        }]
+      }]
+    }
+  },
+  {
     ignores: [
       ".next/**",
       "out/**",

@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       PartNumber: partNumber,
     })
 
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 })
+    const url = await getSignedUrl(r2Client as any, command, { expiresIn: 3600 })
 
     return NextResponse.json({ url })
   } catch (error: any) {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 /** @type {import('next').NextConfig} */
 const configFilePath = fileURLToPath(import.meta.url)
 const projectRoot = path.dirname(configFilePath)
-const backendApiBaseUrl = process.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000'
+const backendApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8000'
 
 const nextConfig = {
   allowedDevOrigins: ['192.168.207.174'],
@@ -17,8 +17,7 @@ const nextConfig = {
     ignoreBuildErrors: process.platform === 'win32',
   },
   env: {
-    VITE_API_BASE_URL: backendApiBaseUrl,
-    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || backendApiBaseUrl,
+    NEXT_PUBLIC_API_BASE_URL: backendApiBaseUrl,
   },
   images: {
     remotePatterns: [

@@ -68,7 +68,7 @@ class FatalEnrichmentError extends Error {}
 
 async function downloadTrack(key: string): Promise<Buffer> {
   const command = new GetObjectCommand({ Bucket: BUCKET, Key: key })
-  const url = await getSignedUrl(r2, command, { expiresIn: 300 })
+  const url = await getSignedUrl(r2 as any, command, { expiresIn: 300 })
   const response = await fetch(url)
   if (!response.ok) throw new Error(`Download failed: ${response.status}`)
   return Buffer.from(await response.arrayBuffer())

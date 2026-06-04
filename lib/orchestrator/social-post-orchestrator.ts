@@ -1,6 +1,7 @@
-import { getSocialModule } from '@/lib/social'
+import { distributeContent } from '@/lib/social'
 import { SocialPlatform, PublishResult } from '@/lib/social/types'
 import { MediaRegistry } from '@/lib/media/registry'
+import { OAuthProvider } from '@/lib/oauth/types'
 
 export interface SocialPostPlan {
   videoId: string
@@ -32,19 +33,19 @@ export const SocialPostOrchestrator = {
     // 3. Execute parallel uploads and publishing
     const publishPromises = plan.platforms.map(async (platform) => {
       try {
-        const socialModule = getSocialModule(platform)
-        
-        // Auth check (mock)
-        const authenticated = await socialModule.authenticate()
-        if (!authenticated) {
-          return { success: false, platform, error: 'Authentication failed' }
+        const result = await distributeContent(
+          userId, 
+          platform as OAuthProvider, 
+          video.url, 
+          plan.caption,
+          { title: video.title }
+        ) as any
+        return {
+          success: true,
+          platform,
+          postId: result.postId || result.publishId || result.videoId || result.fileId || result.jobId,
+          postUrl: result.postUrl
         }
-
-        // Upload
-        const uploadId = await socialModule.uploadVideo(video.url, { title: video.title })
-        
-        // Publish
-        return await socialModule.publish(uploadId, plan.caption)
       } catch (error) {
         console.error(`[Orchestrator] Failed to post to ${platform}:`, error)
         return { 

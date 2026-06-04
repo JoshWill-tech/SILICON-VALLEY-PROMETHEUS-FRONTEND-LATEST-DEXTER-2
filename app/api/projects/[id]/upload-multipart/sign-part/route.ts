@@ -35,7 +35,7 @@ export async function POST(
       PartNumber: partNumber,
     })
 
-    const url = await getSignedUrl(r2Client, command, {
+    const url = await getSignedUrl(r2Client as any, command, {
       expiresIn: PROJECT_SOURCE_MULTIPART_URL_TTL_SECONDS,
     })
 

@@ -1,0 +1,19 @@
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+const redis = new Redis({ 
+  url: process.env.UPSTASH_REDIS_REST_URL!, 
+  token: process.env.UPSTASH_REDIS_REST_TOKEN! 
+});
+
+export const oauthRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 m"), // 5 requests per minute
+  analytics: true,
+});
+
+export const exportRateLimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, "1 h"), // 3 exports per hour
+  analytics: true,
+});
