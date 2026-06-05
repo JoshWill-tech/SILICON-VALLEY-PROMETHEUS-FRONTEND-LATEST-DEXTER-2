@@ -47,44 +47,82 @@ function SocialAccountsContent() {
       return res.json();
     },
   });
+const handleConnect = async (providerId: string) => {
+  // Isolated loading state for this specific provider
+  setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
 
-  const handleConnect = async (providerId: string) => {
-    setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
-    try {
-      const res = await fetch(`/api/oauth/${providerId}/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to initiate OAuth');
-      
-      if (data.url) {
-        // CRITICAL: Reset state BEFORE navigating away so bfcache doesn't capture loading=true
-        setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
-        window.location.href = data.url;
-        return;
-      }
-    } catch (err: any) {
-      console.error("Connect error:", err);
-      alert(err.message || 'Connection failed');
-    } finally {
-      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
-    }
-  };
+  // Bug 3: AbortController with 10s timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  const handleDisconnect = async (providerId: string) => {
-    setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
-    try {
-      const res = await fetch(`/api/oauth/${providerId}/disconnect`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to disconnect from server");
-      await queryClient.invalidateQueries({ queryKey: ["user-connections"] });
-    } catch (err: any) {
-      console.error("Disconnect error:", err);
-      alert(err.message || 'Disconnection failed');
-    } finally {
-      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+  try {
+    const res = await fetch(`/api/oauth/${providerId}/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal
+    });
+
+    // Bug 2: Robust JSON parsing
+    const text = await res.text();
+    let data;
+    try { 
+      data = JSON.parse(text); 
+    } catch { 
+      throw new Error(`Invalid server response: ${text.slice(0, 200)}`); 
     }
-  };
+
+    if (!res.ok) throw new Error(data.error || 'Failed to initiate OAuth');
+
+    if (data.url) {
+      // CRITICAL: Reset state BEFORE navigating away so bfcache doesn't capture loading=true
+      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+      window.location.href = data.url;
+      return;
+    }
+  } catch (err: any) {
+    console.error("Connect error:", err);
+    const message = err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message;
+    alert(message || 'Connection failed');
+  } finally {
+    clearTimeout(timeoutId);
+    setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+  }
+};
+
+const handleDisconnect = async (providerId: string) => {
+  setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const res = await fetch(`/api/oauth/${providerId}/disconnect`, { 
+      method: "POST",
+      signal: controller.signal
+    });
+
+    const text = await res.text();
+    let data;
+    try { 
+      data = JSON.parse(text); 
+    } catch { 
+      throw new Error(`Invalid server response: ${text.slice(0, 200)}`); 
+    }
+
+    if (!res.ok) throw new Error(data.error || "Failed to disconnect from server");
+
+    // Invalidate query to refresh connection list in real-time
+    await queryClient.invalidateQueries({ queryKey: ["user-connections"] });
+  } catch (err: any) {
+    console.error("Disconnect error:", err);
+    const message = err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message;
+    alert(message || 'Disconnection failed');
+  } finally {
+    clearTimeout(timeoutId);
+    setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+  }
+};
+
 
   const isConnected = (id: string) => connections?.some((c: any) => c.provider === id && c.connected);
 
