@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('[AUTH_AUDIT] getSession error:', error.message)
+          console.log('[AUTH_AUDIT] getSession error:', error.message)
           // Try refresh fallback
           const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
           if (!refreshError && refreshedSession) {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (mounted) setSession(initialSession)
         }
       } catch (err) {
-        console.error('[AUTH_AUDIT] unexpected session init error:', err)
+        console.log('[AUTH_AUDIT] unexpected session init error:', err)
       } finally {
         if (mounted) setIsLoading(false)
       }
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initSession()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.error('[AUTH_AUDIT]', event, currentSession?.user?.id)
+      console.log('[AUTH_AUDIT]', event, currentSession?.user?.id)
 
       if (mounted) {
         setSession(currentSession)

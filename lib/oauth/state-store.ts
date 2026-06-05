@@ -3,7 +3,13 @@ import { OAuthState } from "./types";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
 
 export async function storeState(state: string, data: OAuthState): Promise<void> {
@@ -31,3 +37,4 @@ export async function getAndDeleteState(state: string): Promise<OAuthState | nul
     expiresAt: new Date(data.expires_at).getTime(),
   };
 }
+

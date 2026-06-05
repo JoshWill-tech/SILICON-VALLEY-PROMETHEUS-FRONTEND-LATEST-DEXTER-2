@@ -159,11 +159,11 @@ function parseTags(value: string) {
 }
 
 function getProjectSizeBytes(project: Project) {
-  return project.sourceProfile?.inspection.fileSizeBytes ?? 0
+  return project.sourceProfile?.inspection?.fileSizeBytes ?? 0
 }
 
 function getProjectDurationSec(project: Project) {
-  return project.sourceProfile?.inspection.durationSec ?? 0
+  return project.sourceProfile?.inspection?.durationSec ?? 0
 }
 
 function getProjectStatus(project: Project, job: ProcessingJob | null, latestExport: ProjectExport | null): StatusFilter {

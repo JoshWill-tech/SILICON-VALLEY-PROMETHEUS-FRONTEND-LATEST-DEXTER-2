@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Youtube, Instagram, Twitter, Facebook, Linkedin, Cloud, Music2, Check, X, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,34 +23,68 @@ function SocialAccountsContent() {
   const queryClient = useQueryClient();
   const success = searchParams.get("success");
   const error = searchParams.get("error");
+  
+  // P0 Fix: Per-provider loading states using a Record for absolute isolation.
+  const [loadingProviders, setLoadingProviders] = useState<Record<string, boolean>>({});
 
-  const { data: connections, isLoading } = useQuery({
+  // CRITICAL: Handle browser back-forward cache (bfcache)
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // event.persisted === true when page is restored from bfcache
+      if (event.persisted) {
+        setLoadingProviders({});
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
+  const { data: connections } = useQuery({
     queryKey: ["user-connections"],
     queryFn: async () => {
       const res = await fetch("/api/user/connections");
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) throw new Error("Failed to fetch connections");
       return res.json();
     },
   });
 
-  const connectMutation = useMutation({
-    mutationFn: async (provider: string) => {
-      const res = await fetch(`/api/oauth/${provider}/initiate`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to initiate OAuth");
+  const handleConnect = async (providerId: string) => {
+    setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
+    try {
+      const res = await fetch(`/api/oauth/${providerId}/initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
       const data = await res.json();
-      return data.url;
-    },
-    onSuccess: (url) => { window.location.href = url; },
-  });
+      if (!res.ok) throw new Error(data.error || 'Failed to initiate OAuth');
+      
+      if (data.url) {
+        // CRITICAL: Reset state BEFORE navigating away so bfcache doesn't capture loading=true
+        setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+        window.location.href = data.url;
+        return;
+      }
+    } catch (err: any) {
+      console.error("Connect error:", err);
+      alert(err.message || 'Connection failed');
+    } finally {
+      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+    }
+  };
 
-  const disconnectMutation = useMutation({
-    mutationFn: async (provider: string) => {
-      const res = await fetch(`/api/oauth/${provider}/disconnect`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to disconnect");
-      return res.json();
-    },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["user-connections"] }); },
-  });
+  const handleDisconnect = async (providerId: string) => {
+    setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
+    try {
+      const res = await fetch(`/api/oauth/${providerId}/disconnect`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to disconnect from server");
+      await queryClient.invalidateQueries({ queryKey: ["user-connections"] });
+    } catch (err: any) {
+      console.error("Disconnect error:", err);
+      alert(err.message || 'Disconnection failed');
+    } finally {
+      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
+    }
+  };
 
   const isConnected = (id: string) => connections?.some((c: any) => c.provider === id && c.connected);
 
@@ -68,7 +102,11 @@ function SocialAccountsContent() {
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400">Connection failed. Please try again.</span>
+            <span className="text-red-400">
+              Connection failed: {error === "token_exchange" ? "Token exchange failed" : 
+                                error === "invalid_state" ? "Security state mismatch" :
+                                "Internal server error"}. Please try again.
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -76,7 +114,7 @@ function SocialAccountsContent() {
       <div className="space-y-3">
         {PROVIDERS.map(provider => {
           const connected = isConnected(provider.id);
-          const isPending = connectMutation.variables === provider.id || disconnectMutation.variables === provider.id;
+          const isPending = loadingProviders[provider.id] || false;
           return (
             <motion.div key={provider.id} layout
               className={`p-4 rounded-xl flex items-center justify-between bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] ${connected ? 'border-[rgba(0,255,136,0.2)]' : ''}`}>
@@ -90,7 +128,7 @@ function SocialAccountsContent() {
                 </div>
               </div>
               <Button variant={connected ? "outline" : "default"} size="sm" disabled={isPending}
-                onClick={() => connected ? disconnectMutation.mutate(provider.id) : connectMutation.mutate(provider.id)}
+                onClick={() => connected ? handleDisconnect(provider.id) : handleConnect(provider.id)}
                 className={connected ? "border-white/10 text-white/60 hover:bg-white/5" : "bg-white/10 text-white hover:bg-white/20"}>
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : connected ? <><X className="w-4 h-4 mr-1" /> Disconnect</> : "Connect"}
               </Button>

@@ -1,4 +1,14 @@
-import { ProviderConfig } from "./types";
+export interface ProviderConfig {
+  name: string;
+  authorizeUrl: string;
+  tokenUrl: string;
+  revokeUrl?: string;
+  scopes: string[];
+  scopeSeparator: " " | ",";
+  pkce: boolean;
+  clientIdParam?: string; // Default: client_id
+  clientIdEnvVar?: string; // Default: PROVIDER_CLIENT_ID
+}
 
 export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   google_drive: {
@@ -9,6 +19,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["https://www.googleapis.com/auth/drive.file"],
     scopeSeparator: " ",
     pkce: true,
+    clientIdEnvVar: "GOOGLE_CLIENT_ID",
   },
   youtube: {
     name: "YouTube",
@@ -18,15 +29,18 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["https://www.googleapis.com/auth/youtube.upload"],
     scopeSeparator: " ",
     pkce: true,
+    clientIdEnvVar: "YOUTUBE_CLIENT_ID",
   },
   tiktok: {
     name: "TikTok",
-    authorizeUrl: "https://www.tiktok.com/auth/authorize",
-    tokenUrl: "https://open.tiktokapis.com/v2/oauth/token",
-    revokeUrl: "https://open.tiktokapis.com/v2/oauth/revoke",
-    scopes: ["video.upload", "video.list"],
+    authorizeUrl: "https://www.tiktok.com/v2/auth/authorize/",
+    tokenUrl: "https://open.tiktokapis.com/v2/oauth/token/",
+    revokeUrl: "https://open.tiktokapis.com/v2/oauth/revoke/",
+    scopes: ["video.upload", "video.list", "user.info.basic"],
     scopeSeparator: ",",
     pkce: true,
+    clientIdParam: "client_key",
+    clientIdEnvVar: "TIKTOK_CLIENT_KEY",
   },
   instagram: {
     name: "Instagram",
@@ -35,6 +49,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["instagram_basic", "instagram_content_publish"],
     scopeSeparator: ",",
     pkce: false,
+    clientIdEnvVar: "FACEBOOK_CLIENT_ID",
   },
   x: {
     name: "X (Twitter)",
@@ -44,6 +59,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["tweet.write", "users.read", "offline.access"],
     scopeSeparator: " ",
     pkce: true,
+    clientIdEnvVar: "X_CLIENT_ID",
   },
   facebook: {
     name: "Facebook",
@@ -53,6 +69,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["pages_manage_posts", "pages_read_engagement"],
     scopeSeparator: ",",
     pkce: false,
+    clientIdEnvVar: "FACEBOOK_CLIENT_ID",
   },
   linkedin: {
     name: "LinkedIn",
@@ -62,6 +79,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: ["w_member_social", "r_basicprofile"],
     scopeSeparator: " ",
     pkce: true,
+    clientIdEnvVar: "LINKEDIN_CLIENT_ID",
   },
   dropbox: {
     name: "Dropbox",
@@ -71,5 +89,6 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     scopes: [],
     scopeSeparator: " ",
     pkce: true,
+    clientIdEnvVar: "DROPBOX_CLIENT_ID",
   },
 };
