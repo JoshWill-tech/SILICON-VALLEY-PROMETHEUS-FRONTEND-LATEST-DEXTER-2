@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Sparkles, Wand2 } from 'lucide-react'
+import { CheckCircle2, Sparkles, Wand2, Film, Music, Type, Box, Search } from 'lucide-react'
 
 import { TextReveal } from '@/components/editor/text-reveal'
 import { Plan, type PlanItem } from '@/components/ui/agent-plan'
@@ -17,22 +17,17 @@ interface EditWorkflowPanelProps {
   job: ProcessingJob | null
 }
 
-function abbreviateJobId(jobId: string) {
-  if (jobId.length <= 10) return jobId
-  return `${jobId.slice(0, 6)}...${jobId.slice(-4)}`
-}
-
-function resolveStyleTemplate(styleId?: string): StyleTemplate | null {
-  if (!styleId) return null
-  return STYLE_TEMPLATES.find((template) => template.id === styleId) ?? null
-}
+const CATEGORIES = [
+  { id: 'clips', label: 'Clips', icon: Film },
+  { id: 'audio', label: 'Audio', icon: Music },
+  { id: 'text', label: 'Text', icon: Type },
+  { id: 'assets', label: 'Assets', icon: Box },
+]
 
 export function EditWorkflowPanel({ projectTitle, sourceLabel, job }: EditWorkflowPanelProps) {
+  const [activeCategory, setActiveCategory] = React.useState('clips')
   const reduceMotion = useStableReducedMotion()
-  const styleTemplate = React.useMemo(
-    () => resolveStyleTemplate(job?.artifacts.styleId),
-    [job?.artifacts.styleId],
-  )
+  
   const planItems = React.useMemo<PlanItem[]>(
     () =>
       (job?.steps ?? []).map((step) => ({
@@ -51,157 +46,117 @@ export function EditWorkflowPanel({ projectTitle, sourceLabel, job }: EditWorkfl
       })),
     [job?.steps],
   )
-  const hasAnimationPlan = Boolean(job?.artifacts.animationPlan)
-  const promptText = job?.input.prompt?.trim() || 'Say "edit this video" or describe the edit you want.'
-  const statusText =
-    job?.status === 'completed'
-      ? 'Edit pass ready'
-      : job?.status === 'running'
-        ? 'Edit job running'
-        : job
-          ? 'Edit job staged'
-          : 'Waiting for an edit prompt'
 
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 10, filter: 'blur(8px)' }}
-      animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
-      transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
+      initial={reduceMotion ? false : { opacity: 0, x: -20 }}
+      animate={reduceMotion ? undefined : { opacity: 1, x: 0 }}
+      className="glass-panel relative flex h-full min-h-0 flex-col overflow-hidden border-y-0 border-l-0 rounded-none bg-abyss/40 backdrop-blur-2xl"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <TextReveal as="div" text="Edit" delay={0.04} className="text-[10px] uppercase tracking-[0.32em] text-white/35" />
-          <TextReveal
-            as="div"
-            text="This lane starts as soon as a prompt says to edit the imported video."
-            delay={0.08}
-            className="mt-2 text-sm leading-6 text-white/72"
-          />
-          <TextReveal as="div" text={projectTitle} delay={0.12} className="mt-2 text-[11px] uppercase tracking-[0.22em] text-white/42" />
+      {/* Category Sidebar */}
+      <div className="flex h-full min-h-0">
+        <div className="flex w-16 flex-col items-center gap-4 border-r border-white/5 py-6">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={cn(
+                'group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all',
+                activeCategory === cat.id
+                  ? 'bg-accent-blue/10 text-accent-blue shadow-[0_0_20px_rgba(59,130,246,0.1)]'
+                  : 'text-white/20 hover:bg-white/5 hover:text-white/40'
+              )}
+              title={cat.label}
+            >
+              <cat.icon className="size-5" />
+              {activeCategory === cat.id && (
+                <motion.div
+                  layoutId="active-cat-indicator"
+                  className="absolute -right-[1px] h-6 w-0.5 bg-accent-blue"
+                />
+              )}
+            </button>
+          ))}
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] text-white/66">
-          <Sparkles className={cn('size-3.5', job?.status === 'running' && 'animate-pulse')} />
-          <span>{statusText}</span>
+
+        {/* Content Area */}
+        <div className="flex flex-1 flex-col min-w-0">
+          <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white">
+              {CATEGORIES.find(c => c.id === activeCategory)?.label}
+            </h2>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 hover:bg-white/5 hover:text-white transition-colors">
+              <Search className="size-4" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {activeCategory === 'clips' && (
+              <>
+                {/* Source Clip Card */}
+                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="relative aspect-video w-24 overflow-hidden rounded-lg border border-white/10 bg-black">
+                      <Film className="absolute left-1/2 top-1/2 size-5 -translate-x-1/2 -translate-y-1/2 text-white/20" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-sm font-medium text-white/90">
+                        {sourceLabel ?? 'Primary Source'}
+                      </div>
+                      <div className="mt-1 text-[10px] uppercase tracking-widest text-white/30 font-bold">
+                        Source Active
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edit Lane Status */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Current Pipeline</label>
+                    <div className="flex items-center gap-1.5 rounded-full border border-accent-green/20 bg-accent-green/5 px-2 py-0.5 text-[9px] font-bold text-accent-green uppercase tracking-widest">
+                      <Sparkles className="size-2.5" />
+                      Ready
+                    </div>
+                  </div>
+                  
+                  {job ? (
+                    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+                      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-white/34 mb-4">
+                        <CheckCircle2 className="size-3.5" />
+                        Refinement Pass
+                      </div>
+                      <Plan items={planItems} className="scale-95 origin-top-left" />
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
+                      <p className="text-[11px] leading-relaxed text-white/30">
+                        Describe an edit to start the AI refinement pipeline.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeCategory !== 'clips' && (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center opacity-40">
+                <Box className="size-8" />
+                <p className="text-xs uppercase tracking-widest">No {activeCategory} available</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
-        {job ? (
-          <>
-            <div className="rounded-[16px] border border-white/8 bg-black/18 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/56">
-                  Job {abbreviateJobId(job.id)}
-                </div>
-                <div
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-[11px]',
-                    job.status === 'running'
-                      ? 'border-emerald-300/18 bg-emerald-300/10 text-emerald-50'
-                      : job.status === 'completed'
-                        ? 'border-sky-300/18 bg-sky-300/10 text-sky-50'
-                        : 'border-white/10 bg-white/[0.04] text-white/56',
-                  )}
-                >
-                  {job.status}
-                </div>
-                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/56">
-                  {sourceLabel ?? 'Imported source'}
-                </div>
-              </div>
-
-              <div className="mt-3 rounded-[14px] border border-white/8 bg-white/[0.03] px-4 py-3">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-white/34">Prompt</div>
-                <p className="mt-2 text-sm leading-6 text-white/80">{promptText}</p>
-              </div>
-
-              <AnimatePresence initial={false}>
-                {styleTemplate ? (
-                  <motion.div
-                    key={styleTemplate.id}
-                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
-                    className="mt-3 rounded-[14px] border border-white/8 bg-black/18 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-[10px] uppercase tracking-[0.28em] text-white/34">Style lane</div>
-                        <div className="mt-1 truncate text-sm font-medium text-white/88">{styleTemplate.name}</div>
-                        <div className="mt-1 text-xs leading-5 text-white/48">{styleTemplate.description}</div>
-                      </div>
-                      <Wand2 className="size-4 shrink-0 text-white/42" />
-                    </div>
-
-                    {styleTemplate.previewImages.length > 0 ? (
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {styleTemplate.previewImages.slice(0, 2).map((previewImage) => (
-                          <div
-                            key={previewImage}
-                            className="relative overflow-hidden rounded-[12px] border border-white/8 bg-black/30"
-                          >
-                            <img
-                              src={previewImage}
-                              alt={`${styleTemplate.name} preview`}
-                              className="h-28 w-full object-cover"
-                            />
-                            <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.64)_100%)] px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/72">
-                              Preset asset
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {styleTemplate.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/58"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {hasAnimationPlan ? (
-                        <span className="rounded-full border border-emerald-300/18 bg-emerald-300/10 px-3 py-1 text-[11px] text-emerald-50">
-                          Live overlay attached
-                        </span>
-                      ) : (
-                        <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/58">
-                          Building overlay
-                        </span>
-                      )}
-                    </div>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </div>
-
-            <div className="rounded-[16px] border border-white/8 bg-black/18 p-3">
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-white/34">
-                <CheckCircle2 className="size-3.5 text-white/42" />
-                Job steps
-              </div>
-              <Plan items={planItems} className="mt-3" />
-            </div>
-          </>
-        ) : (
-          <div className="rounded-[16px] border border-white/8 bg-black/18 p-4 text-sm leading-6 text-white/66">
-            Add a source video, then type an edit prompt like edit this video or make the first beat tighter.
-            The edit job will start streaming and the preview will render the style lane on top of the imported media.
-          </div>
-        )}
-
-        <div className="rounded-[16px] border border-white/8 bg-white/[0.02] p-3 text-sm leading-6 text-white/60">
-          <div className="text-[10px] uppercase tracking-[0.28em] text-white/34">Preview link</div>
-          <div className="mt-2">
-            {hasAnimationPlan
-              ? 'The overlay is already mapped to the imported video and the live stream can refine it in place.'
-              : 'When the job starts, the preview will pick up the rendered text and preset asset lane automatically.'}
-          </div>
+      
+      {/* Footer Ambient Info */}
+      <div className="border-t border-white/5 bg-void/20 px-6 py-3">
+        <div className="flex items-center justify-between text-[9px] uppercase tracking-widest text-white/20 font-bold">
+          <span>Project: {projectTitle}</span>
+          <span>v1.0.4</span>
         </div>
       </div>
     </motion.div>
   )
 }
+

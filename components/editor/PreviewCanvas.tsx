@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertCircle, Film, Sparkles } from 'lucide-react'
+import { AlertCircle, Film, Sparkles, Play, Pause, Maximize2 } from 'lucide-react'
 import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-runtime'
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
 import { PreviewGenerationState } from '@/components/editor/preview-generation-state'
@@ -31,6 +31,8 @@ export interface PreviewCanvasProps {
   sourceAssetLabel: string | null
   previewOverlayPlan: AnimationPlan | null
   previewCurrentTimeSec: number
+  transportCurrentTime: string
+  transportTime: string
   showViralClipSplitPreview: boolean
   viralClipSplitAnimationKey: number
   previewUrl: string
@@ -87,6 +89,8 @@ export function PreviewCanvas({
   sourceAssetLabel,
   previewOverlayPlan,
   previewCurrentTimeSec,
+  transportCurrentTime,
+  transportTime,
   showViralClipSplitPreview,
   viralClipSplitAnimationKey,
   previewUrl,
@@ -134,247 +138,250 @@ export function PreviewCanvas({
   if (activeWorkspaceTab === 'Music') return null
 
   return (
-    <div className="w-full max-w-[min(100%,54rem)] self-center rounded-[18px] border border-white/8 bg-[#09090c] p-3">
-      <div className="flex h-[clamp(250px,40vh,460px)] items-center justify-center rounded-[14px] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_100%)] p-4">
-        <div className="relative flex h-full w-full items-center justify-center">
-          <div
-            ref={musicSpotlightPortalRef}
-            className="pointer-events-none absolute right-2 top-2 z-20"
-          />
-          <input
-            ref={sourceFileInputRef}
-            type="file"
-            accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv"
-            className="sr-only"
-            onChange={onInlineSourceFileInputChange}
-          />
-          <motion.div
-            layout
-            className="group relative overflow-hidden rounded-[8px] border border-[#267dff]/18 bg-black shadow-[0_18px_48px_-30px_rgba(0,0,0,0.95)] transition-[border-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#267dff]/28 hover:shadow-[0_20px_54px_-30px_rgba(38,125,255,0.2)]"
-            style={{
-              aspectRatio: visiblePreviewAspectRatio,
-              width: previewFrameWidth,
-              height: 'auto',
-              willChange: 'width, height, transform',
-            }}
-            transition={{
-              layout: {
-                duration: 0.72,
-                ease: [0.645, 0.045, 0.355, 1],
-              },
-            }}
-          >
-            <div className="relative h-full w-full">
-              <BriefPipelineProgress
-                status={job?.transcriptStatus}
-                steps={job?.previewProgressSteps}
-              />
+    <div className="flex flex-col items-center w-full">
+      <div className="relative group w-full max-w-[min(100%,54rem)] self-center rounded-[24px] border border-white/8 bg-[#050505] p-2 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.85)]">
+        {/* Glass Border Container */}
+        <div className="relative h-[clamp(250px,40vh,460px)] w-full overflow-hidden rounded-[18px] border border-white/10 bg-[#000]">
+          <div className="relative flex h-full w-full items-center justify-center">
+            <div
+              ref={musicSpotlightPortalRef}
+              className="pointer-events-none absolute right-2 top-2 z-20"
+            />
+            <input
+              ref={sourceFileInputRef}
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv"
+              className="sr-only"
+              onChange={onInlineSourceFileInputChange}
+            />
+            <motion.div
+              layout
+              className="relative overflow-hidden rounded-[8px] border border-white/5 bg-black"
+              style={{
+                aspectRatio: visiblePreviewAspectRatio,
+                width: previewFrameWidth,
+                height: 'auto',
+                willChange: 'width, height, transform',
+              }}
+              transition={{
+                layout: {
+                  duration: 0.72,
+                  ease: [0.645, 0.045, 0.355, 1],
+                },
+              }}
+            >
+              <div className="relative h-full w-full">
+                <BriefPipelineProgress
+                  status={job?.transcriptStatus}
+                  steps={job?.previewProgressSteps}
+                />
 
-              {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="pointer-events-none absolute bottom-3 left-3 z-20"
-                >
-                  <div className="inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] text-white/86 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
-                    <Film className="size-3.5 shrink-0 text-[#9ff6e3]" />
-                    <div className="min-w-0 truncate font-medium text-white/90">
-                      {sourceAssetLabel ?? project?.title ?? 'Source video'}
-                    </div>
-                  </div>
-                </motion.div>
-              ) : null}
-
-              {hasPreviewMedia ? (
-                <>
-                  <CinematicPreviewRuntime
-                    animationPlan={previewOverlayPlan}
-                    currentTimeMs={previewCurrentTimeSec * 1000}
-                    aspectRatio={visiblePreviewAspectRatio}
-                    showSafeZones={Boolean(previewOverlayPlan)}
-                    className="absolute inset-0"
+                {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="pointer-events-none absolute bottom-3 left-3 z-20"
                   >
-                    {showViralClipSplitPreview ? (
-                      <ViralClipSplitPreview
-                        key={`viral-split-${viralClipSplitAnimationKey}-${previewUrl}`}
-                        active={showViralClipSplitPreview}
-                        animationKey={viralClipSplitAnimationKey}
-                        previewUrl={previewUrl}
-                        previewKind={previewKind}
-                        title={sourceAssetLabel ?? project?.title ?? 'Source video'}
-                        isPlaying={previewPlaying}
-                        currentTimeSec={previewCurrentTimeSec}
-                        mediaTransformStyle={
-                          shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle
-                        }
-                        objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
-                        splitVideoSources={currentSplitPreviewAssets}
-                        highlightRestore={isLockedViralClipTriggerHovered}
-                        onRestoreLandscape={onRestoreLandscape}
-                      />
-                    ) : previewKind === 'image' ? (
-                      <div className="absolute inset-0 overflow-hidden bg-black">
-                        <div
-                          className="absolute inset-0"
-                          style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                        >
-                          <img
-                            src={previewUrl}
-                            alt={project?.title ?? 'Project preview'}
-                            className="block h-full w-full bg-black"
-                            onLoad={onPreviewImageLoaded}
-                            style={{
-                              objectFit: fitMode === 'fill' ? 'cover' : 'contain',
-                            }}
-                          />
-                        </div>
+                    <div className="inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] text-white/86 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
+                      <Film className="size-3.5 shrink-0 text-accent-cyan" />
+                      <div className="min-w-0 truncate font-medium text-white/90">
+                        {sourceAssetLabel ?? project?.title ?? 'Source video'}
                       </div>
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
-                        <div
-                          className="absolute inset-0 cursor-pointer"
-                          onPointerDown={(event) => {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            onTogglePreviewPlayback()
-                          }}
-                          style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                        >
-                          <video
-                            key={previewUrl}
-                            ref={previewVideoRef}
-                            src={previewUrl}
-                            muted={isPreviewMuted}
-                            playsInline
-                            controls={false}
-                            preload="auto"
-                            onLoadedMetadata={onPreviewMetadataLoaded}
-                            onLoadedData={onPreviewVideoReady}
-                            onCanPlay={onPreviewVideoReady}
-                            onTimeUpdate={onPreviewTimeUpdate}
-                            onEnded={onPreviewEnded}
-                            onPlay={onPreviewVideoPlay}
-                            onPause={onPreviewVideoPause}
-                            onError={onPreviewVideoError}
-                            className="pointer-events-none block h-full w-full select-none bg-black"
-                            style={{
-                              objectFit: fitMode === 'fill' ? 'cover' : 'contain',
-                            }}
-                          />
-                        </div>
+                    </div>
+                  </motion.div>
+                ) : null}
 
-                        {!isPreviewMediaReady && isPreviewLoadingVisible ? (
-                          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                            <MinimalTypographicLoader
-                              label="Loading source preview"
-                              message="Preparing the visible video surface."
-                              variant="inline"
-                              size="sm"
-                              className="w-full max-w-[320px]"
+                {hasPreviewMedia ? (
+                  <>
+                    <CinematicPreviewRuntime
+                      animationPlan={previewOverlayPlan}
+                      currentTimeMs={previewCurrentTimeSec * 1000}
+                      aspectRatio={visiblePreviewAspectRatio}
+                      showSafeZones={Boolean(previewOverlayPlan)}
+                      className="absolute inset-0"
+                    >
+                      {showViralClipSplitPreview ? (
+                        <ViralClipSplitPreview
+                          key={`viral-split-${viralClipSplitAnimationKey}-${previewUrl}`}
+                          active={showViralClipSplitPreview}
+                          animationKey={viralClipSplitAnimationKey}
+                          previewUrl={previewUrl}
+                          previewKind={previewKind}
+                          title={sourceAssetLabel ?? project?.title ?? 'Source video'}
+                          isPlaying={previewPlaying}
+                          currentTimeSec={previewCurrentTimeSec}
+                          mediaTransformStyle={
+                            shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle
+                          }
+                          objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
+                          splitVideoSources={currentSplitPreviewAssets}
+                          highlightRestore={isLockedViralClipTriggerHovered}
+                          onRestoreLandscape={onRestoreLandscape}
+                        />
+                      ) : previewKind === 'image' ? (
+                        <div className="absolute inset-0 overflow-hidden bg-black">
+                          <div
+                            className="absolute inset-0"
+                            style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                          >
+                            <img
+                              src={previewUrl}
+                              alt={project?.title ?? 'Project preview'}
+                              className="block h-full w-full bg-black"
+                              onLoad={onPreviewImageLoaded}
+                              style={{
+                                objectFit: fitMode === 'fill' ? 'cover' : 'contain',
+                              }}
                             />
                           </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </CinematicPreviewRuntime>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
+                          <div
+                            className="absolute inset-0 cursor-pointer"
+                            onPointerDown={(event) => {
+                              event.preventDefault()
+                              event.stopPropagation()
+                              onTogglePreviewPlayback()
+                            }}
+                            style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                          >
+                            <video
+                              key={previewUrl}
+                              ref={previewVideoRef}
+                              src={previewUrl}
+                              muted={isPreviewMuted}
+                              playsInline
+                              controls={false}
+                              preload="auto"
+                              onLoadedMetadata={onPreviewMetadataLoaded}
+                              onLoadedData={onPreviewVideoReady}
+                              onCanPlay={onPreviewVideoReady}
+                              onTimeUpdate={onPreviewTimeUpdate}
+                              onEnded={onPreviewEnded}
+                              onPlay={onPreviewVideoPlay}
+                              onPause={onPreviewVideoPause}
+                              onError={onPreviewVideoError}
+                              className="pointer-events-none block h-full w-full select-none bg-black"
+                              style={{
+                                objectFit: fitMode === 'fill' ? 'cover' : 'contain',
+                              }}
+                            />
+                          </div>
 
-                  <PreviewGenerationState
-                    isVisible={isPreviewBriefGenerating}
-                    onComplete={() => {
-                      onSetIsPreviewBriefGenerating(false)
-                      onSetShowPreviewFeedback(true)
-                    }}
-                  />
-
-                  <PreviewFeedbackShell
-                    previewId={undefined}
-                    projectId={projectId}
-                    show={showPreviewFeedback}
-                    onDismiss={() => onSetShowPreviewFeedback(false)}
-                    onSubmitPayload={(payload) => {
-                      console.debug('Preview Feedback Submitted:', payload)
-                      if (payload.sentiment === 'try_again') {
-                        // Local only, no backend mutation
-                        console.debug('Try again requested')
-                      }
-                    }}
-                  />
-
-                  {showInlinePreviewStatus ? (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
-                      <motion.button
-                        type="button"
-                        aria-label={
-                          sourceStageError
-                            ? 'Source upload error'
-                            : inlinePreviewStatusLabel ?? 'Source upload status'
-                        }
-                        layout
-                        initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                        onHoverStart={() => onSetInlinePreviewStatusHovered(true)}
-                        onHoverEnd={() => onSetInlinePreviewStatusHovered(false)}
-                        onFocus={() => onSetInlinePreviewStatusHovered(true)}
-                        onBlur={() => onSetInlinePreviewStatusHovered(false)}
-                        className={cn(
-                          'pointer-events-auto inline-flex items-center overflow-hidden border border-white/10 bg-black/44 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md transition-[border-radius,padding,gap,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                          isInlinePreviewStatusExpanded
-                            ? 'gap-2 rounded-full px-3 py-1.5 text-[11px] text-white/72'
-                            : 'size-9 justify-center rounded-full text-white/84 hover:bg-black/56',
-                        )}
-                      >
-                        <motion.span
-                          aria-hidden
-                          className="flex size-4 shrink-0 items-center justify-center"
-                          animate={
-                            sourceStageError ? { rotate: 0, scale: [0.92, 1.02, 0.92] } : { rotate: 360 }
-                          }
-                          transition={
-                            sourceStageError
-                              ? { duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }
-                              : { duration: 1, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }
-                          }
-                        >
-                          {sourceStageError ? (
-                            <AlertCircle className="size-4 text-rose-100" />
-                          ) : (
-                            <Sparkles className="size-4 text-[#9ff6e3]" />
-                          )}
-                        </motion.span>
-
-                        <AnimatePresence initial={false}>
-                          {isInlinePreviewStatusExpanded && inlinePreviewStatusLabel ? (
-                            <motion.span
-                              key="inline-preview-status-label"
-                              initial={{ opacity: 0, x: -6 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -4 }}
-                              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                            >
-                              {inlinePreviewStatusLabel}
-                            </motion.span>
+                          {!isPreviewMediaReady && isPreviewLoadingVisible ? (
+                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
+                              <MinimalTypographicLoader
+                                label="Loading source preview"
+                                message="Preparing the visible video surface."
+                                variant="inline"
+                                size="sm"
+                                className="w-full max-w-[320px]"
+                              />
+                            </div>
                           ) : null}
-                        </AnimatePresence>
-                      </motion.button>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <SourceStagePlaceholder
-                  status={sourceStageError ? 'error' : previewUrl || hasSourceAsset ? 'loading' : 'empty'}
-                  isDragActive={isInlineSourceDragOver}
-                  onPickSource={onPickSource}
-                  onDragOver={onInlineSourceDragOver}
-                  onDragLeave={onInlineSourceDragLeave}
-                  onDrop={onInlineSourceDrop}
-                />
-              )}
+                        </div>
+                      )}
+                    </CinematicPreviewRuntime>
 
-              <div className="pointer-events-none absolute inset-[10%] rounded-[8px] border border-dashed border-white/12" />
+                    <PreviewGenerationState
+                      isVisible={isPreviewBriefGenerating}
+                      onComplete={() => {
+                        onSetIsPreviewBriefGenerating(false)
+                        onSetShowPreviewFeedback(true)
+                      }}
+                    />
+
+                    <PreviewFeedbackShell
+                      previewId={undefined}
+                      projectId={projectId}
+                      show={showPreviewFeedback}
+                      onDismiss={() => onSetShowPreviewFeedback(false)}
+                      onSubmitPayload={(payload) => {
+                        console.debug('Preview Feedback Submitted:', payload)
+                        if (payload.sentiment === 'try_again') {
+                          // Local only, no backend mutation
+                          console.debug('Try again requested')
+                        }
+                      }}
+                    />
+                  </>
+                ) : (
+                  <SourceStagePlaceholder
+                    status={sourceStageError ? 'error' : previewUrl || hasSourceAsset ? 'loading' : 'empty'}
+                    isDragActive={isInlineSourceDragOver}
+                    onPickSource={onPickSource}
+                    onDragOver={onInlineSourceDragOver}
+                    onDragLeave={onInlineSourceDragLeave}
+                    onDrop={onInlineSourceDrop}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Floating Controls Overlay */}
+          <AnimatePresence>
+            {hasPreviewMedia && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute inset-x-0 bottom-6 z-30 flex items-center justify-center px-6"
+              >
+                <div className="glass-panel flex items-center gap-4 rounded-full bg-void/60 px-2 py-2 backdrop-blur-2xl">
+                  <div className="flex items-center gap-3 px-3 py-1">
+                    <span className="font-mono text-[11px] font-medium tracking-wide text-white/80">
+                      {transportCurrentTime}
+                    </span>
+                    <span className="font-mono text-[11px] font-medium tracking-wide text-chrome-dim">
+                      / {transportTime}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={onTogglePreviewPlayback}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-cyan text-void transition-transform active:scale-95"
+                  >
+                    {previewPlaying ? <Pause className="size-5 fill-current" /> : <Play className="size-5 fill-current ml-1" />}
+                  </button>
+
+                  <button
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-white"
+                  >
+                    <Maximize2 className="size-4" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Status Badge */}
+          {showInlinePreviewStatus && (
+            <div className="pointer-events-none absolute left-6 top-6 z-20 flex justify-center">
+              <motion.button
+                type="button"
+                layout
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className={cn(
+                  'pointer-events-auto inline-flex items-center overflow-hidden rounded-full border border-white/10 bg-black/44 px-3 py-1.5 backdrop-blur-md',
+                  isInlinePreviewStatusExpanded ? 'gap-2 text-[11px] text-white/72' : 'size-9 justify-center text-white/84'
+                )}
+              >
+                <motion.span
+                  animate={sourceStageError ? { scale: [0.92, 1.02, 0.92] } : { rotate: 360 }}
+                  transition={{ duration: sourceStageError ? 1.1 : 1, repeat: Infinity, ease: 'linear' }}
+                >
+                  {sourceStageError ? <AlertCircle className="size-4 text-rose-400" /> : <Sparkles className="size-4 text-accent-cyan" />}
+                </motion.span>
+                {isInlinePreviewStatusExpanded && inlinePreviewStatusLabel && (
+                  <span>{inlinePreviewStatusLabel}</span>
+                )}
+              </motion.button>
             </div>
-          </motion.div>
+          )}
         </div>
       </div>
     </div>
@@ -421,3 +428,4 @@ function BriefPipelineProgress({
     </div>
   )
 }
+

@@ -67,8 +67,8 @@ export function useEditorState() {
   const lastTranscriptSyncTimeRef = React.useRef<number>(0)
 
   const handleWorkspaceTabChange = React.useCallback((name: string) => {
-    if (name !== 'Motion' && name !== 'Music' && name !== 'Output') return
-    setActiveWorkspaceTab(name)
+    if (name !== 'Motion' && name !== 'Music' && name !== 'Editor') return
+    setActiveWorkspaceTab(name as HeaderNavMode)
     if (name === 'Music') {
       setBottomMode('Music')
     }

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 export type AnimeNavItem = {
   name: string
   url?: string
-  icon: LucideIcon
+  icon: React.ComponentType<any>
 }
 
 type AnimeNavBarProps = {
@@ -21,8 +21,9 @@ type AnimeNavBarProps = {
 
 export type WorkspaceNavItem = {
   name: string
-  icon?: LucideIcon
+  icon?: React.ComponentType<any>
 }
+
 
 type WorkspaceNavBarProps = {
   items: WorkspaceNavItem[]

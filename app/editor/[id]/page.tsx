@@ -52,13 +52,22 @@ import { MusicRecommendationShowcase } from '@/components/editor/music-recommend
 import { AiLampDialog } from '@/components/editor/ai-lamp-dialog'
 import { MusicTabPanel } from '@/components/editor/music-tab-panel'
 import { MotionPropertyCanvas } from '@/components/editor/motion-property-canvas'
-import { LuxuryVignette } from '@/components/editor/luxury-vignette'
+import { CinematicTimeline } from '@/components/editor/CinematicTimeline'
+import { MediaBin } from '@/components/editor/MediaBin'
+import { MotionBrainCanvas } from '@/components/editor/MotionBrainCanvas'
+import { IterationModal } from '@/components/editor/IterationModal'
+import { ContinueBanner } from '@/components/editor/ContinueBanner'
+import gsap from 'gsap'
 import { TextReveal } from '@/components/editor/text-reveal'
-import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-runtime'
+import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
+import { LuxuryVignette } from '@/components/editor/luxury-vignette'
+import { StagedMusicRail } from '@/components/editor/staged-music-rail'
 import { EditWorkflowPanel } from '@/components/editor/edit-workflow-panel'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
-import { StagedMusicRail } from '@/components/editor/staged-music-rail'
-import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
+import { EditorHeader } from '@/components/editor/EditorHeader'
+import { PreviewCanvas } from '@/components/editor/PreviewCanvas'
+import { TimelinePanel } from '@/components/editor/TimelinePanel'
+import { InspectorPanel } from '@/components/editor/InspectorPanel'
 
 // Always-Fast Lobe System
 const LivingCanvas = dynamic(() => import('@/components/living-canvas').then((mod) => mod.LivingCanvas), {
@@ -6024,6 +6033,8 @@ function MobileEditorView({
             </AnimatePresence>
           </section>
         </main>
+
+        <ContinueBanner />
       </div>
     </div>
   )
@@ -6139,6 +6150,8 @@ function OriginalEditorPage() {
   const inspectorViewportRef = React.useRef<HTMLDivElement | null>(null)
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false)
   const [isDeferredChromeReady, setIsDeferredChromeReady] = React.useState(false)
+  const [isPreviewBriefGenerating, setIsPreviewBriefGenerating] = React.useState(false)
+  const [showPreviewFeedback, setShowPreviewFeedback] = React.useState(false)
   const [cinematicRegistry, setCinematicRegistry] = React.useState<CinematicAssetRegistry | null>(null)
   const [inlinePreviewStatusVariant, setInlinePreviewStatusVariant] = React.useState<'hidden' | 'expanded' | 'icon'>('hidden')
   const [inlinePreviewStatusHovered, setInlinePreviewStatusHovered] = React.useState(false)
@@ -7552,6 +7565,31 @@ function OriginalEditorPage() {
     }
   }
 
+  const [isIterationModalOpen, setIsIterationModalOpen] = React.useState(false)
+
+  // GSAP Load Sequence
+  React.useEffect(() => {
+    if (isDeferredChromeReady && !isMobile) {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.from(".glass-panel", { 
+        y: 20, 
+        opacity: 0, 
+        duration: 0.8, 
+        stagger: 0.1 
+      })
+      .from(".timeline-container", {
+        y: 40,
+        opacity: 0,
+        duration: 0.6
+      }, "-=0.4")
+      .from(".node-canvas", {
+        x: 40,
+        opacity: 0,
+        duration: 0.6
+      }, "-=0.4");
+    }
+  }, [isDeferredChromeReady, isMobile])
+
   if (isMobile) {
     return (
       <>
@@ -7625,122 +7663,33 @@ function OriginalEditorPage() {
       />
 
       <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-        <header className="relative z-30 shrink-0 border-b border-white/8">
-          <div className="mx-auto flex w-full max-w-[1580px] flex-col gap-4 px-4 py-[clamp(0.875rem,1.8vh,1rem)] lg:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.03, distance: 10, blur: 6, duration: 0.24 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.55 }}
-                className="inline-flex items-center gap-2"
-              >
-                <button
-                  type="button"
-                  onClick={handleBackNavigation}
-                  className="inline-flex items-center gap-2 text-sm text-white/72 transition-colors hover:text-white"
-                >
-                  <ArrowLeft className="size-4" />
-                  <span>Back</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsNewProjectUploadOpen(true)}
-                  className="inline-flex h-8 items-center gap-2 rounded-full border border-white/8 bg-white/[0.025] px-3 text-xs text-white/58 transition-colors hover:border-white/14 hover:bg-white/[0.06] hover:text-white"
-                >
-                  <Upload className="size-3.5" />
-                  <span>Upload New Video</span>
-                </button>
-              </motion.div>
-
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.08, distance: 10, blur: 6, duration: 0.24 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.55 }}
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/18 bg-emerald-400/8 px-3 py-1.5 text-[11px] text-emerald-100"
-              >
-                <span className="size-2 rounded-full bg-emerald-300" />
-                {hasSourceAsset
-                  ? job?.status === 'completed'
-                    ? 'Ready to refine'
-                    : 'Processing in background'
-                  : 'Waiting for a source video'}
-              </motion.div>
-            </div>
-
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.1, distance: 14, blur: 8, duration: 0.28 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.45 }}
-                className="relative z-50 min-w-0"
-              >
-                <div className="group relative">
-                  {isEditingTitle ? (
-                    <input
-                      ref={titleInputRef}
-                      type="text"
-                      value={tempTitle}
-                      onChange={(e) => setTempTitle(e.target.value)}
-                      onBlur={handleTitleSave}
-                      onKeyDown={handleTitleKeyDown}
-                      className="editor-display w-full bg-transparent text-[1.45rem] leading-tight text-white outline-none"
-                    />
-                  ) : (
-                    <div
-                      className="cursor-pointer transition-opacity hover:opacity-80"
-                      onClick={handleTitleStartEdit}
-                      title="Click to rename project"
-                    >
-                      <TextReveal
-                        as="div"
-                        text={project?.title ?? 'Opening project'}
-                        split="words"
-                        delay={0.08}
-                        className="editor-display truncate text-[1.45rem] leading-tight text-white"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-white/42">
-                  <span className={cn(
-                    "inline-flex items-center gap-2 transition-colors",
-                    saveStatus === 'saving' ? "text-white/60" : saveStatus === 'error' ? "text-rose-400" : "text-white/42"
-                  )}>
-                    {saveStatus === 'saving' ? (
-                      <Sparkles className="size-3.5" />
-                    ) : (
-                      <CheckCircle2 className="size-3.5" />
-                    )}
-                    {saveStatus === 'saving' ? 'Saving changes...' : saveStatus === 'error' ? 'Error saving' : 'All changes saved'}
-                  </span>
-                  <span>{progressPercent}% staged</span>
-                </div>
-              </motion.div>
-
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.22, distance: 14, blur: 8, duration: 0.28 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.45 }}
-              >
-                {isDeferredChromeReady ? (
-                  <CinematicExportCluster
-                    onExport={handlePrepareExport}
-                    isExporting={isExporting}
-                    isCompleted={latestExport?.status === 'completed'}
-                    onDownload={handleDownload}
-                    isDownloading={isDownloading}
-                  />
-                ) : (
-                  <div className="h-[52px] w-[220px] rounded-full border border-white/8 bg-white/[0.03]" />
-                )}
-              </motion.div>
-            </div>
-          </div>
-        </header>
+        <EditorHeader
+          project={project}
+          job={job}
+          saveStatus={saveStatus}
+          progressPercent={progressPercent}
+          isEditingTitle={isEditingTitle}
+          tempTitle={tempTitle}
+          setTempTitle={setTempTitle}
+          titleInputRef={titleInputRef}
+          activeWorkspaceTab={activeWorkspaceTab}
+          isDeferredChromeReady={isDeferredChromeReady}
+          isExporting={isExporting}
+          isDownloading={isDownloading}
+          latestExport={latestExport}
+          hasSourceAsset={hasSourceAsset}
+          headerNavItems={WORKSPACE_TABS.map(tab => ({
+            name: tab.key,
+            icon: tab.icon
+          }))}
+          onBack={handleBackNavigation}
+          onTitleSave={handleTitleSave}
+          onTitleKeyDown={handleTitleKeyDown}
+          onTitleStartEdit={handleTitleStartEdit}
+          onWorkspaceTabChange={(tab) => setActiveWorkspaceTab(tab as HeaderNavMode)}
+          onPrepareExport={handlePrepareExport}
+          onDownload={handleDownload}
+        />
 
         <main
           className={cn(
@@ -7902,7 +7851,7 @@ function OriginalEditorPage() {
                     : activeWorkspaceTab === 'Music'
                       ? 'overflow-hidden px-4 py-4'
                     : 'overflow-y-auto overscroll-contain py-3',
-                  activeWorkspaceTab === 'Editor' && 'px-4',
+                  activeWorkspaceTab === 'Editor' && 'px-4 gap-6 justify-center',
                 )}
               >
                 {activeWorkspaceTab === 'Music' ? (
@@ -7952,606 +7901,114 @@ function OriginalEditorPage() {
                   </div>
                 ) : null}
 
-                <div className={cn('w-full max-w-[min(100%,54rem)] self-center rounded-[18px] border border-white/8 bg-[#09090c] p-3', (activeWorkspaceTab === 'Music' || activeWorkspaceTab === 'Motion') && 'hidden')}>
-                  <div className="flex h-[clamp(250px,40vh,460px)] items-center justify-center rounded-[14px] border border-white/6 bg-[linear-gradient(180deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_100%)] p-4">
-                    <div className="relative flex h-full w-full items-center justify-center">
-                      <div
-                        ref={setMusicSpotlightPortalTarget}
-                        className="pointer-events-none absolute right-2 top-2 z-20"
-                      />
-                      <input
-                        ref={sourceFileInputRef}
-                        type="file"
-                        accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv"
-                        className="sr-only"
-                        onChange={handleInlineSourceFileInputChange}
-                      />
-                      <motion.div
-                        layout
-                        className="group relative overflow-hidden rounded-[8px] border border-[#267dff]/18 bg-black shadow-[0_18px_48px_-30px_rgba(0,0,0,0.95)] transition-[border-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#267dff]/28 hover:shadow-[0_20px_54px_-30px_rgba(38,125,255,0.2)]"
-                        style={{
-                          aspectRatio: visiblePreviewAspectRatio,
-                          width: previewFrameWidth,
-                          height: 'auto',
-                          willChange: 'width, height, transform',
-                        }}
-                        transition={{
-                          layout: {
-                            duration: 0.72,
-                            ease: [0.645, 0.045, 0.355, 1],
-                          },
-                        }}
-                      >
-                        <div className="relative h-full w-full">
-                          {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
-                            <motion.div
-                              initial={{ opacity: 0, y: 6 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                              className="pointer-events-none absolute bottom-3 left-3 z-20"
-                            >
-                              <div className="inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] text-white/86 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
-                                <Film className="size-3.5 shrink-0 text-[#9ff6e3]" />
-                                <div className="min-w-0 truncate font-medium text-white/90">
-                                  {sourceAssetLabel ?? project?.title ?? 'Source video'}
-                                </div>
-                              </div>
-                            </motion.div>
-                          ) : null}
-
-                          {hasPreviewMedia ? (
-                            <>
-                              <CinematicPreviewRuntime
-                                animationPlan={previewOverlayPlan}
-                                currentTimeMs={previewCurrentTimeSec * 1000}
-                                aspectRatio={visiblePreviewAspectRatio}
-                                showSafeZones={Boolean(previewOverlayPlan)}
-                                className="absolute inset-0"
-                              >
-                                {showViralClipSplitPreview ? (
-                                  <ViralClipSplitPreview
-                                    key={`viral-split-${viralClipSplitAnimationKey}-${previewUrl}`}
-                                    active={showViralClipSplitPreview}
-                                    animationKey={viralClipSplitAnimationKey}
-                                    previewUrl={previewUrl}
-                                    previewKind={previewKind}
-                                    title={sourceAssetLabel ?? project?.title ?? 'Source video'}
-                                    isPlaying={previewPlaying}
-                                    currentTimeSec={previewCurrentTimeSec}
-                                    mediaTransformStyle={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                                    objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
-                                    splitVideoSources={currentSplitPreviewAssets}
-                                    highlightRestore={isLockedViralClipTriggerHovered}
-                                    onRestoreLandscape={handleRestoreLandscapePreview}
-                                  />
-                                ) : previewKind === 'image' ? (
-                                  <div className="absolute inset-0 overflow-hidden bg-black">
-                                    <div className="absolute inset-0" style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}>
-                                      <img
-                                        src={previewUrl}
-                                        alt={project?.title ?? 'Project preview'}
-                                        className="block h-full w-full bg-black"
-                                        onLoad={handlePreviewImageLoaded}
-                                        style={{
-                                          objectFit: fitMode === 'fill' ? 'cover' : 'contain',
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
-                                    <div
-                                      className="absolute inset-0 cursor-pointer"
-                                      onPointerDown={(event) => {
-                                        event.preventDefault()
-                                        event.stopPropagation()
-                                        togglePreviewPlayback()
-                                      }}
-                                      style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
-                                    >
-                                      <video
-                                        key={previewUrl}
-                                        ref={previewVideoRef}
-                                        src={previewUrl}
-                                        muted={isPreviewMuted}
-                                        playsInline
-                                        controls={false}
-                                        preload="auto"
-                                        onLoadedMetadata={handlePreviewMetadataLoaded}
-                                        onLoadedData={handlePreviewVideoReady}
-                                        onCanPlay={handlePreviewVideoReady}
-                                        onTimeUpdate={handlePreviewTimeUpdate}
-                                        onEnded={handlePreviewEnded}
-                                        onPlay={handlePreviewVideoPlay}
-                                        onPause={handlePreviewVideoPause}
-                                        onError={handlePreviewVideoError}
-                                        className="pointer-events-none block h-full w-full select-none bg-black"
-                                        style={{
-                                          objectFit: fitMode === 'fill' ? 'cover' : 'contain',
-                                        }}
-                                      />
-                                    </div>
-
-                                    {!isPreviewMediaReady && isPreviewLoadingVisible ? (
-                                      <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
-                                        <MinimalTypographicLoader
-                                          label="Loading..."
-                                          message="Preparing the visible video surface."
-                                          size="sm"
-                                          variant="inline"
-                                          className="w-full max-w-[320px]"
-                                        />
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                )}
-                              </CinematicPreviewRuntime>
-
-                              {showInlinePreviewStatus ? (
-                                <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center px-5">
-                                  <motion.button
-                                    type="button"
-                                    aria-label={
-                                      sourceStageError
-                                        ? 'Source upload error'
-                                        : inlinePreviewStatusLabel ?? 'Source upload status'
-                                    }
-                                    layout
-                                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                                    onHoverStart={() => setInlinePreviewStatusHovered(true)}
-                                    onHoverEnd={() => setInlinePreviewStatusHovered(false)}
-                                    onFocus={() => setInlinePreviewStatusHovered(true)}
-                                    onBlur={() => setInlinePreviewStatusHovered(false)}
-                                    className={cn(
-                                      'pointer-events-auto inline-flex items-center overflow-hidden border border-white/10 bg-black/44 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md transition-[border-radius,padding,gap,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                                      isInlinePreviewStatusExpanded
-                                        ? 'gap-2 rounded-full px-3 py-1.5 text-[11px] text-white/72'
-                                        : 'size-9 justify-center rounded-full text-white/84 hover:bg-black/56',
-                                    )}
-                                  >
-                                    <motion.span
-                                      aria-hidden
-                                      className="flex size-4 shrink-0 items-center justify-center"
-                                      animate={
-                                        sourceStageError
-                                          ? { rotate: 0, scale: [0.92, 1.02, 0.92] }
-                                          : { rotate: 360 }
-                                      }
-                                      transition={
-                                        sourceStageError
-                                          ? { duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }
-                                          : { duration: 1, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }
-                                      }
-                                    >
-                                      {sourceStageError ? (
-                                        <AlertCircle className="size-4 text-rose-100" />
-                                      ) : (
-                                        <Activity className="size-4 text-[#9ff6e3]" />
-                                      )}
-                                    </motion.span>
-
-                                    <AnimatePresence initial={false}>
-                                      {isInlinePreviewStatusExpanded && inlinePreviewStatusLabel ? (
-                                        <motion.span
-                                          key="inline-preview-status-label"
-                                          initial={{ opacity: 0, x: -6 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          exit={{ opacity: 0, x: -4 }}
-                                          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                                        >
-                                          {inlinePreviewStatusLabel}
-                                        </motion.span>
-                                      ) : null}
-                                    </AnimatePresence>
-                                  </motion.button>
-                                </div>
-                              ) : null}
-                            </>
-                          ) : (
-                            <SourceStagePlaceholder
-                              status={sourceStageError ? 'error' : previewUrl || hasSourceAsset ? 'loading' : 'empty'}
-                              isDragActive={isInlineSourceDragOver}
-                              onPickSource={openInlineSourcePicker}
-                              onDragOver={handleInlineSourceDragOver}
-                              onDragLeave={handleInlineSourceDragLeave}
-                              onDrop={handleInlineSourceDrop}
-                            />
-                          )}
-
-                          <div className="pointer-events-none absolute inset-[1px] rounded-[8px] border border-white/[0.055]" />
-                        </div>
-                      </motion.div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={cn('w-full max-w-[min(100%,54rem)] self-center', (activeWorkspaceTab === 'Music' || activeWorkspaceTab === 'Motion') && 'hidden')}>
-                  <div className="mt-2.5 flex w-full flex-wrap items-center gap-3 rounded-[20px] border border-white/8 bg-[#0c0c10] px-4 py-2.5">
-                    <button
-                      type="button"
-                      onClick={togglePreviewPlayback}
-                      disabled={previewKind !== 'video' || !previewUrl}
-                      className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/76 transition-colors hover:text-white disabled:cursor-not-allowed disabled:text-white/28"
-                    >
-                      {previewPlaying ? <Pause className="size-4" /> : <Play className="size-4 fill-current" />}
-                    </button>
-
-                    <div className="min-w-[84px] text-sm text-white/72">
-                      {transportCurrentTime} / {transportTime}
-                    </div>
-
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={transportProgress}
-                      onChange={(event) => handlePreviewSeek(Number(event.target.value))}
-                      disabled={previewKind !== 'video' || !previewUrl}
-                      className="h-1.5 flex-1 accent-white disabled:cursor-not-allowed disabled:opacity-40"
+                {activeWorkspaceTab === 'Editor' && (
+                  <>
+                    <PreviewCanvas
+                      projectId={projectId}
+                      project={project}
+                      job={job}
+                      activeWorkspaceTab={activeWorkspaceTab}
+                      hasSourceAsset={hasSourceAsset}
+                      hasPreviewMedia={hasPreviewMedia}
+                      clipModeActive={clipModeActive}
+                      sourceAssetLabel={sourceAssetLabel}
+                      previewOverlayPlan={previewOverlayPlan}
+                      previewCurrentTimeSec={previewCurrentTimeSec}
+                      transportCurrentTime={transportCurrentTime}
+                      transportTime={transportTime}
+                      showViralClipSplitPreview={showViralClipSplitPreview}
+                      viralClipSplitAnimationKey={viralClipSplitAnimationKey}
+                      previewUrl={previewUrl}
+                      previewKind={previewKind}
+                      previewPlaying={previewPlaying}
+                      shouldUseLegacySessionPreviewSurface={shouldUseLegacySessionPreviewSurface}
+                      previewFrameTransformStyle={previewFrameTransformStyle}
+                      fitMode={fitMode}
+                      currentSplitPreviewAssets={currentSplitPreviewAssets}
+                      isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered}
+                      isPreviewMuted={isPreviewMuted}
+                      isPreviewMediaReady={isPreviewMediaReady}
+                      isPreviewLoadingVisible={isPreviewLoadingVisible}
+                      isPreviewBriefGenerating={isPreviewBriefGenerating}
+                      showPreviewFeedback={showPreviewFeedback}
+                      showInlinePreviewStatus={showInlinePreviewStatus}
+                      sourceStageError={sourceStageError}
+                      inlinePreviewStatusLabel={inlinePreviewStatusLabel}
+                      isInlinePreviewStatusExpanded={isInlinePreviewStatusExpanded}
+                      isInlineSourceDragOver={isInlineSourceDragOver}
+                      visiblePreviewAspectRatio={visiblePreviewAspectRatio}
+                      previewFrameWidth={previewFrameWidth}
+                      musicSpotlightPortalRef={setMusicSpotlightPortalTarget}
+                      sourceFileInputRef={sourceFileInputRef}
+                      previewVideoRef={previewVideoRef}
+                      onInlineSourceFileInputChange={handleInlineSourceFileInputChange}
+                      onRestoreLandscape={handleRestoreLandscapePreview}
+                      onPreviewImageLoaded={handlePreviewImageLoaded}
+                      onPreviewMetadataLoaded={handlePreviewMetadataLoaded}
+                      onPreviewVideoReady={handlePreviewVideoReady}
+                      onPreviewTimeUpdate={handlePreviewTimeUpdate}
+                      onPreviewEnded={handlePreviewEnded}
+                      onPreviewVideoPlay={handlePreviewVideoPlay}
+                      onPreviewVideoPause={handlePreviewVideoPause}
+                      onPreviewVideoError={handlePreviewVideoError}
+                      onTogglePreviewPlayback={togglePreviewPlayback}
+                      onSetIsPreviewBriefGenerating={setIsPreviewBriefGenerating}
+                      onSetShowPreviewFeedback={setShowPreviewFeedback}
+                      onSetInlinePreviewStatusHovered={setInlinePreviewStatusHovered}
+                      onPickSource={openInlineSourcePicker}
+                      onInlineSourceDragOver={handleInlineSourceDragOver}
+                      onInlineSourceDragLeave={handleInlineSourceDragLeave}
+                      onInlineSourceDrop={handleInlineSourceDrop}
                     />
 
-                    <button
-                      type="button"
-                      onClick={() => setIsPreviewMuted((prev) => !prev)}
-                      title={isPreviewMuted ? 'Unmute' : 'Mute'}
-                      aria-label={
-                        project?.sourceProfile?.inspection.hasAudio === false
-                          ? `${isPreviewMuted ? 'Unmute' : 'Mute'} (Source detected as silent)`
-                          : isPreviewMuted
-                            ? 'Unmute source'
-                            : 'Mute source'
-                      }
-                      className={cn(
-                        'grid size-9 place-items-center rounded-full border transition-colors',
-                        isPreviewMuted
-                          ? 'border-white/8 bg-white/[0.02] text-white/44 hover:text-white/64'
-                          : 'border-white/14 bg-white/[0.06] text-white/82 hover:text-white',
-                      )}
-                    >
-                      {isPreviewMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-                    </button>
-                  </div>
-
-                </div>
-
+                    <TimelinePanel
+                      activeWorkspaceTab={activeWorkspaceTab}
+                      previewKind={previewKind}
+                      previewUrl={previewUrl}
+                      previewPlaying={previewPlaying}
+                      transportCurrentTime={transportCurrentTime}
+                      transportTime={transportTime}
+                      transportProgress={transportProgress}
+                      isPreviewMuted={isPreviewMuted}
+                      project={project}
+                      bottomMode={bottomMode}
+                      onTogglePlayback={togglePreviewPlayback}
+                      onSeek={handlePreviewSeek}
+                      onToggleMute={() => setIsPreviewMuted((prev) => !prev)}
+                      onSetBottomMode={setBottomMode}
+                    />
+                  </>
+                )}
               </div>
             </section>
 
-            <motion.aside
-              layout
-              className={cn(
-                'premium-ambient-panel premium-vignette-surface flex min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[#131317] overscroll-contain lg:col-span-2 xl:col-span-1 order-3 lg:order-none lg:h-full lg:min-h-0',
-                activeWorkspaceTab === 'Motion' && 'hidden',
-              )}
-            >
-              <LuxuryVignette tone="cool" />
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.1, distance: 12, blur: 8, duration: 0.26 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.45 }}
-                className="flex items-center justify-between border-b border-white/8 px-4 py-4"
-              >
-                <div>
-                  <TextReveal as="div" text="Video" delay={0.04} className="text-sm text-white" />
-                  <TextReveal as="div" text="Transform and frame the current source." delay={0.08} className="mt-1 text-xs text-white/38" />
-                </div>
-                <button
-                  type="button"
-                  className="grid size-8 place-items-center rounded-full border border-white/8 bg-white/[0.03] text-white/42 transition-colors hover:text-white/72"
-                >
-                  <Settings2 className="size-4" />
-                </button>
-              </motion.div>
-
-              <div ref={inspectorViewportRef} className="premium-scroll-mask min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.14, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Frame</div>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {PREVIEW_FRAME_PRESETS.map((framePreset) => (
-                      <button
-                        key={framePreset}
-                        type="button"
-                        onClick={() => {
-                          setViralClipSplitPreviewActive(false)
-                          setPreviewFramePreset(framePreset)
-                        }}
-                        className={cn(
-                          'rounded-[12px] border px-3 py-2 text-left text-sm transition-colors',
-                          previewFramePreset === framePreset
-                            ? 'border-[#267dff]/45 bg-[#267dff]/12 text-white'
-                            : 'border-white/8 bg-white/[0.03] text-white/58 hover:border-white/14 hover:bg-white/[0.05] hover:text-white/82',
-                        )}
-                      >
-                        <div className="font-medium text-white/88">{previewFrameLabel(framePreset)}</div>
-                        <div className="mt-1 text-[11px] text-white/42">
-                          {framePreset === 'source'
-                            ? 'Uses the source shape.'
-                            : `${framePreset} output frame.`}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  {clipModeActive ? (
-                    <div className="mt-3 rounded-[14px] border border-[#9ff6e3]/16 bg-[#9ff6e3]/[0.06] px-3 py-2 text-[11px] leading-5 text-[#dffdf5]">
-                      Viral clip mode is armed. This preview is stress-testing the cut in a 9:16 delivery frame.
-                    </div>
-                  ) : null}
-                </motion.div>
-
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.18, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-[#c9b7ff]/68">Transform</div>
-
-                  <div className="mt-4 rounded-[14px] border border-white/8 bg-[#0d0d12] p-1">
-                    <div className="grid grid-cols-2 gap-1">
-                      {(['fill', 'fit'] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setFitMode(mode)}
-                          className={cn(
-                            'rounded-[10px] px-3 py-2 text-sm transition-colors',
-                            fitMode === mode ? 'bg-white/[0.12] text-white' : 'text-white/44 hover:text-white/74',
-                          )}
-                        >
-                          {mode === 'fill' ? 'Fill' : 'Fit'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <InspectorField
-                    label="Scale"
-                    value={`${Math.round(scale)}%`}
-                    viewportRoot={inspectorViewportRef}
-                    revealDelay={0.18}
-                  >
-                    <input
-                      type="range"
-                      min={80}
-                      max={130}
-                      value={scale}
-                      onChange={(event) => setScale(Number(event.target.value))}
-                      className="h-1.5 w-full accent-white"
-                    />
-                  </InspectorField>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <InspectorNumberField
-                      label="Offset X"
-                      value={offsetX}
-                      onChange={setOffsetX}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.22}
-                    />
-                    <InspectorNumberField
-                      label="Offset Y"
-                      value={offsetY}
-                      onChange={setOffsetY}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.26}
-                    />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.24, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Source Profile</div>
-                  {project?.sourceProfile ? (
-                    <>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                          {formatAspectFamily(project.sourceProfile.aspectFamily)}
-                        </span>
-                        <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                          {formatTimeProfile(project.sourceProfile.timeProfile)}
-                        </span>
-                        <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                          {formatProcessingClass(project.sourceProfile.processingClass)}
-                        </span>
-                      </div>
-                      <div className="mt-4 space-y-3 text-sm text-white/68">
-                        <InspectorMeta
-                          label="Resolution"
-                          value={sourceMetrics?.resolution ?? 'Unknown resolution'}
-                          viewportRoot={inspectorViewportRef}
-                          revealDelay={0.26}
-                        />
-                        <InspectorMeta
-                          label="Duration"
-                          value={sourceMetrics?.duration ?? 'Unknown duration'}
-                          viewportRoot={inspectorViewportRef}
-                          revealDelay={0.3}
-                        />
-                        <InspectorMeta
-                          label="Weight"
-                          value={formatWeightBucket(project.sourceProfile.weightBucket)}
-                          viewportRoot={inspectorViewportRef}
-                          revealDelay={0.34}
-                        />
-                        <InspectorMeta
-                          label="Bucket"
-                          value={formatDurationBucket(project.sourceProfile.durationBucket)}
-                          viewportRoot={inspectorViewportRef}
-                          revealDelay={0.38}
-                        />
-                      </div>
-                    </>
-                  ) : hasSourceAsset ? (
-                    <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] p-4">
-                      <div className="text-sm font-medium text-white/88">Source staged</div>
-                      <div className="mt-1 text-xs leading-5 text-white/46">
-                        The frame is live. Local profiling will fill in richer source details as they become available.
-                      </div>
-                      <button
-                        type="button"
-                        onClick={openInlineSourcePicker}
-                        className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white px-3 py-2 text-[11px] font-medium text-black transition-transform hover:scale-[1.01]"
-                      >
-                        <Sparkles className="size-3.5" />
-                        Replace video
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-white/88">No source attached yet</div>
-                          <div className="mt-1 text-xs leading-5 text-white/46">
-                            Stage a video in the main frame and the preview will wake up in place.
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={openInlineSourcePicker}
-                          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white px-3 py-2 text-[11px] font-medium text-black transition-transform hover:scale-[1.01]"
-                        >
-                          <Sparkles className="size-3.5" />
-                          Choose video
-                        </button>
-                      </div>
-                      {sourceStageError ? (
-                        <div className="mt-3 rounded-[12px] border border-rose-400/16 bg-rose-500/8 px-3 py-2 text-[11px] leading-5 text-rose-100/92">
-                          {sourceStageError}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </motion.div>
-
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.32, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Source</div>
-                  <div className="mt-4 space-y-3 text-sm text-white/68">
-                    <InspectorMeta
-                      label="Type"
-                      value={previewKind === 'image' ? 'Image' : 'Video'}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.34}
-                    />
-                    <InspectorMeta
-                      label="Status"
-                      value={hasSourceAsset ? (job?.status === 'completed' ? 'Ready' : 'Staging') : 'No source'}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.38}
-                    />
-                    <InspectorMeta
-                      label="Duration"
-                      value={transportTime}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.42}
-                    />
-                    <InspectorMeta
-                      label="Prompt"
-                      value={promptText.slice(0, 48)}
-                      viewportRoot={inspectorViewportRef}
-                      revealDelay={0.46}
-                    />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.35, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-[#f4eb72]/72">Preview Rendering</div>
-                  <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3">
-                    <div className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-white/84">
-                        {previewOverlayPlan ? 'Live edit overlay' : 'Direct source preview only'}
-                      </span>
-                      <span className="text-[11px] uppercase tracking-[0.22em] text-white/36">
-                        {previewOverlayPlan ? 'streaming edit pass' : 'overlays off'}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs leading-5 text-white/46">
-                      {previewOverlayPlan
-                        ? 'The backend edit stream is painting typographic beats and preset assets directly onto the imported video.'
-                        : 'Cinematic captions, explainer panels, background washes, and other generated preview treatments will attach here once an edit job starts.'}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3 text-sm text-white/72">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-white/42">Current view</span>
-                      <span className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                        {bottomMode.toLowerCase()}
-                      </span>
-                    </div>
-                    <div className="mt-2 font-medium text-white/88">
-                      {previewOverlayPlan
-                        ? 'The editor is rendering the live style lane on top of the uploaded media.'
-                        : 'The editor is showing the uploaded media without generated video edits.'}
-                    </div>
-                    <div className="mt-2 text-xs leading-5 text-white/46">
-                      {previewOverlayPlan
-                        ? 'Use the frame controls, crop and fit controls, and playback controls as usual. The style lane is active on top of the imported clip.'
-                        : 'Use the frame controls, crop and fit controls, and playback controls as usual. The auto-styled cinematic layer is no longer applied on top.'}
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  variants={buildRevealVariants({ delay: 0.38, distance: 14, blur: 10, duration: 0.28 })}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-                  className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-                >
-                  <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Queue</div>
-                  <div className="mt-4 space-y-2">
-                    {(job?.steps ?? []).map((step, index) => (
-                      <motion.div
-                        key={step.key}
-                        variants={buildRevealVariants({ delay: 0.42 + index * 0.04, distance: 10, blur: 6, duration: 0.24 })}
-                        initial="hidden"
-                        whileInView="visible"
-                        viewport={{ root: inspectorViewportRef, once: false, amount: 0.35 }}
-                        className="rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="text-white/78">{step.title}</span>
-                          <span className="text-white/40">{Math.round(step.progress * 100)}%</span>
-                        </div>
-                        <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
-                          <div
-                            className="h-full rounded-full bg-white/[0.54]"
-                            style={{ width: `${Math.max(6, Math.round(step.progress * 100))}%` }}
-                          />
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
-            </motion.aside>
+            <InspectorPanel
+              inspectorViewportRef={inspectorViewportRef}
+              project={project}
+              job={job}
+              previewFramePreset={previewFramePreset}
+              clipModeActive={clipModeActive}
+              fitMode={fitMode}
+              scale={scale}
+              offsetX={offsetX}
+              offsetY={offsetY}
+              sourceMetrics={sourceMetrics}
+              hasSourceAsset={hasSourceAsset}
+              sourceStageError={sourceStageError}
+              previewKind={previewKind}
+              transportTime={transportTime}
+              promptText={promptText}
+              previewOverlayPlan={previewOverlayPlan}
+              bottomMode={bottomMode}
+              onSetViralClipSplitPreviewActive={setViralClipSplitPreviewActive}
+              onSetPreviewFramePreset={setPreviewFramePreset}
+              onPreviewFrameLabel={previewFrameLabel}
+              onSetFitMode={setFitMode}
+              onSetScale={setScale}
+              onSetOffsetX={setOffsetX}
+              onSetOffsetY={setOffsetY}
+              onPickSource={openInlineSourcePicker}
+            />
           </div>
         </main>
       </div>

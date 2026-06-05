@@ -517,19 +517,19 @@ function NowPlayingBar({
   const progress = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
 
   return (
-    <div className="absolute inset-x-4 bottom-4 z-30 rounded-[22px] border border-white/10 bg-[#111116]/[0.92] p-3 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)] backdrop-blur-[24px]">
-      <div className="flex items-center gap-3">
-        <div className="relative size-8 shrink-0 overflow-hidden rounded-[10px] border border-white/10 bg-white/[0.04]">
+    <div className="absolute inset-x-4 bottom-4 z-30 glass-panel border-white/10 bg-abyss/80 p-3 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
+      <div className="flex items-center gap-4">
+        <div className="relative size-10 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-void">
           {artBroken || !track.coverArtUrl ? (
-            <div className="grid h-full w-full place-items-center text-white/24">
-              <Music className="size-4" />
+            <div className="grid h-full w-full place-items-center text-white/20">
+              <Music className="size-5" />
             </div>
           ) : (
             <Image
               src={track.coverArtUrl || FALLBACK_COVER_ART}
               alt=""
               fill
-              sizes="32px"
+              sizes="40px"
               className="object-cover"
               onError={() => setArtBroken(true)}
               style={{ objectPosition: track.coverArtPosition ?? 'center' }}
@@ -537,45 +537,49 @@ function NowPlayingBar({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-white">{track.title}</div>
-          <div className="truncate text-xs text-white/50">{isBuffering && isPlaying ? 'Buffering...' : track.artist}</div>
+          <div className="truncate text-sm font-bold tracking-tight text-white">{track.title}</div>
+          <div className="truncate text-[11px] uppercase tracking-widest text-white/40 font-bold">
+            {isBuffering && isPlaying ? 'Buffering' : track.artist}
+          </div>
         </div>
-        <button
-          type="button"
-          aria-label={isPlaying ? 'Pause current track' : 'Play current track'}
-          onClick={onPlayPause}
-          className={cn(
-            'grid size-9 shrink-0 place-items-center rounded-full bg-[#6366f1] text-white shadow-[0_0_30px_rgba(99,102,241,0.24)] transition-transform duration-150 ease-out hover:scale-105',
-            isBuffering && isPlaying && 'animate-pulse',
-          )}
-        >
-          {isPlaying ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4 fill-current" />}
-        </button>
-        <button
-          type="button"
-          aria-label={isMuted ? 'Unmute music' : 'Mute music'}
-          onClick={onMuteToggle}
-          className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/62 transition-all duration-150 ease-out hover:bg-white/[0.08] hover:text-white"
-        >
-          {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-        </button>
+        
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onPlayPause}
+            className={cn(
+              'grid size-10 shrink-0 place-items-center rounded-full bg-accent-blue text-white shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all active:scale-95',
+              isBuffering && isPlaying && 'animate-pulse',
+            )}
+          >
+            {isPlaying ? <Pause className="size-4 fill-current" /> : <Play className="ml-0.5 size-4 fill-current" />}
+          </button>
+          
+          <button
+            type="button"
+            onClick={onMuteToggle}
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-white/8 bg-white/[0.03] text-white/40 transition-colors hover:text-white"
+          >
+            {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
+        </div>
       </div>
       <button
         type="button"
-        aria-label="Seek current track"
         onClick={(event) => {
           if (duration <= 0) return
           const rect = event.currentTarget.getBoundingClientRect()
           const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
           onSeek(ratio * duration)
         }}
-        className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+        className="mt-4 h-1 w-full overflow-hidden rounded-full bg-white/5"
       >
-        <span className="block h-full rounded-full bg-[#6366f1] shadow-[0_0_30px_rgba(99,102,241,0.24)]" style={{ width: `${progress}%` }} />
+        <span className="block h-full rounded-full bg-accent-blue shadow-[0_0_15px_rgba(59,130,246,0.5)]" style={{ width: `${progress}%` }} />
       </button>
     </div>
   )
 }
+
 
 export function MusicTabPanel({
   tracks,

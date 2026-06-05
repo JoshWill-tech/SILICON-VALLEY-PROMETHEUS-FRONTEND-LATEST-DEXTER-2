@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { Settings2, Sparkles } from 'lucide-react'
+import { Settings2, Sparkles, BrainCircuit, Activity, Zap } from 'lucide-react'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
@@ -83,336 +83,144 @@ export function InspectorPanel({
   return (
     <motion.aside
       layout
-      className="premium-ambient-panel premium-vignette-surface flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[#131317] overscroll-contain lg:col-span-2 xl:col-span-1"
+      className="glass-panel relative flex h-full min-h-0 flex-col overflow-hidden border-y-0 border-r-0 rounded-none bg-abyss/40 backdrop-blur-2xl overscroll-contain lg:col-span-2 xl:col-span-1"
     >
       <LuxuryVignette tone="cool" />
-      <motion.div
-        variants={buildRevealVariants({ delay: 0.1, distance: 12, blur: 8, duration: 0.26 })}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: false, amount: 0.45 }}
-        className="flex items-center justify-between border-b border-white/8 px-4 py-4"
-      >
-        <div>
-          <TextReveal as="div" text="Video" delay={0.04} className="text-sm text-white" />
-          <TextReveal
-            as="div"
-            text="Transform and frame the current source."
-            delay={0.08}
-            className="mt-1 text-xs text-white/38"
-          />
+      
+      {/* Panel Header */}
+      <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/10 text-accent-purple">
+            <BrainCircuit className="size-4" />
+          </div>
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white">Motion Brain</h2>
+            <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">Configuration Node</p>
+          </div>
         </div>
-        <button
-          type="button"
-          className="grid size-8 place-items-center rounded-full border border-white/8 bg-white/[0.03] text-white/42 transition-colors hover:text-white/72"
-        >
+        <button className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition-colors hover:bg-white/5 hover:text-white">
           <Settings2 className="size-4" />
         </button>
-      </motion.div>
+      </div>
 
       <div
         ref={inspectorViewportRef}
-        className="premium-scroll-mask min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
+        className="premium-scroll-mask flex-1 overflow-y-auto px-6 py-6 space-y-8"
       >
+        {/* Prompt Node */}
         <motion.div
-          variants={buildRevealVariants({ delay: 0.14, distance: 14, blur: 10, duration: 0.28 })}
+          variants={buildRevealVariants({ delay: 0.1, distance: 20, blur: 10, duration: 0.4 })}
           initial="hidden"
           whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
+          viewport={{ once: true }}
+          className="relative rounded-2xl border border-accent-cyan/20 bg-accent-cyan/5 p-5 shadow-[0_0_30px_rgba(0,240,255,0.05)]"
         >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Frame</div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {PREVIEW_FRAME_PRESETS.map((framePreset) => (
-              <button
-                key={framePreset}
-                type="button"
-                onClick={() => {
-                  onSetViralClipSplitPreviewActive(false)
-                  onSetPreviewFramePreset(framePreset)
-                }}
-                className={cn(
-                  'rounded-[12px] border px-3 py-2 text-left text-sm transition-colors',
-                  previewFramePreset === framePreset
-                    ? 'border-[#267dff]/45 bg-[#267dff]/12 text-white'
-                    : 'border-white/8 bg-white/[0.03] text-white/58 hover:border-white/14 hover:bg-white/[0.05] hover:text-white/82',
-                )}
-              >
-                <div className="font-medium text-white/88">{onPreviewFrameLabel(framePreset)}</div>
-                <div className="mt-1 text-[11px] text-white/42">
-                  {framePreset === 'source' ? 'Uses the source shape.' : `${framePreset} output frame.`}
-                </div>
-              </button>
-            ))}
+          <div className="absolute -top-3 left-4 px-2 py-0.5 bg-void border border-accent-cyan/30 rounded text-[9px] font-bold uppercase tracking-widest text-accent-cyan flex items-center gap-1.5">
+            <Zap className="size-2.5 fill-current" />
+            Prompt Node
           </div>
-          {clipModeActive ? (
-            <div className="mt-3 rounded-[14px] border border-[#9ff6e3]/16 bg-[#9ff6e3]/[0.06] px-3 py-2 text-[11px] leading-5 text-[#dffdf5]">
-              Viral clip mode is armed. This preview is stress-testing the cut in a 9:16 delivery frame.
-            </div>
-          ) : null}
+          
+          <div className="text-sm leading-relaxed text-white/90 italic">
+            &ldquo;{promptText.slice(0, 120)}{promptText.length > 120 ? '...' : ''}&rdquo;
+          </div>
+          
+          {/* Node Connection Line */}
+          <div className="absolute left-1/2 -bottom-8 w-px h-8 bg-gradient-to-b from-accent-cyan/30 to-white/5" />
         </motion.div>
 
+        {/* Settings Node */}
         <motion.div
-          variants={buildRevealVariants({ delay: 0.18, distance: 14, blur: 10, duration: 0.28 })}
+          variants={buildRevealVariants({ delay: 0.2, distance: 20, blur: 10, duration: 0.4 })}
           initial="hidden"
           whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
+          viewport={{ once: true }}
+          className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-5 pt-8"
         >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-[#c9b7ff]/68">Transform</div>
-
-          <div className="mt-4 rounded-[14px] border border-white/8 bg-[#0d0d12] p-1">
-            <div className="grid grid-cols-2 gap-1">
-              {(['fill', 'fit'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => onSetFitMode(mode)}
-                  className={cn(
-                    'rounded-[10px] px-3 py-2 text-sm transition-colors',
-                    fitMode === mode ? 'bg-white/[0.12] text-white' : 'text-white/44 hover:text-white/74',
-                  )}
-                >
-                  {mode === 'fill' ? 'Fill' : 'Fit'}
-                </button>
-              ))}
-            </div>
+          <div className="absolute -top-3 left-4 px-2 py-0.5 bg-void border border-white/10 rounded text-[9px] font-bold uppercase tracking-widest text-white/40">
+            Settings Node
           </div>
 
-          <InspectorField
-            label="Scale"
-            value={`${Math.round(scale)}%`}
-            viewportRoot={inspectorViewportRef}
-            revealDelay={0.18}
-          >
-            <input
-              type="range"
-              min={80}
-              max={130}
-              value={scale}
-              onChange={(event) => onSetScale(Number(event.target.value))}
-              className="h-1.5 w-full accent-white"
-            />
-          </InspectorField>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <InspectorNumberField
-              label="Offset X"
-              value={offsetX}
-              onChange={onSetOffsetX}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.22}
-            />
-            <InspectorNumberField
-              label="Offset Y"
-              value={offsetY}
-              onChange={onSetOffsetY}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.26}
-            />
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.24, distance: 14, blur: 10, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-        >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Source Profile</div>
-          {project?.sourceProfile ? (
-            <>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                  {formatAspectFamily(project.sourceProfile.aspectFamily)}
-                </span>
-                <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                  {formatTimeProfile(project.sourceProfile.timeProfile)}
-                </span>
-                <span className="rounded-full border border-white/8 bg-[#0d0d12] px-3 py-1 text-[11px] text-white/74">
-                  {formatProcessingClass(project.sourceProfile.processingClass)}
-                </span>
+          <div className="space-y-6">
+            {/* Frame Section */}
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Output Frame</label>
+              <div className="mt-3 grid grid-cols-5 gap-2">
+                {PREVIEW_FRAME_PRESETS.map((framePreset) => (
+                  <button
+                    key={framePreset}
+                    onClick={() => {
+                      onSetViralClipSplitPreviewActive(false)
+                      onSetPreviewFramePreset(framePreset)
+                    }}
+                    className={cn(
+                      'flex aspect-square flex-col items-center justify-center rounded-lg border text-[10px] font-bold transition-all',
+                      previewFramePreset === framePreset
+                        ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan shadow-[0_0_15px_rgba(0,240,255,0.2)]'
+                        : 'border-white/5 bg-white/[0.02] text-white/30 hover:border-white/20 hover:text-white/60'
+                    )}
+                  >
+                    {onPreviewFrameLabel(framePreset)}
+                  </button>
+                ))}
               </div>
-              <div className="mt-4 space-y-3 text-sm text-white/68">
-                <InspectorMeta
-                  label="Resolution"
-                  value={sourceMetrics?.resolution ?? 'Unknown resolution'}
-                  viewportRoot={inspectorViewportRef}
-                  revealDelay={0.26}
-                />
-                <InspectorMeta
-                  label="Duration"
-                  value={sourceMetrics?.duration ?? 'Unknown duration'}
-                  viewportRoot={inspectorViewportRef}
-                  revealDelay={0.3}
-                />
-                <InspectorMeta
-                  label="Weight"
-                  value={formatWeightBucket(project.sourceProfile.weightBucket)}
-                  viewportRoot={inspectorViewportRef}
-                  revealDelay={0.34}
-                />
-                <InspectorMeta
-                  label="Bucket"
-                  value={formatDurationBucket(project.sourceProfile.durationBucket)}
-                  viewportRoot={inspectorViewportRef}
-                  revealDelay={0.38}
-                />
-              </div>
-            </>
-          ) : hasSourceAsset ? (
-            <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] p-4">
-              <div className="text-sm font-medium text-white/88">Source staged</div>
-              <div className="mt-1 text-xs leading-5 text-white/46">
-                The frame is live. Local profiling will fill in richer source details as they become available.
-              </div>
-              <button
-                type="button"
-                onClick={onPickSource}
-                className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white px-3 py-2 text-[11px] font-medium text-black transition-transform hover:scale-[1.01]"
-              >
-                <Sparkles className="size-3.5" />
-                Replace video
-              </button>
             </div>
-          ) : (
-            <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-white/88">No source attached yet</div>
-                  <div className="mt-1 text-xs leading-5 text-white/46">
-                    Stage a video in the main frame and the preview will wake up in place.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onPickSource}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white px-3 py-2 text-[11px] font-medium text-black transition-transform hover:scale-[1.01]"
-                >
-                  <Sparkles className="size-3.5" />
-                  Choose video
-                </button>
-              </div>
-              {sourceStageError ? (
-                <div className="mt-3 rounded-[12px] border border-rose-400/16 bg-rose-500/8 px-3 py-2 text-[11px] leading-5 text-rose-100/92">
-                  {sourceStageError}
-                </div>
-              ) : null}
-            </div>
-          )}
-        </motion.div>
 
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.32, distance: 14, blur: 10, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-        >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Source</div>
-          <div className="mt-4 space-y-3 text-sm text-white/68">
-            <InspectorMeta
-              label="Type"
-              value={previewKind === 'image' ? 'Image' : 'Video'}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.34}
-            />
-            <InspectorMeta
-              label="Status"
-              value={hasSourceAsset ? (job?.status === 'completed' ? 'Ready' : 'Staging') : 'No source'}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.38}
-            />
-            <InspectorMeta
-              label="Duration"
-              value={transportTime}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.42}
-            />
-            <InspectorMeta
-              label="Prompt"
-              value={promptText.slice(0, 48)}
-              viewportRoot={inspectorViewportRef}
-              revealDelay={0.46}
-            />
-          </div>
-        </motion.div>
+            {/* Transform Section */}
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Spatial Transform</label>
+              
+              <div className="grid grid-cols-2 gap-2 p-1 bg-void/60 rounded-xl border border-white/5">
+                {(['fill', 'fit'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => onSetFitMode(mode)}
+                    className={cn(
+                      'rounded-lg py-2 text-[11px] font-bold uppercase tracking-widest transition-all',
+                      fitMode === mode ? 'bg-white/10 text-white shadow-lg' : 'text-white/20 hover:text-white/40'
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
 
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.35, distance: 14, blur: 10, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-        >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-[#f4eb72]/72">Preview Rendering</div>
-          <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-white/84">
-                {previewOverlayPlan ? 'Live edit overlay' : 'Direct source preview only'}
-              </span>
-              <span className="text-[11px] uppercase tracking-[0.22em] text-white/36">
-                {previewOverlayPlan ? 'streaming edit pass' : 'overlays off'}
-              </span>
-            </div>
-            <div className="mt-2 text-xs leading-5 text-white/46">
-              {previewOverlayPlan
-                ? 'The backend edit stream is painting typographic beats and preset assets directly onto the imported video.'
-                : 'Cinematic captions, explainer panels, background washes, and other generated preview treatments will attach here once an edit job starts.'}
-            </div>
-          </div>
+              <InspectorField label="Global Scale" value={`${Math.round(scale)}%`}>
+                <input
+                  type="range"
+                  min={80}
+                  max={130}
+                  value={scale}
+                  onChange={(e) => onSetScale(Number(e.target.value))}
+                  className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-white"
+                />
+              </InspectorField>
 
-          <div className="mt-3 rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3 text-sm text-white/72">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-white/42">Current view</span>
-              <span className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                {bottomMode.toLowerCase()}
-              </span>
-            </div>
-            <div className="mt-2 font-medium text-white/88">
-              {previewOverlayPlan
-                ? 'The editor is rendering the live style lane on top of the uploaded media.'
-                : 'The editor is showing the uploaded media without generated video edits.'}
-            </div>
-            <div className="mt-2 text-xs leading-5 text-white/46">
-              {previewOverlayPlan
-                ? 'Use the frame controls, crop and fit controls, and playback controls as usual. The style lane is active on top of the imported clip.'
-                : 'Use the frame controls, crop and fit controls, and playback controls as usual. The auto-styled cinematic layer is no longer applied on top.'}
+              <div className="grid grid-cols-2 gap-4">
+                <InspectorNumberField label="Offset X" value={offsetX} onChange={onSetOffsetX} />
+                <InspectorNumberField label="Offset Y" value={offsetY} onChange={onSetOffsetY} />
+              </div>
             </div>
           </div>
         </motion.div>
 
+        {/* Final Result / Profile Node */}
         <motion.div
-          variants={buildRevealVariants({ delay: 0.38, distance: 14, blur: 10, duration: 0.28 })}
+          variants={buildRevealVariants({ delay: 0.3, distance: 20, blur: 10, duration: 0.4 })}
           initial="hidden"
           whileInView="visible"
-          viewport={{ root: inspectorViewportRef, once: false, amount: 0.4 }}
-          className="mt-4 rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
+          viewport={{ once: true }}
+          className="relative rounded-2xl border border-white/5 bg-void/60 p-5"
         >
-          <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">Queue</div>
-          <div className="mt-4 space-y-2">
-            {(job?.steps ?? []).map((step, index) => (
-              <motion.div
-                key={step.key}
-                variants={buildRevealVariants({ delay: 0.42 + index * 0.04, distance: 10, blur: 6, duration: 0.24 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ root: inspectorViewportRef, once: false, amount: 0.35 }}
-                className="rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3"
-              >
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-white/78">{step.title}</span>
-                  <span className="text-white/40">{Math.round(step.progress * 100)}%</span>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-white/[0.06]">
-                  <div
-                    className="h-full rounded-full bg-white/[0.54]"
-                    style={{ width: `${Math.max(6, Math.round(step.progress * 100))}%` }}
-                  />
-                </div>
-              </motion.div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Source Intelligence</label>
+            <Activity className="size-3 text-accent-cyan animate-pulse" />
+          </div>
+
+          <div className="space-y-2">
+            <InspectorMeta label="Res" value={sourceMetrics?.resolution ?? '---'} />
+            <InspectorMeta label="Dur" value={sourceMetrics?.duration ?? '---'} />
+            <InspectorMeta label="Codec" value="H.264 High 10" />
+            <InspectorMeta label="FPS" value="23.976" />
           </div>
         </motion.div>
       </div>
@@ -420,92 +228,38 @@ export function InspectorPanel({
   )
 }
 
-function InspectorField({
-  label,
-  value,
-  children,
-  viewportRoot,
-  revealDelay = 0,
-}: {
-  label: string
-  value: string
-  children: React.ReactNode
-  viewportRoot?: React.RefObject<HTMLDivElement | null>
-  revealDelay?: number
-}) {
-  const reduceMotion = useStableReducedMotion()
+function InspectorField({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
   return (
-    <motion.div
-      variants={buildRevealVariants({ delay: revealDelay, distance: 12, blur: 8, duration: 0.26 })}
-      initial={reduceMotion ? false : 'hidden'}
-      whileInView={reduceMotion ? undefined : 'visible'}
-      viewport={reduceMotion ? undefined : { root: viewportRoot, once: false, amount: 0.4 }}
-      className="mt-4"
-    >
-      <div className="mb-3 flex items-center justify-between gap-3 text-xs text-white/42">
-        <span>{label}</span>
-        <span>{value}</span>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-white/40 font-medium">{label}</span>
+        <span className="text-[10px] font-mono text-accent-cyan">{value}</span>
       </div>
       {children}
-    </motion.div>
+    </div>
   )
 }
 
-function InspectorNumberField({
-  label,
-  value,
-  onChange,
-  viewportRoot,
-  revealDelay = 0,
-}: {
-  label: string
-  value: number
-  onChange: (value: number) => void
-  viewportRoot?: React.RefObject<HTMLDivElement | null>
-  revealDelay?: number
-}) {
-  const reduceMotion = useStableReducedMotion()
+function InspectorNumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
-    <motion.label
-      variants={buildRevealVariants({ delay: revealDelay, distance: 12, blur: 8, duration: 0.26 })}
-      initial={reduceMotion ? false : 'hidden'}
-      whileInView={reduceMotion ? undefined : 'visible'}
-      viewport={reduceMotion ? undefined : { root: viewportRoot, once: false, amount: 0.4 }}
-      className="block"
-    >
-      <div className="mb-2 text-xs text-white/42">{label}</div>
+    <div className="space-y-2">
+      <span className="text-[10px] text-white/40 font-medium">{label}</span>
       <input
         type="number"
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-11 w-full rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 text-sm text-white outline-none transition-colors focus:border-white/16"
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-9 w-full rounded-lg border border-white/5 bg-void px-3 font-mono text-xs text-white outline-none focus:border-white/20 transition-colors"
       />
-    </motion.label>
+    </div>
   )
 }
 
-function InspectorMeta({
-  label,
-  value,
-  viewportRoot,
-  revealDelay = 0,
-}: {
-  label: string
-  value: string
-  viewportRoot?: React.RefObject<HTMLDivElement | null>
-  revealDelay?: number
-}) {
-  const reduceMotion = useStableReducedMotion()
+function InspectorMeta({ label, value }: { label: string; value: string }) {
   return (
-    <motion.div
-      variants={buildRevealVariants({ delay: revealDelay, distance: 10, blur: 6, duration: 0.24 })}
-      initial={reduceMotion ? false : 'hidden'}
-      whileInView={reduceMotion ? undefined : 'visible'}
-      viewport={reduceMotion ? undefined : { root: viewportRoot, once: false, amount: 0.4 }}
-      className="flex items-center justify-between gap-3 rounded-[14px] border border-white/8 bg-[#0d0d12] px-3 py-3"
-    >
-      <span className="text-white/42">{label}</span>
-      <span className="max-w-[60%] truncate text-right text-white/78">{value}</span>
-    </motion.div>
+    <div className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
+      <span className="text-[10px] text-white/30 uppercase tracking-widest font-medium">{label}</span>
+      <span className="text-[10px] font-mono text-white/80">{value}</span>
+    </div>
   )
 }
+

@@ -34,6 +34,15 @@ export interface AIPrompt {
   result?: string
 }
 
+export interface SavedSegment {
+  id: string
+  startTime: number
+  endTime: number
+  note: string
+  priority: 'Low' | 'Medium' | 'High'
+  thumbnail?: string
+}
+
 interface EditorState {
   projectId: string | null
   currentTime: number
@@ -41,6 +50,7 @@ interface EditorState {
   isPlaying: boolean
   selection: TimelineSelection | null
   segments: VideoSegment[]
+  savedSegments: SavedSegment[]
   prompts: AIPrompt[]
   showExport: boolean
   showCommandBubble: boolean
@@ -53,6 +63,9 @@ type EditorAction =
   | { type: 'TOGGLE_PLAY'; payload: boolean }
   | { type: 'SET_SELECTION'; payload: TimelineSelection | null }
   | { type: 'CLEAR_SELECTION' }
+  | { type: 'SAVE_SEGMENT'; payload: SavedSegment }
+  | { type: 'REMOVE_SAVED_SEGMENT'; payload: string }
+  | { type: 'UPDATE_SAVED_SEGMENT'; payload: SavedSegment }
   | { type: 'TOGGLE_EXPORT'; payload: boolean }
   | { type: 'TOGGLE_COMMAND'; payload: boolean }
   | { type: 'ADD_PROMPT'; payload: AIPrompt }
@@ -76,6 +89,7 @@ const initialState: EditorState = {
     { id: 'seg-5', startTime: 120, endTime: 150, label: 'Climax', aiGenerated: true },
     { id: 'seg-6', startTime: 150, endTime: 180, label: 'Outro', aiGenerated: true },
   ],
+  savedSegments: [],
   prompts: [],
   showExport: false,
   showCommandBubble: false,
@@ -93,6 +107,12 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       return { ...state, selection: action.payload, showCommandBubble: !!action.payload }
     case 'CLEAR_SELECTION':
       return { ...state, selection: null, showCommandBubble: false }
+    case 'SAVE_SEGMENT':
+      return { ...state, savedSegments: [...state.savedSegments, action.payload], selection: null }
+    case 'REMOVE_SAVED_SEGMENT':
+      return { ...state, savedSegments: state.savedSegments.filter(s => s.id !== action.payload) }
+    case 'UPDATE_SAVED_SEGMENT':
+      return { ...state, savedSegments: state.savedSegments.map(s => s.id === action.payload.id ? action.payload : s) }
     case 'TOGGLE_EXPORT':
       return { ...state, showExport: action.payload }
     case 'TOGGLE_COMMAND':
@@ -131,6 +151,9 @@ interface EditorContextValue extends EditorState {
   setIsPlaying: (p: boolean) => void
   setSelection: (s: TimelineSelection | null) => void
   clearSelection: () => void
+  saveSegment: (s: SavedSegment) => void
+  removeSavedSegment: (id: string) => void
+  updateSavedSegment: (s: SavedSegment) => void
   setShowExport: (s: boolean) => void
   setShowCommandBubble: (s: boolean) => void
   addPrompt: (segmentId: string, promptText: string) => void
@@ -149,6 +172,9 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setIsPlaying = useCallback((p: boolean) => dispatch({ type: 'TOGGLE_PLAY', payload: p }), [])
   const setSelection = useCallback((s: TimelineSelection | null) => dispatch({ type: 'SET_SELECTION', payload: s }), [])
   const clearSelection = useCallback(() => dispatch({ type: 'CLEAR_SELECTION' }), [])
+  const saveSegment = useCallback((s: SavedSegment) => dispatch({ type: 'SAVE_SEGMENT', payload: s }), [])
+  const removeSavedSegment = useCallback((id: string) => dispatch({ type: 'REMOVE_SAVED_SEGMENT', payload: id }), [])
+  const updateSavedSegment = useCallback((s: SavedSegment) => dispatch({ type: 'UPDATE_SAVED_SEGMENT', payload: s }), [])
   const setShowExport = useCallback((s: boolean) => dispatch({ type: 'TOGGLE_EXPORT', payload: s }), [])
   const setShowCommandBubble = useCallback((s: boolean) => dispatch({ type: 'TOGGLE_COMMAND', payload: s }), [])
   const setCurrentVideoUrl = useCallback((url: string | null) => dispatch({ type: 'SET_VIDEO_URL', payload: url }), [])
@@ -188,6 +214,9 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsPlaying,
         setSelection,
         clearSelection,
+        saveSegment,
+        removeSavedSegment,
+        updateSavedSegment,
         setShowExport,
         setShowCommandBubble,
         addPrompt,
