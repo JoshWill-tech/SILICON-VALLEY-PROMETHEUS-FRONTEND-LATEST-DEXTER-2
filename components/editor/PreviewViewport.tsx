@@ -1,20 +1,41 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Play, Pause, Maximize2 } from 'lucide-react';
 import { useEditor } from './EditorContext';
 import { cn } from '@/lib/utils';
 
-export const PreviewViewport: React.FC = () => {
+export const PreviewViewport: React.FC<{ src?: string }> = ({ src: srcProp }) => {
   const { 
     currentTime, 
     duration, 
     isPlaying, 
     setIsPlaying, 
-    setCurrentTime 
+    setCurrentTime,
+    currentVideoUrl
   } = useEditor();
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isScrubbingRef = useRef(false);
+
+  const src = srcProp || currentVideoUrl;
+
+  useEffect(() => {
+    if (!src || !videoRef.current) return;
+    if (isPlaying) {
+      videoRef.current.play().catch(e => console.error("Playback failed", e));
+    } else {
+      videoRef.current.pause();
+    }
+  }, [isPlaying, src]);
+
+  useEffect(() => {
+    if (!src || !videoRef.current || isScrubbingRef.current) return;
+    if (Math.abs(videoRef.current.currentTime - currentTime) > 0.1) {
+      videoRef.current.currentTime = currentTime;
+    }
+  }, [currentTime, src]);
 
   const formatTimecode = (s: number) => {
     const mins = Math.floor(s / 60);
@@ -23,30 +44,60 @@ export const PreviewViewport: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
-  const handleScrub = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleScrub = useCallback((clientX: number) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = ('touches' in e ? e.touches[0].clientX : e.clientX) - rect.left;
-    const progress = Math.max(0, Math.min(x / rect.width, 1));
-    setCurrentTime(progress * duration);
+    const progress = Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+    const newTime = progress * duration;
+    setCurrentTime(newTime);
+    if (videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
+  }, [duration, setCurrentTime]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    isScrubbingRef.current = true;
+    setIsPlaying(false);
+    handleScrub(e.clientX);
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (e.buttons === 1 && isScrubbingRef.current) {
+      handleScrub(e.clientX);
+    }
+  };
+
+  const onMouseUp = () => {
+    isScrubbingRef.current = false;
   };
 
   return (
     <div 
       ref={containerRef}
       className="relative w-full h-full bg-[#000] rounded-xl border border-[rgba(255,255,255,0.08)] shadow-[0_16_48px_rgba(0,0,0,0.6)] overflow-hidden flex items-center justify-center group"
-      onMouseDown={(e) => {
-        setIsPlaying(false);
-        handleScrub(e);
-      }}
-      onMouseMove={(e) => {
-        if (e.buttons === 1) handleScrub(e);
-      }}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
     >
-      {/* Video Placeholder */}
-      <div className="text-white/10 text-9xl font-bold select-none">
-        PROMETHEUS
-      </div>
+      {src ? (
+        <video
+          ref={videoRef}
+          src={src}
+          className="w-full h-full object-cover"
+          onTimeUpdate={(e) => {
+            if (isPlaying && !isScrubbingRef.current) {
+              setCurrentTime(e.currentTarget.currentTime);
+            }
+          }}
+          onEnded={() => setIsPlaying(false)}
+          playsInline
+        />
+      ) : (
+        <div className="text-white/10 text-9xl font-bold select-none">
+          PROMETHEUS
+        </div>
+      )}
 
       {/* Top Right Actions */}
       <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">

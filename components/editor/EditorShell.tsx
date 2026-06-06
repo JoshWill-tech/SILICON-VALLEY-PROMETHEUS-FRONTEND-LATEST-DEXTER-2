@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useRef, useCallback } from 'react';
 import { MediaBin } from './MediaBin';
 import { PreviewViewport } from './PreviewViewport';
 import { CinematicTimeline } from './CinematicTimeline';
@@ -10,8 +12,48 @@ export interface EditorShellProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const EditorShell: React.FC<EditorShellProps> = ({ children, className, ...props }) => {
+  const [leftWidth, setLeftWidth] = useState(320);
+  const [rightWidth, setRightWidth] = useState(380);
+  
+  const shellRef = useRef<HTMLDivElement>(null);
+
+  const onHandlePointerDown = useCallback((handler: (e: React.PointerEvent) => void) => (e: React.PointerEvent) => {
+    const target = e.target as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+
+    const moveHandler = (moveEvent: PointerEvent) => {
+      handler(moveEvent as unknown as React.PointerEvent);
+    };
+
+    const upHandler = () => {
+      window.removeEventListener('pointermove', moveHandler);
+      window.removeEventListener('pointerup', upHandler);
+      try {
+        target.releasePointerCapture(e.pointerId);
+      } catch {}
+    };
+
+    window.addEventListener('pointermove', moveHandler);
+    window.addEventListener('pointerup', upHandler);
+  }, []);
+
+  const handleLeftDrag = useCallback((e: React.PointerEvent) => {
+    if (!shellRef.current) return;
+    const rect = shellRef.current.getBoundingClientRect();
+    const newWidth = e.clientX - rect.left - 16; // 16 for gap/padding compensation
+    setLeftWidth(Math.max(200, Math.min(400, newWidth)));
+  }, []);
+
+  const handleRightDrag = useCallback((e: React.PointerEvent) => {
+    if (!shellRef.current) return;
+    const rect = shellRef.current.getBoundingClientRect();
+    const newWidth = rect.right - e.clientX - 16; // 16 for gap/padding compensation
+    setRightWidth(Math.max(300, Math.min(480, newWidth)));
+  }, []);
+
   return (
     <div
+      ref={shellRef}
       className={cn(
         "flex flex-row w-full h-[calc(100vh-56px)] bg-[var(--abyss)] gap-3 p-4 box-border overflow-hidden",
         className
@@ -19,8 +61,15 @@ export const EditorShell: React.FC<EditorShellProps> = ({ children, className, .
       {...props}
     >
       {/* Left Sidebar: Media Bin */}
-      <div className="flex-none w-[320px] min-w-[320px] max-w-[400px] flex flex-col h-full overflow-hidden">
+      <div 
+        style={{ width: leftWidth }}
+        className="flex-none flex flex-col h-full overflow-hidden relative"
+      >
         <MediaBin />
+        <div 
+          className="absolute top-0 right-0 w-2 h-full cursor-col-resize hover:bg-white/10 active:bg-white/20 -mr-1 z-10 transition-colors"
+          onPointerDown={(e) => onHandlePointerDown(handleLeftDrag)(e)}
+        />
       </div>
 
       {/* Center: Preview + Timeline */}
@@ -34,7 +83,14 @@ export const EditorShell: React.FC<EditorShellProps> = ({ children, className, .
       </div>
 
       {/* Right: Motion Brain Canvas */}
-      <div className="flex-none w-[380px] min-w-[380px] max-w-[480px] flex flex-col h-full overflow-hidden">
+      <div 
+        style={{ width: rightWidth }}
+        className="flex-none flex flex-col h-full overflow-hidden relative"
+      >
+        <div 
+          className="absolute top-0 left-0 w-2 h-full cursor-col-resize hover:bg-white/10 active:bg-white/20 -ml-1 z-10 transition-colors"
+          onPointerDown={(e) => onHandlePointerDown(handleRightDrag)(e)}
+        />
         <MotionBrainCanvas />
       </div>
 

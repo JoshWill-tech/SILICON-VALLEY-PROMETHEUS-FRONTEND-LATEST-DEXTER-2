@@ -1,16 +1,11 @@
 {
+  "version": 1,
   "skills": {
     "skill-creator": {
       "source": "google-labs-code/stitch-skills",
       "sourceType": "github",
       "skillPath": "plugins/stitch-utilities/skills/skill-creator/SKILL.md",
       "computedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    },
-    "ui-ux-pro-max": {
-      "source": "github/awesome-copilot",
-      "sourceType": "github",
-      "skillPath": "skills/ui-ux-pro-max/SKILL.md",
-      "computedHash": "808e487dc0514843373a8aa4d5a473bccd6831daf9ea31a2d042e953a7fd4c81"
     },
     "enhance-prompt": {
       "source": "google-labs-code/stitch-skills",
@@ -29,6 +24,12 @@
       "sourceType": "github",
       "skillPath": "skills/penpot-uiux-design/SKILL.md",
       "computedHash": "808e487dc0514843373a8aa4d5a473bccd6831daf9ea31a2d042e953a7fd4c81"
+    },
+    "diagnose": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnose/SKILL.md",
+      "computedHash": "15939a26f86edec2d4862042b8564e5a062cb81d04e047a0cea6305c8830b5f5"
     }
   }
 }

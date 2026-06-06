@@ -14,13 +14,22 @@ import {
   ChevronRight, 
   X,
   Layers,
-  Scissors
+  Scissors,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react'
 import { useEditor, SavedSegment } from './EditorContext'
 import { cn } from '@/lib/utils'
 import gsap from 'gsap'
 
 const TRACK_HEIGHT = 52
+const MIN_ZOOM = 4
+const MAX_ZOOM = 40
+
+export interface CinematicTimelineProps {
+  initialZoom?: number
+}
+
 const TRACKS = [
   { id: 'video', label: 'Video', icon: Film, color: 'var(--track-video)' },
   { id: 'audio', label: 'Audio', icon: Music, color: 'var(--track-audio)' },
@@ -29,7 +38,7 @@ const TRACKS = [
   { id: 'effects', label: 'Effects', icon: Sparkles, color: 'var(--chrome-dim)' },
 ]
 
-export const CinematicTimeline: React.FC = () => {
+export const CinematicTimeline: React.FC<CinematicTimelineProps> = ({ initialZoom = 10 }) => {
   const { 
     currentTime, 
     duration, 
@@ -41,10 +50,16 @@ export const CinematicTimeline: React.FC = () => {
     clearSelection,
     saveSegment,
     savedSegments,
-    removeSavedSegment
+    removeSavedSegment,
+    segments
   } = useEditor()
 
-  const [zoom] = useState(10) // pixels per second
+  const [zoom, setZoom] = useState(initialZoom) // pixels per second
+
+  const adjustZoom = (delta: number) => {
+    setZoom(prev => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta)))
+  }
+
   const containerRef = useRef<HTMLDivElement>(null)
   const playheadRef = useRef<HTMLDivElement>(null)
   const marqueeRef = useRef<HTMLDivElement>(null)
@@ -54,6 +69,7 @@ export const CinematicTimeline: React.FC = () => {
   const [selectionEnd, setSelectionEnd] = useState<number | null>(null)
 
   // Update playhead position with GSAP for smoothness
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!playheadRef.current) return
     gsap.set(playheadRef.current, {
@@ -317,12 +333,24 @@ export const CinematicTimeline: React.FC = () => {
           </div>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent-green/30 bg-accent-green/5 text-accent-green text-[11px] font-bold uppercase tracking-widest hover:bg-accent-green/10 transition-colors group">
-          Analyze Iterations
-          <span className="bg-accent-green text-void px-1.5 rounded-full text-[9px] group-hover:scale-110 transition-transform">
-            {savedSegments.length}
-          </span>
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-white/5 rounded-lg px-2 py-1">
+            <button onClick={() => adjustZoom(-2)} className="p-1 hover:text-white text-white/40 transition-colors">
+              <ZoomOut className="size-3" />
+            </button>
+            <span className="text-[10px] font-mono text-white/60 w-8 text-center">{zoom}px</span>
+            <button onClick={() => adjustZoom(2)} className="p-1 hover:text-white text-white/40 transition-colors">
+              <ZoomIn className="size-3" />
+            </button>
+          </div>
+
+          <button className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent-green/30 bg-accent-green/5 text-accent-green text-[11px] font-bold uppercase tracking-widest hover:bg-accent-green/10 transition-colors group">
+            Analyze Iterations
+            <span className="bg-accent-green text-void px-1.5 rounded-full text-[9px] group-hover:scale-110 transition-transform">
+              {savedSegments.length}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react'
+import React, { createContext, useContext, useReducer, useCallback, useRef, useEffect } from 'react'
 
 export interface TimelineSelection {
   startTime: number
@@ -15,6 +15,7 @@ export interface VideoSegment {
   endTime: number
   label: string
   aiGenerated: boolean
+  trackId?: string
 }
 
 export interface UploadTask {
@@ -82,12 +83,12 @@ const initialState: EditorState = {
   isPlaying: false,
   selection: null,
   segments: [
-    { id: 'seg-1', startTime: 0, endTime: 30, label: 'Intro', aiGenerated: true },
-    { id: 'seg-2', startTime: 30, endTime: 60, label: 'Scene 1', aiGenerated: true },
-    { id: 'seg-3', startTime: 60, endTime: 90, label: 'Transition', aiGenerated: true },
-    { id: 'seg-4', startTime: 90, endTime: 120, label: 'Scene 2', aiGenerated: true },
-    { id: 'seg-5', startTime: 120, endTime: 150, label: 'Climax', aiGenerated: true },
-    { id: 'seg-6', startTime: 150, endTime: 180, label: 'Outro', aiGenerated: true },
+    { id: 'seg-1', startTime: 0, endTime: 30, label: 'Intro', aiGenerated: true, trackId: 'video' },
+    { id: 'seg-2', startTime: 30, endTime: 60, label: 'Scene 1', aiGenerated: true, trackId: 'video' },
+    { id: 'seg-3', startTime: 60, endTime: 90, label: 'Transition', aiGenerated: true, trackId: 'video' },
+    { id: 'seg-4', startTime: 90, endTime: 120, label: 'Scene 2', aiGenerated: true, trackId: 'video' },
+    { id: 'seg-5', startTime: 120, endTime: 150, label: 'Climax', aiGenerated: true, trackId: 'video' },
+    { id: 'seg-6', startTime: 150, endTime: 180, label: 'Outro', aiGenerated: true, trackId: 'video' },
   ],
   savedSegments: [],
   prompts: [],
@@ -167,6 +168,14 @@ const EditorContext = createContext<EditorContextValue | null>(null)
 
 export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(editorReducer, initialState)
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(clearTimeout)
+      timeoutRefs.current = []
+    }
+  }, [])
 
   const setCurrentTime = useCallback((t: number) => dispatch({ type: 'SET_TIME', payload: t }), [])
   const setIsPlaying = useCallback((p: boolean) => dispatch({ type: 'TOGGLE_PLAY', payload: p }), [])
@@ -188,16 +197,18 @@ export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     dispatch({ type: 'ADD_PROMPT', payload: newPrompt })
 
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       dispatch({ type: 'UPDATE_PROMPT', payload: { id: newPrompt.id, status: 'processing' } })
     }, 600)
 
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       dispatch({
         type: 'UPDATE_PROMPT',
         payload: { id: newPrompt.id, status: 'complete', result: 'Segment restyled per instruction.' },
       })
     }, 3200)
+
+    timeoutRefs.current.push(t1, t2)
   }, [])
 
   const addTask = useCallback((task: UploadTask) => dispatch({ type: 'ADD_TASK', payload: task }), [])

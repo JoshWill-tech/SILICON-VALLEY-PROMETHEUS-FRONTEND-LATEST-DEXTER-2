@@ -13,46 +13,61 @@ export const useTimeline = (initialDuration = 60) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(initialDuration);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [zoom, setZoom] = useState(10); // pixels per second
+  const [zoom, setZoom] = useState(10);
 
   const requestRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const durationRef = useRef(duration);
+  const isPlayingRef = useRef(isPlaying);
+  const currentTimeRef = useRef(currentTime);
 
-  const animate = useCallback(function loop(time: number) {
+  useEffect(() => { durationRef.current = duration; }, [duration]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+
+  const animate = useCallback(function animateFrame(time: number) {
     if (startTimeRef.current === null) {
       startTimeRef.current = time;
     }
-    
+
     const deltaTime = (time - startTimeRef.current) / 1000;
     startTimeRef.current = time;
 
-    setCurrentTime((prev) => {
-      const next = prev + deltaTime;
-      if (next >= duration) {
-        setIsPlaying(false);
-        return duration;
-      }
-      return next;
-    });
+    const nextTime = currentTimeRef.current + deltaTime;
 
-    requestRef.current = requestAnimationFrame(loop);
-  }, [duration]);
+    if (nextTime >= durationRef.current) {
+      setCurrentTime(durationRef.current);
+      if (isPlayingRef.current) {
+        setIsPlaying(false);
+      }
+      return; // Do NOT schedule next frame
+    }
+
+    setCurrentTime(nextTime);
+    requestRef.current = requestAnimationFrame(animateFrame);
+  }, []);
 
   useEffect(() => {
     if (isPlaying) {
       startTimeRef.current = null;
       requestRef.current = requestAnimationFrame(animate);
     } else {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
     }
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current !== null) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      }
     };
   }, [isPlaying, animate]);
 
   const seek = useCallback((time: number) => {
-    setCurrentTime(Math.max(0, Math.min(time, duration)));
-  }, [duration]);
+    setCurrentTime(Math.max(0, Math.min(time, durationRef.current)));
+  }, []);
 
   const togglePlay = useCallback(() => {
     setIsPlaying((prev) => !prev);

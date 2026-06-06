@@ -11,7 +11,7 @@ This skill enforces surgical development, workflow gates, skill routing, and a b
 Before any audit, diagnosis, or code modification, classify the task and activate/recommend the best skill stack:
 
 1. **UI / UX / Frontend Visuals**
-   - **Skills**: `ui-ux-pro-max`, `react-performance-optimization`, `nextjs-best-practices`
+   - **Skills**: `penpot-uiux-design`, `react-performance-optimization`, `nextjs-best-practices`
    - **Audit**: Visual hierarchy, spacing, responsiveness, premium "cinematic" feel, accessibility, animation restraint, no generic SaaS/template energy.
 
 2. **Next.js / React / App Router / Route Handlers**

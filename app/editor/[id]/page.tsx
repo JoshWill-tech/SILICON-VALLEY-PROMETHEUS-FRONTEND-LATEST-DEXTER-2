@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
+import { safeDynamic } from '@/lib/dynamic-safe'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useParams, useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -70,8 +71,7 @@ import { TimelinePanel } from '@/components/editor/TimelinePanel'
 import { InspectorPanel } from '@/components/editor/InspectorPanel'
 
 // Always-Fast Lobe System
-const LivingCanvas = dynamic(() => import('@/components/living-canvas').then((mod) => mod.LivingCanvas), {
-  ssr: false,
+const LivingCanvas = safeDynamic(() => import('@/components/living-canvas').then((mod) => ({ default: mod.LivingCanvas })), {
   loading: () => (
     <div className="flex h-full w-full items-center justify-center bg-[#050505] p-6">
       <MinimalTypographicLoader label="Loading..." message="Preparing the live AI canvas." size="sm" variant="inline" />
@@ -79,10 +79,10 @@ const LivingCanvas = dynamic(() => import('@/components/living-canvas').then((mo
   ),
 })
 
-const CinematicExportCluster = dynamic(() => import('@/components/editor/cinematic-export-cluster').then(mod => mod.CinematicExportCluster), { ssr: false })
-const ViralClipSplitPreview = dynamic(() => import('@/components/editor/viral-clip-split-preview').then(mod => mod.ViralClipSplitPreview), { ssr: false })
-const EditorialComposerFrameAssist = dynamic(() => import('@/components/editor/editorial-composer-frame-assist').then(mod => mod.EditorialComposerFrameAssist), { ssr: false })
-const FrameComposerDraftMirror = dynamic(() => import('@/components/editor/frame-composer-draft-mirror').then(mod => mod.FrameComposerDraftMirror), { ssr: false })
+const CinematicExportCluster = safeDynamic(() => import('@/components/editor/cinematic-export-cluster').then(mod => ({ default: mod.CinematicExportCluster })))
+const ViralClipSplitPreview = safeDynamic(() => import('@/components/editor/viral-clip-split-preview').then(mod => ({ default: mod.ViralClipSplitPreview })))
+const EditorialComposerFrameAssist = safeDynamic(() => import('@/components/editor/editorial-composer-frame-assist').then(mod => ({ default: mod.EditorialComposerFrameAssist })))
+const FrameComposerDraftMirror = safeDynamic(() => import('@/components/editor/frame-composer-draft-mirror').then(mod => ({ default: mod.FrameComposerDraftMirror })))
 
 import { ViralClipTrigger } from '@/components/editor/viral-clip-trigger'
 import { useSourceStage } from '@/hooks/use-source-stage'
