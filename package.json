@@ -14,7 +14,9 @@
     "upload:render-proof": "tsx scripts/upload-render-proof-to-r2.ts",
     "push:sync": "git push origin main && git push upstream main",
     "push:sync:force": "git push origin main && git push upstream main --force-with-lease",
-    "start": "next start"
+    "start": "next start",
+    "agent": "tsx scripts/bedrock-auto.ts",
+    "agent:interactive": "tsx scripts/bedrock-agent.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1061.0",
