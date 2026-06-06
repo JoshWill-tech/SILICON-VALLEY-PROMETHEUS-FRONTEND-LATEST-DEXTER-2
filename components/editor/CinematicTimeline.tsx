@@ -211,7 +211,7 @@ export const CinematicTimeline: React.FC<CinematicTimelineProps> = ({ initialZoo
       {/* Main Timeline */}
       <div 
         ref={containerRef}
-        className="timeline-container relative w-full select-none"
+        className="timeline-container relative w-full select-none touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
