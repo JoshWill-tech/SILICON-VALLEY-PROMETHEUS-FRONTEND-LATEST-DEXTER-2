@@ -14,7 +14,6 @@ import {
   Building2,
   History,
   XCircle,
-  Loader2,
   Download,
   Database
 } from 'lucide-react'
@@ -22,6 +21,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { initializePaddle, type Paddle } from '@paddle/paddle-js'
 
+import { PrometheusLoader } from '@/components/loading/PrometheusLoader'
 import { PaddleCheckoutButton } from '@/components/billing/paddle-checkout-button'
 import { PremiumPricingPlans } from '@/components/premium-pricing-plans'
 import { Badge } from '@/components/ui/badge'
@@ -339,7 +339,7 @@ export function BillingDashboard() {
                   onClick={handleUpdatePayment}
                   disabled={isUpdatingPayment}
                 >
-                  {isUpdatingPayment ? <Loader2 className="size-3 animate-spin" /> : 'Update'}
+                  {isUpdatingPayment ? <PrometheusLoader size="sm" /> : 'Update'}
                 </Button>
               </div>
             ) : (
@@ -380,7 +380,7 @@ export function BillingDashboard() {
                     <XCircle className="size-5 text-white/30 group-hover:text-red-400 transition-colors" />
                   </div>
                   <span className="text-[11px] font-black uppercase tracking-[0.1em] text-white/40 group-hover:text-red-400 transition-colors">
-                    {isCancelling ? <Loader2 className="size-3 animate-spin" /> : 'Cancel Plan'}
+                    {isCancelling ? <PrometheusLoader size="sm" /> : 'Cancel Plan'}
                   </span>
                 </Button>
               </DialogTrigger>

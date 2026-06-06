@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Shield, X, Loader2 } from "lucide-react";
+import { Shield, X } from "lucide-react";
+import { PrometheusLoader } from "@/components/loading/PrometheusLoader";
 import { Button } from "@/components/ui/button";
 import { useEditor } from "./EditorContext";
 import { toast } from "sonner";
@@ -110,7 +111,7 @@ export function ExportDrawer() {
                   disabled={isExporting}
                   className="p-4 rounded-xl flex flex-col items-center gap-2 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-[rgba(0,255,136,0.3)] transition-all hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] group disabled:opacity-50 disabled:cursor-not-allowed">
                   {isExporting ? (
-                    <Loader2 className="w-5 h-5 text-white/60 animate-spin" />
+                    <PrometheusLoader size="sm" />
                   ) : (
                     <span className="text-sm text-white/80 group-hover:text-white transition-colors">{target.label}</span>
                   )}

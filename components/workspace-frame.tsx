@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
+import { usePreset } from '@/components/chat/PresetProvider'
 
 const IsoLevelWarp = dynamic(() => import('@/components/ui/isometric-wave-grid-background'), {
   ssr: false,
@@ -24,6 +25,7 @@ function isWorkspaceRoute(pathname: string) {
 
 export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { preset } = usePreset()
   const shouldRenderWorkspaceShell = isWorkspaceRoute(pathname)
   const shouldRenderSidebar = shouldRenderWorkspaceShell && !EDITOR_DETAIL_ROUTE_REGEX.test(pathname)
 
@@ -39,7 +41,7 @@ export function WorkspaceFrame({ children }: { children: React.ReactNode }) {
       <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_14%_2%,rgba(212,176,255,0.22)_0%,rgba(34,14,58,0.12)_38%,rgba(0,0,0,0)_68%),linear-gradient(180deg,rgba(12,7,20,0.62)_0%,rgba(6,4,10,0.84)_100%)]" />
 
       <div className="relative z-10 flex h-full min-h-0 w-full">
-        {shouldRenderSidebar ? <DashboardSidebar /> : null}
+        {shouldRenderSidebar ? <DashboardSidebar preset={preset || undefined} /> : null}
 
         <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
       </div>

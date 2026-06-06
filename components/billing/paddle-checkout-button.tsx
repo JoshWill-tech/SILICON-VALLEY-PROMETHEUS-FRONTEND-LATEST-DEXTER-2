@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowUpRight, Loader2, Sparkles } from 'lucide-react'
+import { ArrowUpRight, Sparkles } from 'lucide-react'
+import { PrometheusLoader } from '@/components/loading/PrometheusLoader'
 import { toast } from 'sonner'
 import { initializePaddle, type Paddle } from '@paddle/paddle-js'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -179,12 +180,12 @@ export function PaddleCheckoutButton({
         <div className="relative z-10 flex items-center justify-center gap-2">
           {isLoading ? (
             <>
-              <Loader2 className="size-4 animate-spin text-white/50" />
+              <PrometheusLoader size="sm" />
               <span>Opening Checkout...</span>
             </>
           ) : (
             <>
-              {isInitializing && <Loader2 className="size-3 animate-spin text-white/30" />}
+              {isInitializing && <PrometheusLoader size="sm" className="opacity-50" />}
               <span>{ctaLabel}</span>
               {!isInitializing && (
                 <motion.div

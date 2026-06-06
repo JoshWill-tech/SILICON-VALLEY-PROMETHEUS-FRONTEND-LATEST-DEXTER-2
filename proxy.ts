@@ -64,11 +64,18 @@ function redirectToSignup(req: NextRequest) {
   return NextResponse.redirect(url)
 }
 
+const BOT_UA = /bot|crawler|spider|googlebot|bingbot|facebookexternalhit|twitterbot|linkedinbot/i;
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const userAgent = request.headers.get('user-agent') || '';
 
   if (isPublicPath(pathname)) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    if (BOT_UA.test(userAgent)) {
+      response.headers.set('x-preset-override', 'zus');
+    }
+    return response;
   }
 
   if (!isProtectedPath(pathname)) {

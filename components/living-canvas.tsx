@@ -173,7 +173,7 @@ function buildEdge(from: CanvasNode, to: CanvasNode): CanvasEdge {
 export function LivingCanvas({ projectId, job, className }: LivingCanvasProps) {
   const surfaceRef = React.useRef<HTMLDivElement>(null);
   const tier = useDeviceTier();
-  const isLowTier = tier === 'low';
+  const isLowTier = tier === 'lite';
 
   const [surfaceSize, setSurfaceSize] = React.useState({ width: 0, height: 0 });
   const [viewport, setViewport] = React.useState<ViewportState>({ x: 120, y: -20, scale: 0.8 });

@@ -1,14 +1,13 @@
 import { AuthShell } from '@/components/auth/AuthShell'
-import { LoginForm } from '@/components/auth/LoginForm'
+import { ProgressiveAuthForm } from '@/components/auth/ProgressiveAuthForm'
 import { Suspense } from 'react'
 
 export default function LoginPage() {
   return (
-    <AuthShell title="Sign in" subtitle="Use OAuth or your email and password.">
+    <AuthShell>
       <Suspense fallback={null}>
-        <LoginForm />
+        <ProgressiveAuthForm initialMode="login" />
       </Suspense>
     </AuthShell>
   )
 }
-

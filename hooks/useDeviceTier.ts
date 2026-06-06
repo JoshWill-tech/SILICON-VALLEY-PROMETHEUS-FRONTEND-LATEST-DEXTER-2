@@ -2,33 +2,39 @@
 
 import { useState, useEffect } from 'react';
 
-export type DeviceTier = 'low' | 'medium' | 'high';
+export type DeviceTier = 'premium' | 'standard' | 'lite';
 
 export function useDeviceTier(): DeviceTier {
   const [tier, setTier] = useState<DeviceTier>(() => {
     if (typeof window !== 'undefined') {
-      const cached = sessionStorage.getItem('prometheus:tier') as DeviceTier | null;
+      const cached = sessionStorage.getItem('prometheus:device-tier') as DeviceTier | null;
       if (cached) return cached;
     }
-    return 'medium';
+    return 'standard';
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     // Skip if already cached in state
-    const cached = sessionStorage.getItem('prometheus:tier');
+    const cached = sessionStorage.getItem('prometheus:device-tier');
     if (cached) return;
 
-    const cores = navigator.hardwareConcurrency || 4;
-    const mem = (navigator as any).deviceMemory || 4;
+    const memory = (navigator as any).deviceMemory || 4;
+    const cores = navigator.hardwareConcurrency || 2;
+    const isLowPower = /Android [4-9]|iPhone OS 1[0-2]/.test(navigator.userAgent);
 
-    let detected: DeviceTier = 'medium';
-    if (cores <= 4 || mem <= 4) detected = 'low';
-    else if (cores >= 8 && mem >= 8) detected = 'high';
+    let detected: DeviceTier = 'standard';
+    if (memory >= 8 && cores >= 6 && !isLowPower) {
+      detected = 'premium';
+    } else if (memory >= 4 && cores >= 4) {
+      detected = 'standard';
+    } else {
+      detected = 'lite';
+    }
 
     if (detected !== tier) {
-      sessionStorage.setItem('prometheus:tier', detected);
+      sessionStorage.setItem('prometheus:device-tier', detected);
       setTier(detected);
     }
   }, [tier]);

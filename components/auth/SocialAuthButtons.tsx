@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { GithubIcon } from 'lucide-react'
+import { GithubIcon, ArrowRight, Chrome, Apple } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,7 @@ import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/client'
 import { normalizeUxError } from '@/lib/ux/errors'
 import { toast } from 'sonner'
-
-import { GoogleIcon, AppleIcon } from './auth-visuals'
+import { cn } from '@/lib/utils'
 
 type SocialProvider = 'google' | 'apple' | 'github'
 
@@ -19,8 +18,8 @@ const SOCIAL_OPTIONS: Array<{
   label: string
   Icon: React.ComponentType<{ className?: string }>
 }> = [
-  { provider: 'google', label: 'Continue with Google', Icon: GoogleIcon },
-  { provider: 'apple', label: 'Continue with Apple', Icon: AppleIcon },
+  { provider: 'google', label: 'Continue with Google', Icon: Chrome },
+  { provider: 'apple', label: 'Continue with Apple', Icon: Apple },
   { provider: 'github', label: 'Continue with GitHub', Icon: GithubIcon },
 ]
 
@@ -40,19 +39,14 @@ export function SocialAuthButtons() {
     const resetBusyState = () => {
       setBusyProvider(null)
     }
-
-    // Browsers can restore this page from bfcache after an OAuth redirect attempt.
     window.addEventListener('pageshow', resetBusyState)
-
-    return () => {
-      window.removeEventListener('pageshow', resetBusyState)
-    }
+    return () => window.removeEventListener('pageshow', resetBusyState)
   }, [])
 
   const handleOAuth = React.useCallback(
     async (provider: SocialProvider) => {
       if (!SUPABASE_CLIENT_READY) {
-        const message = 'Secure sign-in is temporarily unavailable. Use email sign-in while we reconnect identity providers.'
+        const message = 'Secure sign-in unavailable. Use email for now.'
         setServerError(message)
         toast.error('Identity provider unavailable', { description: message })
         return
@@ -63,9 +57,6 @@ export function SocialAuthButtons() {
       setServerError(null)
       const slowTimer = window.setTimeout(() => {
         setSlowProvider(provider)
-        toast.info('Still waiting on the provider', {
-          description: 'Keep this tab open while the secure identity handoff completes.',
-        })
       }, 3000)
 
       try {
@@ -87,9 +78,7 @@ export function SocialAuthButtons() {
           },
         })
 
-        if (error) {
-          throw error
-        }
+        if (error) throw error
       } catch (error) {
         const message = normalizeUxError(error, 'oauth')
         setServerError(message)
@@ -104,28 +93,26 @@ export function SocialAuthButtons() {
   )
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {SOCIAL_OPTIONS.map(({ provider, label, Icon }) => (
         <Button
           key={provider}
           type="button"
-          size="lg"
-          className="w-full"
           disabled={busyProvider !== null}
-          onClick={() => {
-            if (provider === 'google') console.log("google clicked")
-            if (provider === 'apple') console.log("apple clicked")
-            if (provider === 'github') console.log("github clicked")
-            console.log('oauth clicked', { provider })
-            void handleOAuth(provider)
-          }}
+          className="relative h-14 w-full rounded-full bg-white/5 border border-white/10 px-6 font-medium text-white hover:bg-white/10 hover:border-white/20 transition-all group flex items-center justify-between shadow-none"
+          onClick={() => void handleOAuth(provider)}
         >
-          <Icon className="size-4 me-2" />
-          {busyProvider === provider ? (slowProvider === provider ? 'Still connecting...' : 'Redirecting...') : label}
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white/70">
+              <Icon className="size-4" />
+            </div>
+            <span>{busyProvider === provider ? (slowProvider === provider ? 'Connecting...' : 'Redirecting...') : label}</span>
+          </div>
+          <ArrowRight className="size-5 text-white/20 group-hover:text-white group-hover:translate-x-1 transition-all" />
         </Button>
       ))}
 
-      {serverError ? <div className="text-xs text-red-500/80">{serverError}</div> : null}
+      {serverError ? <div className="text-xs text-red-500/80 px-2">{serverError}</div> : null}
     </div>
   )
 }

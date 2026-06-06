@@ -14,11 +14,14 @@ import {
   LayoutDashboard,
   Settings,
   Wand2,
+  Pin,
+  PinOff,
 } from 'lucide-react'
 
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import { getMostRecentProject, PROJECTS_UPDATED_EVENT } from '@/lib/mock'
 import { cn } from '@/lib/utils'
+import { getPinnedPreset, getSidebarCollapsed, pinPreset, PresetId, setSidebarCollapsed } from '@/lib/presets/daily-preset'
 
 interface MenuItem {
   key: string
@@ -39,12 +42,14 @@ interface BladeNavGroupProps {
   onHoverChange: (href: string | null) => void
   onRouteIntent: (href: string) => void
   collapsed: boolean
+  preset?: PresetId
 }
 
 interface ActiveBladeProps {
   top: number
   height: number
   transition: { duration: number } | { type: 'spring'; stiffness: number; damping: number; mass: number }
+  preset?: PresetId
 }
 
 interface NavItemProps extends Omit<React.ComponentPropsWithoutRef<typeof Link>, 'href'> {
@@ -52,6 +57,7 @@ interface NavItemProps extends Omit<React.ComponentPropsWithoutRef<typeof Link>,
   isCurrent: boolean
   isSelected: boolean
   collapsed: boolean
+  preset?: PresetId
 }
 
 const BASE_MENU_ITEMS: MenuItem[] = [
@@ -63,8 +69,8 @@ const BASE_MENU_ITEMS: MenuItem[] = [
 ]
 
 const ACTIVE_CUTOUT_COLOR = '#0f0b17'
-const SIDEBAR_EXPANDED_WIDTH = 290
-const SIDEBAR_COLLAPSED_WIDTH = 104
+const SIDEBAR_EXPANDED_WIDTH = 280
+const SIDEBAR_COLLAPSED_WIDTH = 72
 const COLLAPSE_CONTENT_TRANSITION = {
   duration: 0.16,
   ease: [0.22, 1, 0.36, 1] as const,
@@ -76,12 +82,17 @@ const BLADE_TRANSITION = {
   mass: 0.84,
 }
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ preset }: { preset?: PresetId }) {
   const pathname = usePathname()
   const router = useRouter()
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => getSidebarCollapsed())
   const [editorHref, setEditorHref] = useState(() => (pathname.startsWith('/editor/') ? pathname : '/editor'))
+  const [pinnedPreset, setPinnedPreset] = useState<PresetId | null>(() => getPinnedPreset())
+
+  useEffect(() => {
+    setSidebarCollapsed(collapsed)
+  }, [collapsed])
 
   useEffect(() => {
     const syncEditorHref = () => {
@@ -116,6 +127,16 @@ export function DashboardSidebar() {
   const activeHref = useMemo(() => {
     return menuItems.find((item) => isPathActive(pathname, item.href))?.href ?? null
   }, [menuItems, pathname])
+
+  const togglePin = () => {
+    if (pinnedPreset === preset) {
+      pinPreset(null)
+      setPinnedPreset(null)
+    } else if (preset) {
+      pinPreset(preset)
+      setPinnedPreset(preset)
+    }
+  }
 
   return (
     <motion.aside
@@ -171,13 +192,13 @@ export function DashboardSidebar() {
                 transition={COLLAPSE_CONTENT_TRANSITION}
                 className="flex justify-center px-0 py-4"
               >
-                <div className="flex size-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <Image
                     src="/branding/prometheus-logo-no-bg.png"
                     alt="Prometheus"
-                    width={28}
-                    height={28}
-                    className="h-7 w-7 object-contain"
+                    width={24}
+                    height={24}
+                    className="h-6 w-6 object-contain"
                   />
                 </div>
               </motion.div>
@@ -201,10 +222,7 @@ export function DashboardSidebar() {
                     rometheus
                   </p>
                 </div>
-                <div className="mt-3 text-lg font-semibold text-white/92">Creative operating system</div>
-                <p className="mt-1.5 max-w-[18rem] text-sm leading-6 text-white/42">
-                  Hover a row to preview the carved blade state before you move.
-                </p>
+                <div className="mt-3 text-lg font-semibold text-white/92">Creative OS</div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -221,6 +239,7 @@ export function DashboardSidebar() {
                 void router.prefetch(href)
               }}
               collapsed={collapsed}
+              preset={preset}
             />
           </nav>
         </div>
@@ -229,7 +248,7 @@ export function DashboardSidebar() {
           initial={false}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           className={cn(
-            'overflow-hidden rounded-[26px] border border-white/8 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transform-gpu',
+            'overflow-hidden rounded-[26px] border border-white/8 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transform-gpu relative',
             collapsed ? 'px-0 py-0' : 'px-4 py-3',
           )}
         >
@@ -241,8 +260,17 @@ export function DashboardSidebar() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 4, scale: 0.98 }}
                 transition={COLLAPSE_CONTENT_TRANSITION}
-                className="flex justify-center px-0 py-4"
+                className="flex flex-col items-center gap-4 px-0 py-4"
               >
+                <button 
+                  onClick={togglePin}
+                  className={cn(
+                    "p-2 rounded-full transition-colors",
+                    pinnedPreset === preset ? "text-cyan-400 bg-cyan-400/10" : "text-white/30 hover:text-white/50"
+                  )}
+                >
+                  {pinnedPreset === preset ? <Pin className="size-4" /> : <PinOff className="size-4" />}
+                </button>
                 <span className="size-2 rounded-full bg-white/55" />
               </motion.div>
             ) : (
@@ -253,12 +281,24 @@ export function DashboardSidebar() {
                 exit={{ opacity: 0, y: 6, scale: 0.985 }}
                 transition={COLLAPSE_CONTENT_TRANSITION}
               >
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/36">
-                  <span className="size-2 rounded-full bg-white/55" />
-                  Navigation Live
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/36">
+                    <span className="size-2 rounded-full bg-white/55" />
+                    Live
+                  </div>
+                  <button 
+                    onClick={togglePin}
+                    className={cn(
+                      "flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                      pinnedPreset === preset ? "text-cyan-400" : "text-white/20 hover:text-white/40"
+                    )}
+                  >
+                    {pinnedPreset === preset ? "Pinned" : "Pin View"}
+                    {pinnedPreset === preset ? <Pin className="size-3" /> : <PinOff className="size-3" />}
+                  </button>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-white/42">
-                  The active blade follows hover, then settles back on the current route.
+                <p className="mt-2 text-[10px] leading-4 text-white/42 uppercase tracking-tight">
+                  {preset} mode active
                 </p>
               </motion.div>
             )}
@@ -269,7 +309,7 @@ export function DashboardSidebar() {
   )
 }
 
-function BladeNavGroup({ items, activeHref, hoveredHref, onHoverChange, onRouteIntent, collapsed }: BladeNavGroupProps) {
+function BladeNavGroup({ items, activeHref, hoveredHref, onHoverChange, onRouteIntent, collapsed, preset }: BladeNavGroupProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
   const [metrics, setMetrics] = useState<Record<string, BladeMetrics>>({})
@@ -330,7 +370,7 @@ function BladeNavGroup({ items, activeHref, hoveredHref, onHoverChange, onRouteI
   return (
     <div ref={containerRef} className={cn('relative overflow-visible pb-2', collapsed ? 'pl-0 pr-0' : 'pl-2 pr-0')}>
       {targetMetrics ? (
-        <ActiveBlade top={targetMetrics.top} height={targetMetrics.height} transition={transition} />
+        <ActiveBlade top={targetMetrics.top} height={targetMetrics.height} transition={transition} preset={preset} />
       ) : null}
 
       <div className="relative z-10 space-y-1">
@@ -348,6 +388,7 @@ function BladeNavGroup({ items, activeHref, hoveredHref, onHoverChange, onRouteI
               isCurrent={isCurrent}
               isSelected={isSelected}
               collapsed={collapsed}
+              preset={preset}
               onMouseEnter={() => {
                 onHoverChange(item.href)
                 onRouteIntent(item.href)
@@ -370,7 +411,12 @@ function BladeNavGroup({ items, activeHref, hoveredHref, onHoverChange, onRouteI
   )
 }
 
-function ActiveBlade({ top, height, transition }: ActiveBladeProps) {
+function ActiveBlade({ top, height, transition, preset }: ActiveBladeProps) {
+  const accentColor = preset === 'zus' ? 'rgba(16, 185, 129, 0.2)' : 
+                      preset === 'alien' ? 'rgba(99, 102, 241, 0.2)' :
+                      preset === 'opera' ? 'rgba(249, 115, 22, 0.2)' :
+                      'rgba(255, 255, 255, 0.1)';
+
   return (
     <motion.div
       initial={false}
@@ -384,6 +430,13 @@ function ActiveBlade({ top, height, transition }: ActiveBladeProps) {
       />
       <div className="absolute inset-[1px] rounded-l-[19px] bg-[linear-gradient(180deg,rgba(19,15,29,0.98)_0%,rgba(10,8,16,0.98)_100%)]" />
       <div className="absolute inset-x-4 top-1.5 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent)]" />
+      
+      {/* Preset Accent Glow */}
+      <div 
+        className="absolute inset-y-2 left-0 w-1 rounded-full blur-[2px]" 
+        style={{ backgroundColor: accentColor.replace('0.2', '1') }} 
+      />
+
       <div
         className="absolute right-0 top-[-24px] h-6 w-6 rounded-br-[24px]"
         style={{ boxShadow: `8px 8px 0 8px ${ACTIVE_CUTOUT_COLOR}` }}
@@ -401,10 +454,14 @@ function ActiveBlade({ top, height, transition }: ActiveBladeProps) {
 }
 
 const NavItem = forwardRef<HTMLAnchorElement, NavItemProps>(function NavItem(
-  { item, isCurrent, isSelected, collapsed, className, onMouseEnter, onFocus, onBlur, ...props },
+  { item, isCurrent, isSelected, collapsed, preset, className, onMouseEnter, onFocus, onBlur, ...props },
   ref,
 ) {
   const Icon = item.icon
+  const accentBorder = isSelected && preset === 'zus' ? 'border-emerald-500/50' :
+                       isSelected && preset === 'alien' ? 'border-indigo-500/50' :
+                       isSelected && preset === 'opera' ? 'border-orange-500/50' :
+                       isSelected ? 'border-white/20' : 'border-white/8';
 
   return (
       <Link
@@ -427,9 +484,10 @@ const NavItem = forwardRef<HTMLAnchorElement, NavItemProps>(function NavItem(
       <span
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-full border transition-[color,background-color,border-color,box-shadow] duration-300',
+          accentBorder,
           isSelected
-            ? 'border-white/10 bg-white/[0.05] text-white/86 shadow-none'
-            : 'border-white/8 bg-white/[0.03] text-white/58 group-hover:border-white/14 group-hover:bg-white/[0.06] group-hover:text-white/82',
+            ? 'bg-white/[0.05] text-white/86 shadow-none'
+            : 'bg-white/[0.03] text-white/58 group-hover:border-white/14 group-hover:bg-white/[0.06] group-hover:text-white/82',
         )}
       >
         <Icon className="size-[17px]" />
@@ -460,7 +518,7 @@ const NavItem = forwardRef<HTMLAnchorElement, NavItemProps>(function NavItem(
             transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
             className={cn(
               'ml-auto size-1.5 rounded-full transition-[background-color,box-shadow] duration-300',
-              isSelected || isCurrent ? 'bg-white/50 shadow-none' : 'bg-white/0 group-hover:bg-white/20',
+              isSelected || isCurrent ? (preset === 'zus' ? 'bg-emerald-400' : preset === 'alien' ? 'bg-indigo-400' : preset === 'opera' ? 'bg-orange-400' : 'bg-white/50') : 'bg-white/0 group-hover:bg-white/20',
             )}
           />
         ) : null}
@@ -468,6 +526,7 @@ const NavItem = forwardRef<HTMLAnchorElement, NavItemProps>(function NavItem(
     </Link>
   )
 })
+
 
 function isPathActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/' || pathname === '/dashboard'

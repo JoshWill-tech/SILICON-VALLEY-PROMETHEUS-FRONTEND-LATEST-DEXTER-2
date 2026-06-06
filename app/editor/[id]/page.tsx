@@ -46,6 +46,7 @@ import {
   Linkedin,
   X,
 } from 'lucide-react'
+import { PrometheusLoader } from '@/components/loading/PrometheusLoader'
 
 import { MusicPlayNotification } from '@/components/editor/music-play-notification'
 import { MusicSpotlightOrb } from '@/components/editor/music-spotlight-orb'
@@ -2141,7 +2142,11 @@ function SocialPostingCard({
               onClick={() => onGenerateCaptions?.(entryId)}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/76"
             >
-              <RefreshCw className={cn('size-3.5', posting.captionGenerating && 'animate-spin')} />
+              {posting.captionGenerating ? (
+                <PrometheusLoader size="sm" />
+              ) : (
+                <RefreshCw className="size-3.5" />
+              )}
               Generate All
             </button>
           </div>

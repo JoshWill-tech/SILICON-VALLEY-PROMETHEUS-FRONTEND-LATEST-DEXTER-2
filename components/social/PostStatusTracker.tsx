@@ -16,6 +16,7 @@ import {
   Facebook,
   Loader2
 } from 'lucide-react'
+import { PrometheusLoader } from '@/components/loading/PrometheusLoader'
 import { cn } from '@/lib/utils'
 
 export interface PostStatus {
@@ -90,7 +91,7 @@ export function PostStatusTracker({ statuses }: PostStatusTrackerProps) {
                     ) : isFailed ? (
                       <AlertCircle className="w-5 h-5 text-red-400" />
                     ) : isWorking ? (
-                      <Loader2 className="w-4 h-4 text-lime-400 animate-spin" />
+                      <PrometheusLoader size="sm" />
                     ) : (
                       <CircleDashed className="w-4 h-4 text-zinc-600" />
                     )}

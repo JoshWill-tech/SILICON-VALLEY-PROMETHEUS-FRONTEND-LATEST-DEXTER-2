@@ -44,7 +44,7 @@ const Node: React.FC<NodeProps> = ({ title, icon: Icon, children, active, classN
 export const MotionBrainCanvas: React.FC = () => {
   const isProcessing = true // Mock state
   const tier = useDeviceTier()
-  const isLowTier = tier === 'low'
+  const isLowTier = tier === 'lite'
 
   useEffect(() => {
     if (isLowTier) return

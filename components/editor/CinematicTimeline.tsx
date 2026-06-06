@@ -56,7 +56,7 @@ export const CinematicTimeline: React.FC<CinematicTimelineProps> = ({ initialZoo
   } = useEditor()
 
   const tier = useDeviceTier()
-  const isLowTier = tier === 'low'
+  const isLowTier = tier === 'lite'
 
   const [zoom, setZoom] = useState(initialZoom) // pixels per second
 

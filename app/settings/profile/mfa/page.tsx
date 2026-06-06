@@ -3,10 +3,11 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Check, KeyRound, Loader2, Phone, Smartphone } from 'lucide-react'
+import { ArrowLeft, Check, KeyRound, Phone, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
+import { PrometheusLoader } from '@/components/loading/PrometheusLoader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -202,12 +203,12 @@ function MfaOptionCard({
         <div className="flex shrink-0 gap-2">
           {active ? (
             <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={onRemove}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? <PrometheusLoader size="sm" /> : null}
               Remove
             </Button>
           ) : (
             <Button type="button" size="sm" variant="secondary" disabled={saving} title="Setup flow stub" onClick={onOpenSetup}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? <PrometheusLoader size="sm" /> : null}
               Set up
             </Button>
           )}
@@ -236,7 +237,7 @@ function MfaOptionCard({
                   className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90"
                 />
                 <Button type="button" size="sm" disabled={saving || verificationCode.trim().length === 0} onClick={onActivate}>
-                  {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {saving ? <PrometheusLoader size="sm" /> : null}
                   Verify code
                 </Button>
               </div>
@@ -258,7 +259,7 @@ function MfaOptionCard({
               className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90"
             />
             <Button type="button" size="sm" disabled={saving || phoneNumber.trim().length === 0} onClick={onActivate}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+              {saving ? <PrometheusLoader size="sm" /> : null}
               Send code
             </Button>
           </div>

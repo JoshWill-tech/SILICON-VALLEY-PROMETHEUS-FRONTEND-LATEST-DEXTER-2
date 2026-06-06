@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { LandingHeader } from '@/components/LandingHeader'
 import { PricingSection } from '@/components/PricingSection'
 import { PrometheusShell } from '@/components/prometheus-shell'
+import { ScrollReveal } from '@/components/effects/ScrollReveal'
 
 export const metadata: Metadata = {
   title: 'Pricing | Prometheus',
@@ -24,18 +25,26 @@ export default function PricingPage() {
 
         <div className="relative mx-auto max-w-[88rem]">
           <header className="mx-auto mb-12 max-w-4xl text-center sm:mb-16">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/42">
-              PRICING
-            </p>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
-              Premium video infrastructure, packaged for teams that ship.
-            </h1>
-            <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-white/58 sm:text-lg">
-              Choose a Prometheus Studio plan for a professional video editing and production workspace for filmmakers, motion design, cloud-backed project storage, and export-ready rendering workflows.
-            </p>
+            <ScrollReveal direction="down">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/42">
+                PRICING
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={0.2}>
+              <h1 className="mt-5 text-4xl font-semibold leading-[1.05] text-white sm:text-6xl lg:text-7xl">
+                Premium video infrastructure, packaged for teams that ship.
+              </h1>
+            </ScrollReveal>
+            <ScrollReveal delay={0.4}>
+              <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-white/58 sm:text-lg">
+                Choose a Prometheus Studio plan for a professional video editing and production workspace for filmmakers, motion design, cloud-backed project storage, and export-ready rendering workflows.
+              </p>
+            </ScrollReveal>
           </header>
 
-          <PricingSection />
+          <ScrollReveal delay={0.6}>
+            <PricingSection />
+          </ScrollReveal>
         </div>
       </main>
     </PrometheusShell>
