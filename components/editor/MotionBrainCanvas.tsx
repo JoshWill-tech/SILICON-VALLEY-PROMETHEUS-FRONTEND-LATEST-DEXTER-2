@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDeviceTier } from '@/hooks/useDeviceTier'
 
 interface NodeProps {
   title: string
@@ -42,14 +43,20 @@ const Node: React.FC<NodeProps> = ({ title, icon: Icon, children, active, classN
 
 export const MotionBrainCanvas: React.FC = () => {
   const isProcessing = true // Mock state
+  const tier = useDeviceTier()
+  const isLowTier = tier === 'low'
 
   useEffect(() => {
+    if (isLowTier) return
+
     // GSAP node processing animations
+    const tl = gsap.timeline()
+    
     gsap.fromTo(".connection-line", 
       { strokeDashoffset: 200 },
       { strokeDashoffset: 0, duration: 1.5, ease: "power2.inOut", stagger: 0.2, repeat: -1 }
     )
-
+    
     gsap.to(".node-brain", {
       boxShadow: "0 0 30px rgba(0,240,255,0.4)",
       duration: 1.5, 
@@ -57,124 +64,118 @@ export const MotionBrainCanvas: React.FC = () => {
       yoyo: true, 
       ease: "sine.inOut"
     })
-  }, [])
+
+    return () => {
+      gsap.killTweensOf(".connection-line")
+      gsap.killTweensOf(".node-brain")
+    }
+  }, [isLowTier])
 
   return (
     <div className="node-canvas h-full flex flex-col items-center">
       {/* Background SVG Connections */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-        <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="var(--accent-green)" stopOpacity="0.2" />
-            <stop offset="50%" stopColor="var(--accent-green)" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="var(--accent-green)" stopOpacity="0.2" />
-          </linearGradient>
-        </defs>
-        
-        {/* Connection Paths */}
         <path 
-          d="M 140 100 L 140 700" 
-          stroke="url(#lineGrad)" 
-          strokeWidth="2" 
+          className="connection-line" 
+          d="M 100 150 C 150 150, 150 300, 200 300" 
           fill="none" 
-          strokeDasharray="8 4"
-          className="connection-line"
-          style={{ transform: 'translateX(calc(50% - 140px))' }}
+          stroke="rgba(0,240,255,0.15)" 
+          strokeWidth="1.5" 
+          strokeDasharray="4 4"
+        />
+        <path 
+          className="connection-line" 
+          d="M 100 450 C 150 450, 150 300, 200 300" 
+          fill="none" 
+          stroke="rgba(0,240,255,0.15)" 
+          strokeWidth="1.5" 
+          strokeDasharray="4 4"
+        />
+        <path 
+          className="connection-line" 
+          d="M 280 300 L 340 300" 
+          fill="none" 
+          stroke="rgba(0,240,255,0.15)" 
+          strokeWidth="1.5" 
+          strokeDasharray="4 4"
         />
       </svg>
 
-      <div className="w-full max-w-[320px] py-8 space-y-12">
-        {/* Input Node */}
-        <Node title="Prompt Input" icon={Zap} active>
-          <div className="glass-panel p-3 bg-void/50 border-white/5">
-            <p className="text-[11px] leading-relaxed text-white/70 italic">
-              &quot;Create a cinematic pan with anamorphic flares and high-contrast color grading. Match the beat at 0:42.&quot;
-            </p>
-          </div>
-        </Node>
-
-        {/* AI Config Node */}
-        <div className="flex gap-4">
-          <Node title="AI Engine" icon={Cpu} className="flex-1">
-             <div className="space-y-2">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-white/30">Model</span>
-                  <span className="text-accent-cyan">Claude 3.5</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-white/30">Latency</span>
-                  <span className="text-accent-green">140ms</span>
-                </div>
-             </div>
+      <div className="relative z-10 w-full h-full p-6 flex flex-col gap-6 overflow-y-auto [scrollbar-width:none]">
+        {/* Input Nodes */}
+        <div className="flex flex-col gap-4 items-start">
+          <Node title="Source Vector" icon={Activity} active>
+            <div className="text-[10px] text-white/40 leading-relaxed">
+              4K ProRes • 24fps • Rec.709<br/>
+              Detected 12 semantic anchors
+            </div>
           </Node>
           
-          <Node title="Settings" icon={Settings2} className="flex-1">
-             <div className="space-y-2">
-                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full w-3/4 bg-accent-amber" />
-                </div>
-                <span className="text-[9px] text-white/30 uppercase">Creativity: 75%</span>
-             </div>
+          <Node title="Audio Print" icon={Cpu}>
+            <div className="text-[10px] text-white/40 leading-relaxed">
+              Stereo 48kHz • Dialogue Heavy<br/>
+              Noise Floor: -42dB
+            </div>
           </Node>
         </div>
 
-        {/* Brain Node (Process) */}
-        <div className="relative flex justify-center py-4">
+        {/* Central Intelligence Node */}
+        <div className="flex justify-center my-4">
           <div className={cn(
-            "node-brain size-20 rounded-2xl glass-panel flex items-center justify-center bg-void/80 border-white/10 z-10",
-            isProcessing && "border-accent-cyan/40"
+            "node-brain w-20 h-20 rounded-2xl bg-void border-2 border-accent-cyan flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.2)]",
+            isProcessing && "animate-pulse"
           )}>
-            <div className={cn(
-              "size-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center",
-              isProcessing && "animate-pulse"
-            )}>
-              <BrainCircuit className="size-6 text-accent-cyan" />
-            </div>
-            {isProcessing && (
-               <div className="absolute -inset-4 border border-accent-cyan/10 rounded-full animate-[ping_3s_linear_infinite]" />
-            )}
+            <BrainCircuit className="size-10 text-accent-cyan" />
           </div>
-          <span className="absolute -bottom-2 text-[9px] font-bold uppercase tracking-[0.3em] text-accent-cyan animate-pulse">Processing</span>
         </div>
 
-        {/* Final Result Node */}
-        <Node title="Final Result" icon={Sparkles}>
-          <div className="relative aspect-video rounded-lg border border-white/10 overflow-hidden group">
-            <img 
-              src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop" 
-              alt="Result"
-              className="object-cover w-full h-full opacity-60 group-hover:scale-105 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="size-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Play className="size-3 fill-current ml-0.5" />
-              </div>
-            </div>
-            <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-black/40 border border-white/10 backdrop-blur-sm">
-               <div className="size-1.5 rounded-full bg-accent-green" />
-               <span className="text-[8px] font-bold uppercase">Ready</span>
-            </div>
+        {/* Processing Steps */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 group hover:border-accent-cyan/30 transition-colors">
+             <div className="size-8 rounded-lg bg-accent-cyan/10 flex items-center justify-center text-accent-cyan">
+                <Settings2 className="size-4" />
+             </div>
+             <div className="flex-1">
+                <div className="text-[11px] font-bold text-white/80">Neural Grade</div>
+                <div className="text-[9px] text-white/40">Balancing midtones & shadows</div>
+             </div>
+             <ChevronRight className="size-3 text-white/20 group-hover:text-accent-cyan transition-colors" />
           </div>
-        </Node>
-      </div>
 
-      {/* Bottom Analyze Button */}
-      <div className="mt-auto w-full pt-8 pb-4">
-        <button className="w-full flex items-center justify-between px-5 py-4 rounded-2xl glass-panel bg-accent-green/5 border-accent-green/20 hover:bg-accent-green/10 transition-all group">
-          <div className="flex items-center gap-3">
-             <div className="size-8 rounded-xl bg-accent-green/20 flex items-center justify-center">
-                <Activity className="size-4 text-accent-green" />
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 group hover:border-accent-cyan/30 transition-colors">
+             <div className="size-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
+                <Sparkles className="size-4" />
              </div>
-             <div className="text-left">
-                <div className="text-[11px] font-bold uppercase tracking-widest text-white">Analyze Iterations</div>
-                <div className="text-[9px] text-white/30 uppercase font-medium">Manifest Ready</div>
+             <div className="flex-1">
+                <div className="text-[11px] font-bold text-white/80">Cinematic Motion</div>
+                <div className="text-[9px] text-white/40">Applying 2.4:1 letterbox & drift</div>
              </div>
+             <ChevronRight className="size-3 text-white/20 group-hover:text-accent-cyan transition-colors" />
           </div>
-          <div className="flex items-center gap-2">
-             <span className="text-accent-green font-mono text-xs font-bold">(2)</span>
-             <ChevronRight className="size-4 text-white/20 group-hover:translate-x-0.5 transition-transform" />
+
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 group hover:border-accent-cyan/30 transition-colors">
+             <div className="size-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <Zap className="size-4" />
+             </div>
+             <div className="flex-1">
+                <div className="text-[11px] font-bold text-white/80">Rhythmic Cut</div>
+                <div className="text-[9px] text-white/40">Matching transitions to beat</div>
+             </div>
+             <ChevronRight className="size-3 text-white/20 group-hover:text-accent-cyan transition-colors" />
           </div>
-        </button>
+        </div>
+
+        {/* Final Output Node */}
+        <div className="mt-auto pt-6 flex justify-end">
+          <Node title="Relay Package" icon={Layers} className="w-full">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/40">Ready for review</span>
+              <button className="px-3 py-1 rounded-full bg-accent-cyan text-void text-[10px] font-bold uppercase tracking-wider hover:scale-105 transition-transform">
+                Stage
+              </button>
+            </div>
+          </Node>
+        </div>
       </div>
     </div>
   )

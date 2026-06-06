@@ -19,6 +19,7 @@ import {
   ZoomOut
 } from 'lucide-react'
 import { useEditor, SavedSegment } from './EditorContext'
+import { useDeviceTier } from '@/hooks/useDeviceTier'
 import { cn } from '@/lib/utils'
 import gsap from 'gsap'
 
@@ -54,6 +55,9 @@ export const CinematicTimeline: React.FC<CinematicTimelineProps> = ({ initialZoo
     segments
   } = useEditor()
 
+  const tier = useDeviceTier()
+  const isLowTier = tier === 'low'
+
   const [zoom, setZoom] = useState(initialZoom) // pixels per second
 
   const adjustZoom = (delta: number) => {
@@ -75,20 +79,23 @@ export const CinematicTimeline: React.FC<CinematicTimelineProps> = ({ initialZoo
     gsap.set(playheadRef.current, {
       x: 72 + (currentTime * zoom)
     })
-    gsap.fromTo(playheadRef.current,
-      { scaleY: 0 },
-      { scaleY: 1, transformOrigin: "top", duration: 0.6, ease: "back.out(1.7)" }
-    )
+    
+    if (!isLowTier) {
+      gsap.fromTo(playheadRef.current,
+        { scaleY: 0 },
+        { scaleY: 1, transformOrigin: "top", duration: 0.6, ease: "back.out(1.7)" }
+      )
+    }
   }, [])
 
   useEffect(() => {
     if (!playheadRef.current) return
     gsap.to(playheadRef.current, {
       x: currentTime * zoom + 72, // 72 is track header width
-      duration: 0.1,
+      duration: isLowTier ? 0 : 0.1, // Instant jump on low tier
       ease: 'none'
     })
-  }, [currentTime, zoom])
+  }, [currentTime, zoom, isLowTier])
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.shiftKey) {

@@ -8176,9 +8176,24 @@ function InspectorMeta({
 }
 
 function EditorShell({ children }: { children: React.ReactNode }) {
+  const { selection, setShowCommandBubble } = useEditor()
+  
   return (
     <>
       {children}
+      {selection && (
+        <button
+          onClick={() => setShowCommandBubble(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-50 
+            size-14 rounded-full bg-accent-cyan text-void 
+            shadow-lg shadow-accent-cyan/20 
+            active:scale-95 transition-transform
+            flex items-center justify-center"
+          aria-label="Open command palette"
+        >
+          <Sparkles className="size-6" />
+        </button>
+      )}
       <CommandBubble />
       <ExportDrawer />
       <CircularToast />

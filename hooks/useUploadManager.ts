@@ -1,87 +1,52 @@
 'use client'
 
-import { useCallback, useRef, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useEditor, type UploadTask } from '@/components/editor/EditorContext'
+import { uploadFileResumable } from '@/lib/upload/resumable-upload'
 
 export function useUploadManager() {
-  const { uploadTasks, addTask, updateTask, removeTask } = useEditor()
-  const intervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
-
-  useEffect(() => {
-    return () => {
-      intervalsRef.current.forEach((id) => clearInterval(id))
-      intervalsRef.current.clear()
-    }
-  }, [])
-
-  const simulateUpload = useCallback(
-    (taskId: string) => {
-      const existing = intervalsRef.current.get(taskId)
-      if (existing) clearInterval(existing)
-
-      const interval = setInterval(() => {
-        const task = uploadTasks.find((t) => t.id === taskId)
-        if (!task || task.status === 'complete' || task.status === 'error') {
-          clearInterval(interval)
-          intervalsRef.current.delete(taskId)
-          return
-        }
-
-        const rand = Math.random()
-        let networkState = task.networkState
-        let progress = task.progress
-        let status: UploadTask['status'] = task.status
-
-        if (rand > 0.96) {
-          networkState = 'offline'
-          status = 'paused'
-        } else if (rand > 0.88) {
-          networkState = 'poor'
-          progress += Math.random() * 1.5
-        } else {
-          networkState = 'good'
-          progress += Math.random() * 7
-        }
-
-        if (progress >= 100) {
-          progress = 100
-          status = 'complete'
-          clearInterval(interval)
-          intervalsRef.current.delete(taskId)
-        }
-
-        updateTask(taskId, { progress, status, networkState })
-      }, 300)
-
-      intervalsRef.current.set(taskId, interval)
-    },
-    [uploadTasks, updateTask]
-  )
+  const { uploadTasks, addTask, updateTask, removeTask, projectId } = useEditor()
 
   const startTask = useCallback(
-    (filename: string, destination: string) => {
-      const id = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      const task = {
-        id,
-        filename,
+    async (file: File, destination: string) => {
+      if (!projectId) {
+        console.error('Cannot upload without a project ID');
+        return;
+      }
+
+      const taskId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      const task: UploadTask = {
+        id: taskId,
+        filename: file.name,
         progress: 0,
-        status: 'uploading' as const,
+        status: 'uploading',
         destination,
-        networkState: 'good' as const,
+        networkState: 'good',
       }
       addTask(task)
-      simulateUpload(id)
-      return id
+
+      try {
+        const url = await uploadFileResumable(file, projectId, (progress) => {
+          updateTask(taskId, { progress, status: 'uploading' })
+        })
+        updateTask(taskId, { progress: 100, status: 'complete' })
+        return url
+      } catch (error: any) {
+        console.error('[UploadManagerError]', error)
+        updateTask(taskId, { status: 'error' })
+        throw error
+      }
     },
-    [addTask, simulateUpload]
+    [addTask, updateTask, projectId]
   )
 
   const retryTask = useCallback(
-    (taskId: string) => {
+    async (taskId: string, file: File, destination: string) => {
+      // In a real app, you'd need the file object again to retry
       updateTask(taskId, { status: 'uploading', progress: 0, networkState: 'good' })
-      simulateUpload(taskId)
+      return startTask(file, destination)
     },
-    [updateTask, simulateUpload]
+    [updateTask, startTask]
   )
 
   return { tasks: uploadTasks, addTask: startTask, retryTask, removeTask }
