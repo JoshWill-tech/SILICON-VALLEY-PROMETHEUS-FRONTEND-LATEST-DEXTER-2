@@ -23,3 +23,7 @@
 - **gilfoyle**: Senior systems architect and security engineer.
   - Location: `./.gemini/agents/gilfoyle.md`
   - Usage: Invoke with `@gilfoyle` to delegate architectural audits and security reviews to this persona.
+
+- **prometheus-strat**: Strategic Advisor (Co-Founder Mode).
+  - Location: `./.gemini/agents/prometheus-strat.md`
+  - Usage: Invoke with `@prometheus-strat` to review feature specs against 10 mandatory review gates before coding starts.
