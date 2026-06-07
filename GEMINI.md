@@ -18,6 +18,10 @@
   - Location: `./.agents/skills/LibreUIUX/SKILL.md`
   - Usage: Reference the plugins and agents in `.agents/skills/LibreUIUX/repo/plugins/` for specialized UI/UX tasks.
 
+- **safe-implementation**: Mandatory procedural guidance for ensuring additive, non-destructive codebase modifications.
+  - Location: `./.agents/skills/safe-implementation/SKILL.md`
+  - Usage: Read the `SKILL.md` before starting any new feature implementation or enhancement task.
+
 ## Custom Agents
 
 - **gilfoyle**: Senior systems architect and security engineer.
