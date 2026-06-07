@@ -22,9 +22,25 @@
   - Location: `./.agents/skills/safe-implementation/SKILL.md`
   - Usage: Read the `SKILL.md` before starting any new feature implementation or enhancement task.
 
+- **prometheus-strat**: Strategic Advisor pre-flight review for Prometheus frontend features.
+  - Location: `./.agents/skills/prometheus-strat/SKILL.md`
+  - Usage: Use before coding product, UI, editor, auth, preset, animation, conversion, performance, or deployment changes.
+
+- **nng-ux-certification**: Nielsen Norman Group-level UX rigor for heuristic evaluation, usability, accessibility, and information architecture.
+  - Location: `./.agents/skills/nng-ux-certification/SKILL.md`
+  - Usage: Use when frontend decisions need research-grade UX discipline rather than taste.
+
+- **interaction-design-foundation**: Structured UI/UX theory, interaction design, design thinking, and accessibility guidance.
+  - Location: `./.agents/skills/interaction-design-foundation/SKILL.md`
+  - Usage: Use for broad UX reasoning, user flows, hierarchy, research assumptions, and interaction quality.
+
+- **google-ux-design-certificate**: Practical UX process for personas, user journeys, wireframes, prototypes, usability testing, and accessibility basics.
+  - Location: `./.agents/skills/google-ux-design-certificate/SKILL.md`
+  - Usage: Use when a frontend change needs a simple idea-to-tested-interface workflow.
+
 ## Custom Agents
 
-- **gilfoyle**: Senior systems architect and security engineer.
+- **GILFOYLE, SILICON VALLEY** (`@gilfoyle`): Senior systems architect and security engineer.
   - Location: `./.gemini/agents/gilfoyle.md`
   - Usage: Invoke with `@gilfoyle` to delegate architectural audits and security reviews to this persona.
 

@@ -4,7 +4,41 @@ import React from 'react';
 import { useEditor } from './EditorContext';
 import { cn } from '@/lib/utils';
 
-export const TimelineRuler: React.FC = () => {
+interface TimelineRulerProps {
+  duration?: number;
+  zoom?: number;
+}
+
+export const TimelineRuler: React.FC<TimelineRulerProps> = (props) => {
+  if (typeof props.duration === 'number') {
+    return <ControlledTimelineRuler duration={props.duration} zoom={props.zoom ?? 1} />;
+  }
+
+  return <ContextTimelineRuler />;
+};
+
+function ControlledTimelineRuler({ duration, zoom }: Required<TimelineRulerProps>) {
+  return (
+    <div className="absolute left-0 top-0 h-8 w-full border-b border-border-subtle">
+      {Array.from({ length: duration + 1 }, (_, i) => i).map((tick) => {
+        const major = tick % 5 === 0;
+
+        return (
+          <div
+            key={tick}
+            className="absolute top-0 flex flex-col items-center"
+            style={{ left: `${tick * 10 * zoom}px` }}
+          >
+            <div className={cn('w-px bg-text-tertiary/50', major ? 'h-3 bg-text-tertiary' : 'h-1.5')} />
+            {major && <span className="mt-0.5 text-[10px] text-text-tertiary">{tick}s</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ContextTimelineRuler() {
   const { duration } = useEditor();
   const zoom = 10; // pixels per second
   const HEADER_WIDTH = 72;
@@ -42,4 +76,4 @@ export const TimelineRuler: React.FC = () => {
       </div>
     </div>
   );
-};
+}

@@ -184,6 +184,13 @@ This agent runs as a **pre-flight check** in the Gemini CLI workflow. Before the
 3. If APPROVED → proceed to coding
 4. If BLOCKED → halt, return feedback to Joshua, revise spec
 
+**Command alias suggestion:**
+```bash
+# In the CLI agent
+prometheus-strat --review ./specs/01-desktop-chat-presets.md
+# Outputs: sign-off.md or block-report.md
+```
+
 ---
 
 ## Final Directive

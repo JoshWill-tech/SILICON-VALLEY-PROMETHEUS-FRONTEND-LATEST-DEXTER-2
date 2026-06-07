@@ -1,3 +1,8 @@
+---
+name: jungian-archetypes
+description: Translate Jungian archetypes into UI/UX aesthetics, visual language, typography, layout, spacing, motion, and interaction patterns.
+---
+
 # Jungian Archetypes → UI/UX Aesthetics
 
 ## Overview

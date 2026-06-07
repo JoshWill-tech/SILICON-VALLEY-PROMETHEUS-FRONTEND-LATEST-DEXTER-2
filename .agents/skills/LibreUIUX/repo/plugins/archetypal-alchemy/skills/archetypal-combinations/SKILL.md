@@ -1,3 +1,8 @@
+---
+name: archetypal-combinations
+description: Combine Jungian archetypes with Major Arcana mood and color systems to generate cohesive UI/UX design systems and component direction.
+---
+
 # Archetypal Combinations: Alchemy Engine
 
 ## Overview

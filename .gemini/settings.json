@@ -1,12 +1,10 @@
 {
   "mcpServers": {
     "magic": {
-      "command": "npx",
+      "command": "sh",
       "args": [
-        "-y",
-        "@21st-dev/magic@latest",
-        "-e",
-        "API_KEY=d5dbdf136abf7dd9e5a310f51f532a7d2fa734c5d910f6a16e4505863659b89e"
+        "-lc",
+        "test -n \"$MAGIC_API_KEY\" || { echo 'MAGIC_API_KEY is not set' >&2; exit 1; }; npx -y @21st-dev/magic@latest -e API_KEY=\"$MAGIC_API_KEY\""
       ]
     }
   }

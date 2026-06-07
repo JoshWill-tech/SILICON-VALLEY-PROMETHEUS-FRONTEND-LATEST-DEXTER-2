@@ -50,18 +50,30 @@
   /* Liquid Chrome Design Tokens */
   --void: #050505;
   --abyss: #0a0a0f;
+  --surface-base: #0a0a0c;
   --surface: #111118;
   --surface-elevated: #1a1a24;
+  --surface-floating: #1a1a1e;
   --glass-bg: rgba(17, 17, 24, 0.55);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-highlight: rgba(255, 255, 255, 0.03);
+  --glass-shadow: rgba(0, 0, 0, 0.4);
   --chrome: #e8e8e8;
   --chrome-dim: #6b6b78;
   --accent-cyan: #00f0ff;
+  --accent-cyan-dim: #00b8c4;
+  --accent-cyan-glow: rgba(0, 240, 255, 0.15);
+  --accent-gold: #ffd700;
+  --accent-gold-dim: #b8860b;
+  --accent-gold-glow: rgba(255, 215, 0, 0.12);
   --accent-blue: #3b82f6;
   --accent-green: #10b981;
   --accent-amber: #f59e0b;
   --accent-purple: #a855f7;
+  --text-primary: #f0f0f5;
+  --text-secondary: #a0a0b0;
+  --text-tertiary: #6c6c7e;
+  --border-subtle: rgba(255,255,255,0.06);
   --track-video: #3b82f6;
   --track-audio: #10b981;
   --track-motion: #a855f7;
@@ -227,10 +239,10 @@
 }
 
 .node-canvas {
-  background: 
+  background-color: var(--abyss);
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(20,20,40,0.4) 0%, transparent 70%),
-    var(--abyss);
-  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+    radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 24px 24px;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
@@ -283,7 +295,8 @@
 }
 
 .glass-panel {
-  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+  background-color: var(--glass-bg);
+  background-image: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid rgba(255,255,255,0.08);
@@ -409,6 +422,16 @@
     color-scheme: dark;
   }
 
+  .editor-root {
+    min-height: 100vh;
+    background-color: var(--surface-base);
+    background-image: radial-gradient(ellipse at 50% 0%, #1a1a2e 0%, #0a0a0c 60%);
+    color: var(--text-primary);
+    font-family: "Inter", var(--font-ui), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   ::selection {
     background: rgba(112, 170, 255, 0.28);
     color: white;
@@ -451,6 +474,33 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.08),
       0 18px 40px -28px rgba(0, 0, 0, 0.82);
     backdrop-filter: blur(18px) saturate(1.12);
+  }
+
+  .glass-button {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.05);
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      box-shadow 200ms ease,
+      transform 200ms ease;
+  }
+
+  .glass-button:hover {
+    border-color: rgba(0, 240, 255, 0.3);
+    background-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+  }
+
+  .chrome-text {
+    background-image: linear-gradient(180deg, #ffffff 0%, #a0a0b0 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .accent-glow {
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
   }
 
   .focus-ring-glow {
@@ -655,10 +705,29 @@
 
     .glass-surface,
     .glass-surface-strong,
-    .glass-pill {
+    .glass-pill,
+    .glass-panel {
       backdrop-filter: none;
     }
+
+    .ambient-bg,
+    .animate-marquee {
+      animation: none;
+    }
+
+    .glass-button {
+      transition: none;
+    }
   }
+}
+
+html[data-prometheus-reduce-motion='true'] *,
+html[data-prometheus-reduce-motion='true'] *::before,
+html[data-prometheus-reduce-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
 }
 
 @keyframes soundtrack-artist-marquee {

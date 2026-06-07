@@ -1,3 +1,8 @@
+---
+name: safe-implementation
+description: Mandatory procedural guidance for additive, non-destructive codebase modifications. Use before implementing new features, enhancements, or risky edits in an existing codebase.
+---
+
 # Safe Implementation — Additive Changes Only
 
 > **Scope:** Implement new features, effects, and enhancements WITHOUT destroying existing functionality.

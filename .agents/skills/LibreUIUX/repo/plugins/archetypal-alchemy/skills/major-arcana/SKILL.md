@@ -1,3 +1,8 @@
+---
+name: major-arcana
+description: Use Major Arcana symbolism to choose UI/UX color palettes, moods, gradients, lighting, atmosphere, and visual tone.
+---
+
 # Major Arcana → Color Palettes & Moods
 
 ## Overview

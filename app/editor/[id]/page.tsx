@@ -6079,6 +6079,37 @@ function OriginalEditorPage() {
   const titleInputRef = React.useRef<HTMLInputElement | null>(null)
   const [latestExport, setLatestExport] = React.useState<ProjectExport | null>(null)
 
+  React.useEffect(() => {
+    const handleEditorCommand = (event: Event) => {
+      const command = (event as CustomEvent<{ command?: string }>).detail?.command
+
+      if (command === 'upload') {
+        setIsNewProjectUploadOpen(true)
+        return
+      }
+
+      if (command === 'ai') {
+        setIsAiLampOpen(true)
+        return
+      }
+
+      if (command === 'enhance') {
+        setIsAiLampOpen(true)
+        toast.info('Enhance mode ready', {
+          description: 'Use the AI command lamp to describe the enhancement.',
+        })
+        return
+      }
+
+      if (command === 'export') {
+        setShowExport(true)
+      }
+    }
+
+    window.addEventListener('prometheus:editor-command', handleEditorCommand)
+    return () => window.removeEventListener('prometheus:editor-command', handleEditorCommand)
+  }, [setShowExport])
+
   const handleTitleStartEdit = () => {
     setTempTitle(project?.title || '')
     setIsEditingTitle(true)
