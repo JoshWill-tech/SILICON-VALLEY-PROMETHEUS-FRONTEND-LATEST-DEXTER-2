@@ -52,6 +52,29 @@ const config: Config = {
         'text-secondary': '#a0a0b0',
         'text-tertiary': '#6c6c7e',
         'border-subtle': 'rgba(255,255,255,0.06)',
+        prometheus: {
+          bg: {
+            primary: '#0a0a0f',
+            secondary: '#111118',
+            tertiary: '#1a1a24',
+            overlay: 'rgba(0,0,0,0.6)',
+          },
+          accent: {
+            purple: '#7c3aed',
+            indigo: '#4f46e5',
+            cyan: '#06b6d4',
+            glow: 'rgba(124,58,237,0.15)',
+          },
+          text: {
+            primary: '#f8fafc',
+            secondary: '#94a3b8',
+            tertiary: '#64748b',
+          },
+          border: {
+            subtle: 'rgba(148,163,184,0.08)',
+            glass: 'rgba(255,255,255,0.06)',
+          },
+        },
       },
       backgroundImage: {
         'chrome-radial': 'radial-gradient(ellipse at 50% 0%, #1a1a2e 0%, #0a0a0c 60%)',

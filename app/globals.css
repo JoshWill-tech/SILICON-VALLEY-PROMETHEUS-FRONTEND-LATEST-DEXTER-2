@@ -78,6 +78,19 @@
   --track-audio: #10b981;
   --track-motion: #a855f7;
   --track-text: #f59e0b;
+  --prometheus-bg-primary: #0a0a0f;
+  --prometheus-bg-secondary: #111118;
+  --prometheus-bg-tertiary: #1a1a24;
+  --prometheus-bg-overlay: rgba(0,0,0,0.6);
+  --prometheus-accent-purple: #7c3aed;
+  --prometheus-accent-indigo: #4f46e5;
+  --prometheus-accent-cyan: #06b6d4;
+  --prometheus-accent-glow: rgba(124,58,237,0.15);
+  --prometheus-text-primary: #f8fafc;
+  --prometheus-text-secondary: #94a3b8;
+  --prometheus-text-tertiary: #64748b;
+  --prometheus-border-subtle: rgba(148,163,184,0.08);
+  --prometheus-border-glass: rgba(255,255,255,0.06);
 }
 
 @keyframes flowLine {
@@ -749,6 +762,22 @@ html[data-prometheus-reduce-motion='true'] *::after {
 }
 
 @layer utilities {
+  .glass-sidebar {
+    background: linear-gradient(180deg, rgba(17,17,24,0.98) 0%, rgba(10,10,15,0.96) 100%);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    box-shadow:
+      inset -1px 0 0 rgba(255,255,255,0.035),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+
+  .glass-backdrop {
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
   .scrollbar-hidden {
     -ms-overflow-style: none;
     scrollbar-width: none;

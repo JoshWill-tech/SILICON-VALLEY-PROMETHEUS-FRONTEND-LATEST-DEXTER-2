@@ -1,30 +1,38 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/components/auth/auth-provider'
 
-export function LandingHeader() {
+interface LandingHeaderProps {
+  mobileNavControl?: ReactNode
+}
+
+export function LandingHeader({ mobileNavControl }: LandingHeaderProps = {}) {
   const { session, isLoading } = useAuth()
   const isAuthenticated = !!session
 
   return (
-    <header className="fixed top-0 z-50 w-full border-b border-white/[0.05] bg-black/10 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-8">
-        <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <Image
-            src="/branding/prometheus-logo-no-bg.png"
-            alt="Prometheus"
-            width={24}
-            height={24}
-            className="h-6 w-6 object-contain"
-          />
-          <span className="text-sm font-bold uppercase tracking-[0.3em] text-white">
-            rometheus
-          </span>
-        </Link>
+    <header className="fixed top-0 z-30 w-full border-b border-white/[0.05] bg-black/10 backdrop-blur-md md:z-50">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
+        <div className="flex items-center gap-2">
+          {mobileNavControl ? <div className="md:hidden">{mobileNavControl}</div> : null}
+          <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
+            <Image
+              src="/branding/prometheus-logo-no-bg.png"
+              alt="Prometheus"
+              width={24}
+              height={24}
+              className="h-6 w-6 object-contain"
+            />
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-white">
+              rometheus
+            </span>
+          </Link>
+        </div>
 
         <nav className="hidden items-center gap-8 md:flex">
           <Link
