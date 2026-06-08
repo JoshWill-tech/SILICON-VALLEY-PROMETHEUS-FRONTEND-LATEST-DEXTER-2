@@ -11,8 +11,13 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
-    <PrometheusShell header={<LandingHeader />}>
-      <main className="relative isolate min-h-screen overflow-hidden bg-[#050505] px-4 pb-24 pt-28 text-white sm:px-6 lg:px-8">
+    <PrometheusShell
+      contentClassName="relative flex-1 overflow-visible"
+      header={<LandingHeader />}
+      mainClassName="relative z-auto min-h-screen overflow-x-hidden overflow-y-visible overscroll-y-auto"
+      rootClassName="relative flex min-h-screen w-full flex-col overflow-visible font-sans"
+    >
+      <main className="relative isolate min-h-screen overflow-x-hidden bg-[#050505] px-4 pb-24 pt-28 text-white sm:px-6 lg:px-8">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,#050505_0%,#0b0b0d_42%,#0f0f11_100%)]"

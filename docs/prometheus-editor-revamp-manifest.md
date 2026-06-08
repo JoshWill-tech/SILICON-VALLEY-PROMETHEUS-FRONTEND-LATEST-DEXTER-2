@@ -4,7 +4,7 @@ Generated: 2026-06-07
 
 ## Audited File Inventory
 
-This manifest records the actual repo state after Revamp 01-16. The pasted Revamp 08 spec says 27 files, but only lists 24 concrete paths. The implementation has 51 revamp-relevant files when the repo-specific wrapper, workspace alias, touched project editor route, settings modal, keyboard shortcut handler, dashboard rotation files, mobile landing files, premium sidebar, dashboard integration hook, contextual event hooks, Vercel runtime config, and deployment checklist are included.
+This manifest records the actual repo state after Revamp 01-17. The pasted Revamp 08 spec says 27 files, but only lists 24 concrete paths. The implementation has 53 revamp-relevant files when the repo-specific wrapper, workspace alias, touched project editor route, settings modal, keyboard shortcut handler, dashboard rotation files, mobile landing files, premium sidebar, dashboard integration hook, contextual event hooks, Vercel runtime config, deployment checklist, and pricing mobile scroll fix are included.
 
 ## Config And Styles
 
@@ -15,6 +15,7 @@ This manifest records the actual repo state after Revamp 01-16. The pasted Revam
 
 ## Routes And Layout
 
+- `app/pricing/page.tsx`
 - `app/editor/layout.tsx`
 - `app/editor/page.tsx`
 - `app/editor/loading.tsx`
@@ -23,6 +24,7 @@ This manifest records the actual repo state after Revamp 01-16. The pasted Revam
 
 ## Shell And Persistent UI
 
+- `components/prometheus-shell.tsx`
 - `components/editor/EditorProvider.tsx`
 - `components/editor/EditorRouteShell.tsx`
 - `components/editor/EditorShell.tsx`
