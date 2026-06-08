@@ -3,87 +3,18 @@
 import * as React from 'react'
 import {
   DEFAULT_EDITOR_SESSION,
-  EDITOR_SESSION_MAX_AGE_MS,
   EDITOR_SESSION_SAVE_INTERVAL_MS,
   EDITOR_SESSION_STORAGE_KEY,
-  type EditorPlaybackState,
   type EditorSessionRestoreTargets,
   type EditorSessionSnapshot,
   type EditorSessionState,
 } from '@/types/editor-session'
+import { clearEditorSession, readEditorSession, writeEditorSession } from '@/lib/editor-session-storage'
 
 export interface UseEditorSessionOptions extends EditorSessionRestoreTargets {
   storageKey?: string
   getSessionSnapshot?: () => Partial<EditorSessionSnapshot>
   restoreOnMount?: boolean
-}
-
-function isPlaybackState(value: unknown): value is EditorPlaybackState {
-  return value === 'playing' || value === 'paused'
-}
-
-function normalizeSession(value: unknown): EditorSessionState | null {
-  if (!value || typeof value !== 'object') return null
-
-  const candidate = value as Partial<EditorSessionState>
-  if (typeof candidate.timestamp !== 'number') return null
-  // Session restore is intentionally ephemeral. Anything older than 30 minutes is stale context.
-  if (Date.now() - candidate.timestamp > EDITOR_SESSION_MAX_AGE_MS) return null
-
-  return {
-    videoCurrentTime:
-      typeof candidate.videoCurrentTime === 'number' ? candidate.videoCurrentTime : DEFAULT_EDITOR_SESSION.videoCurrentTime,
-    activeTab: typeof candidate.activeTab === 'string' ? candidate.activeTab : DEFAULT_EDITOR_SESSION.activeTab,
-    sidebarOpen: typeof candidate.sidebarOpen === 'boolean' ? candidate.sidebarOpen : DEFAULT_EDITOR_SESSION.sidebarOpen,
-    selectedTrackId:
-      typeof candidate.selectedTrackId === 'string' || candidate.selectedTrackId === null
-        ? candidate.selectedTrackId
-        : DEFAULT_EDITOR_SESSION.selectedTrackId,
-    zoomLevel: typeof candidate.zoomLevel === 'number' ? candidate.zoomLevel : DEFAULT_EDITOR_SESSION.zoomLevel,
-    scrollPosition: {
-      x:
-        typeof candidate.scrollPosition?.x === 'number'
-          ? candidate.scrollPosition.x
-          : DEFAULT_EDITOR_SESSION.scrollPosition.x,
-      y:
-        typeof candidate.scrollPosition?.y === 'number'
-          ? candidate.scrollPosition.y
-          : DEFAULT_EDITOR_SESSION.scrollPosition.y,
-    },
-    selectedElementId:
-      typeof candidate.selectedElementId === 'string' || candidate.selectedElementId === null
-        ? candidate.selectedElementId
-        : DEFAULT_EDITOR_SESSION.selectedElementId,
-    playbackState: isPlaybackState(candidate.playbackState)
-      ? candidate.playbackState
-      : DEFAULT_EDITOR_SESSION.playbackState,
-    timestamp: candidate.timestamp,
-  }
-}
-
-function readStoredSession(storageKey: string): EditorSessionState | null {
-  if (typeof window === 'undefined') return null
-
-  try {
-    const raw = window.sessionStorage.getItem(storageKey)
-    if (!raw) return null
-
-    const session = normalizeSession(JSON.parse(raw))
-    if (!session) {
-      window.sessionStorage.removeItem(storageKey)
-      return null
-    }
-
-    return session
-  } catch {
-    window.sessionStorage.removeItem(storageKey)
-    return null
-  }
-}
-
-function writeStoredSession(storageKey: string, session: EditorSessionState) {
-  if (typeof window === 'undefined') return
-  window.sessionStorage.setItem(storageKey, JSON.stringify(session))
 }
 
 function getWindowScrollPosition() {
@@ -130,6 +61,7 @@ export function useEditorSession({
         ...snapshot,
         videoCurrentTime,
         scrollPosition,
+        sidebarWidth: snapshot.sidebarOpen === false ? 72 : snapshot.sidebarWidth ?? sessionRef.current.sidebarWidth,
         timestamp: Date.now(),
       }
     },
@@ -145,7 +77,7 @@ export function useEditorSession({
 
       sessionRef.current = next
       setSession(next)
-      writeStoredSession(storageKey, next)
+      writeEditorSession(next, storageKey)
       return next
     },
     [buildSession, getSessionSnapshot, storageKey]
@@ -167,6 +99,15 @@ export function useEditorSession({
       onZoomRestore?.(next.zoomLevel)
       onSelectedElementRestore?.(next.selectedElementId)
       onPlaybackStateRestore?.(next.playbackState)
+
+      if (next.selectedElementId) {
+        const selectedElementId = next.selectedElementId
+        window.requestAnimationFrame(() => {
+          const target = document.getElementById(selectedElementId)
+          target?.setAttribute('data-editor-session-selected', 'true')
+          target?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        })
+      }
 
       // Scroll after layout so restored tabs/panels have a chance to exist before positioning.
       const restoreScroll = () => {
@@ -192,7 +133,7 @@ export function useEditorSession({
   )
 
   const restoreSession = React.useCallback(() => {
-    const saved = readStoredSession(storageKey)
+    const saved = readEditorSession(storageKey)
     const next = saved ?? { ...DEFAULT_EDITOR_SESSION, timestamp: Date.now() }
     applySession(next)
     hasRestoredRef.current = true
@@ -201,7 +142,7 @@ export function useEditorSession({
   }, [applySession, storageKey])
 
   const clearSession = React.useCallback(() => {
-    if (typeof window !== 'undefined') window.sessionStorage.removeItem(storageKey)
+    clearEditorSession(storageKey)
     sessionRef.current = DEFAULT_EDITOR_SESSION
     setSession(DEFAULT_EDITOR_SESSION)
   }, [storageKey])
@@ -227,13 +168,39 @@ export function useEditorSession({
       saveSession()
     }
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') saveSession()
+    }
+
     window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => {
       window.clearInterval(intervalId)
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       saveSession()
     }
   }, [restoring, saveSession])
+
+  React.useEffect(() => {
+    if (restoring || !videoRef?.current) return
+
+    const video = videoRef.current
+    let lastSavedAt = 0
+    const handleTimeUpdate = () => {
+      const now = Date.now()
+      if (now - lastSavedAt < 1000) return
+      lastSavedAt = now
+      sessionRef.current = {
+        ...sessionRef.current,
+        videoCurrentTime: video.currentTime,
+        playbackState: video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA ? 'buffering' : video.paused ? 'paused' : 'playing',
+      }
+    }
+
+    video.addEventListener('timeupdate', handleTimeUpdate)
+    return () => video.removeEventListener('timeupdate', handleTimeUpdate)
+  }, [restoring, videoRef])
 
   return {
     session,

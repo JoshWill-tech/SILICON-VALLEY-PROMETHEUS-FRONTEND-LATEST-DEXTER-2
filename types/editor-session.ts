@@ -4,7 +4,8 @@ export const EDITOR_SESSION_STORAGE_KEY = 'prometheus_editor_session'
 export const EDITOR_SESSION_MAX_AGE_MS = 1000 * 60 * 30
 export const EDITOR_SESSION_SAVE_INTERVAL_MS = 1000 * 3
 
-export type EditorPlaybackState = 'playing' | 'paused'
+export type EditorActiveTab = 'timeline' | 'preview' | 'motion' | 'music' | 'export'
+export type EditorPlaybackState = 'playing' | 'paused' | 'buffering'
 
 // Persist only editor UI/runtime state that is safe to restore inside one browser session.
 export interface EditorScrollPosition {
@@ -14,8 +15,9 @@ export interface EditorScrollPosition {
 
 export interface EditorSessionState {
   videoCurrentTime: number
-  activeTab: string
+  activeTab: EditorActiveTab
   sidebarOpen: boolean
+  sidebarWidth: 280 | 72
   selectedTrackId: string | null
   zoomLevel: number
   scrollPosition: EditorScrollPosition
@@ -32,7 +34,7 @@ export type EditorSessionSnapshot = Omit<EditorSessionState, 'timestamp'> & {
 export interface EditorSessionRestoreTargets {
   videoRef?: React.RefObject<HTMLVideoElement | null>
   scrollContainerRef?: React.RefObject<HTMLElement | null>
-  onActiveTabRestore?: (activeTab: string) => void
+  onActiveTabRestore?: (activeTab: EditorActiveTab) => void
   onSidebarRestore?: (sidebarOpen: boolean) => void
   onSelectedTrackRestore?: (selectedTrackId: string | null) => void
   onZoomRestore?: (zoomLevel: number) => void
@@ -44,6 +46,7 @@ export const DEFAULT_EDITOR_SESSION: EditorSessionState = {
   videoCurrentTime: 0,
   activeTab: 'timeline',
   sidebarOpen: true,
+  sidebarWidth: 280,
   selectedTrackId: null,
   zoomLevel: 1,
   scrollPosition: { x: 0, y: 0 },
