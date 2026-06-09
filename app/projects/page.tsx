@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { BackButton } from '@/components/navigation/BackButton'
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Button } from '@/components/ui/button'
 import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
@@ -808,11 +809,14 @@ function DashboardHeader({
   return (
     <header className="border-b border-white/12 pb-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Projects</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
-            Manage source videos, AI tasks, exports, collections, and client-ready versions from one production console.
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <BackButton />
+          <div className="min-w-0 pt-1">
+            <h1 className="text-3xl font-bold tracking-tight text-white">Projects</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
+              Manage source videos, AI tasks, exports, collections, and client-ready versions from one production console.
+            </p>
+          </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
           <label className="flex h-10 items-center gap-2 rounded-[18px] border border-white/10 bg-white/[0.05] px-3 text-sm text-white/62 shadow-[0_14px_28px_-24px_rgba(0,0,0,0.9)]">

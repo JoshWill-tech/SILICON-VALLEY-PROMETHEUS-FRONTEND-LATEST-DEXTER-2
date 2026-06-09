@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   return (
     <PrometheusShell
-      header={<PageHeader title="Settings" description="Preferences and integrations (UI scaffolding)." />}
+      header={<PageHeader title="Settings" description="Preferences and integrations (UI scaffolding)." showBackButton />}
     >
       <div className="px-8 py-6 grid gap-4 lg:grid-cols-2">
         <Card className="lg:col-span-2">

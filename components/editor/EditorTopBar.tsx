@@ -2,6 +2,8 @@
 
 import { Menu, Settings, Share2 } from 'lucide-react'
 
+import { BackButton } from '@/components/navigation/BackButton'
+
 export function EditorTopBar({
   onToggleSidebar,
   onOpenSettings,
@@ -14,6 +16,7 @@ export function EditorTopBar({
   return (
     <header className="glass-panel flex h-14 shrink-0 items-center justify-between rounded-none border-x-0 border-t-0 border-b border-border-subtle px-4">
       <div className="flex min-w-0 items-center gap-3">
+        <BackButton className="h-10 w-10" />
         <button
           type="button"
           onClick={onToggleSidebar}
