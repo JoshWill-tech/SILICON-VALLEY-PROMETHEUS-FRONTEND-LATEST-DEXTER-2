@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import { selectedEditorMusicStorageKey } from '@/lib/editor-music-selection'
 import { isStandaloneMobileEditorRoute } from '@/lib/editor-mobile-routes'
 import { shouldShowGlobalFooter } from '@/lib/footer-routes'
 import { normalizeR2Track } from '@/lib/music/r2-sync'
@@ -11,10 +12,14 @@ function run() {
   assert.equal(shouldShowGlobalFooter('/settings'), false)
   assert.equal(shouldShowGlobalFooter('/'), false)
 
-  assert.equal(isStandaloneMobileEditorRoute('/editor/music'), true)
-  assert.equal(isStandaloneMobileEditorRoute('/editor/motion/'), true)
+  assert.equal(isStandaloneMobileEditorRoute('/editor/music'), false)
+  assert.equal(isStandaloneMobileEditorRoute('/editor/motion/'), false)
   assert.equal(isStandaloneMobileEditorRoute('/editor'), false)
   assert.equal(isStandaloneMobileEditorRoute('/editor/123'), false)
+  assert.equal(
+    selectedEditorMusicStorageKey('project-1'),
+    'prometheus.editor.selected-track.v1.project-1',
+  )
 
   const normalized = normalizeR2Track({
     artist: 'Prometheus',

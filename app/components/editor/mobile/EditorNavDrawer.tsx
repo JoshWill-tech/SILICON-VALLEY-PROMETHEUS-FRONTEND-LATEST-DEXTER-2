@@ -4,16 +4,16 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BarChart3, Clock3, Folder, Music, Settings, X, Zap } from 'lucide-react'
+import { Activity, BarChart3, Clock3, Folder, GitBranch, MessageSquare, Music, Settings, X, Zap } from 'lucide-react'
 
 import { HamburgerButton } from '@/app/components/mobile/HamburgerButton'
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll'
 import { useSwipeGesture } from '@/app/hooks/useSwipeGesture'
 
 import { EditorNavItem } from './EditorNavItem'
-import { EditorSettingsSubmenu, type EditorSettingsPanelKey } from './EditorSettingsSubmenu'
+import type { EditorSettingsPanelKey } from './EditorSettingsSubmenu'
 
-export type EditorNavKey = 'projects' | 'motion' | 'music' | 'analytics' | 'timeline' | 'settings'
+export type EditorNavKey = 'projects' | 'motion' | 'music' | 'analytics' | 'timeline' | 'chat' | 'versions' | 'status' | 'settings'
 export type EditorToolKey = Exclude<EditorNavKey, 'projects' | 'settings'>
 
 interface EditorNavDrawerProps {
@@ -34,6 +34,9 @@ const navItems = [
   { key: 'music', label: 'Music', icon: Music },
   { key: 'analytics', label: 'Analytics', icon: BarChart3 },
   { key: 'timeline', label: 'Timeline', icon: Clock3 },
+  { key: 'chat', label: 'Chat', icon: MessageSquare },
+  { key: 'versions', label: 'Versions', icon: GitBranch },
+  { key: 'status', label: 'Status', icon: Activity },
   { key: 'settings', label: 'Settings', icon: Settings },
 ] as const
 
@@ -44,7 +47,6 @@ export function EditorNavDrawer({
   onSelectTool,
 }: EditorNavDrawerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const [settingsOpen, setSettingsOpen] = React.useState(false)
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const drawerRef = React.useRef<HTMLElement | null>(null)
   const edgeSwipeRef = React.useRef<HTMLDivElement | null>(null)
@@ -112,11 +114,11 @@ export function EditorNavDrawer({
 
   const handleSelect = (key: EditorNavKey) => {
     if (key === 'settings') {
-      setSettingsOpen((current) => !current)
+      setIsOpen(false)
+      onOpenSettingsPanel('appearance')
       return
     }
 
-    setSettingsOpen(false)
     setIsOpen(false)
 
     if (key === 'projects') {
@@ -125,11 +127,6 @@ export function EditorNavDrawer({
     }
 
     onSelectTool?.(key)
-  }
-
-  const handleSettingsSelect = (panel: EditorSettingsPanelKey) => {
-    setIsOpen(false)
-    onOpenSettingsPanel(panel)
   }
 
   const handleDrawerGestureStart = React.useCallback((event: React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
@@ -203,7 +200,7 @@ export function EditorNavDrawer({
               role="dialog"
               aria-modal="true"
               aria-label="Prometheus editor navigation"
-              className="glass-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(320px,60vw)] flex-col overflow-hidden pt-[env(safe-area-inset-top)] text-prometheus-text-primary shadow-[24px_0_80px_-44px_rgba(0,0,0,0.92)] will-change-transform md:hidden sm:w-[280px]"
+              className="glass-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(360px,86vw)] flex-col overflow-hidden pt-[env(safe-area-inset-top)] text-prometheus-text-primary shadow-[24px_0_80px_-44px_rgba(0,0,0,0.92)] will-change-transform md:hidden sm:w-[320px]"
               initial={{ x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-100%', opacity: 0 }}
@@ -264,13 +261,10 @@ export function EditorNavDrawer({
                     <div key={item.key}>
                       <EditorNavItem
                         icon={item.icon}
-                        isActive={activeItem === item.key || (item.key === 'settings' && settingsOpen)}
+                        isActive={activeItem === item.key}
                         label={item.label}
                         onSelect={() => handleSelect(item.key)}
                       />
-                      {item.key === 'settings' ? (
-                        <EditorSettingsSubmenu open={settingsOpen} onSelect={handleSettingsSelect} />
-                      ) : null}
                     </div>
                   ))}
                 </div>

@@ -1,20 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import {
   Activity,
-  BarChart3,
   ChevronDown,
-  Clock3,
-  Folder,
   GitBranch,
   Loader2,
   MessageSquare,
   Music,
   Search,
-  Settings,
   Sparkles,
   X,
   Zap,
@@ -45,26 +40,8 @@ const PANELS: Array<{
   { id: 'status', label: 'Status', icon: Activity },
 ]
 
-const MOBILE_NAV_ITEMS: Array<{
-  href: string
-  icon: LucideIcon
-  id: string
-  label: string
-}> = [
-  { id: 'projects', label: 'Projects', icon: Folder, href: '/projects' },
-  { id: 'motion-brain', label: 'Motion Brain', icon: Zap, href: '/editor/motion' },
-  { id: 'music', label: 'Music', icon: Music, href: '/editor/music' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/editor/analytics' },
-  { id: 'timeline', label: 'Timeline', icon: Clock3, href: '/editor/timeline' },
-  { id: 'chat', label: 'Chat', icon: MessageSquare, href: '/editor/chat' },
-  { id: 'versions', label: 'Versions', icon: GitBranch, href: '/editor/versions' },
-  { id: 'status', label: 'Status', icon: Activity, href: '/editor/status' },
-  { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
-]
-
 export function SidebarDrawer({ activePanel, isOpen, onClose, onTogglePanel }: SidebarDrawerProps) {
   const router = useRouter()
-  const pathname = usePathname()
 
   return (
     <aside
@@ -95,29 +72,7 @@ export function SidebarDrawer({ activePanel, isOpen, onClose, onTogglePanel }: S
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <div className="space-y-2 lg:hidden">
-          {MOBILE_NAV_ITEMS.map((item) => {
-            const active = pathname === item.href
-
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl px-4 py-3 transition-all',
-                  active ? 'bg-white/10 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white',
-                )}
-              >
-                <item.icon className="size-5" />
-                <span className="text-sm font-medium">{item.label}</span>
-                {active ? <div className="ml-auto size-1.5 rounded-full bg-accent-cyan" /> : null}
-              </Link>
-            )
-          })}
-        </div>
-
-        <div className="hidden space-y-2 lg:block">
+        <div className="space-y-2">
           {PANELS.map((panel) => {
             const expanded = activePanel === panel.id
             const Icon = panel.icon

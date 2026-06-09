@@ -1,26 +1,32 @@
 'use client'
 
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
+  Activity,
   BarChart3,
   Clock3,
+  GitBranch,
   Gauge,
+  Loader2,
+  MessageSquare,
   Music,
+  Pause,
+  Play,
   Search,
   Sparkles,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
+import { useR2Music } from '@/app/editor/hooks/use-r2-music'
 import { cn } from '@/lib/utils'
 import { EditorNavDrawer, type EditorToolKey } from '@/app/components/editor/mobile/EditorNavDrawer'
 import type { EditorSettingsPanelKey } from '@/app/components/editor/mobile/EditorSettingsSubmenu'
 import { AwwwardsSidebar } from '@/components/sidebar/AwwwardsSidebar'
-import { MOBILE_EDITOR_TRACKS } from '@/lib/data/mock-tracks'
+import { writeSelectedEditorMusicTrack } from '@/lib/editor-music-selection'
 import { isStandaloneMobileEditorRoute } from '@/lib/editor-mobile-routes'
-import type { MusicRecommendation } from '@/lib/types'
+import type { R2Track } from '@/lib/music/r2-sync'
 
 import { CommandZone } from './CommandZone'
 import { EditorTopBar } from './EditorTopBar'
@@ -30,6 +36,7 @@ import { SettingsPanel } from './SettingsPanel'
 
 export function EditorRouteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const projectId = useMemo(() => getEditorProjectIdFromPathname(pathname), [pathname])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -84,9 +91,9 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
                   onToggleSidebar={toggleSidebar}
                   sidebarOpen={sidebarOpen}
                 />
-                <div className="relative min-h-0 flex-1 overflow-hidden">
+                <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                   {children}
-                  <EditorMobileToolPanel activeTool={activeMobileTool} onSelectTool={setActiveMobileTool} />
+                  <EditorMobileToolPanel activeTool={activeMobileTool} projectId={projectId} onSelectTool={setActiveMobileTool} />
                 </div>
                 <CommandZone />
               </>
@@ -146,20 +153,37 @@ const mobileToolMeta: Record<
     description: 'Beat markers, transcript segments, and animation timing checkpoints.',
     icon: Clock3,
   },
+  chat: {
+    label: 'Chat',
+    description: 'Command the edit, caption pass, and posting workflow from the project context.',
+    icon: MessageSquare,
+  },
+  versions: {
+    label: 'Versions',
+    description: 'Review export checkpoints and the latest downloadable version.',
+    icon: GitBranch,
+  },
+  status: {
+    label: 'Status',
+    description: 'Project health, source metrics, and processing progress.',
+    icon: Activity,
+  },
 }
 
 function EditorMobileToolPanel({
   activeTool,
   onSelectTool,
+  projectId,
 }: {
   activeTool: EditorToolKey
   onSelectTool: (tool: EditorToolKey) => void
+  projectId: string | null
 }) {
   const meta = mobileToolMeta[activeTool]
   const Icon = meta.icon
 
   return (
-    <aside className="glass-panel absolute inset-x-3 bottom-3 z-30 flex max-h-[52vh] flex-col overflow-hidden rounded-xl border border-prometheus-border-subtle shadow-[0_24px_80px_-44px_rgba(0,0,0,0.9)] md:hidden">
+    <aside className="glass-panel absolute inset-x-3 bottom-3 z-30 flex max-h-[min(68svh,640px)] flex-col overflow-hidden rounded-xl border border-prometheus-border-subtle shadow-[0_24px_80px_-44px_rgba(0,0,0,0.9)] md:hidden">
       <header className="border-b border-prometheus-border-subtle px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80">
@@ -173,28 +197,75 @@ function EditorMobileToolPanel({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-        {activeTool === 'music' ? <MobileMusicTool /> : null}
+        {activeTool === 'music' ? <MobileMusicTool projectId={projectId} /> : null}
         {activeTool === 'motion' ? <MobileSummaryTool type="motion" onSelectTool={onSelectTool} /> : null}
         {activeTool === 'analytics' ? <MobileSummaryTool type="analytics" onSelectTool={onSelectTool} /> : null}
         {activeTool === 'timeline' ? <MobileSummaryTool type="timeline" onSelectTool={onSelectTool} /> : null}
+        {activeTool === 'chat' ? <MobileSummaryTool type="chat" onSelectTool={onSelectTool} /> : null}
+        {activeTool === 'versions' ? <MobileSummaryTool type="versions" onSelectTool={onSelectTool} /> : null}
+        {activeTool === 'status' ? <MobileSummaryTool type="status" onSelectTool={onSelectTool} /> : null}
       </div>
     </aside>
   )
 }
 
-function MobileMusicTool() {
+function MobileMusicTool({ projectId }: { projectId: string | null }) {
   const [query, setQuery] = useState('')
-  const [selectedTrackId, setSelectedTrackId] = useState(MOBILE_EDITOR_TRACKS[0]?.id ?? '')
+  const [selectedTrackId, setSelectedTrackId] = useState('')
+  const [playingTrackId, setPlayingTrackId] = useState('')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const { error, isLoading, tracks } = useR2Music()
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause()
+      audioRef.current = null
+    }
+  }, [])
+
   const filteredTracks = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    if (!normalized) return MOBILE_EDITOR_TRACKS
+    if (!normalized) return tracks
 
-    return MOBILE_EDITOR_TRACKS.filter((track) =>
-      [track.title, track.artist, track.genre, ...track.vibeTags].some((value) =>
+    return tracks.filter((track) =>
+      [track.title, track.artist, track.genre].some((value) =>
         value.toLowerCase().includes(normalized),
       ),
     )
-  }, [query])
+  }, [query, tracks])
+
+  const togglePlay = useCallback(async (track: R2Track) => {
+    if (audioRef.current && playingTrackId !== track.id) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+
+    if (playingTrackId === track.id) {
+      audioRef.current?.pause()
+      setPlayingTrackId('')
+      return
+    }
+
+    const audio = new Audio(track.url)
+    audio.onended = () => setPlayingTrackId('')
+    audioRef.current = audio
+
+    try {
+      await audio.play()
+      setPlayingTrackId(track.id)
+    } catch {
+      setPlayingTrackId('')
+    }
+  }, [playingTrackId])
+
+  const handleUseTrack = useCallback((track: R2Track) => {
+    if (!projectId) return
+
+    audioRef.current?.pause()
+    setPlayingTrackId('')
+    setSelectedTrackId(track.id)
+    writeSelectedEditorMusicTrack(projectId, track.id)
+  }, [projectId])
 
   return (
     <section className="space-y-4" aria-label="Music library">
@@ -209,7 +280,9 @@ function MobileMusicTool() {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-prometheus-text-secondary">149 songs available</span>
+        <span className="text-sm text-prometheus-text-secondary">
+          {isLoading ? 'Syncing R2 library' : `${tracks.length} songs available`}
+        </span>
         <button
           type="button"
           className="flex min-h-9 items-center gap-2 rounded-full border border-prometheus-accent-purple/20 bg-prometheus-accent-purple/10 px-3 text-sm font-medium text-prometheus-accent-purple transition-colors hover:bg-prometheus-accent-purple/15"
@@ -219,41 +292,54 @@ function MobileMusicTool() {
         </button>
       </div>
 
-      <div className="space-y-2">
-        {filteredTracks.map((track) => (
-          <MobileTrackButton
-            key={track.id}
-            selected={selectedTrackId === track.id}
-            track={track}
-            onSelect={() => setSelectedTrackId(track.id)}
-          />
-        ))}
-        {filteredTracks.length === 0 ? (
+      <div className="max-h-[calc(68svh-12rem)] space-y-2 overflow-y-auto overscroll-contain pr-1">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="size-7 animate-spin text-prometheus-accent-cyan" aria-hidden="true" />
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-100">{error}</div>
+        ) : filteredTracks.length === 0 ? (
           <div className="rounded-xl border border-prometheus-border-subtle bg-white/[0.025] p-4 text-sm text-prometheus-text-secondary">
             No tracks match that search.
           </div>
-        ) : null}
+        ) : (
+          filteredTracks.map((track) => (
+            <MobileTrackButton
+              key={track.id}
+              playing={playingTrackId === track.id}
+              selected={selectedTrackId === track.id}
+              track={track}
+              onPlay={() => togglePlay(track)}
+              onSelect={() => setSelectedTrackId(track.id)}
+              onUse={() => handleUseTrack(track)}
+            />
+          ))
+        )}
       </div>
     </section>
   )
 }
 
 function MobileTrackButton({
+  onPlay,
   onSelect,
+  onUse,
+  playing,
   selected,
   track,
 }: {
+  onPlay: () => void
   onSelect: () => void
+  onUse: () => void
+  playing: boolean
   selected: boolean
-  track: MusicRecommendation
+  track: R2Track
 }) {
   const [imageFailed, setImageFailed] = useState(false)
 
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onSelect}
+    <div
       className={cn(
         'flex min-h-[4.75rem] w-full items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150',
         selected
@@ -261,16 +347,15 @@ function MobileTrackButton({
           : 'border-prometheus-border-subtle bg-white/[0.025] hover:border-white/14 hover:bg-white/[0.04]',
       )}
     >
-      <span className="relative size-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-prometheus-accent-purple/35 via-white/[0.05] to-prometheus-accent-cyan/20">
-        {!imageFailed ? (
-          <Image
-            src={track.coverArtUrl}
-            alt=""
-            fill
-            sizes="48px"
-            className="object-cover"
-            onError={() => setImageFailed(true)}
-          />
+      <button
+        type="button"
+        onClick={onPlay}
+        className="group relative size-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-prometheus-accent-purple/35 via-white/[0.05] to-prometheus-accent-cyan/20"
+        aria-label={playing ? `Pause ${track.title}` : `Preview ${track.title}`}
+      >
+        {track.coverUrl && !imageFailed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={track.coverUrl} alt="" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
         ) : (
           <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white/78">
             {track.title
@@ -280,15 +365,28 @@ function MobileTrackButton({
               .slice(0, 2)}
           </span>
         )}
-      </span>
-      <span className="min-w-0 flex-1">
+        <span className="absolute inset-0 flex items-center justify-center bg-black/42 opacity-100 transition-opacity group-hover:bg-black/52">
+          {playing ? <Pause className="size-5 text-white" aria-hidden="true" /> : <Play className="ml-0.5 size-5 text-white" aria-hidden="true" />}
+        </span>
+      </button>
+
+      <button type="button" aria-pressed={selected} onClick={onSelect} className="min-w-0 flex-1 text-left">
         <span className="block truncate text-sm font-medium text-prometheus-text-primary">{track.title}</span>
         <span className="block truncate text-xs text-prometheus-text-secondary">
           {track.artist} / {track.genre}
         </span>
-      </span>
-      <span className="text-xs tabular-nums text-prometheus-text-tertiary">{formatDuration(track.durationSec)}</span>
-    </button>
+      </button>
+      <span className="text-xs tabular-nums text-prometheus-text-tertiary">{formatDuration(track.duration)}</span>
+      {selected ? (
+        <button
+          type="button"
+          onClick={onUse}
+          className="shrink-0 rounded-lg border border-prometheus-accent-cyan/20 bg-prometheus-accent-cyan/12 px-3 py-1.5 text-xs font-medium text-prometheus-accent-cyan transition-colors hover:bg-prometheus-accent-cyan/20"
+        >
+          Use Track
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -315,6 +413,21 @@ function MobileSummaryTool({
       { label: 'Beat markers', value: '3 active' },
       { label: 'Transcript segments', value: '5 synced' },
     ],
+    chat: [
+      { label: 'Prompt lane', value: 'Project-aware' },
+      { label: 'Composer', value: 'Ready' },
+      { label: 'Posting flow', value: 'Available in editor tabs' },
+    ],
+    versions: [
+      { label: 'Latest export', value: 'Tracked in project' },
+      { label: 'Checkpoints', value: 'Local history ready' },
+      { label: 'Download', value: 'Use Export tab' },
+    ],
+    status: [
+      { label: 'Project sync', value: 'Live' },
+      { label: 'Source metrics', value: 'Loaded from project' },
+      { label: 'Processing', value: 'Status tab active' },
+    ],
   }
 
   return (
@@ -338,8 +451,17 @@ function MobileSummaryTool({
 }
 
 function formatDuration(durationSec: number) {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return '0:00'
   const minutes = Math.floor(durationSec / 60)
-  const seconds = durationSec % 60
+  const seconds = Math.floor(durationSec % 60)
 
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
+function getEditorProjectIdFromPathname(pathname: string | null) {
+  if (!pathname) return null
+
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments[0] !== 'editor' || !segments[1]) return null
+  return segments[1]
 }

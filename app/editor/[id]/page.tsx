@@ -116,6 +116,7 @@ import { buildRevealVariants } from '@/lib/motion'
 import { useTextareaResize } from '@/hooks/use-textarea-resize'
 import { buildCinematicAnimationPlan } from '@/lib/cinematic/animation-planner'
 import { cn } from '@/lib/utils'
+import { SELECTED_EDITOR_MUSIC_EVENT, type SelectedEditorMusicEventDetail } from '@/lib/editor-music-selection'
 import { upsertProject } from '@/lib/mock'
 import { projects } from '@/lib/projects'
 import { analyzeMusicIntent } from '@/lib/music-intent'
@@ -6259,6 +6260,17 @@ function OriginalEditorPage() {
   React.useEffect(() => {
     const savedTrackId = readLocalStorageJSON<string | null>(selectedEditorMusicStorageKey(projectId))
     setSelectedEditorMusicTrackId(typeof savedTrackId === 'string' ? savedTrackId : null)
+  }, [projectId])
+
+  React.useEffect(() => {
+    const handleSelectedMusicTrack = (event: Event) => {
+      const detail = (event as CustomEvent<SelectedEditorMusicEventDetail>).detail
+      if (detail?.projectId !== projectId || typeof detail.trackId !== 'string') return
+      setSelectedEditorMusicTrackId(detail.trackId)
+    }
+
+    window.addEventListener(SELECTED_EDITOR_MUSIC_EVENT, handleSelectedMusicTrack)
+    return () => window.removeEventListener(SELECTED_EDITOR_MUSIC_EVENT, handleSelectedMusicTrack)
   }, [projectId])
 
   React.useEffect(() => {
