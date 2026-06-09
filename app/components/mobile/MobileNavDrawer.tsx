@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BarChart3, Clock3, FileVideo2, FolderKanban, LogOut, Sparkles, TimerReset, WandSparkles, X, Zap } from 'lucide-react'
+import { FolderKanban, LibraryBig, LayoutDashboard, Settings, Wand2, X } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { HamburgerButton } from '@/app/components/mobile/HamburgerButton'
@@ -10,6 +10,7 @@ import { NavDrawerHeader } from '@/app/components/mobile/NavDrawerHeader'
 import { NavDrawerItem } from '@/app/components/mobile/NavDrawerItem'
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll'
 import { useSwipeGesture } from '@/app/hooks/useSwipeGesture'
+import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 
 interface MobileNavDrawerProps {
   children: (controls: { hamburger: React.ReactNode; isOpen: boolean }) => React.ReactNode
@@ -20,34 +21,12 @@ const drawerTransition = {
   ease: [0.32, 0.72, 0, 1] as const,
 }
 
-const sections = [
-  {
-    title: 'Workspace',
-    items: [
-      { label: 'Projects', href: '/projects', icon: FolderKanban, badge: '3' },
-      { label: 'Recent', href: '/dashboard', icon: Clock3 },
-      { label: 'Motion Brain', href: '/editor/workspace', icon: Sparkles },
-      { label: 'Analytics', href: '/dashboard', icon: BarChart3 },
-    ],
-  },
-  {
-    title: 'Today',
-    items: [
-      { label: 'Editor Sidebar Fixes', href: '/editor/workspace', icon: FileVideo2, thumbnailTone: 'purple' as const },
-      { label: 'Gemini Editor Revamp Fix', href: '/editor/workspace', icon: WandSparkles, thumbnailTone: 'indigo' as const },
-    ],
-  },
-  {
-    title: '7 Days Ago',
-    items: [
-      { label: 'Kimi Mobile Agent Ideas', href: '/projects', icon: Zap },
-      { label: 'Revert Purple Landing Page', href: '/', icon: TimerReset },
-    ],
-  },
-  {
-    title: 'Older',
-    items: [{ label: 'Additive Constraint Prompt Rules', href: '/dashboard', icon: FileVideo2 }],
-  },
+const navItems = [
+  { key: 'studio', label: 'Studio', href: '/', icon: LayoutDashboard },
+  { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
+  { key: 'library', label: 'Library', href: '/assets', icon: LibraryBig },
+  { key: 'editor', label: 'Editor', href: '/editor', icon: Wand2 },
+  { key: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function MobileNavDrawer({ children }: MobileNavDrawerProps) {
@@ -118,10 +97,18 @@ export function MobileNavDrawer({ children }: MobileNavDrawerProps) {
     }
   }, [isOpen])
 
+  const activeHref = React.useMemo(() => {
+    return navItems.find((item) => isPathActive(pathname, item.href))?.href ?? null
+  }, [pathname])
+
   const handleSelect = React.useCallback(
-    (href?: string) => {
+    (href: string) => {
+      if (href === '/editor') {
+        rememberCurrentPathForEditorReturn()
+      }
+
       setIsOpen(false)
-      if (href && href !== pathname) {
+      if (href !== pathname) {
         window.setTimeout(() => router.push(href), 180)
       }
     },
@@ -228,34 +215,29 @@ export function MobileNavDrawer({ children }: MobileNavDrawerProps) {
 
               <NavDrawerHeader />
 
-              <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 scrollbar-hidden" aria-label="Prometheus mobile navigation sections">
-                {sections.map((section) => (
-                  <section key={section.title} className="py-2">
-                    <h2 className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-prometheus-text-tertiary">
-                      {section.title}
-                    </h2>
-                    <div className="space-y-1">
-                      {section.items.map((item) => (
-                        <NavDrawerItem key={`${section.title}-${item.label}`} {...item} onSelect={handleSelect} />
-                      ))}
-                    </div>
-                  </section>
-                ))}
+              <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5 scrollbar-hidden" aria-label="Prometheus mobile navigation">
+                <div className="space-y-1">
+                  {navItems.map((item) => (
+                    <NavDrawerItem
+                      key={item.key}
+                      href={item.href}
+                      icon={item.icon}
+                      isActive={item.href === activeHref}
+                      label={item.label}
+                      onSelect={handleSelect}
+                    />
+                  ))}
+                </div>
               </nav>
 
-              <footer className="border-t border-prometheus-border-subtle p-4">
-                <div className="mb-3 flex items-center justify-between text-[11px] text-prometheus-text-tertiary">
-                  <span>Prometheus v0.1</span>
-                  <span>Mobile beta</span>
+              <footer className="border-t border-prometheus-border-subtle px-5 py-4">
+                <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-white/36">
+                  <span className="size-2 rounded-full bg-white/55" />
+                  Navigation Live
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleSelect('/login')}
-                  className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-prometheus-text-secondary transition-colors hover:bg-white/[0.045] hover:text-prometheus-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-purple/70"
-                >
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                  <span>Logout</span>
-                </button>
+                <p className="mt-2 text-xs leading-5 text-white/42">
+                  The active blade follows hover, then settles back on the current route.
+                </p>
               </footer>
             </motion.aside>
           </>
@@ -263,4 +245,9 @@ export function MobileNavDrawer({ children }: MobileNavDrawerProps) {
       </AnimatePresence>
     </>
   )
+}
+
+function isPathActive(pathname: string, href: string) {
+  if (href === '/') return pathname === '/' || pathname === '/dashboard'
+  return pathname === href || pathname.startsWith(`${href}/`)
 }
