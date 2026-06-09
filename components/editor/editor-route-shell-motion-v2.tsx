@@ -40,7 +40,6 @@ export function EditorRouteShellMotionV2({ children }: { children: ReactNode }) 
       <main className="relative z-10 flex min-w-0 flex-1 flex-col">
         {!focusMode && (
           <EditorTopBar
-            onOpenSettings={() => setSettingsOpen(true)}
             onToggleSidebar={toggleSidebar}
             sidebarOpen={sidebarOpen}
           />

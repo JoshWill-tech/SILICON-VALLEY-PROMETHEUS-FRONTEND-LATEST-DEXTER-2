@@ -47,7 +47,6 @@ export function EditorRouteShellMediaV2({ children, musicDrawerProps }: EditorRo
       <main className="relative z-10 flex min-w-0 flex-1 flex-col">
         {!focusMode && (
           <EditorTopBar
-            onOpenSettings={() => setSettingsOpen(true)}
             onToggleSidebar={toggleSidebar}
             sidebarOpen={sidebarOpen}
           />

@@ -1,25 +1,26 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, X } from 'lucide-react'
+import { BarChart3, Clock3, Folder, Music, Settings, X, Zap } from 'lucide-react'
 
+import { HamburgerButton } from '@/app/components/mobile/HamburgerButton'
 import { useLockBodyScroll } from '@/app/hooks/useLockBodyScroll'
 import { useSwipeGesture } from '@/app/hooks/useSwipeGesture'
-import { cn } from '@/lib/utils'
 
-import { EditorHamburger } from './EditorHamburger'
-import { EditorSidebarTabs, type EditorMobileTab } from './EditorSidebarTabs'
-import { AssetsTab } from './tabs/AssetsTab'
-import { ExportTab } from './tabs/ExportTab'
-import { MusicTab } from './tabs/MusicTab'
-import { SettingsTab } from './tabs/SettingsTab'
-import { TimelineTab } from './tabs/TimelineTab'
+import { EditorNavItem } from './EditorNavItem'
+import { EditorSettingsSubmenu, type EditorSettingsPanelKey } from './EditorSettingsSubmenu'
 
-interface EditorMobileSidebarProps {
+export type EditorNavKey = 'projects' | 'motion' | 'music' | 'analytics' | 'timeline' | 'settings'
+export type EditorToolKey = Exclude<EditorNavKey, 'projects' | 'settings'>
+
+interface EditorNavDrawerProps {
+  activeItem?: EditorNavKey
   children: (controls: { hamburger: React.ReactNode; isOpen: boolean }) => React.ReactNode
-  projectTitle?: string
+  onOpenSettingsPanel: (panel: EditorSettingsPanelKey) => void
+  onSelectTool?: (tool: Exclude<EditorNavKey, 'projects' | 'settings'>) => void
 }
 
 const drawerTransition = {
@@ -27,13 +28,28 @@ const drawerTransition = {
   ease: [0.32, 0.72, 0, 1] as const,
 }
 
-export function EditorMobileSidebar({ children, projectTitle = 'Untitled Project' }: EditorMobileSidebarProps) {
+const navItems = [
+  { key: 'projects', label: 'Projects', icon: Folder },
+  { key: 'motion', label: 'Motion Brain', icon: Zap },
+  { key: 'music', label: 'Music', icon: Music },
+  { key: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { key: 'timeline', label: 'Timeline', icon: Clock3 },
+  { key: 'settings', label: 'Settings', icon: Settings },
+] as const
+
+export function EditorNavDrawer({
+  activeItem = 'motion',
+  children,
+  onOpenSettingsPanel,
+  onSelectTool,
+}: EditorNavDrawerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const [activeTab, setActiveTab] = React.useState<EditorMobileTab>('music')
+  const [settingsOpen, setSettingsOpen] = React.useState(false)
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const drawerRef = React.useRef<HTMLElement | null>(null)
   const edgeSwipeRef = React.useRef<HTMLDivElement | null>(null)
   const drawerDragRef = React.useRef<{ startX: number; startY: number; triggered: boolean } | null>(null)
+  const router = useRouter()
 
   useLockBodyScroll(isOpen)
 
@@ -94,6 +110,28 @@ export function EditorMobileSidebar({ children, projectTitle = 'Untitled Project
     }
   }, [isOpen])
 
+  const handleSelect = (key: EditorNavKey) => {
+    if (key === 'settings') {
+      setSettingsOpen((current) => !current)
+      return
+    }
+
+    setSettingsOpen(false)
+    setIsOpen(false)
+
+    if (key === 'projects') {
+      router.push('/projects')
+      return
+    }
+
+    onSelectTool?.(key)
+  }
+
+  const handleSettingsSelect = (panel: EditorSettingsPanelKey) => {
+    setIsOpen(false)
+    onOpenSettingsPanel(panel)
+  }
+
   const handleDrawerGestureStart = React.useCallback((event: React.PointerEvent<HTMLElement> | React.MouseEvent<HTMLElement>) => {
     drawerDragRef.current = {
       startX: event.clientX,
@@ -119,18 +157,16 @@ export function EditorMobileSidebar({ children, projectTitle = 'Untitled Project
     drawerDragRef.current = null
   }, [])
 
-  const renderActiveTab = () => {
-    if (activeTab === 'music') return <MusicTab />
-    if (activeTab === 'timeline') return <TimelineTab />
-    if (activeTab === 'assets') return <AssetsTab />
-    if (activeTab === 'export') return <ExportTab onRequestClose={() => setIsOpen(false)} />
-    return <SettingsTab />
-  }
-
   return (
     <>
       {children({
-        hamburger: <EditorHamburger isOpen={isOpen} onToggle={() => setIsOpen((current) => !current)} />,
+        hamburger: (
+          <HamburgerButton
+            ariaControls="prometheus-editor-nav-drawer"
+            isOpen={isOpen}
+            onToggle={() => setIsOpen((current) => !current)}
+          />
+        ),
         isOpen,
       })}
 
@@ -154,16 +190,20 @@ export function EditorMobileSidebar({ children, projectTitle = 'Untitled Project
             />
 
             <div className="fixed left-4 top-[calc(env(safe-area-inset-top)+10px)] z-[60] md:hidden">
-              <EditorHamburger isOpen={isOpen} onToggle={() => setIsOpen(false)} />
+              <HamburgerButton
+                ariaControls="prometheus-editor-nav-drawer"
+                isOpen={isOpen}
+                onToggle={() => setIsOpen(false)}
+              />
             </div>
 
             <motion.aside
-              id="prometheus-editor-mobile-sidebar"
+              id="prometheus-editor-nav-drawer"
               ref={drawerRef}
               role="dialog"
               aria-modal="true"
-              aria-label="Editor mobile tools"
-              className="glass-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(360px,86vw)] flex-col overflow-hidden pt-[env(safe-area-inset-top)] text-prometheus-text-primary shadow-[24px_0_80px_-44px_rgba(0,0,0,0.92)] will-change-transform md:hidden"
+              aria-label="Prometheus editor navigation"
+              className="glass-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(320px,60vw)] flex-col overflow-hidden pt-[env(safe-area-inset-top)] text-prometheus-text-primary shadow-[24px_0_80px_-44px_rgba(0,0,0,0.92)] will-change-transform md:hidden sm:w-[280px]"
               initial={{ x: '-100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '-100%', opacity: 0 }}
@@ -189,29 +229,62 @@ export function EditorMobileSidebar({ children, projectTitle = 'Untitled Project
               <button
                 ref={closeButtonRef}
                 type="button"
-                aria-label="Close editor tools"
+                aria-label="Close editor navigation"
                 className="absolute right-3 top-[calc(env(safe-area-inset-top)+12px)] z-10 flex h-9 w-9 items-center justify-center rounded-full border border-prometheus-border-glass bg-white/[0.035] text-prometheus-text-secondary transition-colors hover:bg-white/[0.07] hover:text-prometheus-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-purple/70"
                 onClick={() => setIsOpen(false)}
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
 
-              <header className="border-b border-prometheus-border-subtle px-5 pb-4 pt-6">
-                <Link href="/projects" className="inline-flex min-h-10 items-center gap-2 rounded-xl pr-3 text-sm text-white/58 transition-colors hover:text-white">
-                  <ArrowLeft className="size-4" aria-hidden="true" />
-                  Back to Workspace
-                </Link>
-                <div className="mt-4 min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/36">Current project</div>
-                  <h1 className="mt-1 truncate text-lg font-semibold tracking-[-0.03em] text-white">{projectTitle}</h1>
+              <header className="border-b border-prometheus-border-subtle px-5 pb-5 pt-6">
+                <div className="flex items-center">
+                  <Image
+                    src="/branding/prometheus-logo-no-bg.png"
+                    alt="Prometheus"
+                    width={20}
+                    height={20}
+                    className="size-5 object-contain"
+                    priority
+                  />
+                  <p
+                    className="ml-1 text-[10px] font-bold uppercase tracking-[0.32em] text-white/92"
+                    style={{ fontFamily: 'var(--font-mono), ui-sans-serif, system-ui, sans-serif' }}
+                  >
+                    rometheus
+                  </p>
                 </div>
+                <p className="mt-4 max-w-[8rem] text-sm font-semibold leading-5 text-white/92">
+                  Creative operating system
+                </p>
               </header>
 
-              <EditorSidebarTabs activeTab={activeTab} onChange={setActiveTab} />
+              <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5 scrollbar-hidden" aria-label="Prometheus editor navigation">
+                <div className="space-y-1">
+                  {navItems.map((item) => (
+                    <div key={item.key}>
+                      <EditorNavItem
+                        icon={item.icon}
+                        isActive={activeItem === item.key || (item.key === 'settings' && settingsOpen)}
+                        label={item.label}
+                        onSelect={() => handleSelect(item.key)}
+                      />
+                      {item.key === 'settings' ? (
+                        <EditorSettingsSubmenu open={settingsOpen} onSelect={handleSettingsSelect} />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </nav>
 
-              <div className={cn('min-h-0 flex-1 overflow-y-auto border-t border-prometheus-border-subtle pb-[calc(env(safe-area-inset-bottom)+1rem)] scrollbar-hidden')}>
-                {renderActiveTab()}
-              </div>
+              <footer className="border-t border-prometheus-border-subtle px-5 py-4">
+                <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-white/36">
+                  <span className="size-2 rounded-full bg-white/55" />
+                  Navigation Live
+                </div>
+                <p className="mt-2 text-xs leading-5 text-white/42">
+                  The active blade follows hover, then settles back on the current route.
+                </p>
+              </footer>
             </motion.aside>
           </>
         ) : null}

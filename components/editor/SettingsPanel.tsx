@@ -11,6 +11,7 @@ type SettingsTab = 'appearance' | 'performance' | 'accessibility' | 'display'
 
 interface SettingsPanelProps {
   focusMode: boolean
+  initialTab?: SettingsTab
   onClose: () => void
   onFocusModeChange: (active: boolean) => void
   open: boolean
@@ -25,8 +26,8 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> =
 
 const themes = ['Liquid Chrome', 'Midnight', 'Obsidian']
 
-export function SettingsPanel({ focusMode, onClose, onFocusModeChange, open }: SettingsPanelProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance')
+export function SettingsPanel({ focusMode, initialTab = 'appearance', onClose, onFocusModeChange, open }: SettingsPanelProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => initialTab)
   const [reduceMotion, setReduceMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   )

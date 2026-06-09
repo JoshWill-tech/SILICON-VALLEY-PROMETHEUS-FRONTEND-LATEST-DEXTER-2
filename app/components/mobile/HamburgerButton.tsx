@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 interface HamburgerButtonProps {
+  ariaControls?: string
   className?: string
   isOpen: boolean
   onToggle: () => void
@@ -14,11 +15,16 @@ const transition = {
   ease: [0.32, 0.72, 0, 1] as const,
 }
 
-export function HamburgerButton({ className, isOpen, onToggle }: HamburgerButtonProps) {
+export function HamburgerButton({
+  ariaControls = 'prometheus-mobile-nav-drawer',
+  className,
+  isOpen,
+  onToggle,
+}: HamburgerButtonProps) {
   return (
     <button
       type="button"
-      aria-controls="prometheus-mobile-nav-drawer"
+      aria-controls={ariaControls}
       aria-expanded={isOpen}
       aria-label={isOpen ? 'Close mobile navigation' : 'Open mobile navigation'}
       onClick={onToggle}
