@@ -25,16 +25,21 @@ export async function GET(req: Request) {
     if (source === 'r2') {
       const r2Tracks = await fetchCloudflareMusicCatalog()
       return NextResponse.json({
-        tracks: r2Tracks.map((track) => ({
-          id: track.id,
-          title: track.title,
-          artist: track.artist,
-          genre: track.genre,
-          duration: track.durationSec ?? 0,
-          url: track.sourceUrl ?? '',
-          coverUrl: track.coverArtUrl ?? null,
-          thumbnail: track.coverArtUrl ?? null,
-        })),
+        tracks: r2Tracks.map((track) => {
+          const duration = normalizeMusicLibraryDuration(track.durationSec)
+
+          return {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            genre: track.genre,
+            duration,
+            durationSec: duration,
+            url: track.sourceUrl ?? '',
+            coverUrl: track.coverArtUrl ?? null,
+            thumbnail: track.coverArtUrl ?? null,
+          }
+        }),
         total: r2Tracks.length,
         source: 'r2',
       })
@@ -117,6 +122,11 @@ export async function POST(req: Request) {
 
 function sanitizeInline(value: string) {
   return value.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeMusicLibraryDuration(value: number | null | undefined) {
+  if (!value || !Number.isFinite(value) || value <= 0) return 0
+  return Math.round(value > 1000 ? value / 1000 : value)
 }
 
 function parseLimit(value: string | null) {

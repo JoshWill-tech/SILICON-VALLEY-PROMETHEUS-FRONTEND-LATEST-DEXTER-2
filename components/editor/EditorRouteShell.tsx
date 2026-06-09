@@ -6,14 +6,16 @@ import {
   BarChart3,
   Clock3,
   GitBranch,
-  Gauge,
   Loader2,
+  Menu,
   MessageSquare,
   Music,
   Pause,
   Play,
   Search,
   Sparkles,
+  Upload,
+  X,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -21,9 +23,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { useR2Music } from '@/app/editor/hooks/use-r2-music'
 import { cn } from '@/lib/utils'
-import { EditorNavDrawer, type EditorToolKey } from '@/app/components/editor/mobile/EditorNavDrawer'
+import { EditorHamburgerSidebar, type EditorSidebarPanelKey } from '@/components/editor/EditorHamburgerSidebar'
 import type { EditorSettingsPanelKey } from '@/app/components/editor/mobile/EditorSettingsSubmenu'
 import { AwwwardsSidebar } from '@/components/sidebar/AwwwardsSidebar'
+import { AnalyticsPanel } from '@/components/editor/panels/AnalyticsPanel'
+import { ChatPanel } from '@/components/editor/panels/ChatPanel'
+import { ExportPanel } from '@/components/editor/panels/ExportPanel'
+import { MotionBrainPanel } from '@/components/editor/panels/MotionBrainPanel'
+import { StatusPanel } from '@/components/editor/panels/StatusPanel'
+import { TimelinePanel } from '@/components/editor/panels/TimelinePanel'
+import { VersionsPanel } from '@/components/editor/panels/VersionsPanel'
 import { writeSelectedEditorMusicTrack } from '@/lib/editor-music-selection'
 import { isStandaloneMobileEditorRoute } from '@/lib/editor-mobile-routes'
 import type { R2Track } from '@/lib/music/r2-sync'
@@ -38,17 +47,25 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const projectId = useMemo(() => getEditorProjectIdFromPathname(pathname), [pathname])
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsInitialTab, setSettingsInitialTab] = useState<EditorSettingsPanelKey>('appearance')
-  const [activeMobileTool, setActiveMobileTool] = useState<EditorToolKey>('motion')
+  const [activeMobileTool, setActiveMobileTool] = useState<EditorSidebarPanelKey | null>(null)
   const toggleSidebar = useCallback(() => setSidebarOpen((open) => !open), [])
+  const closeMobileSidebar = useCallback(() => setMobileSidebarOpen(false), [])
+  const openMobileSidebar = useCallback(() => setMobileSidebarOpen(true), [])
   const toggleFocusMode = useCallback(() => setFocusMode((active) => !active), [])
-  const closeOverlays = useCallback(() => setSettingsOpen(false), [])
+  const closeOverlays = useCallback(() => {
+    setSettingsOpen(false)
+    setMobileSidebarOpen(false)
+    setActiveMobileTool(null)
+  }, [])
   const openSettingsPanel = useCallback((panel: EditorSettingsPanelKey) => {
     setSettingsInitialTab(panel)
     setSettingsOpen(true)
   }, [])
+  const openMobileSettingsPanel = useCallback(() => openSettingsPanel('appearance'), [openSettingsPanel])
 
   if (pathname === '/editor' || isStandaloneMobileEditorRoute(pathname)) {
     return <>{children}</>
@@ -79,26 +96,36 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
 
       <main className="relative z-10 flex min-w-0 flex-1 flex-col">
         {!focusMode ? (
-          <EditorNavDrawer
-            activeItem={activeMobileTool}
-            onOpenSettingsPanel={openSettingsPanel}
-            onSelectTool={setActiveMobileTool}
-          >
-            {({ hamburger }) => (
-              <>
-                <EditorTopBar
-                  mobileNavControl={hamburger}
-                  onToggleSidebar={toggleSidebar}
-                  sidebarOpen={sidebarOpen}
+          <>
+            <EditorTopBar
+              mobileNavControl={
+                <button
+                  type="button"
+                  onClick={openMobileSidebar}
+                  className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/[0.045] text-prometheus-text-primary transition-colors hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-cyan/70"
+                  aria-label="Open editor menu"
+                  aria-controls="prometheus-editor-hamburger-sidebar"
+                  aria-expanded={mobileSidebarOpen}
+                >
+                  <Menu className="size-5" aria-hidden="true" />
+                </button>
+              }
+              onToggleSidebar={toggleSidebar}
+              sidebarOpen={sidebarOpen}
+            />
+            <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+              {children}
+              {activeMobileTool ? (
+                <EditorMobileToolPanel
+                  activeTool={activeMobileTool}
+                  projectId={projectId}
+                  onClose={() => setActiveMobileTool(null)}
+                  onSelectTool={setActiveMobileTool}
                 />
-                <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-                  {children}
-                  <EditorMobileToolPanel activeTool={activeMobileTool} projectId={projectId} onSelectTool={setActiveMobileTool} />
-                </div>
-                <CommandZone />
-              </>
-            )}
-          </EditorNavDrawer>
+              ) : null}
+            </div>
+            <CommandZone />
+          </>
         ) : (
           <>
             <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
@@ -108,6 +135,13 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
       </main>
 
       <FocusModeToggle active={focusMode} onToggle={toggleFocusMode} />
+      <EditorHamburgerSidebar
+        activePanel={activeMobileTool}
+        isOpen={mobileSidebarOpen}
+        onClose={closeMobileSidebar}
+        onOpenPanel={setActiveMobileTool}
+        onOpenSettings={openMobileSettingsPanel}
+      />
       <SettingsPanel
         key={settingsInitialTab}
         focusMode={focusMode}
@@ -126,7 +160,7 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
 }
 
 const mobileToolMeta: Record<
-  EditorToolKey,
+  EditorSidebarPanelKey,
   {
     description: string
     icon: LucideIcon
@@ -168,22 +202,29 @@ const mobileToolMeta: Record<
     description: 'Project health, source metrics, and processing progress.',
     icon: Activity,
   },
+  export: {
+    label: 'Export',
+    description: 'Resolution, download, and social platform delivery.',
+    icon: Upload,
+  },
 }
 
 function EditorMobileToolPanel({
   activeTool,
+  onClose,
   onSelectTool,
   projectId,
 }: {
-  activeTool: EditorToolKey
-  onSelectTool: (tool: EditorToolKey) => void
+  activeTool: EditorSidebarPanelKey
+  onClose: () => void
+  onSelectTool: (tool: EditorSidebarPanelKey) => void
   projectId: string | null
 }) {
   const meta = mobileToolMeta[activeTool]
   const Icon = meta.icon
 
   return (
-    <aside className="glass-panel absolute inset-x-3 bottom-3 z-30 flex max-h-[min(68svh,640px)] flex-col overflow-hidden rounded-xl border border-prometheus-border-subtle shadow-[0_24px_80px_-44px_rgba(0,0,0,0.9)] md:hidden">
+    <aside className="glass-panel-enhanced absolute inset-x-3 bottom-3 z-30 flex max-h-[min(72svh,680px)] flex-col overflow-hidden rounded-2xl border border-white/10 shadow-[0_28px_90px_-38px_rgba(0,0,0,0.95)] md:hidden">
       <header className="border-b border-prometheus-border-subtle px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80">
@@ -193,17 +234,26 @@ function EditorMobileToolPanel({
             <h2 className="truncate text-sm font-semibold text-prometheus-text-primary">{meta.label}</h2>
             <p className="truncate text-xs text-prometheus-text-tertiary">{meta.description}</p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white"
+            aria-label="Close tool panel"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         {activeTool === 'music' ? <MobileMusicTool projectId={projectId} /> : null}
-        {activeTool === 'motion' ? <MobileSummaryTool type="motion" onSelectTool={onSelectTool} /> : null}
-        {activeTool === 'analytics' ? <MobileSummaryTool type="analytics" onSelectTool={onSelectTool} /> : null}
-        {activeTool === 'timeline' ? <MobileSummaryTool type="timeline" onSelectTool={onSelectTool} /> : null}
-        {activeTool === 'chat' ? <MobileSummaryTool type="chat" onSelectTool={onSelectTool} /> : null}
-        {activeTool === 'versions' ? <MobileSummaryTool type="versions" onSelectTool={onSelectTool} /> : null}
-        {activeTool === 'status' ? <MobileSummaryTool type="status" onSelectTool={onSelectTool} /> : null}
+        {activeTool === 'motion' ? <MotionBrainPanel onSelectPanel={onSelectTool} /> : null}
+        {activeTool === 'analytics' ? <AnalyticsPanel /> : null}
+        {activeTool === 'timeline' ? <TimelinePanel /> : null}
+        {activeTool === 'chat' ? <ChatPanel /> : null}
+        {activeTool === 'versions' ? <VersionsPanel /> : null}
+        {activeTool === 'status' ? <StatusPanel /> : null}
+        {activeTool === 'export' ? <ExportPanel /> : null}
       </div>
     </aside>
   )
@@ -387,66 +437,6 @@ function MobileTrackButton({
         </button>
       ) : null}
     </div>
-  )
-}
-
-function MobileSummaryTool({
-  onSelectTool,
-  type,
-}: {
-  onSelectTool: (tool: EditorToolKey) => void
-  type: Exclude<EditorToolKey, 'music'>
-}) {
-  const rows: Record<Exclude<EditorToolKey, 'music'>, Array<{ label: string; value: string }>> = {
-    motion: [
-      { label: 'Scene intelligence', value: '7 beats mapped' },
-      { label: 'Suggested move', value: 'Push-in reveal' },
-      { label: 'Animation engine', value: 'GSAP ready' },
-    ],
-    analytics: [
-      { label: 'Hook strength', value: '92%' },
-      { label: 'Retention forecast', value: '+18%' },
-      { label: 'Export health', value: 'Ready' },
-    ],
-    timeline: [
-      { label: 'Current duration', value: '00:18' },
-      { label: 'Beat markers', value: '3 active' },
-      { label: 'Transcript segments', value: '5 synced' },
-    ],
-    chat: [
-      { label: 'Prompt lane', value: 'Project-aware' },
-      { label: 'Composer', value: 'Ready' },
-      { label: 'Posting flow', value: 'Available in editor tabs' },
-    ],
-    versions: [
-      { label: 'Latest export', value: 'Tracked in project' },
-      { label: 'Checkpoints', value: 'Local history ready' },
-      { label: 'Download', value: 'Use Export tab' },
-    ],
-    status: [
-      { label: 'Project sync', value: 'Live' },
-      { label: 'Source metrics', value: 'Loaded from project' },
-      { label: 'Processing', value: 'Status tab active' },
-    ],
-  }
-
-  return (
-    <section className="space-y-3">
-      {rows[type].map((row) => (
-        <div key={row.label} className="flex items-center justify-between rounded-xl border border-prometheus-border-subtle bg-white/[0.025] px-3 py-3">
-          <span className="text-sm text-prometheus-text-secondary">{row.label}</span>
-          <span className="text-sm font-medium text-prometheus-text-primary">{row.value}</span>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onSelectTool('music')}
-        className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-prometheus-accent-purple/25 bg-prometheus-accent-purple/10 px-4 text-sm font-medium text-prometheus-accent-purple transition-colors hover:bg-prometheus-accent-purple/15"
-      >
-        <Gauge className="size-4" aria-hidden="true" />
-        Match music to this edit
-      </button>
-    </section>
   )
 }
 

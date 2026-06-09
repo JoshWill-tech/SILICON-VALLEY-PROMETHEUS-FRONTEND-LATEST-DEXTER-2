@@ -5665,8 +5665,7 @@ function MobileEditorView({
   onDownloadLatest,
   onOpenUploadNewProject,
 }: MobileEditorViewProps) {
-  const reduceMotion = useStableReducedMotion()
-  const [activeTab, setActiveTab] = React.useState<MobileEditorTabKey>('status')
+  const activeTab = 'status' as MobileEditorTabKey
   const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
   const [exportQuality, setExportQuality] = React.useState<MobileExportQuality>('standard')
   const [exportFormat, setExportFormat] = React.useState<MobileExportFormat>('mp4')
@@ -5994,44 +5993,34 @@ function MobileEditorView({
             </div>
           </section>
 
-          <nav className="shrink-0 overflow-x-auto border-b border-white/8 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex min-w-max gap-5">
-              {MOBILE_EDITOR_TABS.map((tab) => {
-                const active = activeTab === tab.key
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'relative inline-flex h-11 items-center gap-1.5 text-sm font-medium transition-colors',
-                      active ? 'text-white' : 'text-white/46',
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                    {tab.label}
-                    {active ? <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-[#6366f1]" /> : null}
-                  </button>
-                )
-              })}
+          <section className="min-h-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
+            <div className="rounded-[24px] border border-white/8 bg-[#101116] p-4">
+              <div className="mb-3 flex items-center justify-between text-xs text-white/50">
+                <span>{currentTimeLabel}</span>
+                <span>{durationLabel}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(durationSec, 1)}
+                step={0.05}
+                value={Math.min(currentTimeSec, Math.max(durationSec, 1))}
+                onChange={(event) => onSeekPreview(Number(event.currentTarget.value))}
+                className="h-2 w-full accent-[#6366f1]"
+                aria-label="Timeline scrubber"
+              />
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={onTogglePlayback}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/78"
+                >
+                  {previewPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+                  {previewPlaying ? 'Pause' : 'Play'}
+                </button>
+                <div className="truncate text-xs text-white/42">Timeline</div>
+              </div>
             </div>
-          </nav>
-
-          <section className="min-h-0 flex-1 overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeTab}
-                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-                transition={{ duration: reduceMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="h-full min-h-0"
-              >
-                {renderTabContent()}
-              </motion.div>
-            </AnimatePresence>
           </section>
         </main>
 
