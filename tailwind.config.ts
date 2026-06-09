@@ -30,7 +30,7 @@ const config: Config = {
         'surface-floating': '#1a1a1e',
         chrome: '#e8e8e8',
         'chrome-dim': '#6b6b78',
-        'accent-cyan': '#00f0ff',
+        'accent-cyan': 'var(--accent-cyan)',
         'accent-cyan-dim': '#00b8c4',
         'accent-cyan-glow': 'rgba(0, 240, 255, 0.15)',
         'accent-gold': '#ffd700',
@@ -44,8 +44,8 @@ const config: Config = {
         'track-audio': '#10b981',
         'track-motion': '#a855f7',
         'track-text': '#f59e0b',
-        'glass-bg': 'rgba(17, 17, 24, 0.55)',
-        'glass-border': 'rgba(255, 255, 255, 0.08)',
+        'glass-bg': 'var(--glass-bg)',
+        'glass-border': 'var(--glass-border)',
         'glass-highlight': 'rgba(255, 255, 255, 0.03)',
         'glass-shadow': 'rgba(0, 0, 0, 0.4)',
         'text-primary': '#f0f0f5',
@@ -90,6 +90,12 @@ const config: Config = {
       backdropBlur: {
         glass: '16px',
         heavy: '24px',
+      },
+      zIndex: {
+        stage: '10',
+        toolbar: '30',
+        sidebar: '50',
+        toast: '60',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

@@ -1,0 +1,71 @@
+.youtube-create-editor {
+  --editor-sidebar-width: 320px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(0, 240, 255, 0.12), transparent 30%),
+    radial-gradient(circle at 78% 0%, rgba(168, 85, 247, 0.14), transparent 32%),
+    #050505;
+}
+
+.editor-stage {
+  isolation: isolate;
+  position: relative;
+  z-index: 10;
+}
+
+.sidebar-drawer {
+  height: 100vh;
+  pointer-events: auto;
+  position: fixed;
+  right: 0;
+  top: 0;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: min(var(--editor-sidebar-width), 100vw);
+  z-index: 50;
+}
+
+.sidebar-drawer.open {
+  transform: translateX(0);
+}
+
+.editor-sidebar-scrim {
+  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 0.2s ease;
+  z-index: 40;
+}
+
+.editor-sidebar-scrim.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.toast-container {
+  bottom: 80px;
+  left: 50%;
+  pointer-events: none;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 60;
+}
+
+.toast-container.active {
+  pointer-events: auto;
+}
+
+@media (min-width: 1024px) {
+  .youtube-create-editor {
+    padding-right: var(--editor-sidebar-width);
+  }
+
+  .sidebar-drawer {
+    transform: translateX(0);
+  }
+
+  .editor-sidebar-scrim {
+    display: none;
+  }
+}

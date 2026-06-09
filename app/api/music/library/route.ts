@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { listAvailableMusicCatalog } from '@/lib/music-drive'
+import { fetchCloudflareMusicCatalog, listAvailableMusicCatalog } from '@/lib/music-drive'
 import { findOwnedMusicTrackById, searchOwnedMusicLibrary } from '@/lib/music-library'
 import type { MusicPreference, MusicVideoContext } from '@/lib/types'
 
@@ -20,6 +20,25 @@ export async function GET(req: Request) {
     const query = sanitizeInline(url.searchParams.get('query') ?? '')
     const trackId = sanitizeInline(url.searchParams.get('trackId') ?? '')
     const limit = parseLimit(url.searchParams.get('limit'))
+    const source = sanitizeInline(url.searchParams.get('source') ?? '')
+
+    if (source === 'r2') {
+      const r2Tracks = await fetchCloudflareMusicCatalog()
+      return NextResponse.json({
+        tracks: r2Tracks.map((track) => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          genre: track.genre,
+          duration: track.durationSec ?? 0,
+          url: track.sourceUrl ?? '',
+          thumbnail: track.coverArtUrl ?? null,
+        })),
+        total: r2Tracks.length,
+        source: 'r2',
+      })
+    }
+
     const catalog = await listAvailableMusicCatalog()
 
     if (trackId) {

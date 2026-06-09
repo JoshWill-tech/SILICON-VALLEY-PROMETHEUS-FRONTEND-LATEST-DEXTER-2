@@ -1,9 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+let supabaseAdmin: SupabaseClient | null | undefined;
+
+function getSupabaseAdminClient() {
+  if (supabaseAdmin !== undefined) {
+    return supabaseAdmin;
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!url || !serviceRoleKey) {
+    supabaseAdmin = null;
+    return supabaseAdmin;
+  }
+
+  supabaseAdmin = createClient(url, serviceRoleKey);
+  return supabaseAdmin;
+}
 
 export async function logAudit(
   userId: string, 
@@ -13,7 +27,10 @@ export async function logAudit(
   error?: string
 ) {
   try {
-    await supabaseAdmin.from("audit_logs").insert({
+    const client = getSupabaseAdminClient();
+    if (!client) return;
+
+    await client.from("audit_logs").insert({
       user_id: userId,
       action,
       provider,

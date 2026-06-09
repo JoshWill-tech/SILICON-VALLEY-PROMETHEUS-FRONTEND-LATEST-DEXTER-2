@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import {
   BarChart3,
   Clock3,
@@ -27,6 +28,7 @@ import { KeyboardShortcuts } from './KeyboardShortcuts'
 import { SettingsPanel } from './SettingsPanel'
 
 export function EditorRouteShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [focusMode, setFocusMode] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -39,6 +41,10 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
     setSettingsInitialTab(panel)
     setSettingsOpen(true)
   }, [])
+
+  if (pathname === '/editor') {
+    return <>{children}</>
+  }
 
   return (
     <div

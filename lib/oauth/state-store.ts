@@ -1,19 +1,38 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { OAuthState } from "./types";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+let supabaseAdmin: SupabaseClient | null | undefined;
+
+function getSupabaseAdminClient() {
+  if (supabaseAdmin !== undefined) {
+    return supabaseAdmin;
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!url || !serviceRoleKey) {
+    supabaseAdmin = null;
+    return supabaseAdmin;
+  }
+
+  supabaseAdmin = createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  }
-);
+  });
+
+  return supabaseAdmin;
+}
 
 export async function storeState(state: string, data: OAuthState): Promise<void> {
-  const { error } = await supabaseAdmin.from("oauth_states").insert({
+  const client = getSupabaseAdminClient();
+  if (!client) {
+    throw new Error("OAuth state store is not configured.");
+  }
+
+  const { error } = await client.from("oauth_states").insert({
     state,
     user_id: data.userId,
     provider: data.provider,
@@ -25,10 +44,13 @@ export async function storeState(state: string, data: OAuthState): Promise<void>
 }
 
 export async function getAndDeleteState(state: string): Promise<OAuthState | null> {
-  await supabaseAdmin.from("oauth_states").delete().lt("expires_at", new Date().toISOString());
-  const { data, error } = await supabaseAdmin.from("oauth_states").select("*").eq("state", state).single();
+  const client = getSupabaseAdminClient();
+  if (!client) return null;
+
+  await client.from("oauth_states").delete().lt("expires_at", new Date().toISOString());
+  const { data, error } = await client.from("oauth_states").select("*").eq("state", state).single();
   if (error || !data) return null;
-  await supabaseAdmin.from("oauth_states").delete().eq("state", state);
+  await client.from("oauth_states").delete().eq("state", state);
   return {
     userId: data.user_id,
     provider: data.provider,
@@ -37,4 +59,3 @@ export async function getAndDeleteState(state: string): Promise<OAuthState | nul
     expiresAt: new Date(data.expires_at).getTime(),
   };
 }
-
