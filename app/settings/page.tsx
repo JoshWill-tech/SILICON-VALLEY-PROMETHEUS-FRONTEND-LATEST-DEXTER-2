@@ -179,6 +179,22 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2 mt-4 border-t border-white/10 pt-6 text-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-white/40">
+            <Link href="/terms" className="transition-colors hover:text-white/60">
+              Terms of Service
+            </Link>
+            <span>|</span>
+            <Link href="/privacy" className="transition-colors hover:text-white/60">
+              Privacy Policy
+            </Link>
+            <span>|</span>
+            <Link href="/refund" className="transition-colors hover:text-white/60">
+              Refund Policy
+            </Link>
+          </div>
+        </div>
       </div>
     </PrometheusShell>
   )

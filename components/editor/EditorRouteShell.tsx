@@ -19,6 +19,7 @@ import { EditorNavDrawer, type EditorToolKey } from '@/app/components/editor/mob
 import type { EditorSettingsPanelKey } from '@/app/components/editor/mobile/EditorSettingsSubmenu'
 import { AwwwardsSidebar } from '@/components/sidebar/AwwwardsSidebar'
 import { MOBILE_EDITOR_TRACKS } from '@/lib/data/mock-tracks'
+import { isStandaloneMobileEditorRoute } from '@/lib/editor-mobile-routes'
 import type { MusicRecommendation } from '@/lib/types'
 
 import { CommandZone } from './CommandZone'
@@ -42,7 +43,7 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
     setSettingsOpen(true)
   }, [])
 
-  if (pathname === '/editor') {
+  if (pathname === '/editor' || isStandaloneMobileEditorRoute(pathname)) {
     return <>{children}</>
   }
 

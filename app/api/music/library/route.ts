@@ -32,6 +32,7 @@ export async function GET(req: Request) {
           genre: track.genre,
           duration: track.durationSec ?? 0,
           url: track.sourceUrl ?? '',
+          coverUrl: track.coverArtUrl ?? null,
           thumbnail: track.coverArtUrl ?? null,
         })),
         total: r2Tracks.length,
