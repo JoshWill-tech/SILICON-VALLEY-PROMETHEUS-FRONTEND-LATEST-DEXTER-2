@@ -38,6 +38,7 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
   } = useVideoPlayer(src)
   const [controlsVisible, setControlsVisible] = React.useState(true)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [isScrubbing, setIsScrubbing] = React.useState(false)
   const [seekFeedback, setSeekFeedback] = React.useState<'forward' | 'backward' | null>(null)
   const [volumeFeedback, setVolumeFeedback] = React.useState<number | null>(null)
   const progressRef = React.useRef<HTMLDivElement | null>(null)
@@ -47,8 +48,10 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
 
   const isPlaying = status === 'playing'
   const showSpinner = status === 'waiting'
-  const bufferedPercent = duration > 0 ? Math.min(100, (bufferedEnd / duration) * 100) : 0
-  const playedPercent = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
+  const safeDuration = Number.isFinite(duration) ? Math.max(duration, 0) : 0
+  const safeCurrentTime = Number.isFinite(currentTime) ? Math.max(0, Math.min(currentTime, safeDuration)) : 0
+  const bufferedPercent = safeDuration > 0 ? Math.min(100, (bufferedEnd / safeDuration) * 100) : 0
+  const playedPercent = safeDuration > 0 ? Math.min(100, (safeCurrentTime / safeDuration) * 100) : 0
 
   const scheduleControlsHide = React.useCallback(() => {
     if (hideControlsTimerRef.current !== null) window.clearTimeout(hideControlsTimerRef.current)
@@ -101,6 +104,7 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault()
       event.currentTarget.setPointerCapture(event.pointerId)
+      setIsScrubbing(true)
       updateSeekFromClientX(event.clientX)
       showControlsBriefly()
     },
@@ -113,6 +117,17 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
       updateSeekFromClientX(event.clientX)
     },
     [updateSeekFromClientX],
+  )
+
+  const handleProgressPointerEnd = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      setIsScrubbing(false)
+      showControlsBriefly()
+    },
+    [showControlsBriefly],
   )
 
   const handleDoubleTap = React.useCallback(
@@ -284,22 +299,44 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
             >
               <div
                 ref={progressRef}
-                className="relative h-6 cursor-pointer touch-none"
+                className="group relative h-7 cursor-pointer touch-none"
                 onPointerDown={handleProgressPointerDown}
                 onPointerMove={handleProgressPointerMove}
+                onPointerUp={handleProgressPointerEnd}
+                onPointerCancel={handleProgressPointerEnd}
+                onLostPointerCapture={() => setIsScrubbing(false)}
                 style={{ touchAction: 'none' }}
+                role="slider"
+                aria-label="Video progress"
+                aria-valuemin={0}
+                aria-valuemax={safeDuration}
+                aria-valuenow={safeCurrentTime}
               >
-                <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/30">
-                  <div className="absolute inset-y-0 left-0 rounded-full bg-white/10" style={{ width: `${bufferedPercent}%` }} />
-                  <div className="absolute inset-y-0 left-0 rounded-full bg-[#00D4FF]" style={{ width: `${playedPercent}%` }} />
+                <div
+                  className={cn(
+                    'absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-white/[0.15] transition-[height]',
+                    isScrubbing ? 'h-1.5' : 'h-1',
+                  )}
+                >
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-white/20" style={{ width: `${bufferedPercent}%` }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-sky-400" style={{ width: `${playedPercent}%` }} />
                 </div>
                 <div
-                  className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-[#00D4FF] shadow-[0_0_18px_rgba(0,212,255,0.8)]"
+                  className={cn(
+                    'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)] transition-[height,width,transform,box-shadow]',
+                    isScrubbing
+                      ? 'size-4 shadow-[0_0_16px_rgba(56,189,248,0.65)]'
+                      : 'size-3 group-active:size-4 group-active:shadow-[0_0_16px_rgba(56,189,248,0.65)]',
+                  )}
                   style={{ left: `${playedPercent}%` }}
                 />
               </div>
 
-              <div className="mt-1 flex items-center gap-2">
+              <div className="text-left text-xs font-medium tabular-nums text-white/80">
+                {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
+              </div>
+
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={togglePlayback}
@@ -308,9 +345,6 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
                 >
                   {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="ml-0.5 size-4" aria-hidden="true" />}
                 </button>
-                <span className="min-w-[5.8rem] text-xs tabular-nums text-white/72">
-                  {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
-                </span>
                 <div className="flex-1" />
                 <button
                   type="button"

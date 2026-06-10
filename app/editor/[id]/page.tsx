@@ -5961,35 +5961,6 @@ function MobileEditorView({
             </div>
           </section>
 
-          <section className="min-h-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
-            <div className="rounded-[24px] border border-white/8 bg-[#101116] p-4">
-              <div className="mb-3 flex items-center justify-between text-xs text-white/50">
-                <span>{currentTimeLabel}</span>
-                <span>{durationLabel}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(durationSec, 1)}
-                step={0.05}
-                value={Math.min(currentTimeSec, Math.max(durationSec, 1))}
-                onChange={(event) => onSeekPreview(Number(event.currentTarget.value))}
-                className="h-2 w-full accent-[#6366f1]"
-                aria-label="Timeline scrubber"
-              />
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={onTogglePlayback}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-white/78"
-                >
-                  {previewPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-                  {previewPlaying ? 'Pause' : 'Play'}
-                </button>
-                <div className="truncate text-xs text-white/42">Timeline</div>
-              </div>
-            </div>
-          </section>
         </main>
 
         <ContinueBanner />
