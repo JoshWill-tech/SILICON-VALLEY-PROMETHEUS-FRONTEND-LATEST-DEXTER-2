@@ -2,10 +2,27 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Loader2, Maximize2, Pause, Play, RotateCw, Settings, Volume2, VolumeX } from 'lucide-react'
+import {
+  Check,
+  Loader2,
+  Maximize,
+  Minimize2,
+  MoreVertical,
+  Pause,
+  Play,
+  Settings,
+  SunMedium,
+  Volume2,
+  VolumeX,
+} from 'lucide-react'
 
-import { useDoubleTap } from '@/lib/hooks/use-double-tap'
-import { formatVideoTime, useVideoPlayer } from '@/lib/hooks/use-video-player'
+import { usePlayerGestures } from '@/lib/hooks/use-gestures'
+import {
+  formatPlayerTime,
+  getProgressPercent,
+  PLAYER_SPEEDS,
+  useYoutubePlayer,
+} from '@/lib/hooks/use-youtube-player'
 import { cn } from '@/lib/utils'
 
 type MobileVideoPlayerProps = {
@@ -14,85 +31,143 @@ type MobileVideoPlayerProps = {
   src?: string | null
 }
 
-const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
+type SeekFeedbackDirection = 'forward' | 'backward' | null
 
 export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerProps) {
   const reduceMotion = useReducedMotion()
   const {
+    adjustBrightness,
+    adjustVolume,
     bindVideoEvents,
+    brightnessLevel,
+    brightnessOverlayValue,
     bufferedEnd,
+    containerRef,
     currentTime,
     duration,
+    isFullscreen,
     muted,
+    pauseAutoHide,
+    play,
     playbackRate,
+    resumeAutoHide,
     seek,
     seekBy,
     setPlaybackRate,
-    setVolume,
+    showCenterControl,
+    showControls,
+    showControlsNow,
     status,
-    toggleLandscapeFullscreen,
+    toggleFullscreen,
     toggleMuted,
     togglePlayback,
     videoRef,
-    volume,
-  } = useVideoPlayer(src)
-  const [controlsVisible, setControlsVisible] = React.useState(true)
-  const [settingsOpen, setSettingsOpen] = React.useState(false)
-  const [isScrubbing, setIsScrubbing] = React.useState(false)
-  const [seekFeedback, setSeekFeedback] = React.useState<'forward' | 'backward' | null>(null)
-  const [volumeFeedback, setVolumeFeedback] = React.useState<number | null>(null)
+    volumeOverlayValue,
+  } = useYoutubePlayer(src)
+  const [autoplayEnabled, setAutoplayEnabled] = React.useState(false)
+  const [captionsEnabled, setCaptionsEnabled] = React.useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+  const [isSurfaceScrubbing, setIsSurfaceScrubbing] = React.useState(false)
+  const [isTimelineScrubbing, setIsTimelineScrubbing] = React.useState(false)
+  const [seekFeedback, setSeekFeedback] = React.useState<SeekFeedbackDirection>(null)
   const progressRef = React.useRef<HTMLDivElement | null>(null)
-  const hideControlsTimerRef = React.useRef<number | null>(null)
-  const feedbackTimerRef = React.useRef<number | null>(null)
-  const verticalGestureRef = React.useRef<{ startY: number; side: 'left' | 'right' } | null>(null)
+  const seekFeedbackTimerRef = React.useRef<number | null>(null)
 
   const isPlaying = status === 'playing'
-  const showSpinner = status === 'waiting'
-  const safeDuration = Number.isFinite(duration) ? Math.max(duration, 0) : 0
-  const safeCurrentTime = Number.isFinite(currentTime) ? Math.max(0, Math.min(currentTime, safeDuration)) : 0
-  const bufferedPercent = safeDuration > 0 ? Math.min(100, (bufferedEnd / safeDuration) * 100) : 0
-  const playedPercent = safeDuration > 0 ? Math.min(100, (safeCurrentTime / safeDuration) * 100) : 0
+  const isWaiting = status === 'waiting'
+  const isScrubbing = isSurfaceScrubbing || isTimelineScrubbing
+  const playedPercent = getProgressPercent(currentTime, duration)
+  const bufferedPercent = getProgressPercent(bufferedEnd, duration)
 
-  const scheduleControlsHide = React.useCallback(() => {
-    if (hideControlsTimerRef.current !== null) window.clearTimeout(hideControlsTimerRef.current)
-    if (!isPlaying) return
-
-    hideControlsTimerRef.current = window.setTimeout(() => {
-      setControlsVisible(false)
-      setSettingsOpen(false)
-    }, 2500)
-  }, [isPlaying])
-
-  const showControlsBriefly = React.useCallback(() => {
-    setControlsVisible(true)
-    scheduleControlsHide()
-  }, [scheduleControlsHide])
-
-  React.useEffect(() => {
-    showControlsBriefly()
-    return () => {
-      if (hideControlsTimerRef.current !== null) window.clearTimeout(hideControlsTimerRef.current)
+  const clearSeekFeedbackTimer = React.useCallback(() => {
+    if (seekFeedbackTimerRef.current !== null) {
+      window.clearTimeout(seekFeedbackTimerRef.current)
+      seekFeedbackTimerRef.current = null
     }
-  }, [showControlsBriefly])
+  }, [])
+
+  const showSeekFeedback = React.useCallback(
+    (direction: Exclude<SeekFeedbackDirection, null>) => {
+      setSeekFeedback(direction)
+      clearSeekFeedbackTimer()
+      seekFeedbackTimerRef.current = window.setTimeout(() => {
+        setSeekFeedback(null)
+      }, 650)
+    },
+    [clearSeekFeedbackTimer],
+  )
 
   React.useEffect(() => {
-    if (!isPlaying) {
-      setControlsVisible(true)
+    if (!autoplayEnabled || status !== 'ended') return
+    seek(0)
+    void play()
+  }, [autoplayEnabled, play, seek, status])
+
+  React.useEffect(() => {
+    if (isSettingsOpen) {
+      pauseAutoHide()
+      showControlsNow(false)
       return
     }
-    scheduleControlsHide()
-  }, [isPlaying, scheduleControlsHide])
 
-  const showSeekFeedback = React.useCallback((direction: 'forward' | 'backward') => {
-    setSeekFeedback(direction)
-    if (feedbackTimerRef.current !== null) window.clearTimeout(feedbackTimerRef.current)
-    feedbackTimerRef.current = window.setTimeout(() => setSeekFeedback(null), 650)
-  }, [])
+    if (!isScrubbing) {
+      resumeAutoHide()
+    }
+  }, [isScrubbing, isSettingsOpen, pauseAutoHide, resumeAutoHide, showControlsNow])
+
+  React.useEffect(() => {
+    return () => clearSeekFeedbackTimer()
+  }, [clearSeekFeedbackTimer])
+
+  const handleSingleTap = React.useCallback(() => {
+    setIsSettingsOpen(false)
+    showControlsNow(true)
+    togglePlayback()
+  }, [showControlsNow, togglePlayback])
+
+  const handleDoubleTap = React.useCallback(
+    (side: 'left' | 'right') => {
+      const delta = side === 'right' ? 10 : -10
+      setIsSettingsOpen(false)
+      showControlsNow(false)
+      seekBy(delta)
+      showSeekFeedback(side === 'right' ? 'forward' : 'backward')
+    },
+    [seekBy, showControlsNow, showSeekFeedback],
+  )
+
+  const gestureHandlers = usePlayerGestures({
+    getCurrentTime: () => currentTime,
+    getDuration: () => duration,
+    onDoubleTap: handleDoubleTap,
+    onHorizontalScrub: (nextTime, done) => {
+      pauseAutoHide()
+      setIsSettingsOpen(false)
+      setIsSurfaceScrubbing(!done)
+      seek(nextTime)
+      showControlsNow(false)
+      if (done) {
+        resumeAutoHide()
+      }
+    },
+    onSingleTap: handleSingleTap,
+    onVerticalSwipe: (kind, delta) => {
+      pauseAutoHide()
+      setIsSettingsOpen(false)
+      showControlsNow(false)
+      if (kind === 'brightness') {
+        adjustBrightness(delta)
+        return
+      }
+      adjustVolume(delta)
+    },
+  })
 
   const updateSeekFromClientX = React.useCallback(
     (clientX: number) => {
       const progress = progressRef.current
       if (!progress || duration <= 0) return
+
       const rect = progress.getBoundingClientRect()
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
       seek(ratio * duration)
@@ -103,12 +178,14 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
   const handleProgressPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault()
+      event.stopPropagation()
+      pauseAutoHide()
+      setIsTimelineScrubbing(true)
       event.currentTarget.setPointerCapture(event.pointerId)
-      setIsScrubbing(true)
       updateSeekFromClientX(event.clientX)
-      showControlsBriefly()
+      showControlsNow(false)
     },
-    [showControlsBriefly, updateSeekFromClientX],
+    [pauseAutoHide, showControlsNow, updateSeekFromClientX],
   )
 
   const handleProgressPointerMove = React.useCallback(
@@ -121,297 +198,337 @@ export function MobileVideoPlayer({ className, poster, src }: MobileVideoPlayerP
 
   const handleProgressPointerEnd = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
+      event.stopPropagation()
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
       }
-      setIsScrubbing(false)
-      showControlsBriefly()
+      setIsTimelineScrubbing(false)
+      resumeAutoHide()
     },
-    [showControlsBriefly],
+    [resumeAutoHide],
   )
 
-  const handleDoubleTap = React.useCallback(
-    (event: React.PointerEvent<HTMLElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect()
-      const rightSide = event.clientX > rect.left + rect.width / 2
-      seekBy(rightSide ? 10 : -10)
-      showSeekFeedback(rightSide ? 'forward' : 'backward')
-      showControlsBriefly()
+  const handleToggleFullscreen = React.useCallback(async () => {
+    setIsSettingsOpen(false)
+    showControlsNow(false)
+    await toggleFullscreen()
+  }, [showControlsNow, toggleFullscreen])
+
+  const handlePlaybackRateChange = React.useCallback(
+    (speed: number) => {
+      setPlaybackRate(speed)
+      setIsSettingsOpen(false)
+      showControlsNow(false)
+      resumeAutoHide()
     },
-    [seekBy, showControlsBriefly, showSeekFeedback],
+    [resumeAutoHide, setPlaybackRate, showControlsNow],
   )
-
-  const handleSingleTap = React.useCallback(() => {
-    if (!controlsVisible) {
-      showControlsBriefly()
-      return
-    }
-    togglePlayback()
-    showControlsBriefly()
-  }, [controlsVisible, showControlsBriefly, togglePlayback])
-
-  const handleVideoTap = useDoubleTap({
-    onDoubleTap: handleDoubleTap,
-    onSingleTap: handleSingleTap,
-  })
-
-  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    verticalGestureRef.current = {
-      side: event.clientX < rect.left + rect.width / 2 ? 'left' : 'right',
-      startY: event.clientY,
-    }
-  }, [])
-
-  const handlePointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const gesture = verticalGestureRef.current
-      if (!gesture || gesture.side !== 'right') return
-
-      const delta = (gesture.startY - event.clientY) / 180
-      if (Math.abs(delta) < 0.06) return
-      const nextVolume = Math.max(0, Math.min(1, volume + delta))
-      setVolume(nextVolume)
-      setVolumeFeedback(nextVolume)
-      showControlsBriefly()
-      verticalGestureRef.current = { ...gesture, startY: event.clientY }
-    },
-    [setVolume, showControlsBriefly, volume],
-  )
-
-  const handlePointerUp = React.useCallback(() => {
-    verticalGestureRef.current = null
-    if (volumeFeedback !== null) {
-      window.setTimeout(() => setVolumeFeedback(null), 500)
-    }
-  }, [volumeFeedback])
 
   return (
     <section
-      className={cn('relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black px-4 py-5', className)}
+      ref={containerRef}
+      className={cn('relative aspect-video w-full overflow-hidden bg-black', className)}
       aria-label="Video preview player"
     >
-      <div
-        className="relative flex aspect-[9/16] max-h-full w-full max-w-[min(78vw,340px)] touch-none items-center justify-center overflow-hidden rounded-[18px] border border-white/10 bg-black shadow-[0_30px_90px_-40px_rgba(0,0,0,0.95)] md:aspect-video md:max-w-4xl"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-      >
-        {src ? (
+      {src ? (
+        <div className="absolute inset-0" style={{ filter: `brightness(${brightnessLevel})` }}>
           <video
             ref={videoRef}
-            className="h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-cover"
             controls={false}
-            muted={muted}
             playsInline
             poster={poster}
             preload="metadata"
             src={src}
             {...bindVideoEvents}
           />
-        ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_28%_16%,rgba(0,212,255,0.18),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
-        )}
+        </div>
+      ) : (
+        <div className="absolute inset-0 bg-black" />
+      )}
 
-        <button
-          type="button"
-          className="absolute inset-0 cursor-pointer touch-manipulation"
-          onPointerUp={handleVideoTap}
-          aria-label={isPlaying ? 'Pause video' : 'Play video'}
-        />
+      <div className="absolute inset-0" {...gestureHandlers} style={{ touchAction: 'none' }} />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-1/2" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2" aria-hidden="true" />
 
-        <AnimatePresence>
-          {showSpinner ? (
-            <motion.div
-              className="absolute inset-0 grid place-items-center bg-black/18"
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <Loader2 className="size-8 animate-spin text-white" aria-hidden="true" />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+      {src ? null : (
+        <div className="absolute inset-0 grid place-items-center px-6 text-center text-sm font-medium text-white/72">
+          Add source video
+        </div>
+      )}
 
-        <AnimatePresence>
-          {(!isPlaying || controlsVisible) ? (
-            <motion.div
-              className="pointer-events-none absolute inset-0 grid place-items-center"
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.16 }}
-            >
-              <div className="grid size-20 place-items-center rounded-full border border-white/15 bg-black/48 text-white/90 shadow-2xl backdrop-blur-xl">
-                {isPlaying ? <Pause className="size-8" aria-hidden="true" /> : <Play className="ml-1 size-8" aria-hidden="true" />}
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {seekFeedback ? (
-            <motion.div
-              className={cn(
-                'pointer-events-none absolute top-1/2 -translate-y-1/2 rounded-full border border-white/12 bg-black/55 px-4 py-2 text-sm font-semibold text-white backdrop-blur-xl',
-                seekFeedback === 'forward' ? 'right-8' : 'left-8',
-              )}
-              initial={reduceMotion ? false : { opacity: 0, scale: 0.88 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.08 }}
-            >
-              {seekFeedback === 'forward' ? '+10s' : '-10s'}
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {volumeFeedback !== null ? (
-            <motion.div
-              className="pointer-events-none absolute right-4 top-1/2 w-2 -translate-y-1/2 overflow-hidden rounded-full bg-white/12"
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <div className="mt-auto rounded-full bg-prometheus-accent-cyan" style={{ height: `${Math.round(volumeFeedback * 100)}%`, minHeight: 8 }} />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        {muted && isPlaying ? (
-          <button
-            type="button"
-            onClick={toggleMuted}
-            className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs font-medium text-white/82 backdrop-blur-xl"
+      <AnimatePresence>
+        {isWaiting ? (
+          <motion.div
+            className="absolute inset-0 z-10 grid place-items-center bg-black/18"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            Tap to unmute
-          </button>
+            <Loader2 className="size-8 animate-spin text-white" aria-hidden="true" />
+          </motion.div>
         ) : null}
+      </AnimatePresence>
 
-        <AnimatePresence>
-          {controlsVisible ? (
-            <motion.div
-              className="absolute inset-x-3 bottom-3 z-20 rounded-2xl border border-white/10 bg-black/40 p-3 text-white shadow-2xl backdrop-blur-md"
-              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              onPointerMove={showControlsBriefly}
+      <AnimatePresence>
+        {showCenterControl ? (
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <button
+              type="button"
+              onClick={handleSingleTap}
+              className="pointer-events-auto grid size-16 place-items-center rounded-full bg-black/40 text-white backdrop-blur-sm"
+              aria-label={isPlaying ? 'Pause video' : 'Play video'}
             >
+              {isPlaying ? <Pause className="size-8" aria-hidden="true" /> : <Play className="ml-1 size-8" aria-hidden="true" />}
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {seekFeedback ? (
+          <motion.div
+            className={cn(
+              'pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/45 px-5 py-3 text-xl font-semibold text-white backdrop-blur-sm',
+              seekFeedback === 'forward' ? 'right-6' : 'left-6',
+            )}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.88 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.06 }}
+            transition={{ duration: 0.16 }}
+          >
+            {seekFeedback === 'forward' ? '+10s' : '-10s'}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {brightnessOverlayValue !== null ? (
+          <motion.div
+            className="pointer-events-none absolute left-4 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-3 rounded-full bg-black/48 px-3 py-4 text-white backdrop-blur-sm"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <SunMedium className="size-5" aria-hidden="true" />
+            <div className="relative h-28 w-2 overflow-hidden rounded-full bg-white/18">
+              <div
+                className="absolute inset-x-0 bottom-0 rounded-full bg-sky-400"
+                style={{ height: `${Math.round(brightnessOverlayValue * 100)}%` }}
+              />
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {volumeOverlayValue !== null ? (
+          <motion.div
+            className="pointer-events-none absolute right-4 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-3 rounded-full bg-black/48 px-3 py-4 text-white backdrop-blur-sm"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {muted || volumeOverlayValue <= 0 ? <VolumeX className="size-5" aria-hidden="true" /> : <Volume2 className="size-5" aria-hidden="true" />}
+            <div className="relative h-28 w-2 overflow-hidden rounded-full bg-white/18">
+              <div
+                className="absolute inset-x-0 bottom-0 rounded-full bg-sky-400"
+                style={{ height: `${Math.round(volumeOverlayValue * 100)}%` }}
+              />
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSurfaceScrubbing ? (
+          <motion.div
+            className="pointer-events-none absolute left-1/2 top-6 z-30 -translate-x-1/2 rounded-full bg-black/48 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm"
+            initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showControls ? (
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-20"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/55 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+            <div className="pointer-events-auto absolute right-3 top-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAutoplayEnabled((current) => !current)
+                  showControlsNow(false)
+                }}
+                className={cn(
+                  'flex h-8 items-center gap-2 rounded-full border border-white/12 px-3 text-[11px] font-medium text-white',
+                  autoplayEnabled ? 'bg-white/15' : 'bg-black/20',
+                )}
+                aria-pressed={autoplayEnabled}
+                aria-label="Toggle autoplay"
+              >
+                <span>Autoplay</span>
+                <span
+                  className={cn(
+                    'relative h-4 w-7 rounded-full transition-colors',
+                    autoplayEnabled ? 'bg-sky-400' : 'bg-white/25',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 size-3 rounded-full bg-white transition-transform',
+                      autoplayEnabled ? 'translate-x-3.5' : 'translate-x-0.5',
+                    )}
+                  />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => showControlsNow(false)}
+                className="grid size-9 place-items-center rounded-full bg-black/20 text-white"
+                aria-label="More player actions"
+              >
+                <MoreVertical className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 bottom-0">
+              <div className="pointer-events-auto relative px-4 pb-3 pt-12">
+                <div className="flex items-center justify-between pb-3">
+                  <span className="text-sm font-medium text-white">
+                    {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
+                  </span>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleMuted()
+                        showControlsNow(false)
+                      }}
+                      className="grid size-9 place-items-center rounded-full text-white"
+                      aria-label={muted ? 'Unmute video' : 'Mute video'}
+                    >
+                      {muted ? <VolumeX className="size-5" aria-hidden="true" /> : <Volume2 className="size-5" aria-hidden="true" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCaptionsEnabled((current) => !current)
+                        showControlsNow(false)
+                      }}
+                      className={cn(
+                        'grid h-9 min-w-9 place-items-center rounded-full px-2 text-[11px] font-semibold tracking-[0.16em] text-white',
+                        captionsEnabled && 'bg-white/12',
+                      )}
+                      aria-label="Toggle captions"
+                      aria-pressed={captionsEnabled}
+                    >
+                      CC
+                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsSettingsOpen((current) => !current)}
+                        className="grid size-9 place-items-center rounded-full text-white"
+                        aria-label="Playback settings"
+                        aria-expanded={isSettingsOpen}
+                      >
+                        <Settings className="size-5" aria-hidden="true" />
+                      </button>
+
+                      <AnimatePresence>
+                        {isSettingsOpen ? (
+                          <motion.div
+                            className="absolute bottom-11 right-0 w-36 overflow-hidden rounded-2xl bg-black/86 p-1.5 shadow-2xl backdrop-blur-sm"
+                            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                          >
+                            {PLAYER_SPEEDS.map((speed) => (
+                              <button
+                                key={speed}
+                                type="button"
+                                onClick={() => handlePlaybackRateChange(speed)}
+                                className={cn(
+                                  'flex h-9 w-full items-center justify-between rounded-xl px-3 text-sm text-white/80',
+                                  playbackRate === speed && 'bg-sky-400/16 text-white',
+                                )}
+                              >
+                                <span>{speed}x</span>
+                                {playbackRate === speed ? <Check className="size-4" aria-hidden="true" /> : null}
+                              </button>
+                            ))}
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleFullscreen()}
+                      className="grid size-9 place-items-center rounded-full text-white"
+                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    >
+                      {isFullscreen ? <Minimize2 className="size-5" aria-hidden="true" /> : <Maximize className="size-5" aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div
                 ref={progressRef}
-                className="group relative h-7 cursor-pointer touch-none"
+                className="pointer-events-auto absolute inset-x-0 bottom-0 h-6 cursor-pointer touch-none"
                 onPointerDown={handleProgressPointerDown}
                 onPointerMove={handleProgressPointerMove}
                 onPointerUp={handleProgressPointerEnd}
                 onPointerCancel={handleProgressPointerEnd}
-                onLostPointerCapture={() => setIsScrubbing(false)}
-                style={{ touchAction: 'none' }}
                 role="slider"
                 aria-label="Video progress"
                 aria-valuemin={0}
-                aria-valuemax={safeDuration}
-                aria-valuenow={safeCurrentTime}
+                aria-valuemax={duration}
+                aria-valuenow={currentTime}
+                style={{ touchAction: 'none' }}
               >
                 <div
                   className={cn(
-                    'absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-white/[0.15] transition-[height]',
+                    'absolute inset-x-0 bottom-0 overflow-hidden rounded-full bg-white/30 transition-[height]',
                     isScrubbing ? 'h-1.5' : 'h-1',
                   )}
                 >
-                  <div className="absolute inset-y-0 left-0 rounded-full bg-white/20" style={{ width: `${bufferedPercent}%` }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-white/40" style={{ width: `${bufferedPercent}%` }} />
                   <div className="absolute inset-y-0 left-0 rounded-full bg-sky-400" style={{ width: `${playedPercent}%` }} />
                 </div>
+
                 <div
                   className={cn(
-                    'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.5)] transition-[height,width,transform,box-shadow]',
-                    isScrubbing
-                      ? 'size-4 shadow-[0_0_16px_rgba(56,189,248,0.65)]'
-                      : 'size-3 group-active:size-4 group-active:shadow-[0_0_16px_rgba(56,189,248,0.65)]',
+                    'absolute bottom-0 -translate-x-1/2 translate-y-1/2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)] transition-[height,width,box-shadow,transform]',
+                    isScrubbing ? 'size-4 shadow-[0_0_16px_rgba(56,189,248,0.75)]' : 'size-3',
                   )}
                   style={{ left: `${playedPercent}%` }}
                 />
               </div>
-
-              <div className="text-left text-xs font-medium tabular-nums text-white/80">
-                {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
-              </div>
-
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={togglePlayback}
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-cyan/70"
-                  aria-label={isPlaying ? 'Pause video' : 'Play video'}
-                >
-                  {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="ml-0.5 size-4" aria-hidden="true" />}
-                </button>
-                <div className="flex-1" />
-                <button
-                  type="button"
-                  onClick={toggleMuted}
-                  className="grid size-9 place-items-center rounded-full text-white/78 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-cyan/70"
-                  aria-label={muted ? 'Unmute video' : 'Mute video'}
-                >
-                  {muted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
-                </button>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setSettingsOpen((open) => !open)}
-                    className="grid size-9 place-items-center rounded-full text-white/78 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-cyan/70"
-                    aria-label="Playback settings"
-                  >
-                    <Settings className="size-4" aria-hidden="true" />
-                  </button>
-                  <AnimatePresence>
-                    {settingsOpen ? (
-                      <motion.div
-                        className="absolute bottom-11 right-0 w-32 overflow-hidden rounded-xl border border-white/10 bg-black/80 p-1 shadow-2xl backdrop-blur-xl"
-                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                      >
-                        {SPEEDS.map((speed) => (
-                          <button
-                            key={speed}
-                            type="button"
-                            onClick={() => {
-                              setPlaybackRate(speed)
-                              setSettingsOpen(false)
-                            }}
-                            className={cn(
-                              'flex h-8 w-full items-center justify-between rounded-lg px-2 text-xs text-white/72 hover:bg-white/10 hover:text-white',
-                              playbackRate === speed && 'bg-prometheus-accent-cyan/18 text-prometheus-accent-cyan',
-                            )}
-                          >
-                            {speed}x
-                            {playbackRate === speed ? <span aria-hidden="true">•</span> : null}
-                          </button>
-                        ))}
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-                <button
-                  type="button"
-                  onClick={toggleLandscapeFullscreen}
-                  className="grid size-9 place-items-center rounded-full text-white/78 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prometheus-accent-cyan/70"
-                  aria-label="Toggle landscape fullscreen"
-                >
-                  <RotateCw className="size-4 md:hidden" aria-hidden="true" />
-                  <Maximize2 className="hidden size-4 md:block" aria-hidden="true" />
-                </button>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        {!src ? (
-          <div className="pointer-events-none absolute bottom-4 left-4 rounded-full border border-white/10 bg-black/50 px-3 py-1 font-mono text-[11px] text-white/65">
-            Add source video
-          </div>
+            </div>
+          </motion.div>
         ) : null}
-      </div>
+      </AnimatePresence>
     </section>
   )
 }

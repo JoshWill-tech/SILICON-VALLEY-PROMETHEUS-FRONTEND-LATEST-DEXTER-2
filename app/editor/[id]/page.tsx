@@ -5932,13 +5932,13 @@ function MobileEditorView({
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col">
-          <section className="shrink-0 px-4 py-3">
-            <div className="relative aspect-video max-h-[40vh] w-full overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]">
+          <section className="shrink-0 py-3">
+            <div className="relative aspect-video max-h-[40vh] w-full overflow-hidden bg-black">
               {hasPreviewMedia && previewKind === 'video' ? (
                 <MobileVideoPlayer
                   src={previewUrl}
                   poster={project?.thumbnailUrl ?? undefined}
-                  className="h-full w-full p-0"
+                  className="h-full w-full"
                 />
               ) : hasPreviewMedia ? (
                 <div
