@@ -11,6 +11,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        background: 'var(--theme-background)',
+        foreground: 'var(--theme-foreground)',
+        accent: 'var(--theme-accent)',
+        'accent-foreground': 'var(--theme-foreground)',
+        'theme-surface': 'var(--theme-surface)',
+        'theme-surface-elevated': 'var(--theme-surface-elevated)',
+        'theme-border': 'var(--theme-border)',
         'chrome-50': '#f8f9fa',
         'chrome-100': '#e9ecef',
         'chrome-200': '#dee2e6',
@@ -31,8 +38,8 @@ const config: Config = {
         chrome: '#e8e8e8',
         'chrome-dim': '#6b6b78',
         'accent-cyan': 'var(--accent-cyan)',
-        'accent-cyan-dim': '#00b8c4',
-        'accent-cyan-glow': 'rgba(0, 240, 255, 0.15)',
+        'accent-cyan-dim': 'var(--accent-cyan-dim)',
+        'accent-cyan-glow': 'var(--accent-cyan-glow)',
         'accent-gold': '#ffd700',
         'accent-gold-dim': '#b8860b',
         'accent-gold-glow': 'rgba(255, 215, 0, 0.12)',
@@ -98,9 +105,9 @@ const config: Config = {
         toast: '60',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-primary)', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
-        display: ['SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-primary)', 'system-ui', 'sans-serif'],
       },
       animation: {
         shimmer: 'shimmer 3s ease-in-out infinite',

@@ -1,193 +1,78 @@
-"use client";
+'use client'
 
-import { useState, Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { Youtube, Instagram, Twitter, Facebook, Linkedin, Cloud, Music2, Check, X, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
-const PROVIDERS = [
-  { id: "youtube", name: "YouTube", icon: Youtube, color: "#FF0000" },
-  { id: "tiktok", name: "TikTok", icon: Music2, color: "#00f2ea" },
-  { id: "instagram", name: "Instagram", icon: Instagram, color: "#E4405F" },
-  { id: "x", name: "X (Twitter)", icon: Twitter, color: "#1DA1F2" },
-  { id: "facebook", name: "Facebook", icon: Facebook, color: "#1877F2" },
-  { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "#0A66C2" },
-  { id: "google_drive", name: "Google Drive", icon: Cloud, color: "#4285F4" },
-  { id: "dropbox", name: "Dropbox", icon: Cloud, color: "#0061FF" },
-];
+import { ConnectedAccountsPanel } from '@/components/settings/connected-accounts-panel'
+import { getProviderMetadata } from '@/lib/oauth/provider-metadata'
 
 function SocialAccountsContent() {
-  const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const success = searchParams.get("success");
-  const error = searchParams.get("error");
-  
-  // P0 Fix: Per-provider loading states using a Record for absolute isolation.
-  const [loadingProviders, setLoadingProviders] = useState<Record<string, boolean>>({});
+  const searchParams = useSearchParams()
+  const connectedProvider = searchParams.get('connected') || searchParams.get('success')
+  const errorCode = searchParams.get('error')
+  const errorProvider = searchParams.get('provider') || connectedProvider
+  const handledRef = React.useRef<string | null>(null)
 
-  // CRITICAL: Handle browser back-forward cache (bfcache)
-  useEffect(() => {
-    const handlePageShow = (event: PageTransitionEvent) => {
-      // event.persisted === true when page is restored from bfcache
-      if (event.persisted) {
-        setLoadingProviders({});
-      }
-    };
-    window.addEventListener('pageshow', handlePageShow);
-    return () => window.removeEventListener('pageshow', handlePageShow);
-  }, []);
+  React.useEffect(() => {
+    const currentKey = `${connectedProvider || ''}:${errorCode || ''}:${errorProvider || ''}`
+    if (handledRef.current === currentKey) return
+    handledRef.current = currentKey
 
-  const { data: connections } = useQuery({
-    queryKey: ["user-connections"],
-    queryFn: async () => {
-      const res = await fetch("/api/user/connections");
-      if (!res.ok) throw new Error("Failed to fetch connections");
-      return res.json();
-    },
-  });
-const handleConnect = async (providerId: string) => {
-  // Isolated loading state for this specific provider
-  setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
-
-  // Bug 3: AbortController with 10s timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch(`/api/oauth/${providerId}/initiate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal
-    });
-
-    // Bug 2: Robust JSON parsing
-    const text = await res.text();
-    let data;
-    try { 
-      data = JSON.parse(text); 
-    } catch { 
-      throw new Error(`Invalid server response: ${text.slice(0, 200)}`); 
+    if (connectedProvider) {
+      const providerName = getProviderMetadata(connectedProvider)?.name ?? connectedProvider
+      toast.success(`${providerName} connected successfully`)
     }
 
-    if (!res.ok) throw new Error(data.error || 'Failed to initiate OAuth');
-
-    if (data.url) {
-      // CRITICAL: Reset state BEFORE navigating away so bfcache doesn't capture loading=true
-      setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
-      window.location.href = data.url;
-      return;
-    }
-  } catch (err: any) {
-    console.error("Connect error:", err);
-    const message = err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message;
-    alert(message || 'Connection failed');
-  } finally {
-    clearTimeout(timeoutId);
-    setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
-  }
-};
-
-const handleDisconnect = async (providerId: string) => {
-  setLoadingProviders(prev => ({ ...prev, [providerId]: true }));
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch(`/api/oauth/${providerId}/disconnect`, { 
-      method: "POST",
-      signal: controller.signal
-    });
-
-    const text = await res.text();
-    let data;
-    try { 
-      data = JSON.parse(text); 
-    } catch { 
-      throw new Error(`Invalid server response: ${text.slice(0, 200)}`); 
+    if (errorCode) {
+      const providerName = errorProvider ? getProviderMetadata(errorProvider)?.name ?? errorProvider : 'provider'
+      toast.error(
+        errorCode === 'invalid_state'
+          ? 'Failed to connect account due to a security state mismatch. Please try again.'
+          : `Failed to connect ${providerName}. Please try again.`,
+      )
     }
 
-    if (!res.ok) throw new Error(data.error || "Failed to disconnect from server");
+    if (connectedProvider || errorCode) {
+      const nextUrl = new URL(window.location.href)
+      nextUrl.searchParams.delete('connected')
+      nextUrl.searchParams.delete('success')
+      nextUrl.searchParams.delete('error')
+      nextUrl.searchParams.delete('provider')
+      nextUrl.searchParams.delete('reason')
+      window.history.replaceState({}, '', nextUrl.toString())
+    }
+  }, [connectedProvider, errorCode, errorProvider])
 
-    // Invalidate query to refresh connection list in real-time
-    await queryClient.invalidateQueries({ queryKey: ["user-connections"] });
-  } catch (err: any) {
-    console.error("Disconnect error:", err);
-    const message = err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message;
-    alert(message || 'Disconnection failed');
-  } finally {
-    clearTimeout(timeoutId);
-    setLoadingProviders(prev => ({ ...prev, [providerId]: false }));
-  }
-};
+  const handleConnect = React.useCallback((provider: string) => {
+    window.location.href = `/api/oauth/${provider}/initiate`
+  }, [])
 
-
-  const isConnected = (id: string) => connections?.some((c: any) => c.provider === id && c.connected);
-
-  return (
-    <>
-      <AnimatePresence>
-        {success && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 rounded-xl bg-[#00ff88]/10 border border-[#00ff88]/20 flex items-center gap-3">
-            <Check className="w-5 h-5 text-[#00ff88]" />
-            <span className="text-[#00ff88]">Connected to {PROVIDERS.find(p => p.id === success)?.name}</span>
-          </motion.div>
-        )}
-        {error && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <span className="text-red-400">
-              Connection failed: {error === "token_exchange" ? "Token exchange failed" : 
-                                error === "invalid_state" ? "Security state mismatch" :
-                                "Internal server error"}. Please try again.
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="space-y-3">
-        {PROVIDERS.map(provider => {
-          const connected = isConnected(provider.id);
-          const isPending = loadingProviders[provider.id] || false;
-          return (
-            <motion.div key={provider.id} layout
-              className={`p-4 rounded-xl flex items-center justify-between bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] ${connected ? 'border-[rgba(0,255,136,0.2)]' : ''}`}>
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${provider.color}15` }}>
-                  <provider.icon className="w-5 h-5" style={{ color: provider.color }} />
-                </div>
-                <div>
-                  <h3 className="font-medium text-white">{provider.name}</h3>
-                  <p className="text-sm text-white/40">{connected ? "Connected and ready to publish" : "Not connected"}</p>
-                </div>
-              </div>
-              <Button variant={connected ? "outline" : "default"} size="sm" disabled={isPending}
-                onClick={() => connected ? handleDisconnect(provider.id) : handleConnect(provider.id)}
-                className={connected ? "border-white/10 text-white/60 hover:bg-white/5" : "bg-white/10 text-white hover:bg-white/20"}>
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : connected ? <><X className="w-4 h-4 mr-1" /> Disconnect</> : "Connect"}
-              </Button>
-            </motion.div>
-          );
-        })}
-      </div>
-    </>
-  );
+  return <ConnectedAccountsPanel onConnect={handleConnect} />
 }
 
 export default function SocialAccountsPage() {
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-12">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-semibold tracking-tight mb-2">Social Accounts</h1>
-        <p className="text-white/40 mb-8">Connect your accounts to publish directly from Prometheus. Tokens are encrypted with AES-256-GCM.</p>
-        <Suspense fallback={<div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-white/40" /></div>}>
+    <div className="min-h-screen bg-[#050505] px-6 py-8 text-white md:px-12">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight">Connected Accounts</h1>
+          <p className="mt-2 text-sm text-white/42">
+            Real-time OAuth connection status for every publishing and storage platform.
+          </p>
+        </div>
+
+        <React.Suspense
+          fallback={
+            <div className="flex justify-center p-10">
+              <Loader2 className="h-6 w-6 animate-spin text-white/40" />
+            </div>
+          }
+        >
           <SocialAccountsContent />
-        </Suspense>
+        </React.Suspense>
       </div>
     </div>
-  );
+  )
 }

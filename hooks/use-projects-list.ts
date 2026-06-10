@@ -1,51 +1,75 @@
 'use client'
 
-import * as React from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { ProjectV2 } from './use-project-v2'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-export function useProjectsList(limit = 20) {
-  const [projects, setProjects] = React.useState<ProjectV2[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+import type { ProjectListItem } from '@/lib/projects/types'
 
-  React.useEffect(() => {
-    let disposed = false
+const PROJECTS_QUERY_KEY = ['projects']
 
-    async function fetchProjects() {
-      setLoading(true)
-      setError(null)
+async function parseJson<T>(response: Response) {
+  return (await response.json().catch(() => null)) as T | null
+}
 
-      try {
-        const supabase = createClient()
-        const { data, error: queryError } = await supabase
-          .from('projects')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(limit)
+export function useProjectsList() {
+  const queryClient = useQueryClient()
 
-        if (disposed) return
+  const query = useQuery({
+    queryKey: PROJECTS_QUERY_KEY,
+    queryFn: async () => {
+      const response = await fetch('/api/projects', { cache: 'no-store' })
+      const payload = await parseJson<{ success?: boolean; projects?: ProjectListItem[]; error?: { message?: string } }>(response)
 
-        if (queryError) {
-          setError(queryError.message)
-          setProjects([])
-          return
-        }
-
-        setProjects((data ?? []) as ProjectV2[])
-      } catch (caught) {
-        if (!disposed) setError(caught instanceof Error ? caught.message : 'Unable to load projects.')
-      } finally {
-        if (!disposed) setLoading(false)
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error?.message || 'Failed to load projects')
       }
-    }
 
-    void fetchProjects()
+      return payload.projects ?? []
+    },
+    staleTime: 30_000,
+    refetchInterval: (query) => {
+      const projects = query.state.data as ProjectListItem[] | undefined
+      if (projects?.some((project) => project.status === 'rendering')) return 5_000
+      return false
+    },
+  })
 
-    return () => {
-      disposed = true
-    }
-  }, [limit])
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+      const payload = await parseJson<{ success?: boolean; error?: { message?: string } }>(response)
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error?.message || 'Failed to delete project')
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+    },
+  })
 
-  return { projects, loading, error, hasProjects: projects.length > 0, mostRecentProject: projects[0] ?? null }
+  const duplicateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/projects/${id}/duplicate`, { method: 'POST' })
+      const payload = await parseJson<{ success?: boolean; project?: ProjectListItem; error?: { message?: string } }>(response)
+      if (!response.ok || !payload?.success || !payload.project) {
+        throw new Error(payload?.error?.message || 'Failed to duplicate project')
+      }
+      return payload.project
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+    },
+  })
+
+  return {
+    projects: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error instanceof Error ? query.error.message : null,
+    refetch: query.refetch,
+    deleteProject: deleteMutation.mutateAsync,
+    isDeleting: deleteMutation.isPending,
+    duplicateProject: duplicateMutation.mutateAsync,
+    isDuplicating: duplicateMutation.isPending,
+    hasProjects: (query.data ?? []).length > 0,
+    mostRecentProject: query.data?.[0] ?? null,
+  }
 }

@@ -12,12 +12,26 @@ export async function GET(request: NextRequest, { params }: any) {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || request.nextUrl.origin
+  const settingsUrl = new URL('/settings/social-accounts', appUrl)
 
-  if (error) return NextResponse.redirect(new URL(`/settings/social-accounts?error=${provider}&reason=${error}`, request.url));
-  if (!code || !state) return NextResponse.redirect(new URL(`/settings/social-accounts?error=invalid_request`, request.url));
+  if (error) {
+    settingsUrl.searchParams.set('error', 'oauth_failed')
+    settingsUrl.searchParams.set('provider', provider)
+    return NextResponse.redirect(settingsUrl)
+  }
+  if (!code || !state) {
+    settingsUrl.searchParams.set('error', 'oauth_failed')
+    settingsUrl.searchParams.set('provider', provider)
+    return NextResponse.redirect(settingsUrl)
+  }
 
   const stateData = await getAndDeleteState(state);
-  if (!stateData || stateData.provider !== provider) return NextResponse.redirect(new URL(`/settings/social-accounts?error=invalid_state`, request.url));
+  if (!stateData || stateData.provider !== provider) {
+    settingsUrl.searchParams.set('error', 'invalid_state')
+    settingsUrl.searchParams.set('provider', provider)
+    return NextResponse.redirect(settingsUrl)
+  }
 
   // Surgical Fix: Dynamic Env Var Mapping and detailed logging
   const clientIdEnv = config.clientIdEnvVar || `${provider.toUpperCase()}_CLIENT_ID`;
@@ -28,7 +42,9 @@ export async function GET(request: NextRequest, { params }: any) {
 
   if (!clientId || !clientSecret) {
     console.error(`[OAuth Callback] Missing credentials for ${provider}. Checked: ${clientIdEnv}, ${clientSecretEnv}`);
-    return NextResponse.redirect(new URL(`/settings/social-accounts?error=server_config`, request.url));
+    settingsUrl.searchParams.set('error', 'oauth_failed')
+    settingsUrl.searchParams.set('provider', provider)
+    return NextResponse.redirect(settingsUrl)
   }
 
   const paramsBody = new URLSearchParams({
@@ -53,17 +69,23 @@ export async function GET(request: NextRequest, { params }: any) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error(`[OAuth Token Exchange Error] Provider: ${provider}, Status: ${tokenResponse.status}, Response:`, errorText);
-      return NextResponse.redirect(new URL(`/settings/social-accounts?error=token_exchange&provider=${provider}`, request.url));
+      settingsUrl.searchParams.set('error', 'oauth_failed')
+      settingsUrl.searchParams.set('provider', provider)
+      return NextResponse.redirect(settingsUrl)
     }
 
     const tokenData = await tokenResponse.json();
     const sealedAccess = await sealToken(tokenData.access_token);
     const sealedRefresh = tokenData.refresh_token ? await sealToken(tokenData.refresh_token) : null;
+    const providerAccountId = tokenData.open_id || tokenData.user_id || tokenData.sub || null
+    const providerUsername = tokenData.username || tokenData.screen_name || tokenData.user_name || null
 
     const supabase = await createClient();
     const { error: dbError } = await supabase.from("user_connections").upsert({
       user_id: stateData.userId,
       provider,
+      provider_user_id: providerAccountId,
+      provider_username: providerUsername,
       encrypted_access_token: sealedAccess.ciphertext,
       encrypted_refresh_token: sealedRefresh?.ciphertext || null,
       iv: sealedAccess.iv,
@@ -75,16 +97,21 @@ export async function GET(request: NextRequest, { params }: any) {
 
     if (dbError) {
       console.error("Database error:", dbError);
-      return NextResponse.redirect(new URL(`/settings/social-accounts?error=database`, request.url));
+      settingsUrl.searchParams.set('error', 'oauth_failed')
+      settingsUrl.searchParams.set('provider', provider)
+      return NextResponse.redirect(settingsUrl)
     }
 
     // Clear memory
     tokenData.access_token = null;
     if (tokenData.refresh_token) tokenData.refresh_token = null;
 
-    return NextResponse.redirect(new URL(`/settings/social-accounts?success=${provider}`, request.url));
+    settingsUrl.searchParams.set('connected', provider)
+    return NextResponse.redirect(settingsUrl);
   } catch (err: any) {
     console.error(`[OAuth Callback Fatal Error] Provider: ${provider}`, err);
-    return NextResponse.redirect(new URL(`/settings/social-accounts?error=callback_fatal&provider=${provider}`, request.url));
+    settingsUrl.searchParams.set('error', 'oauth_failed')
+    settingsUrl.searchParams.set('provider', provider)
+    return NextResponse.redirect(settingsUrl)
   }
 }

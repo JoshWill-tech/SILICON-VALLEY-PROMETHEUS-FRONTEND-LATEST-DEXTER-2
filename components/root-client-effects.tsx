@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { useActivityDetector } from '@/hooks/useActivityDetector'
 import { usePasteDetector } from '@/hooks/usePasteDetector'
+import { useUserPreferencesHydrator } from '@/hooks/use-user-preferences'
+import { ThemeInjector } from '@/components/theme/theme-injector'
 
 const AppToaster = dynamic(() => import('@/components/ui/app-toaster').then((mod) => mod.AppToaster), {
   ssr: false,
@@ -23,9 +25,11 @@ export function RootClientEffects() {
   const isAuthRoute = AUTH_ROUTE_REGEX.test(pathname)
   useActivityDetector()
   usePasteDetector()
+  useUserPreferencesHydrator()
 
   return (
     <>
+      <ThemeInjector />
       {isAuthRoute ? null : <CinematicClickRipple />}
       <AppToaster />
     </>

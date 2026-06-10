@@ -1,17 +1,21 @@
 'use client'
 
 import * as React from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getProviderMetadata } from '@/lib/oauth/provider-metadata'
 
 export type UserConnectionV2 = {
   id: string
-  user_id?: string | null
-  provider?: string | null
-  provider_account_id?: string | null
+  provider: string
+  platformName?: string | null
+  platformIcon?: string | null
+  providerAccountId?: string | null
+  accountName?: string | null
   connected?: boolean | null
-  status?: string | null
-  created_at?: string | null
-  updated_at?: string | null
+  status?: 'active' | 'expiring_soon' | 'expired' | 'disconnected' | null
+  lastSynced?: string | null
+  scope?: string[]
+  expiresAt?: string | null
+  updatedAt?: string | null
   [key: string]: unknown
 }
 
@@ -21,70 +25,54 @@ export function useUserConnections() {
   const [error, setError] = React.useState<string | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
-    let disposed = false
+  const refresh = React.useCallback(async () => {
+    setLoading(true)
+    setError(null)
 
-    async function fetchConnections() {
-      setLoading(true)
-      setError(null)
+    try {
+      const response = await fetch('/api/user/connections', {
+        method: 'GET',
+        cache: 'no-store',
+      })
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            success?: true
+            userId?: string | null
+            connections?: UserConnectionV2[]
+          }
+        | {
+            success?: false
+            error?: { message?: string }
+          }
+        | null
 
-      try {
-        const supabase = createClient()
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser()
-
-        if (disposed) return
-
-        if (authError) {
-          setError(authError.message)
-          setConnections([])
-          return
-        }
-
-        if (!user) {
-          setUserId(null)
-          setConnections([])
-          return
-        }
-
-        setUserId(user.id)
-
-        const { data, error: queryError } = await supabase
-          .from('user_connections')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-
-        if (disposed) return
-
-        if (queryError) {
-          setError(queryError.message)
-          setConnections([])
-          return
-        }
-
-        setConnections((data ?? []) as UserConnectionV2[])
-      } catch (caught) {
-        if (!disposed) setError(caught instanceof Error ? caught.message : 'Unable to load account connections.')
-      } finally {
-        if (!disposed) setLoading(false)
+      if (!response.ok || !payload?.success) {
+        const message =
+          payload && 'error' in payload && payload.error?.message
+            ? payload.error.message
+            : 'Unable to load account connections.'
+        throw new Error(message)
       }
-    }
 
-    void fetchConnections()
-
-    return () => {
-      disposed = true
+      setUserId(payload.userId ?? null)
+      setConnections(payload.connections ?? [])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to load account connections.')
+      setConnections([])
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  React.useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   const connectedProviders = React.useMemo(
     () =>
       new Set(
         connections
-          .filter((connection) => connection.connected !== false && connection.status !== 'disconnected')
+          .filter((connection) => connection.connected === true)
           .map((connection) => connection.provider)
           .filter((provider): provider is string => Boolean(provider)),
       ),
@@ -98,6 +86,8 @@ export function useUserConnections() {
     loading,
     error,
     empty: !loading && !error && connections.length === 0,
+    refresh,
     isConnected: (provider: string) => connectedProviders.has(provider),
+    getMetadata: (provider: string) => getProviderMetadata(provider),
   }
 }

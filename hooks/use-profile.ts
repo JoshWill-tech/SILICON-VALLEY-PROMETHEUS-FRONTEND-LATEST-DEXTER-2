@@ -7,14 +7,21 @@ export type ProfileV2 = {
   id: string
   full_name?: string | null
   name?: string | null
+  display_name?: string | null
   email?: string | null
   avatar_url?: string | null
+  bio?: string | null
+  pronouns?: string | null
+  location?: string | null
+  theme_preference?: string | null
+  font_preference?: string | null
+  notification_preferences?: Record<string, unknown> | null
   storage_quota_bytes?: number | null
   [key: string]: unknown
 }
 
 export function getProfileDisplayName(profile: ProfileV2 | null | undefined) {
-  return profile?.full_name?.trim() || profile?.name?.trim() || 'Account'
+  return profile?.display_name?.trim() || profile?.full_name?.trim() || profile?.name?.trim() || 'Account'
 }
 
 export function useProfile() {
@@ -49,7 +56,13 @@ export function useProfile() {
           return
         }
 
-        const { data, error: queryError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+        const { data, error: queryError } = await supabase
+          .from('profiles')
+          .select(
+            'id, full_name, name, display_name, email, avatar_url, bio, pronouns, location, theme_preference, font_preference, notification_preferences, storage_quota_bytes',
+          )
+          .eq('id', user.id)
+          .maybeSingle()
 
         if (disposed) return
 
@@ -74,5 +87,13 @@ export function useProfile() {
     }
   }, [])
 
-  return { profile, loading, error, displayName: getProfileDisplayName(profile) }
+  return {
+    profile,
+    loading,
+    error,
+    displayName: getProfileDisplayName(profile),
+    themePreference: profile?.theme_preference ?? null,
+    fontPreference: profile?.font_preference ?? null,
+    notificationPreferences: profile?.notification_preferences ?? null,
+  }
 }

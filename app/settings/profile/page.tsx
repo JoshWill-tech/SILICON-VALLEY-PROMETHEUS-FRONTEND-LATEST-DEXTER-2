@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { useAuth } from '@/components/auth/auth-provider'
+import { AvatarCropModal } from '@/components/settings/avatar-crop-modal'
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,16 +41,48 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { useAvatarUpload } from '@/hooks/use-avatar-upload'
+import { useProfile } from '@/hooks/use-profile'
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  normalizeNotificationPreferences,
+  type NotificationPreferences,
+  useNotificationPreferenceStore,
+} from '@/lib/notifications/preference-store'
+import { syncNotificationPreferences, syncProfilePreferences } from '@/lib/profile/preferences-client'
+import { useThemePreferenceStore } from '@/lib/theme/theme-store'
+import { FONT_PRESETS, THEME_PRESETS } from '@/lib/theme/theme-tokens'
+import { AvatarUploadError, validateAvatarFile } from '@/lib/upload/avatar-upload'
 import { cn } from '@/lib/utils'
 
 const SAVE_DELAY_MS = 800
 
-const themeSchema = z.enum(['midnight', 'obsidian', 'deep-space'])
+const THEME_IDS = ['obsidian', 'midnight', 'ember', 'forest', 'aurora', 'glacier', 'rose-gold', 'solar'] as const
+const FONT_IDS = ['inter', 'sf-pro-display', 'geist', 'jetbrains-mono', 'playfair-display', 'space-grotesk'] as const
+
+const themeSchema = z.enum(THEME_IDS)
+const fontSchema = z.enum(FONT_IDS)
 const accentSchema = z.enum(['indigo', 'violet', 'cyan', 'emerald', 'amber', 'rose'])
 const densitySchema = z.enum(['compact', 'comfortable', 'spacious'])
 const sidebarSchema = z.enum(['left', 'right', 'collapsed'])
 const exportQualitySchema = z.enum(['draft', 'standard', 'maximum'])
 const exportFormatSchema = z.enum(['mp4', 'mov', 'prores'])
+const pronounPresetSchema = z.enum(['she/her', 'he/him', 'they/them', 'any/all', 'custom'])
+
+const notificationPreferencesSchema = z.object({
+  email: z.object({
+    marketing: z.boolean(),
+    security: z.boolean(),
+    updates: z.boolean(),
+  }),
+  push: z.object({
+    browser: z.boolean(),
+  }),
+  inApp: z.object({
+    realtime: z.boolean(),
+  }),
+})
 
 const profileSettingsSchema = z.object({
   username: z
@@ -58,22 +91,23 @@ const profileSettingsSchema = z.object({
     .min(2, 'Use at least 2 characters')
     .max(32, 'Keep username under 32 characters')
     .regex(/^[a-zA-Z0-9_.-]+$/, 'Use letters, numbers, dots, dashes, or underscores'),
-  displayName: z.string().trim().min(1, 'Display name is required').max(80, 'Keep display name under 80 characters'),
+  displayName: z
+    .string()
+    .trim()
+    .min(2, 'Use at least 2 characters')
+    .max(50, 'Keep display name under 50 characters')
+    .regex(/^[A-Za-z]+(?:[A-Za-z -]*[A-Za-z])?$/, 'Use letters, spaces, or hyphens only'),
   avatarUrl: z.string().optional(),
+  bio: z.string().trim().max(500, 'Keep bio under 500 characters'),
+  pronouns: z.string().trim().max(64),
+  pronounPreset: pronounPresetSchema,
+  location: z.string().trim().max(100, 'Keep location under 100 characters'),
   theme: themeSchema,
+  fontPreference: fontSchema,
   accent: accentSchema,
   density: densitySchema,
   sidebar: sidebarSchema,
-  emailNotifications: z.object({
-    exportCompletions: z.boolean(),
-    aiTaskCompletions: z.boolean(),
-    billingReminders: z.boolean(),
-  }),
-  inAppNotifications: z.object({
-    showToasts: z.boolean(),
-    playSound: z.boolean(),
-    showBadges: z.boolean(),
-  }),
+  notificationPreferences: notificationPreferencesSchema,
   defaultExportQuality: exportQualitySchema,
   defaultFormat: exportFormatSchema,
   twoFactorEnabled: z.boolean(),
@@ -83,14 +117,16 @@ const profileSettingsSchema = z.object({
 
 type ProfileSettingsFormValues = z.infer<typeof profileSettingsSchema>
 type ThemeValue = z.infer<typeof themeSchema>
+type FontValue = z.infer<typeof fontSchema>
 type AccentValue = z.infer<typeof accentSchema>
 type DensityValue = z.infer<typeof densitySchema>
 type SidebarValue = z.infer<typeof sidebarSchema>
 type ExportQualityValue = z.infer<typeof exportQualitySchema>
 type ExportFormatValue = z.infer<typeof exportFormatSchema>
-type SaveTarget = 'username' | 'displayName' | 'resetPassword' | 'apiKey' | 'session' | null
+type SaveTarget = 'username' | 'displayName' | 'bio' | 'pronouns' | 'location' | 'avatar' | 'resetPassword' | 'apiKey' | 'session' | null
 type PreferenceTarget =
   | 'theme'
+  | 'font'
   | 'accent'
   | 'density'
   | 'sidebar'
@@ -103,20 +139,16 @@ const DEFAULT_VALUES: ProfileSettingsFormValues = {
   username: 'creator',
   displayName: 'Creative Operator',
   avatarUrl: '',
-  theme: 'midnight',
+  bio: '',
+  pronouns: '',
+  pronounPreset: 'they/them',
+  location: '',
+  theme: 'obsidian',
+  fontPreference: 'inter',
   accent: 'indigo',
   density: 'comfortable',
   sidebar: 'left',
-  emailNotifications: {
-    exportCompletions: true,
-    aiTaskCompletions: true,
-    billingReminders: false,
-  },
-  inAppNotifications: {
-    showToasts: true,
-    playSound: false,
-    showBadges: true,
-  },
+  notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
   defaultExportQuality: 'standard',
   defaultFormat: 'mp4',
   twoFactorEnabled: false,
@@ -128,30 +160,32 @@ const THEME_OPTIONS: Array<{
   value: ThemeValue
   label: string
   description: string
-  previewClassName: string
-  implemented: boolean
+  background: string
+  foreground: string
+  accent: string
 }> = [
-  {
-    value: 'midnight',
-    label: 'Midnight',
-    description: 'Current dark',
-    previewClassName: 'bg-[linear-gradient(180deg,rgba(19,20,26,0.9)_0%,rgba(9,10,13,0.94)_100%)]',
-    implemented: true,
-  },
-  {
-    value: 'obsidian',
-    label: 'Obsidian',
-    description: 'OLED black',
-    previewClassName: 'bg-black',
-    implemented: false,
-  },
-  {
-    value: 'deep-space',
-    label: 'Deep Space',
-    description: 'Blue tint',
-    previewClassName: 'bg-[linear-gradient(180deg,rgba(17,24,39,0.92)_0%,rgba(5,10,20,0.98)_100%)]',
-    implemented: false,
-  },
+  ...THEME_PRESETS.map((preset) => ({
+    value: preset.id,
+    label: preset.name,
+    description: `${preset.background} · ${preset.accent}`,
+    background: preset.background,
+    foreground: preset.foreground,
+    accent: preset.accent,
+  })),
+]
+
+const FONT_OPTIONS: Array<{ value: FontValue; label: string; stack: string }> = FONT_PRESETS.map((preset) => ({
+  value: preset.id,
+  label: preset.name,
+  stack: preset.stack,
+}))
+
+const PRONOUN_OPTIONS: Array<{ value: z.infer<typeof pronounPresetSchema>; label: string }> = [
+  { value: 'she/her', label: 'She / her' },
+  { value: 'he/him', label: 'He / him' },
+  { value: 'they/them', label: 'They / them' },
+  { value: 'any/all', label: 'Any / all' },
+  { value: 'custom', label: 'Custom' },
 ]
 
 const ACCENT_OPTIONS: Array<{
@@ -258,27 +292,58 @@ function readBoolean(key: string, fallback: boolean) {
   return fallback
 }
 
-function loadSettings(email: string | undefined | null): ProfileSettingsFormValues {
+function inferPronounPreset(pronouns: string | undefined | null): ProfileSettingsFormValues['pronounPreset'] {
+  if (!pronouns) return DEFAULT_VALUES.pronounPreset
+  const normalized = pronouns.toLowerCase()
+  if (normalized === 'she/her') return 'she/her'
+  if (normalized === 'he/him') return 'he/him'
+  if (normalized === 'they/them') return 'they/them'
+  if (normalized === 'any/all') return 'any/all'
+  return 'custom'
+}
+
+function loadSettings(
+  email: string | undefined | null,
+  profile?: {
+    avatar_url?: string | null
+    bio?: string | null
+    display_name?: string | null
+    font_preference?: string | null
+    location?: string | null
+    notification_preferences?: Record<string, unknown> | null
+    pronouns?: string | null
+    theme_preference?: string | null
+  } | null,
+): ProfileSettingsFormValues {
   const emailUsername = getEmailUsername(email)
-  const notifications = readJson('prometheus_profile_notifications', {
-    emailNotifications: DEFAULT_VALUES.emailNotifications,
-    inAppNotifications: DEFAULT_VALUES.inAppNotifications,
-  })
+  const notifications = normalizeNotificationPreferences(
+    (profile?.notification_preferences as Partial<NotificationPreferences> | null) ??
+      readJson('prometheus_profile_notifications', DEFAULT_VALUES.notificationPreferences),
+  )
   const exportDefaults = readJson('prometheus_default_export_settings', {
     defaultExportQuality: DEFAULT_VALUES.defaultExportQuality,
     defaultFormat: DEFAULT_VALUES.defaultFormat,
   })
+  const resolvedPronouns = profile?.pronouns ?? safeRead('prometheus_profile_pronouns') ?? DEFAULT_VALUES.pronouns
 
   const candidate = {
     ...DEFAULT_VALUES,
     username: safeRead('prometheus_username') || emailUsername,
-    displayName: safeRead('prometheus_display_name') || emailUsername,
-    theme: safeRead('prometheus_theme') || DEFAULT_VALUES.theme,
+    displayName: profile?.display_name ?? safeRead('prometheus_display_name') ?? emailUsername,
+    avatarUrl: profile?.avatar_url ?? safeRead('prometheus_avatar_url') ?? DEFAULT_VALUES.avatarUrl,
+    bio: profile?.bio ?? safeRead('prometheus_profile_bio') ?? DEFAULT_VALUES.bio,
+    pronouns: resolvedPronouns,
+    pronounPreset: inferPronounPreset(resolvedPronouns),
+    location: profile?.location ?? safeRead('prometheus_profile_location') ?? DEFAULT_VALUES.location,
+    theme: (profile?.theme_preference as ThemeValue | null) ?? (safeRead('prometheus_theme') as ThemeValue | null) ?? DEFAULT_VALUES.theme,
+    fontPreference:
+      (profile?.font_preference as FontValue | null) ??
+      (safeRead('prometheus_font_preference') as FontValue | null) ??
+      DEFAULT_VALUES.fontPreference,
     accent: safeRead('prometheus_accent') || DEFAULT_VALUES.accent,
     density: safeRead('prometheus_density') || DEFAULT_VALUES.density,
     sidebar: safeRead('prometheus_sidebar_position') || DEFAULT_VALUES.sidebar,
-    emailNotifications: notifications.emailNotifications || DEFAULT_VALUES.emailNotifications,
-    inAppNotifications: notifications.inAppNotifications || DEFAULT_VALUES.inAppNotifications,
+    notificationPreferences: notifications,
     defaultExportQuality: exportDefaults.defaultExportQuality || DEFAULT_VALUES.defaultExportQuality,
     defaultFormat: exportDefaults.defaultFormat || DEFAULT_VALUES.defaultFormat,
     twoFactorEnabled: readBoolean('prometheus_two_factor_enabled', DEFAULT_VALUES.twoFactorEnabled),
@@ -293,17 +358,16 @@ function loadSettings(email: string | undefined | null): ProfileSettingsFormValu
 function persistSettings(values: ProfileSettingsFormValues) {
   safeWrite('prometheus_username', values.username)
   safeWrite('prometheus_display_name', values.displayName)
+  safeWrite('prometheus_avatar_url', values.avatarUrl || '')
+  safeWrite('prometheus_profile_bio', values.bio)
+  safeWrite('prometheus_profile_pronouns', values.pronouns)
+  safeWrite('prometheus_profile_location', values.location)
   safeWrite('prometheus_theme', values.theme)
+  safeWrite('prometheus_font_preference', values.fontPreference)
   safeWrite('prometheus_accent', values.accent)
   safeWrite('prometheus_density', values.density)
   safeWrite('prometheus_sidebar_position', values.sidebar)
-  safeWrite(
-    'prometheus_profile_notifications',
-    JSON.stringify({
-      emailNotifications: values.emailNotifications,
-      inAppNotifications: values.inAppNotifications,
-    }),
-  )
+  safeWrite('prometheus_profile_notifications', JSON.stringify(values.notificationPreferences))
   safeWrite(
     'prometheus_default_export_settings',
     JSON.stringify({
@@ -319,7 +383,6 @@ function persistSettings(values: ProfileSettingsFormValues) {
 function applyUiPreferences(theme: ThemeValue, accent: AccentValue, density: DensityValue) {
   if (typeof document === 'undefined') return
   const accentOption = ACCENT_OPTIONS.find((option) => option.value === accent) ?? ACCENT_OPTIONS[0]
-  document.documentElement.dataset.theme = theme
   document.documentElement.dataset.accent = accent
   document.documentElement.style.setProperty('--accent', accentOption.hex)
   document.body.dataset.density = density
@@ -333,8 +396,13 @@ function getMaskedApiKey(apiKey: string, revealed: boolean) {
 export default function ProfileSettingsPage() {
   const router = useRouter()
   const { session, isLoading: authLoading } = useAuth()
+  const { profile } = useProfile()
+  const { upload: uploadAvatarToR2, isUploading: isAvatarUploading, progress: avatarUploadProgress, reset: resetAvatarUploadError } = useAvatarUpload()
+  const setThemeAndFont = useThemePreferenceStore((state) => state.setThemeAndFont)
+  const setNotificationPreferences = useNotificationPreferenceStore((state) => state.setPreferences)
   const email = session?.user?.email ?? ''
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const previousAvatarUrlRef = React.useRef('')
 
   const form = useForm<ProfileSettingsFormValues>({
     resolver: zodResolver(profileSettingsSchema),
@@ -355,17 +423,15 @@ export default function ProfileSettingsPage() {
   const watchedValues = useWatch({ control })
   const username = watchedValues.username ?? DEFAULT_VALUES.username
   const selectedTheme = watchedValues.theme ?? DEFAULT_VALUES.theme
+  const selectedFont = watchedValues.fontPreference ?? DEFAULT_VALUES.fontPreference
   const selectedAccent = watchedValues.accent ?? DEFAULT_VALUES.accent
   const selectedDensity = watchedValues.density ?? DEFAULT_VALUES.density
   const selectedSidebar = watchedValues.sidebar ?? DEFAULT_VALUES.sidebar
-  const emailNotifications = {
-    ...DEFAULT_VALUES.emailNotifications,
-    ...watchedValues.emailNotifications,
-  }
-  const inAppNotifications = {
-    ...DEFAULT_VALUES.inAppNotifications,
-    ...watchedValues.inAppNotifications,
-  }
+  const bio = watchedValues.bio ?? DEFAULT_VALUES.bio
+  const pronouns = watchedValues.pronouns ?? DEFAULT_VALUES.pronouns
+  const pronounPreset = watchedValues.pronounPreset ?? DEFAULT_VALUES.pronounPreset
+  const location = watchedValues.location ?? DEFAULT_VALUES.location
+  const notificationPreferences = normalizeNotificationPreferences(watchedValues.notificationPreferences)
   const defaultExportQuality = watchedValues.defaultExportQuality ?? DEFAULT_VALUES.defaultExportQuality
   const defaultFormat = watchedValues.defaultFormat ?? DEFAULT_VALUES.defaultFormat
   const apiKey = watchedValues.apiKey ?? DEFAULT_VALUES.apiKey
@@ -373,6 +439,8 @@ export default function ProfileSettingsPage() {
 
   const [settingsReady, setSettingsReady] = React.useState(false)
   const [avatarPreview, setAvatarPreview] = React.useState('')
+  const [avatarCropSource, setAvatarCropSource] = React.useState<string | null>(null)
+  const [isAvatarCropOpen, setIsAvatarCropOpen] = React.useState(false)
   const [savingTarget, setSavingTarget] = React.useState<SaveTarget>(null)
   const [savedTarget, setSavedTarget] = React.useState<SaveTarget>(null)
   const [savingPreference, setSavingPreference] = React.useState<PreferenceTarget>(null)
@@ -383,21 +451,30 @@ export default function ProfileSettingsPage() {
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
 
   React.useEffect(() => {
-    const nextSettings = loadSettings(email)
+    const nextSettings = loadSettings(email, profile)
     reset(nextSettings)
     applyUiPreferences(nextSettings.theme, nextSettings.accent, nextSettings.density)
+    setThemeAndFont({ themeId: nextSettings.theme, fontId: nextSettings.fontPreference })
+    setNotificationPreferences(nextSettings.notificationPreferences)
     setSettingsReady(true)
-  }, [email, reset])
+  }, [email, profile, reset, setNotificationPreferences, setThemeAndFont])
 
   React.useEffect(() => {
     if (!settingsReady) return
     applyUiPreferences(selectedTheme, selectedAccent, selectedDensity)
-  }, [selectedAccent, selectedDensity, selectedTheme, settingsReady])
+    setThemeAndFont({ themeId: selectedTheme, fontId: selectedFont })
+    setNotificationPreferences(notificationPreferences)
+  }, [notificationPreferences, selectedAccent, selectedDensity, selectedFont, selectedTheme, setNotificationPreferences, setThemeAndFont, settingsReady])
 
   React.useEffect(() => {
     if (!avatarPreview.startsWith('blob:')) return
     return () => URL.revokeObjectURL(avatarPreview)
   }, [avatarPreview])
+
+  React.useEffect(() => {
+    if (!avatarCropSource?.startsWith('blob:')) return
+    return () => URL.revokeObjectURL(avatarCropSource)
+  }, [avatarCropSource])
 
   async function markPreferenceSaved(target: PreferenceTarget) {
     setSavingPreference(target)
@@ -410,17 +487,79 @@ export default function ProfileSettingsPage() {
     if (parsed.success) persistSettings(parsed.data)
   }
 
-  async function saveTextField(target: 'username' | 'displayName') {
+  async function saveProfilePreferencesForCurrentValues(target: SaveTarget | PreferenceTarget) {
+    const parsed = profileSettingsSchema.safeParse(getValues())
+    if (!parsed.success) return false
+
+    persistSettings(parsed.data)
+
+    if (!session?.user) return true
+
+    if (target === 'notifications') {
+      await syncNotificationPreferences(parsed.data.notificationPreferences)
+      setNotificationPreferences(parsed.data.notificationPreferences)
+      return true
+    }
+
+    await syncProfilePreferences({
+      displayName: parsed.data.displayName,
+      bio: parsed.data.bio || undefined,
+      pronouns: parsed.data.pronouns || undefined,
+      location: parsed.data.location || undefined,
+      themePreference: parsed.data.theme,
+      fontPreference: parsed.data.fontPreference,
+      avatarUrl:
+        parsed.data.avatarUrl && !parsed.data.avatarUrl.startsWith('blob:')
+          ? parsed.data.avatarUrl
+          : undefined,
+    })
+
+    return true
+  }
+
+  async function saveTextField(target: 'username' | 'displayName' | 'bio' | 'pronouns' | 'location') {
     const isValid = await trigger(target)
     if (!isValid) return
 
     setSavingTarget(target)
-    await delay()
-    persistCurrentSettings()
-    setSavingTarget(null)
-    setSavedTarget(target)
-    toast.success(target === 'username' ? 'Username saved' : 'Display name saved')
-    window.setTimeout(() => setSavedTarget(null), 1400)
+    try {
+      await delay()
+      if (target === 'username') {
+        persistCurrentSettings()
+      } else {
+        await saveProfilePreferencesForCurrentValues(target)
+      }
+      setSavedTarget(target)
+      toast.success(
+        target === 'displayName'
+          ? 'Display name saved'
+          : target === 'bio'
+            ? 'Bio saved'
+            : target === 'pronouns'
+              ? 'Pronouns saved'
+              : target === 'location'
+                ? 'Location saved'
+                : 'Username saved',
+      )
+      window.setTimeout(() => setSavedTarget(null), 1400)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to save field.')
+    } finally {
+      setSavingTarget(null)
+    }
+  }
+
+  function clearSelectedAvatarSource() {
+    setAvatarCropSource((current) => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current)
+      }
+      return null
+    })
+    setIsAvatarCropOpen(false)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   function updatePreference<T extends FieldPath<ProfileSettingsFormValues>>(
@@ -429,33 +568,119 @@ export default function ProfileSettingsPage() {
     value: FieldPathValue<ProfileSettingsFormValues, T>,
   ) {
     setValue(field, value, { shouldDirty: true, shouldValidate: true })
-    window.setTimeout(persistCurrentSettings, 0)
+    window.setTimeout(() => {
+      persistCurrentSettings()
+      if (target === 'theme' || target === 'font') {
+        void saveProfilePreferencesForCurrentValues(target).catch((error) => {
+          toast.error(error instanceof Error ? error.message : 'Unable to save preferences.')
+        })
+      }
+    }, 0)
+
+    if (target === 'theme') {
+      setThemeAndFont({
+        themeId: field === 'theme' ? (value as ThemeValue) : selectedTheme,
+        fontId: field === 'fontPreference' ? (value as FontValue) : selectedFont,
+      })
+    }
+
+    if (target === 'font') {
+      setThemeAndFont({
+        themeId: field === 'theme' ? (value as ThemeValue) : selectedTheme,
+        fontId: field === 'fontPreference' ? (value as FontValue) : selectedFont,
+      })
+    }
+
     void markPreferenceSaved(target)
   }
 
   function updateNestedPreference(
     target: PreferenceTarget,
     field:
-      | 'emailNotifications.exportCompletions'
-      | 'emailNotifications.aiTaskCompletions'
-      | 'emailNotifications.billingReminders'
-      | 'inAppNotifications.showToasts'
-      | 'inAppNotifications.playSound'
-      | 'inAppNotifications.showBadges',
+      | 'notificationPreferences.email.marketing'
+      | 'notificationPreferences.email.security'
+      | 'notificationPreferences.email.updates'
+      | 'notificationPreferences.push.browser'
+      | 'notificationPreferences.inApp.realtime',
     value: boolean,
   ) {
     setValue(field, value, { shouldDirty: true, shouldValidate: true })
-    window.setTimeout(persistCurrentSettings, 0)
+    window.setTimeout(() => {
+      persistCurrentSettings()
+      void saveProfilePreferencesForCurrentValues('notifications').catch((error) => {
+        toast.error(error instanceof Error ? error.message : 'Unable to save notification preferences.')
+      })
+    }, 0)
     void markPreferenceSaved(target)
   }
 
   function handleAvatarChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
-    const previewUrl = URL.createObjectURL(file)
-    setAvatarPreview(previewUrl)
-    setValue('avatarUrl', previewUrl, { shouldDirty: true })
-    toast.success('Avatar preview updated')
+
+    try {
+      validateAvatarFile(file)
+      resetAvatarUploadError()
+
+      const previewUrl = URL.createObjectURL(file)
+      setAvatarCropSource(previewUrl)
+      setIsAvatarCropOpen(true)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to use that image.')
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  async function handleAvatarCropComplete(croppedImageBlob: Blob) {
+    const previousAvatarUrl = watchedValues.avatarUrl || ''
+    previousAvatarUrlRef.current = previousAvatarUrl
+
+    const optimisticPreviewUrl = URL.createObjectURL(croppedImageBlob)
+    const croppedFile = new File([croppedImageBlob], 'avatar.webp', {
+      type: 'image/webp',
+    })
+
+    setSavingTarget('avatar')
+    setAvatarPreview(optimisticPreviewUrl)
+    setValue('avatarUrl', optimisticPreviewUrl, { shouldDirty: true, shouldValidate: true })
+
+    try {
+      const { publicUrl } = await uploadAvatarToR2(croppedFile)
+      setValue('avatarUrl', publicUrl, { shouldDirty: true, shouldValidate: true })
+      setAvatarPreview(publicUrl)
+      clearSelectedAvatarSource()
+
+      try {
+        await saveProfilePreferencesForCurrentValues('avatar')
+        toast.success('Avatar updated')
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? `Avatar saved to storage but profile not updated. ${error.message}`
+            : 'Avatar saved to storage but profile not updated.',
+        )
+      }
+    } catch (error) {
+      setValue('avatarUrl', previousAvatarUrl, { shouldDirty: true, shouldValidate: true })
+      setAvatarPreview(previousAvatarUrl)
+
+      if (error instanceof AvatarUploadError && error.code === 'SESSION_EXPIRED') {
+        toast.error(error.message)
+        clearSelectedAvatarSource()
+        router.push('/login')
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Upload failed. Check your connection.')
+      }
+
+      throw error
+    } finally {
+      setSavingTarget(null)
+      if (!isAvatarCropOpen) {
+        clearSelectedAvatarSource()
+      }
+    }
   }
 
   async function handleResetPassword() {
@@ -514,6 +739,7 @@ export default function ProfileSettingsPage() {
 
   const currentAccent = ACCENT_OPTIONS.find((option) => option.value === selectedAccent) ?? ACCENT_OPTIONS[0]
   const initials = getInitial(email, username)
+  const avatarImage = avatarPreview || watchedValues.avatarUrl || ''
 
   return (
     <PrometheusShell>
@@ -541,23 +767,46 @@ export default function ProfileSettingsPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isAvatarUploading}
                     className="group relative flex size-20 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#6366f1] text-2xl font-bold text-white shadow-[0_18px_54px_-24px_rgba(99,102,241,0.95)]"
-                    style={{ background: avatarPreview ? undefined : 'var(--accent, #6366f1)' }}
+                    style={{ background: avatarImage ? undefined : 'var(--accent, #6366f1)' }}
                     aria-label="Upload avatar"
+                    aria-describedby="avatar-upload-status"
                   >
-                    {avatarPreview ? (
+                    {avatarImage ? (
                       // Local object URLs are not compatible with next/image.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={avatarPreview} alt="" className="h-full w-full object-cover" />
+                      <img src={avatarImage} alt="" className="h-full w-full object-cover" />
                     ) : (
                       initials
                     )}
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                      <Upload className="size-5" />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-disabled:opacity-100">
+                      {isAvatarUploading ? <Loader2 className="size-5 animate-spin" /> : <Upload className="size-5" />}
                     </span>
                   </button>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                  <div className="text-xs text-white/42">Click to upload</div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                  <div id="avatar-upload-status" className="text-xs text-white/42">
+                    {isAvatarUploading ? `Uploading avatar: ${avatarUploadProgress}%` : 'JPG, PNG, or WebP under 5MB'}
+                  </div>
+                  {isAvatarUploading ? (
+                    <div className="w-full max-w-[10rem]" aria-hidden="true">
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-[var(--theme-accent)] transition-[width] duration-200 ease-out"
+                          style={{ width: `${avatarUploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  <p className="sr-only" aria-live="polite">
+                    {isAvatarUploading ? `Uploading avatar, ${avatarUploadProgress}% complete.` : ''}
+                  </p>
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-5">
@@ -594,6 +843,7 @@ export default function ProfileSettingsPage() {
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Input
                         {...register('displayName')}
+                        onBlur={() => void saveTextField('displayName')}
                         className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#6366f1]/70 focus:ring-[#6366f1]/20"
                       />
                       <Button type="button" size="sm" variant="secondary" disabled={savingTarget === 'displayName'} onClick={() => void saveTextField('displayName')}>
@@ -602,6 +852,63 @@ export default function ProfileSettingsPage() {
                       </Button>
                     </div>
                   </FieldRow>
+
+                  <FieldRow
+                    label="Bio"
+                    description="A short profile that appears across your workspace and shared exports."
+                    error={errors.bio?.message}
+                  >
+                    <div className="space-y-2">
+                      <Textarea
+                        {...register('bio')}
+                        onBlur={() => void saveTextField('bio')}
+                        className={cn(
+                          'min-h-28 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#6366f1]/70 focus:ring-[#6366f1]/20',
+                          bio.length >= 450 && 'border-amber-400/60',
+                        )}
+                      />
+                      <div className={cn('text-right text-xs text-white/38', bio.length >= 450 && 'text-amber-300')}>
+                        {bio.length}/500
+                      </div>
+                    </div>
+                  </FieldRow>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <FieldRow label="Pronouns" error={errors.pronouns?.message}>
+                      <div className="space-y-2">
+                        <SelectField
+                          value={pronounPreset}
+                          options={PRONOUN_OPTIONS}
+                          onChange={(value) => {
+                            setValue('pronounPreset', value, { shouldDirty: true })
+                            if (value !== 'custom') {
+                              setValue('pronouns', value, { shouldDirty: true, shouldValidate: true })
+                              void saveTextField('pronouns')
+                            } else {
+                              setValue('pronouns', '', { shouldDirty: true, shouldValidate: true })
+                            }
+                          }}
+                        />
+                        {pronounPreset === 'custom' ? (
+                          <Input
+                            {...register('pronouns')}
+                            onBlur={() => void saveTextField('pronouns')}
+                            placeholder="Add your pronouns"
+                            className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#6366f1]/70 focus:ring-[#6366f1]/20"
+                          />
+                        ) : null}
+                      </div>
+                    </FieldRow>
+
+                    <FieldRow label="Location" error={errors.location?.message}>
+                      <Input
+                        {...register('location')}
+                        onBlur={() => void saveTextField('location')}
+                        placeholder="City, country"
+                        className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#6366f1]/70 focus:ring-[#6366f1]/20"
+                      />
+                    </FieldRow>
+                  </div>
                 </div>
               </div>
             </ProfileCard>
@@ -613,9 +920,15 @@ export default function ProfileSettingsPage() {
                   <ThemeSelector
                     value={selectedTheme}
                     onChange={(nextTheme) => {
-                      if (nextTheme !== 'midnight') toast.info('Coming soon')
                       updatePreference('theme', 'theme', nextTheme)
                     }}
+                  />
+                </PreferenceBlock>
+
+                <PreferenceBlock label="Primary Font" saving={savingPreference === 'font'}>
+                  <FontSelector
+                    value={selectedFont}
+                    onChange={(nextFont) => updatePreference('font', 'fontPreference', nextFont)}
                   />
                 </PreferenceBlock>
 
@@ -647,19 +960,33 @@ export default function ProfileSettingsPage() {
                 <PreferenceBlock label="Email Notifications" saving={savingPreference === 'notifications'}>
                   <div className="space-y-3">
                     <NotificationToggle
-                      label="Export completions"
-                      checked={emailNotifications.exportCompletions}
-                      onChange={(checked) => updateNestedPreference('notifications', 'emailNotifications.exportCompletions', checked)}
+                      label="Marketing announcements"
+                      description="Product launches, offers, and event invites."
+                      checked={notificationPreferences.email.marketing}
+                      onChange={(checked) => updateNestedPreference('notifications', 'notificationPreferences.email.marketing', checked)}
                     />
                     <NotificationToggle
-                      label="AI task completions"
-                      checked={emailNotifications.aiTaskCompletions}
-                      onChange={(checked) => updateNestedPreference('notifications', 'emailNotifications.aiTaskCompletions', checked)}
+                      label="Security alerts"
+                      description="Critical account activity and login warnings."
+                      checked={notificationPreferences.email.security}
+                      onChange={(checked) => updateNestedPreference('notifications', 'notificationPreferences.email.security', checked)}
                     />
                     <NotificationToggle
-                      label="Billing reminders"
-                      checked={emailNotifications.billingReminders}
-                      onChange={(checked) => updateNestedPreference('notifications', 'emailNotifications.billingReminders', checked)}
+                      label="Product updates"
+                      description="New workflows, fixes, and shipping notes."
+                      checked={notificationPreferences.email.updates}
+                      onChange={(checked) => updateNestedPreference('notifications', 'notificationPreferences.email.updates', checked)}
+                    />
+                  </div>
+                </PreferenceBlock>
+
+                <PreferenceBlock label="Push Notifications" saving={savingPreference === 'notifications'}>
+                  <div className="space-y-3">
+                    <NotificationToggle
+                      label="Browser push"
+                      description="Desktop browser alerts for exports and renders."
+                      checked={notificationPreferences.push.browser}
+                      onChange={(checked) => updateNestedPreference('notifications', 'notificationPreferences.push.browser', checked)}
                     />
                   </div>
                 </PreferenceBlock>
@@ -667,19 +994,10 @@ export default function ProfileSettingsPage() {
                 <PreferenceBlock label="In-App Notifications" saving={savingPreference === 'notifications'}>
                   <div className="space-y-3">
                     <NotificationToggle
-                      label="Show toast notifications"
-                      checked={inAppNotifications.showToasts}
-                      onChange={(checked) => updateNestedPreference('notifications', 'inAppNotifications.showToasts', checked)}
-                    />
-                    <NotificationToggle
-                      label="Play sound on task completion"
-                      checked={inAppNotifications.playSound}
-                      onChange={(checked) => updateNestedPreference('notifications', 'inAppNotifications.playSound', checked)}
-                    />
-                    <NotificationToggle
-                      label="Show badge counts on project cards"
-                      checked={inAppNotifications.showBadges}
-                      onChange={(checked) => updateNestedPreference('notifications', 'inAppNotifications.showBadges', checked)}
+                      label="Real-time activity stream"
+                      description="Inline updates for renders, exports, and project activity."
+                      checked={notificationPreferences.inApp.realtime}
+                      onChange={(checked) => updateNestedPreference('notifications', 'notificationPreferences.inApp.realtime', checked)}
                     />
                   </div>
                 </PreferenceBlock>
@@ -823,6 +1141,12 @@ export default function ProfileSettingsPage() {
         onClose={() => setDeactivateOpen(false)}
         onDeactivate={() => router.push('/goodbye')}
       />
+      <AvatarCropModal
+        imageSrc={avatarCropSource || ''}
+        isOpen={isAvatarCropOpen && Boolean(avatarCropSource)}
+        onClose={clearSelectedAvatarSource}
+        onCropComplete={handleAvatarCropComplete}
+      />
     </PrometheusShell>
   )
 }
@@ -906,14 +1230,18 @@ function ThemeSelector({ onChange, value }: { onChange: (value: ThemeValue) => v
           <button
             key={option.value}
             type="button"
-            title={option.implemented ? option.label : 'Coming soon'}
             onClick={() => onChange(option.value)}
             className={cn(
-              'relative rounded-[18px] border bg-white/[0.03] p-3 text-left transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12]',
+              'group relative overflow-visible rounded-[18px] border bg-white/[0.03] p-3 text-left transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12]',
               selected ? 'border-[#6366f1]/36 shadow-[0_0_30px_rgba(99,102,241,0.24)]' : 'border-white/10',
             )}
           >
-            <div className={cn('h-12 rounded-[12px] border border-white/10', option.previewClassName)} />
+            <div
+              className="h-12 rounded-[12px] border border-white/10"
+              style={{
+                background: `linear-gradient(180deg, ${option.background} 0%, ${option.accent}22 100%)`,
+              }}
+            />
             <div className="mt-3 flex items-center justify-between gap-2">
               <div>
                 <div className="text-sm font-medium text-white">{option.label}</div>
@@ -925,7 +1253,74 @@ function ThemeSelector({ onChange, value }: { onChange: (value: ThemeValue) => v
                 </span>
               ) : null}
             </div>
-            {!option.implemented ? <div className="mt-2 text-[11px] text-white/35">Coming soon</div> : null}
+            <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-3 hidden w-52 -translate-x-1/2 rounded-2xl border border-white/10 bg-[#08080c]/95 p-3 shadow-2xl group-hover:block">
+              <div
+                className="rounded-xl border p-3"
+                style={{
+                  backgroundColor: option.background,
+                  borderColor: `${option.accent}55`,
+                  color: option.foreground,
+                }}
+              >
+                <div className="flex items-center justify-between text-[11px]">
+                  <span>Workspace</span>
+                  <span
+                    className="rounded-full px-2 py-0.5"
+                    style={{ backgroundColor: `${option.accent}22`, color: option.accent }}
+                  >
+                    Live
+                  </span>
+                </div>
+                <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: `${option.accent}18` }}>
+                  Accent preview
+                </div>
+                <div className="mt-3 text-[11px]" style={{ color: `${option.foreground}aa` }}>
+                  Hover preview of the full theme palette.
+                </div>
+              </div>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function FontSelector({ onChange, value }: { onChange: (value: FontValue) => void; value: FontValue }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {FONT_OPTIONS.map((option) => {
+        const selected = value === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'group relative overflow-visible rounded-[18px] border bg-white/[0.03] p-4 text-left transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12]',
+              selected ? 'border-[#6366f1]/36 shadow-[0_0_30px_rgba(99,102,241,0.24)]' : 'border-white/10',
+            )}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-white">{option.label}</div>
+                <div className="mt-1 text-xs text-white/42">Global UI font</div>
+              </div>
+              {selected ? (
+                <span className="flex size-6 items-center justify-center rounded-full bg-[#6366f1] text-white">
+                  <Check className="size-3.5" />
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-3 text-sm text-white/72" style={{ fontFamily: option.stack }}>
+              The quick brown fox jumps over the lazy dog.
+            </div>
+            <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-3 hidden w-60 -translate-x-1/2 rounded-2xl border border-white/10 bg-[#08080c]/95 p-4 text-white shadow-2xl group-hover:block">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/38">Preview</div>
+              <div className="mt-3 text-xl leading-tight" style={{ fontFamily: option.stack }}>
+                The quick brown fox jumps over the lazy dog.
+              </div>
+            </div>
           </button>
         )
       })}
@@ -1254,7 +1649,7 @@ function StatusPill({ accent, saving }: { accent: string; saving: boolean }) {
   return (
     <div className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 text-xs text-white/50">
       <span className="size-2 rounded-full" style={{ background: accent }} />
-      {saving ? 'Saving preferences' : 'Local preferences'}
+      {saving ? 'Saving preferences' : 'Synced preferences'}
     </div>
   )
 }

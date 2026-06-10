@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { normalizeSourceProfile } from '@/lib/media/source-profile'
+import { mapProjectRowToListItem } from '@/lib/projects/project-list'
+import type { ProjectListItem } from '@/lib/projects/types'
 import { WorkspaceService } from '@/lib/workspaces/service'
 import type { Project, ProjectStatus, SourceProfile, AnimationPlan } from '@/lib/types'
 
@@ -15,6 +17,52 @@ export interface ProjectPatch {
 }
 
 export const ProjectService = {
+  async listProjectCards(): Promise<ProjectListItem[]> {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: projectRows, error: projectsError } = await supabase
+      .from('projects')
+      .select('id, user_id, name, status, thumbnail_url, created_at, updated_at, source_profile, editor_state')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+
+    if (projectsError) {
+      console.error('[ProjectService] listProjectCards projects error:', projectsError.message, projectsError.details)
+      throw projectsError
+    }
+
+    const projectIds = (projectRows ?? []).map((row) => row.id)
+    const jobsByProjectId = new Map<string, { progress?: number | null; status?: string | null }>()
+
+    if (projectIds.length > 0) {
+      const { data: jobs, error: jobsError } = await supabase
+        .from('durable_jobs')
+        .select('project_id, status, progress, updated_at')
+        .eq('user_id', user.id)
+        .in('project_id', projectIds)
+        .order('updated_at', { ascending: false })
+
+      if (jobsError) {
+        console.error('[ProjectService] listProjectCards durable_jobs error:', jobsError.message, jobsError.details)
+      } else {
+        for (const job of jobs ?? []) {
+          if (!job.project_id || jobsByProjectId.has(job.project_id)) continue
+          jobsByProjectId.set(job.project_id, {
+            progress: job.progress,
+            status: job.status,
+          })
+        }
+      }
+    }
+
+    return (projectRows ?? []).map((row) => mapProjectRowToListItem(row, jobsByProjectId.get(row.id) ?? null))
+  },
+
   async listProjects() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -56,6 +104,8 @@ export const ProjectService = {
 
   async createProject(params: { 
     title?: string
+    description?: string | null
+    template?: string | null
     prompt?: string
     previewKind?: 'video' | 'image'
     sourceProfile?: SourceProfile | null
@@ -76,7 +126,11 @@ export const ProjectService = {
       
       console.log('[ProjectService] Creating project for user:', user.id, 'in workspace:', workspaceId)
 
-      const editorState = params.prompt ? { initialPrompt: params.prompt } : {}
+      const editorState = {
+        ...(params.prompt ? { initialPrompt: params.prompt } : {}),
+        ...(params.description ? { projectDescription: params.description } : {}),
+        ...(params.template ? { templatePreset: params.template } : {}),
+      }
       const normalizedSourceProfile = normalizeSourceProfile(params.sourceProfile)
 
       const { data, error } = await supabase
@@ -155,6 +209,51 @@ export const ProjectService = {
       throw error
     }
     return true
+  },
+
+  async duplicateProject(id: string): Promise<ProjectListItem> {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Unauthorized')
+
+    const { data: original, error: getError } = await supabase
+      .from('projects')
+      .select('id, user_id, workspace_id, name, status, thumbnail_url, preview_kind, source_profile, editor_state, animation_plan, source_asset_id, created_at, updated_at')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (getError) {
+      console.error('[ProjectService] duplicateProject fetch error:', getError.message, getError.details)
+      throw getError
+    }
+
+    const { data: duplicate, error: insertError } = await supabase
+      .from('projects')
+      .insert({
+        user_id: user.id,
+        workspace_id: original.workspace_id,
+        name: `${original.name || 'Untitled project'} (Copy)`,
+        status: 'draft',
+        thumbnail_url: original.thumbnail_url,
+        preview_kind: original.preview_kind,
+        source_profile: original.source_profile ?? {},
+        editor_state: original.editor_state ?? {},
+        animation_plan: original.animation_plan ?? {},
+        source_asset_id: original.source_asset_id,
+      })
+      .select('id, user_id, name, status, thumbnail_url, created_at, updated_at, source_profile, editor_state')
+      .single()
+
+    if (insertError) {
+      console.error('[ProjectService] duplicateProject insert error:', insertError.message, insertError.details)
+      throw insertError
+    }
+
+    return mapProjectRowToListItem(duplicate, null)
   }
 }
 
