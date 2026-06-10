@@ -19,9 +19,11 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 
+import { MiniPlayer } from '@/app/editor/components/mini-player'
 import { useR2Music } from '@/app/editor/hooks/use-r2-music'
+import { useAudioStore } from '@/app/editor/stores/audio-store'
 import { cn } from '@/lib/utils'
 import { EditorHamburgerSidebar, type EditorSidebarPanelKey } from '@/components/editor/EditorHamburgerSidebar'
 import type { EditorSettingsPanelKey } from '@/app/components/editor/mobile/EditorSettingsSubmenu'
@@ -125,6 +127,7 @@ export function EditorRouteShell({ children }: { children: ReactNode }) {
               ) : null}
             </div>
             <CommandZone />
+            <MiniPlayer />
           </>
         ) : (
           <>
@@ -224,36 +227,39 @@ function EditorMobileToolPanel({
   const Icon = meta.icon
 
   return (
-    <aside className="glass-panel-enhanced absolute inset-x-3 bottom-3 z-30 flex max-h-[min(72svh,680px)] flex-col overflow-hidden rounded-2xl border border-white/10 shadow-[0_28px_90px_-38px_rgba(0,0,0,0.95)] md:hidden">
-      <header className="border-b border-prometheus-border-subtle px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80">
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-prometheus-text-primary">{meta.label}</h2>
-            <p className="truncate text-xs text-prometheus-text-tertiary">{meta.description}</p>
+    <aside className="fixed inset-0 z-40 flex flex-col overflow-hidden md:hidden" aria-label={`${meta.label} panel`}>
+      <div className="absolute inset-0 bg-black/65 backdrop-blur-[24px] saturate-[1.2]" aria-hidden="true" />
+      <div className="relative z-10 mt-auto flex max-h-[min(78svh,720px)] min-h-0 flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-black/28 shadow-[0_-28px_90px_-38px_rgba(0,0,0,0.95)]">
+        <header className="border-b border-prometheus-border-subtle px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/80">
+              <Icon className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-semibold text-prometheus-text-primary">{meta.label}</h2>
+              <p className="truncate text-xs text-prometheus-text-tertiary">{meta.description}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white"
+              aria-label="Close tool panel"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white"
-            aria-label="Close tool panel"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+        </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-        {activeTool === 'music' ? <MobileMusicTool projectId={projectId} /> : null}
-        {activeTool === 'motion' ? <MotionBrainPanel onSelectPanel={onSelectTool} /> : null}
-        {activeTool === 'analytics' ? <AnalyticsPanel /> : null}
-        {activeTool === 'timeline' ? <TimelinePanel /> : null}
-        {activeTool === 'chat' ? <ChatPanel /> : null}
-        {activeTool === 'versions' ? <VersionsPanel /> : null}
-        {activeTool === 'status' ? <StatusPanel /> : null}
-        {activeTool === 'export' ? <ExportPanel /> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] text-white">
+          {activeTool === 'music' ? <MobileMusicTool projectId={projectId} /> : null}
+          {activeTool === 'motion' ? <MotionBrainPanel onSelectPanel={onSelectTool} /> : null}
+          {activeTool === 'analytics' ? <AnalyticsPanel /> : null}
+          {activeTool === 'timeline' ? <TimelinePanel /> : null}
+          {activeTool === 'chat' ? <ChatPanel /> : null}
+          {activeTool === 'versions' ? <VersionsPanel /> : null}
+          {activeTool === 'status' ? <StatusPanel /> : null}
+          {activeTool === 'export' ? <ExportPanel /> : null}
+        </div>
       </div>
     </aside>
   )
@@ -262,16 +268,8 @@ function EditorMobileToolPanel({
 function MobileMusicTool({ projectId }: { projectId: string | null }) {
   const [query, setQuery] = useState('')
   const [selectedTrackId, setSelectedTrackId] = useState('')
-  const [playingTrackId, setPlayingTrackId] = useState('')
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const { error, isLoading, tracks } = useR2Music()
-
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause()
-      audioRef.current = null
-    }
-  }, [])
+  const { currentTrack, isPlaying, pause, toggleTrack } = useAudioStore()
 
   const filteredTracks = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -284,38 +282,13 @@ function MobileMusicTool({ projectId }: { projectId: string | null }) {
     )
   }, [query, tracks])
 
-  const togglePlay = useCallback(async (track: R2Track) => {
-    if (audioRef.current && playingTrackId !== track.id) {
-      audioRef.current.pause()
-      audioRef.current = null
-    }
-
-    if (playingTrackId === track.id) {
-      audioRef.current?.pause()
-      setPlayingTrackId('')
-      return
-    }
-
-    const audio = new Audio(track.url)
-    audio.onended = () => setPlayingTrackId('')
-    audioRef.current = audio
-
-    try {
-      await audio.play()
-      setPlayingTrackId(track.id)
-    } catch {
-      setPlayingTrackId('')
-    }
-  }, [playingTrackId])
-
   const handleUseTrack = useCallback((track: R2Track) => {
     if (!projectId) return
 
-    audioRef.current?.pause()
-    setPlayingTrackId('')
+    pause()
     setSelectedTrackId(track.id)
     writeSelectedEditorMusicTrack(projectId, track.id)
-  }, [projectId])
+  }, [pause, projectId])
 
   return (
     <section className="space-y-4" aria-label="Music library">
@@ -342,7 +315,7 @@ function MobileMusicTool({ projectId }: { projectId: string | null }) {
         </button>
       </div>
 
-      <div className="max-h-[calc(68svh-12rem)] space-y-2 overflow-y-auto overscroll-contain pr-1">
+      <div className="max-h-[calc(68svh-12rem)] space-y-2 overflow-y-auto overscroll-contain pr-1 will-change-transform">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="size-7 animate-spin text-prometheus-accent-cyan" aria-hidden="true" />
@@ -357,10 +330,12 @@ function MobileMusicTool({ projectId }: { projectId: string | null }) {
           filteredTracks.map((track) => (
             <MobileTrackButton
               key={track.id}
-              playing={playingTrackId === track.id}
+              active={currentTrack?.id === track.id}
+              hasCurrentTrack={Boolean(currentTrack)}
+              playing={currentTrack?.id === track.id && isPlaying}
               selected={selectedTrackId === track.id}
               track={track}
-              onPlay={() => togglePlay(track)}
+              onPlay={() => void toggleTrack(track)}
               onSelect={() => setSelectedTrackId(track.id)}
               onUse={() => handleUseTrack(track)}
             />
@@ -372,6 +347,8 @@ function MobileMusicTool({ projectId }: { projectId: string | null }) {
 }
 
 function MobileTrackButton({
+  active,
+  hasCurrentTrack,
   onPlay,
   onSelect,
   onUse,
@@ -379,6 +356,8 @@ function MobileTrackButton({
   selected,
   track,
 }: {
+  active: boolean
+  hasCurrentTrack: boolean
   onPlay: () => void
   onSelect: () => void
   onUse: () => void
@@ -387,14 +366,17 @@ function MobileTrackButton({
   track: R2Track
 }) {
   const [imageFailed, setImageFailed] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
 
   return (
     <div
       className={cn(
-        'flex min-h-[4.75rem] w-full items-center gap-3 rounded-xl border p-3 text-left transition-all duration-150',
-        selected
+        'group flex h-16 w-full items-center gap-3 rounded-xl border p-2 text-left transition-all duration-150',
+        active && 'border-l-2 border-l-prometheus-accent-cyan bg-white/5',
+        selected && !active
           ? 'border-prometheus-accent-purple/60 bg-prometheus-accent-purple/10 shadow-[0_0_24px_rgba(124,58,237,0.18)]'
           : 'border-prometheus-border-subtle bg-white/[0.025] hover:border-white/14 hover:bg-white/[0.04]',
+        hasCurrentTrack && !active && 'opacity-60',
       )}
     >
       <button
@@ -404,8 +386,17 @@ function MobileTrackButton({
         aria-label={playing ? `Pause ${track.title}` : `Preview ${track.title}`}
       >
         {track.coverUrl && !imageFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={track.coverUrl} alt="" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+          <>
+            {!imageLoaded ? <span className="absolute inset-0 animate-pulse bg-gray-700" /> : null}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={track.coverUrl}
+              alt=""
+              className={cn('h-full w-full object-cover transition-opacity duration-300', imageLoaded ? 'opacity-100' : 'opacity-0')}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageFailed(true)}
+            />
+          </>
         ) : (
           <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white/78">
             {track.title
@@ -416,7 +407,7 @@ function MobileTrackButton({
           </span>
         )}
         <span className="absolute inset-0 flex items-center justify-center bg-black/42 opacity-100 transition-opacity group-hover:bg-black/52">
-          {playing ? <Pause className="size-5 text-white" aria-hidden="true" /> : <Play className="ml-0.5 size-5 text-white" aria-hidden="true" />}
+          {playing ? <MobileEqualizerIcon /> : active ? <Pause className="size-5 text-white" aria-hidden="true" /> : <Play className="ml-0.5 size-5 text-white" aria-hidden="true" />}
         </span>
       </button>
 
@@ -427,7 +418,7 @@ function MobileTrackButton({
         </span>
       </button>
       <span className="text-xs tabular-nums text-prometheus-text-tertiary">{formatDuration(track.duration)}</span>
-      {selected ? (
+      {selected || active ? (
         <button
           type="button"
           onClick={onUse}
@@ -437,6 +428,16 @@ function MobileTrackButton({
         </button>
       ) : null}
     </div>
+  )
+}
+
+function MobileEqualizerIcon() {
+  return (
+    <span className="flex h-5 items-end gap-0.5" aria-hidden="true">
+      <span className="h-2 w-1 animate-pulse rounded-full bg-prometheus-accent-cyan" />
+      <span className="h-5 w-1 animate-pulse rounded-full bg-prometheus-accent-cyan [animation-delay:120ms]" />
+      <span className="h-3 w-1 animate-pulse rounded-full bg-prometheus-accent-cyan [animation-delay:240ms]" />
+    </span>
   )
 }
 

@@ -9,6 +9,8 @@ import {
   Loader2,
   MessageSquare,
   Music,
+  Pause,
+  Play,
   Search,
   Sparkles,
   X,
@@ -17,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { useR2Music } from '@/app/editor/hooks/use-r2-music'
+import { useAudioStore } from '@/app/editor/stores/audio-store'
 import type { EditorSidebarPanel } from '@/app/editor/hooks/use-sidebar'
 import type { R2Track } from '@/lib/music/r2-sync'
 import { cn } from '@/lib/utils'
@@ -46,7 +49,7 @@ export function SidebarDrawer({ activePanel, isOpen, onClose, onTogglePanel }: S
   return (
     <aside
       className={cn(
-        'sidebar-drawer flex flex-col border-l border-white/10 bg-[#08080d]/95 text-white shadow-[0_0_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl',
+        'sidebar-drawer flex flex-col border-l border-white/10 bg-black/65 text-white shadow-[0_0_90px_rgba(0,0,0,0.55)] backdrop-blur-[24px] saturate-[1.2]',
         isOpen && 'open',
       )}
       aria-label="Prometheus editor sidebar"
@@ -186,36 +189,64 @@ function MusicPanel() {
 
 function TrackItem({ onSelect, selected, track }: { onSelect: () => void; selected: boolean; track: R2Track }) {
   const [imageFailed, setImageFailed] = React.useState(false)
+  const [imageLoaded, setImageLoaded] = React.useState(false)
+  const { currentTrack, isPlaying, toggleTrack } = useAudioStore()
+  const active = currentTrack?.id === track.id
+
+  React.useEffect(() => setImageLoaded(false), [track.coverUrl])
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={cn(
-        'flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors',
-        selected ? 'border-accent-cyan/60 bg-accent-cyan/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+        'flex h-16 w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors',
+        active && 'border-l-2 border-l-accent-cyan bg-white/5',
+        selected && !active ? 'border-accent-cyan/60 bg-accent-cyan/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
+        currentTrack && !active && 'opacity-60',
       )}
     >
-      <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-white/10 text-white/50">
+      <button
+        type="button"
+        onClick={() => void toggleTrack(track)}
+        className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-md bg-white/10 text-white/90"
+        aria-label={active && isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
+      >
         {track.coverUrl && !imageFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={track.coverUrl}
-            alt=""
-            className="h-full w-full object-cover"
-            onError={() => setImageFailed(true)}
-          />
+          <>
+            {!imageLoaded ? <span className="absolute inset-0 animate-pulse bg-gray-700" /> : null}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={track.coverUrl}
+              alt=""
+              className={cn('h-full w-full object-cover transition-opacity duration-300', imageLoaded ? 'opacity-100' : 'opacity-0')}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageFailed(true)}
+            />
+          </>
         ) : (
           <Music className="size-4" aria-hidden="true" />
         )}
-      </span>
-      <span className="min-w-0 flex-1">
+        <span className="absolute inset-0 grid place-items-center bg-black/48">
+          {active && isPlaying ? <EqualizerIcon /> : active ? <Pause className="size-4" aria-hidden="true" /> : <Play className="ml-0.5 size-4" aria-hidden="true" />}
+        </span>
+      </button>
+      <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left" aria-pressed={selected}>
         <span className="block truncate text-sm font-medium text-white/86">{track.title}</span>
         <span className="block truncate text-xs text-white/40">
-          {track.artist} / {track.genre} / {formatDuration(track.duration)}
+          {track.artist} / {track.genre}
         </span>
-      </span>
-    </button>
+      </button>
+      <span className="shrink-0 text-xs tabular-nums text-white/42">{formatDuration(track.duration)}</span>
+    </div>
+  )
+}
+
+function EqualizerIcon() {
+  return (
+    <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
+      <span className="h-2 w-1 animate-pulse rounded-full bg-accent-cyan" />
+      <span className="h-4 w-1 animate-pulse rounded-full bg-accent-cyan [animation-delay:120ms]" />
+      <span className="h-3 w-1 animate-pulse rounded-full bg-accent-cyan [animation-delay:240ms]" />
+    </span>
   )
 }
 

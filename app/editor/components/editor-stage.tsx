@@ -9,7 +9,8 @@ import { BottomToolbar, type EditorTool } from './bottom-toolbar'
 import { SidebarDrawer } from './sidebar-drawer'
 import { Timeline } from './timeline'
 import { ToastContainer } from './toast-container'
-import { VideoPreview } from './video-preview'
+import { MobileVideoPlayer } from './mobile-video-player'
+import { MiniPlayer } from './mini-player'
 
 const CLIPS = [
   { id: 'hook', duration: 8, thumbnail: '/style-previews/reels-heat-1.webp' },
@@ -24,6 +25,7 @@ const WAVEFORM = [
 ]
 
 const DURATION = CLIPS.reduce((total, clip) => total + clip.duration, 0)
+const DEMO_VIDEO_URL = '/upload-effects/scrolling-effect.mp4'
 
 export function EditorStage() {
   const sidebar = useEditorSidebar('music')
@@ -63,7 +65,7 @@ export function EditorStage() {
           <div className="size-10" />
         </div>
 
-        <VideoPreview isPlaying={isPlaying} onTogglePlayback={() => setIsPlaying((value) => !value)} />
+        <MobileVideoPlayer src={DEMO_VIDEO_URL} poster="/style-previews/reels-heat-1.webp" />
         <Timeline
           audioWaveform={WAVEFORM}
           clips={CLIPS}
@@ -80,6 +82,7 @@ export function EditorStage() {
         onClose={sidebar.close}
         onTogglePanel={sidebar.togglePanel}
       />
+      <MiniPlayer />
       <ToastContainer />
     </div>
   )

@@ -69,6 +69,7 @@ import { EditorHeader } from '@/components/editor/EditorHeader'
 import { PreviewCanvas } from '@/components/editor/PreviewCanvas'
 import { TimelinePanel } from '@/components/editor/TimelinePanel'
 import { InspectorPanel } from '@/components/editor/InspectorPanel'
+import { MobileVideoPlayer } from '@/app/editor/components/mobile-video-player'
 
 // Always-Fast Lobe System
 const LivingCanvas = safeDynamic(() => import('@/components/living-canvas').then((mod) => ({ default: mod.LivingCanvas })), {
@@ -5669,29 +5670,10 @@ function MobileEditorView({
   const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
   const [exportQuality, setExportQuality] = React.useState<MobileExportQuality>('standard')
   const [exportFormat, setExportFormat] = React.useState<MobileExportFormat>('mp4')
-  const mobilePreviewVideoRef = React.useRef<HTMLVideoElement | null>(null)
   const activeJobStep = getActiveJobStep(job)
   const isJobRunning = job?.status === 'running'
   const exportDate = formatMobileDate(latestExport?.completedAt ?? latestExport?.updatedAt ?? latestExport?.createdAt)
   const exportSize = formatMobileBytes(latestExport?.fileSizeBytes)
-
-  const openNativeVideoPlayer = React.useCallback(() => {
-    const video = mobilePreviewVideoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
-    if (!video) return
-
-    video.controls = true
-    video.muted = false
-    void video.play().catch(() => undefined)
-
-    if (typeof video.webkitEnterFullscreen === 'function') {
-      video.webkitEnterFullscreen()
-      return
-    }
-
-    if (typeof video.requestFullscreen === 'function') {
-      void video.requestFullscreen().catch(() => undefined)
-    }
-  }, [])
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -5953,25 +5935,11 @@ function MobileEditorView({
           <section className="shrink-0 px-4 py-3">
             <div className="relative aspect-video max-h-[40vh] w-full overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_24px_60px_-42px_rgba(0,0,0,0.95)]">
               {hasPreviewMedia && previewKind === 'video' ? (
-                <>
-                  <video
-                    ref={mobilePreviewVideoRef}
-                    src={previewUrl}
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full bg-black object-contain"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Play video fullscreen"
-                    onClick={openNativeVideoPlayer}
-                    className="absolute inset-0 grid place-items-center bg-black/18"
-                  >
-                    <span className="grid size-14 place-items-center rounded-full border border-white/18 bg-black/44 text-white shadow-[0_18px_40px_-24px_rgba(0,0,0,0.95)] backdrop-blur-md">
-                      <Play className="ml-1 size-6 fill-current" />
-                    </span>
-                  </button>
-                </>
+                <MobileVideoPlayer
+                  src={previewUrl}
+                  poster={project?.thumbnailUrl ?? undefined}
+                  className="h-full w-full p-0"
+                />
               ) : hasPreviewMedia ? (
                 <div
                   className="h-full w-full bg-black bg-contain bg-center bg-no-repeat"

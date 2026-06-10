@@ -6,7 +6,7 @@ import { OAuthProvider } from "@/lib/oauth/types";
 import { oauthRateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
-export async function POST(request: NextRequest, { params }: any) {
+async function initiateOAuth(request: NextRequest, { params }: any, responseMode: "json" | "redirect") {
   try {
     const provider = (await params).provider as OAuthProvider;
     const config = PROVIDER_CONFIGS[provider];
@@ -21,10 +21,8 @@ export async function POST(request: NextRequest, { params }: any) {
     // Server-side guard: Throw error if env var is missing
     if (!clientId) {
       console.error(`[OAuth Initiate] Missing environment variable: ${envVarName}`);
-      return NextResponse.json(
-        { error: `Server configuration error: Missing ${envVarName}` }, 
-        { status: 500 }
-      );
+      const message = `${config.name} integration is temporarily unavailable`;
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     const supabase = await createClient();
@@ -65,6 +63,10 @@ export async function POST(request: NextRequest, { params }: any) {
       url.searchParams.set("prompt", "consent");
     }
 
+    if (responseMode === "redirect") {
+      return NextResponse.redirect(url);
+    }
+
     return NextResponse.json({ url: url.toString() });
   } catch (err: any) {
     console.error("[OAuth Initiate Error]", err);
@@ -73,4 +75,12 @@ export async function POST(request: NextRequest, { params }: any) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest, context: any) {
+  return initiateOAuth(request, context, "redirect");
+}
+
+export async function POST(request: NextRequest, context: any) {
+  return initiateOAuth(request, context, "json");
 }
