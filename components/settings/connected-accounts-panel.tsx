@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { GlassCard } from '@/components/ui/glass-card'
 import {
   Dialog,
   DialogContent,
@@ -95,7 +96,7 @@ export function ConnectedAccountsPanel({ onConnect }: ConnectedAccountsPanelProp
   return (
     <>
       {error ? (
-        <div className="mb-4 rounded-2xl border border-rose-300/20 bg-rose-300/[0.08] p-4 text-sm text-rose-100">
+        <GlassCard className="mb-4 border-rose-300/20 bg-rose-300/[0.08] p-4 text-sm text-rose-100" hoverable={false}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -108,11 +109,11 @@ export function ConnectedAccountsPanel({ onConnect }: ConnectedAccountsPanelProp
               Retry
             </Button>
           </div>
-        </div>
+        </GlassCard>
       ) : null}
 
       {!loading && !hasConnections ? (
-        <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+        <GlassCard className="mb-6 p-8 text-center" hoverable={false} staggerChildren>
           <Link2 className="mx-auto h-16 w-16 text-white/20" aria-hidden="true" />
           <h2 className="mt-4 text-xl font-semibold text-white">No accounts connected</h2>
           <p className="mt-2 text-sm text-white/52">
@@ -121,7 +122,7 @@ export function ConnectedAccountsPanel({ onConnect }: ConnectedAccountsPanelProp
           <Button type="button" className="mt-5 bg-white text-black hover:bg-white/90" onClick={() => onConnect(PLATFORMS[0].id)}>
             Connect your first account
           </Button>
-        </div>
+        </GlassCard>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -144,10 +145,11 @@ export function ConnectedAccountsPanel({ onConnect }: ConnectedAccountsPanelProp
               const actionLabel = status === 'disconnected' ? 'Connect' : status === 'active' ? 'Disconnect' : 'Reconnect'
 
               return (
-                <article
+                <GlassCard
+                  as="article"
                   key={platform.id}
-                  aria-label={`${platform.name} connection status`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-white/20"
+                  className="p-4"
+                  staggerChildren
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
@@ -201,7 +203,7 @@ export function ConnectedAccountsPanel({ onConnect }: ConnectedAccountsPanelProp
                       </span>
                     ))}
                   </div>
-                </article>
+                </GlassCard>
               )
             })}
       </div>

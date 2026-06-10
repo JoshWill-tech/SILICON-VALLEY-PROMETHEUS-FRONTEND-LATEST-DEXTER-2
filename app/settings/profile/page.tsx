@@ -32,6 +32,7 @@ import { useAuth } from '@/components/auth/auth-provider'
 import { AvatarCropModal } from '@/components/settings/avatar-crop-modal'
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { Button } from '@/components/ui/button'
+import { GlassCard } from '@/components/ui/glass-card'
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { LiquidChromeButton } from '@/components/ui/liquid-chrome-button'
 import { Textarea } from '@/components/ui/textarea'
 import { useAvatarUpload } from '@/hooks/use-avatar-upload'
 import { useProfile } from '@/hooks/use-profile'
@@ -846,10 +848,20 @@ export default function ProfileSettingsPage() {
                         onBlur={() => void saveTextField('displayName')}
                         className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#6366f1]/70 focus:ring-[#6366f1]/20"
                       />
-                      <Button type="button" size="sm" variant="secondary" disabled={savingTarget === 'displayName'} onClick={() => void saveTextField('displayName')}>
+                      <LiquidChromeButton
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        liquid
+                        ripple
+                        loading={savingTarget === 'displayName'}
+                        success={savedTarget === 'displayName'}
+                        disabled={savingTarget === 'displayName'}
+                        onClick={() => void saveTextField('displayName')}
+                      >
                         {savingTarget === 'displayName' ? <Loader2 className="size-4 animate-spin" /> : null}
                         {savedTarget === 'displayName' ? 'Saved ✓' : 'Save Name'}
-                      </Button>
+                      </LiquidChromeButton>
                     </div>
                   </FieldRow>
 
@@ -1153,17 +1165,17 @@ export default function ProfileSettingsPage() {
 
 function ProfileCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <motion.section
+    <GlassCard
+      as="section"
       initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 shadow-[0_34px_90px_-58px_rgba(0,0,0,0.95)] backdrop-blur-xl',
+        'p-5',
         className,
       )}
+      staggerChildren
     >
       {children}
-    </motion.section>
+    </GlassCard>
   )
 }
 

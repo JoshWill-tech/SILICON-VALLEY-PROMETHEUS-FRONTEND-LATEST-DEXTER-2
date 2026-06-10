@@ -20,7 +20,7 @@ export type PreviewOutputState =
   | 'export_ready'
 
 interface BadgeConfig {
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   title: string
   subtitle: string
   accentClass: string

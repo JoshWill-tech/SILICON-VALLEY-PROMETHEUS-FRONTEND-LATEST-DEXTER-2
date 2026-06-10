@@ -93,7 +93,7 @@ export const CardBody = ({
 }
 
 export const CardItem = ({
-  as: Tag = 'div',
+  as: _as = 'div',
   children,
   className,
   translateX = 0,
@@ -104,7 +104,7 @@ export const CardItem = ({
   rotateZ = 0,
   ...rest
 }: {
-  as?: React.ElementType
+  as?: keyof React.JSX.IntrinsicElements
   children: React.ReactNode
   className?: string
   translateX?: number | string
@@ -130,13 +130,13 @@ export const CardItem = ({
   }, [isMouseEntered, rotateX, rotateY, rotateZ, translateX, translateY, translateZ])
 
   return (
-    <Tag
+    <div
       ref={ref}
       className={cn('w-fit transition duration-200 ease-linear will-change-transform', className)}
       {...rest}
     >
       {children}
-    </Tag>
+    </div>
   )
 }
 

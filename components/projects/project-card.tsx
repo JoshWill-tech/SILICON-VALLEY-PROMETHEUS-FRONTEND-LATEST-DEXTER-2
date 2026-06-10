@@ -4,6 +4,7 @@ import * as React from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Copy, Link2, Pencil, Trash2 } from 'lucide-react'
 
+import { GlassCard } from '@/components/ui/glass-card'
 import type { ProjectListItem } from '@/lib/projects/types'
 import { cn } from '@/lib/utils'
 
@@ -58,10 +59,7 @@ export function ProjectCard({ project, onEdit, onDuplicate, onDelete, onShare }:
   ]
 
   return (
-    <article
-      aria-label={`Project: ${project.title}`}
-      className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md transition-all duration-200 hover:border-white/20"
-    >
+    <GlassCard as="article" className="group" contentClassName="overflow-hidden" staggerChildren>
       <div className="relative aspect-video overflow-hidden rounded-xl bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_52%),linear-gradient(160deg,rgba(99,102,241,0.22)_0%,rgba(8,10,16,0.95)_100%)]">
         {project.thumbnailUrl && !thumbnailFailed ? (
           // R2/public thumbnails can be external or blob/data URLs, so next/image is not guaranteed to fit.
@@ -139,6 +137,6 @@ export function ProjectCard({ project, onEdit, onDuplicate, onDelete, onShare }:
           ))}
         </div>
       </div>
-    </article>
+    </GlassCard>
   )
 }

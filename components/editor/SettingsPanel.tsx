@@ -17,7 +17,7 @@ interface SettingsPanelProps {
   open: boolean
 }
 
-const tabs: Array<{ id: SettingsTab; label: string; icon: React.ElementType }> = [
+const tabs: Array<{ id: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'performance', label: 'Performance', icon: Gauge },
   { id: 'accessibility', label: 'Accessibility', icon: Accessibility },

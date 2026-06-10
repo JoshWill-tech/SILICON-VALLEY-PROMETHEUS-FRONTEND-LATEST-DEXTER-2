@@ -3,15 +3,17 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
+// import { Button } from '@/components/ui/button' // kept for safe rollback; LiquidChromeButton wraps Button internally.
 import { useAuth } from '@/components/auth/auth-provider'
+import { LiquidChromeButton } from '@/components/ui/liquid-chrome-button'
 
 interface LandingHeaderProps {
   mobileNavControl?: ReactNode
 }
 
 export function LandingHeader({ mobileNavControl }: LandingHeaderProps = {}) {
+  const router = useRouter()
   const { session, isLoading } = useAuth()
   const isAuthenticated = !!session
 
@@ -52,13 +54,17 @@ export function LandingHeader({ mobileNavControl }: LandingHeaderProps = {}) {
               >
                 Login
               </Link>
-              <Button
-                asChild
-                variant="outline"
-                className="h-8 rounded-full border-white/10 bg-white/5 px-4 text-[10px] uppercase tracking-widest text-white hover:bg-white/10"
+              <LiquidChromeButton
+                variant="secondary"
+                size="sm"
+                liquid
+                magnetic
+                ripple
+                className="h-8 rounded-full px-4 text-[10px] uppercase tracking-widest"
+                onClick={() => router.push('/signup')}
               >
-                <Link href="/signup">Get Started</Link>
-              </Button>
+                Get Started
+              </LiquidChromeButton>
             </>
           ) : null}
         </nav>

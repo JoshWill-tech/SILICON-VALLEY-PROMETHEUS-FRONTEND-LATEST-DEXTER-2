@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Command, Menu, Sparkles } from "lucide-react";
 
 import { useDeviceTier } from "@/hooks/useDeviceTier";
+import { LiquidChromeButton } from "@/components/ui/liquid-chrome-button";
 import { AnimatedBlobMobile } from "./AnimatedBlobMobile";
 import { CommandPalette } from "./CommandPalette";
 import { MobileMenu } from "./MobileMenu";
 
 export function MobileLanding() {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const tier = useDeviceTier();
@@ -74,12 +77,18 @@ export function MobileLanding() {
           transition={{ delay: mobileTier === "lite" ? 0 : 0.2 }}
           className="flex flex-col gap-3"
         >
-          <button
+          <LiquidChromeButton
             type="button"
-            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-accent-cyan/30 bg-accent-cyan-glow px-6 py-4 text-base font-semibold text-accent-cyan transition-all active:scale-95 hover:shadow-glow-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan"
+            variant="primary"
+            size="lg"
+            liquid
+            magnetic
+            ripple
+            className="min-h-11 rounded-2xl px-6 py-4 text-base font-semibold text-accent-cyan"
+            onClick={() => router.push("/signup")}
           >
             <Sparkles className="h-5 w-5" /> Get Started
-          </button>
+          </LiquidChromeButton>
           <button
             type="button"
             className="glass-button flex min-h-11 items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-medium text-text-secondary transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan"

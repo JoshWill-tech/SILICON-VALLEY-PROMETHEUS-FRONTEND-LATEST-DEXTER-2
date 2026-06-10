@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Shield, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LiquidChromeButton } from "@/components/ui/liquid-chrome-button";
 import { useEditor } from "./EditorContext";
 import { toast } from "sonner";
 
@@ -104,11 +105,16 @@ export function ExportDrawer() {
             <h3 className="text-lg font-semibold text-white/90 mb-4">Export Video</h3>
             <div className="grid grid-cols-2 gap-3">
               {EXPORT_TARGETS.map(target => (
-                <button 
+                <LiquidChromeButton 
                   key={target.id} 
                   onClick={() => handleExport(target)}
                   disabled={isExporting}
-                  className="p-4 rounded-xl flex flex-col items-center gap-2 bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] hover:border-[rgba(0,255,136,0.3)] transition-all hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] group disabled:opacity-50 disabled:cursor-not-allowed">
+                  variant={isConnected(target.provider) ? "secondary" : "ghost"}
+                  size="lg"
+                  liquid
+                  magnetic
+                  ripple
+                  className="h-auto min-h-[5.5rem] rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 flex-col items-center gap-2 hover:border-[rgba(0,255,136,0.3)] hover:shadow-[0_0_20px_rgba(0,255,136,0.15)] group disabled:opacity-50 disabled:cursor-not-allowed">
                   {isExporting ? (
                     <Loader2 className="w-5 h-5 text-white/60 animate-spin" />
                   ) : (
@@ -121,7 +127,7 @@ export function ExportDrawer() {
                       <span className="text-[10px] text-white/30 uppercase tracking-wider">Not Connected</span>
                     )
                   )}
-                </button>
+                </LiquidChromeButton>
               ))}
             </div>
           </div>
@@ -151,10 +157,15 @@ export function ExportDrawer() {
               </p>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setAuthPromptProvider(null)} className="flex-1 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 transition-colors">Cancel</Button>
-                <Button onClick={() => { setAuthPromptProvider(null); setShowExport(false); router.push(`/settings/social-accounts?connect=${authPromptProvider}`); }}
+                <LiquidChromeButton onClick={() => { setAuthPromptProvider(null); setShowExport(false); router.push(`/settings/social-accounts?connect=${authPromptProvider}`); }}
+                  variant="primary"
+                  size="md"
+                  liquid
+                  magnetic
+                  ripple
                   className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-orange-500/20 border-none transition-all">
                   Configure Integrations
-                </Button>
+                </LiquidChromeButton>
               </div>
             </motion.div>
           </motion.div>

@@ -3,10 +3,13 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Inter, Geist, JetBrains_Mono, Playfair_Display, Space_Grotesk } from 'next/font/google'
 import localFont from 'next/font/local'
+import { CustomCursor } from '@/components/ui/custom-cursor'
+import { RootSmoothScroll } from '@/components/root-smooth-scroll'
 import { RootClientEffects } from '@/components/root-client-effects'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import { ReactQueryProvider } from '@/components/ReactQueryProvider'
 import { RootLayoutFrame } from '@/components/root-layout-frame'
+import { SceneManager } from '@/components/webgl/SceneManager'
 import './globals.css'
 import './premium-vignette.css'
 
@@ -89,7 +92,12 @@ export default function RootLayout({
       <body className={`${inter.variable} ${geist.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} ${vogueDisplay.variable} bg-background font-sans text-foreground antialiased`}>
         <ReactQueryProvider>
           <AuthProvider>
-            <RootLayoutFrame>{children}</RootLayoutFrame>
+            <RootSmoothScroll />
+            <SceneManager />
+            <CustomCursor />
+            <div className="relative z-10">
+              <RootLayoutFrame>{children}</RootLayoutFrame>
+            </div>
             <RootClientEffects />
             <Analytics />
             <SpeedInsights />

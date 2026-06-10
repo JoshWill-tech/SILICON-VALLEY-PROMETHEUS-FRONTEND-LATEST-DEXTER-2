@@ -20,7 +20,7 @@ import { useDeviceTier } from '@/hooks/useDeviceTier'
 
 interface NodeProps {
   title: string
-  icon: React.ElementType
+  icon: React.ComponentType<{ className?: string }>
   children: React.ReactNode
   active?: boolean
   className?: string

@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { CreateProjectModal } from '@/components/projects/create-project-modal'
 import { ProjectCard } from '@/components/projects/project-card'
 import { Button } from '@/components/ui/button'
+import { LiquidChromeButton } from '@/components/ui/liquid-chrome-button'
 import {
   Dialog,
   DialogContent,
@@ -147,10 +148,19 @@ export function ProjectsPageV2() {
               <h1 className="text-3xl font-semibold tracking-tight text-white">Projects</h1>
               <p className="mt-2 text-sm text-white/48">{subtitle}</p>
             </div>
-            <Button type="button" className="min-h-12 bg-white text-black hover:bg-white/90" onClick={() => setCreateOpen(true)}>
+            <LiquidChromeButton
+              type="button"
+              variant="primary"
+              size="md"
+              liquid
+              magnetic
+              ripple
+              className="min-h-12 bg-white text-black hover:bg-white/90"
+              onClick={() => setCreateOpen(true)}
+            >
               <Plus className="h-4 w-4" />
               New Project
-            </Button>
+            </LiquidChromeButton>
           </header>
 
           <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

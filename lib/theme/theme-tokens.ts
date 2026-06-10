@@ -161,6 +161,7 @@ export function themeCssVariables(themeId: string | null | undefined) {
     '--theme-background': preset.background,
     '--theme-foreground': preset.foreground,
     '--theme-accent': preset.accent,
+    '--theme-accent-rgb': hexToRgb(preset.accent),
     '--theme-surface': preset.surface,
     '--theme-surface-elevated': preset.elevated,
     '--theme-border': preset.border,
@@ -205,4 +206,24 @@ export function hexToRgba(hex: string, alpha: number) {
   const blue = value & 255
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+export function hexToRgb(hex: string) {
+  const normalized = hex.replace('#', '').trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+  if (Number.isNaN(value)) return '255, 255, 255'
+
+  const red = (value >> 16) & 255
+  const green = (value >> 8) & 255
+  const blue = value & 255
+
+  return `${red}, ${green}, ${blue}`
 }
