@@ -250,9 +250,6 @@ export function EditorNavDrawer({
                     rometheus
                   </p>
                 </div>
-                <p className="mt-4 max-w-[8rem] text-sm font-semibold leading-5 text-white/92">
-                  Creative operating system
-                </p>
               </header>
 
               <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5 scrollbar-hidden" aria-label="Prometheus editor navigation">

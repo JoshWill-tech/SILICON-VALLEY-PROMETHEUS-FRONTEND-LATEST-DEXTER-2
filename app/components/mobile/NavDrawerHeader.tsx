@@ -21,9 +21,6 @@ export function NavDrawerHeader() {
           rometheus
         </p>
       </div>
-      <p className="mt-4 max-w-[8rem] text-sm font-semibold leading-5 text-white/92">
-        Creative operating system
-      </p>
     </div>
   )
 }

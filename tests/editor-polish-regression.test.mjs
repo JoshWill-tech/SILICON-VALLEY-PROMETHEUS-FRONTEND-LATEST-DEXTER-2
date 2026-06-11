@@ -49,7 +49,21 @@ function run() {
     const source = read(sidebarFile)
     assert.equal(source.includes('Navigation Live'), false, sidebarFile)
     assert.equal(source.includes('The active blade follows hover'), false, sidebarFile)
+    assert.equal(source.includes('Hover a row to preview'), false, sidebarFile)
+    assert.equal(source.includes('Creative operating system'), false, sidebarFile)
   }
+
+  const editorIndexPage = read('app/editor/page.tsx')
+  assert.match(editorIndexPage, /getMostRecentProject/)
+  assert.match(editorIndexPage, /router\.replace\(recentProject \? `\/editor\/\$\{recentProject\.id\}` : '\/projects'\)/)
+
+  const motionEditorPage = read('app/editor/motion/page.tsx')
+  assert.match(motionEditorPage, /redirect\('\/editor'\)/)
+  assert.equal(motionEditorPage.includes('MotionCanvas'), false)
+  assert.equal(motionEditorPage.includes('NodeGraphProvider'), false)
+  assert.equal(motionEditorPage.includes('z-[9999]'), false)
+  assert.equal(existsSync(join(root, 'app/editor/motion/components/motion-canvas.tsx')), false)
+  assert.equal(existsSync(join(root, 'app/editor/motion/hooks/use-node-graph.ts')), false)
 
   const logoAlpha = readLogoAlphaStats(join(root, 'public/branding/prometheus-logo-no-bg.png'))
   assert.ok(logoAlpha.transparentPixels / logoAlpha.totalPixels > 0.25)

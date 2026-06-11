@@ -201,10 +201,6 @@ export function DashboardSidebar() {
                     rometheus
                   </p>
                 </div>
-                <div className="mt-3 text-lg font-semibold text-white/92">Creative operating system</div>
-                <p className="mt-1.5 max-w-[18rem] text-sm leading-6 text-white/42">
-                  Hover a row to preview the carved blade state before you move.
-                </p>
               </motion.div>
             )}
           </AnimatePresence>
