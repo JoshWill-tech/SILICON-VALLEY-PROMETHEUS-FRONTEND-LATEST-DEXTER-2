@@ -597,6 +597,7 @@ export function MusicTabPanel({
   const reduceMotion = useStableReducedMotion()
   const [catalogTracks, setCatalogTracks] = React.useState<MusicRecommendation[]>([])
   const [catalogLoading, setCatalogLoading] = React.useState(false)
+  const [catalogReady, setCatalogReady] = React.useState(false)
   const [localSelectedTrackId, setLocalSelectedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
   const [focusedTrackId, setFocusedTrackId] = React.useState<string | null>(selectedTrackId ?? tracks[0]?.id ?? null)
   const [playingTrackId, setPlayingTrackId] = React.useState<string | null>(null)
@@ -633,10 +634,14 @@ export function MusicTabPanel({
           offset = nextOffset
         }
 
-        if (!disposed) setCatalogTracks(nextTracks)
+        if (!disposed) {
+          setCatalogTracks(nextTracks)
+          setCatalogReady(true)
+        }
       } catch (error) {
         if (!disposed) {
           setCatalogTracks([])
+          setCatalogReady(true)
           toast.error(error instanceof Error ? error.message : 'Unable to load music catalog')
         }
       } finally {
@@ -652,14 +657,14 @@ export function MusicTabPanel({
   }, [])
 
   const displayTracks = React.useMemo(() => {
-    const sourceTracks = catalogTracks.length ? catalogTracks : tracks
+    const sourceTracks = catalogReady ? catalogTracks : []
     const seen = new Set<string>()
     return sourceTracks.filter((track) => {
       if (seen.has(track.id)) return false
       seen.add(track.id)
       return true
     })
-  }, [catalogTracks, tracks])
+  }, [catalogReady, catalogTracks])
 
   const normalizedQuery = searchQuery.trim().toLowerCase()
   const filteredTracks = React.useMemo(() => {
@@ -701,8 +706,8 @@ export function MusicTabPanel({
   const activeTrack = selectedTrack ?? focusedTrack
   const selectedSong = React.useMemo(() => (activeTrack ? buildSelectedSongDisplay(activeTrack) : null), [activeTrack])
   const currentPlayerTrack = React.useMemo(
-    () => displayTracks.find((track) => track.id === playingTrackId) ?? activeTrack,
-    [activeTrack, displayTracks, playingTrackId],
+    () => displayTracks.find((track) => track.id === playingTrackId) ?? selectedTrack ?? null,
+    [displayTracks, playingTrackId, selectedTrack],
   )
 
   const handleTrackFocus = React.useCallback(
@@ -787,7 +792,18 @@ export function MusicTabPanel({
     }
   }, [displayTracks, handleTrackFocus, projectTitle, selectedTrackIds])
 
-  if (!displayTracks.length && !catalogLoading) {
+  if (!catalogReady || (catalogLoading && !displayTracks.length)) {
+    return (
+      <section className="premium-ambient-panel premium-vignette-surface flex w-full max-w-[1060px] self-center rounded-[30px] px-5 py-5 shadow-[0_28px_64px_-38px_rgba(0,0,0,0.95)]">
+        <LuxuryVignette tone="music" />
+        <div className="relative z-10 flex min-h-[220px] w-full items-center justify-center px-4 text-center">
+          <MinimalTypographicLoader label="Loading catalog" message="Preparing Cloudflare soundtrack imagery." size="sm" variant="inline" />
+        </div>
+      </section>
+    )
+  }
+
+  if (!displayTracks.length) {
     return (
       <section className="premium-ambient-panel premium-vignette-surface flex w-full max-w-[1060px] self-center rounded-[30px] px-5 py-5 shadow-[0_28px_64px_-38px_rgba(0,0,0,0.95)]">
         <LuxuryVignette tone="music" />

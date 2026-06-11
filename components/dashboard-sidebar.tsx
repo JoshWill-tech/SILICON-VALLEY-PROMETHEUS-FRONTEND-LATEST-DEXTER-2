@@ -225,45 +225,6 @@ export function DashboardSidebar() {
           </nav>
         </div>
 
-        <motion.div
-          initial={false}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={cn(
-            'overflow-hidden rounded-[26px] border border-white/8 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transform-gpu',
-            collapsed ? 'px-0 py-0' : 'px-4 py-3',
-          )}
-        >
-          <AnimatePresence initial={false} mode="wait">
-            {collapsed ? (
-              <motion.div
-                key="sidebar-footer-collapsed"
-                initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 4, scale: 0.98 }}
-                transition={COLLAPSE_CONTENT_TRANSITION}
-                className="flex justify-center px-0 py-4"
-              >
-                <span className="size-2 rounded-full bg-white/55" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="sidebar-footer-expanded"
-                initial={{ opacity: 0, y: 6, scale: 0.985 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.985 }}
-                transition={COLLAPSE_CONTENT_TRANSITION}
-              >
-                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.28em] text-white/36">
-                  <span className="size-2 rounded-full bg-white/55" />
-                  Navigation Live
-                </div>
-                <p className="mt-2 text-xs leading-5 text-white/42">
-                  The active blade follows hover, then settles back on the current route.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
       </div>
     </motion.aside>
   )

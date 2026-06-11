@@ -58,6 +58,12 @@ function clampVelocityForBounds(scroll: number, maxScroll: number, velocity: num
   return clamp(velocity, -MAX_VELOCITY, 12 + 40 * ratio)
 }
 
+function shouldReleaseWheelToNativeScroll(deltaY: number, scroll: number, maxScroll: number) {
+  if (!deltaY || maxScroll <= 0) return true
+  if (deltaY < 0) return scroll <= 0.5
+  return scroll >= maxScroll - 0.5
+}
+
 type InertialSongScrollerProps = {
   children: React.ReactNode
   className?: string
@@ -205,10 +211,11 @@ export function InertialSongScroller({
       const state = stateRef.current
       if (state.maxScroll <= 0) return
 
-      event.preventDefault()
-
       const delta = event.deltaY
       if (!delta) return
+      if (shouldReleaseWheelToNativeScroll(delta, state.scroll, state.maxScroll)) return
+
+      event.preventDefault()
 
       stopAnimation()
 
@@ -353,7 +360,7 @@ export function InertialSongScroller({
       <div aria-hidden className="premium-song-scroller-overlay premium-song-scroller-overlay-bottom" />
       <div aria-hidden className="premium-song-scroller-sheen" />
 
-      <div ref={viewportRef} className="premium-song-scroller-viewport h-full w-full touch-none overflow-hidden">
+      <div ref={viewportRef} className="premium-song-scroller-viewport h-full w-full touch-pan-y overflow-hidden">
         <motion.div ref={contentRef} style={{ y }} className={cn('premium-song-scroller-content', contentClassName)}>
           {children}
         </motion.div>

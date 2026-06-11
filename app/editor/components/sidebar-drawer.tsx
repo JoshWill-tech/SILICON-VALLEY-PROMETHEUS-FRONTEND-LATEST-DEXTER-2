@@ -118,12 +118,6 @@ export function SidebarDrawer({ activePanel, isOpen, onClose, onTogglePanel }: S
         </div>
       </div>
 
-      <footer className="border-t border-white/10 px-4 py-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">Navigation Live</div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-accent-purple to-accent-cyan" />
-        </div>
-      </footer>
     </aside>
   )
 }

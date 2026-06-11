@@ -75,54 +75,12 @@ function TrackArtwork({
   )
 }
 
-function ArtistMarquee({ artist }: { artist: string }) {
+function ArtistLine({ artist }: { artist: string }) {
   const displayArtist = artist.trim() || 'Unknown Artist'
-  const containerRef = React.useRef<HTMLDivElement>(null)
-  const textRef = React.useRef<HTMLSpanElement>(null)
-  const [isOverflowing, setIsOverflowing] = React.useState(false)
-
-  React.useEffect(() => {
-    const checkOverflow = () => {
-      const container = containerRef.current
-      const text = textRef.current
-      if (!container || !text) return
-      setIsOverflowing(text.scrollWidth > container.clientWidth + 1)
-    }
-
-    const timer = setTimeout(checkOverflow, 100)
-    const observer = new ResizeObserver(checkOverflow)
-    if (containerRef.current) observer.observe(containerRef.current)
-
-    return () => {
-      clearTimeout(timer)
-      observer.disconnect()
-    }
-  }, [displayArtist])
 
   return (
-    <div
-      ref={containerRef}
-      className="relative mt-0.5 text-xs text-neutral-400"
-    >
-      <div
-        className={cn('flex whitespace-nowrap', isOverflowing ? 'animate-marquee w-max' : '')}
-        style={{ animationPlayState: 'running' }}
-        onMouseEnter={(event) => {
-          event.currentTarget.style.animationPlayState = 'paused'
-        }}
-        onMouseLeave={(event) => {
-          event.currentTarget.style.animationPlayState = 'running'
-        }}
-      >
-        <span ref={textRef} className={isOverflowing ? 'pr-8' : ''}>
-          {displayArtist}
-        </span>
-        {isOverflowing && (
-          <span className="pr-8" aria-hidden="true">
-            {displayArtist}
-          </span>
-        )}
-      </div>
+    <div className="relative mt-0.5 min-w-0 truncate text-xs text-neutral-400" title={displayArtist}>
+      {displayArtist}
     </div>
   )
 }
@@ -195,7 +153,7 @@ export function SoundtrackCard({
           ) : null}
         </div>
 
-        <ArtistMarquee artist={track.artist} />
+        <ArtistLine artist={track.artist} />
       </div>
 
       <div className="hidden w-12 shrink-0 text-right text-xs text-white/40 sm:block">{formatDuration(track.durationSec)}</div>

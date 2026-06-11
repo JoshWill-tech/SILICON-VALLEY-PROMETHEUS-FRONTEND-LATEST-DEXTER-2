@@ -13,7 +13,6 @@ import {
   ArrowUp,
   BrainCircuit,
   CheckCircle2,
-  CopyPlus,
   Code2,
   ChevronLeft,
   ChevronRight,
@@ -35,7 +34,6 @@ import {
   RefreshCw,
   Search,
   Settings2,
-  SlidersHorizontal,
   Scissors,
   Sparkles,
   Upload,
@@ -779,26 +777,6 @@ const MOBILE_EDITOR_TABS: Array<{ key: MobileEditorTabKey; label: string; icon: 
   { key: 'versions', label: 'Versions', icon: GitBranch },
   { key: 'export', label: 'Export', icon: Download },
 ]
-
-const QUICK_ACTIONS = [
-  { label: 'Edit this video', icon: PenSquare },
-  { label: 'Generate rough cuts', icon: Wand2 },
-  { label: 'Add music', icon: Music4 },
-  { label: 'Generate title cards', icon: CopyPlus },
-  { label: 'Cinematic captions', icon: MessageSquare },
-  { label: 'Motion graphics', icon: Sparkles },
-  { label: 'Polish pacing', icon: SlidersHorizontal },
-]
-
-const QUICK_ACTION_TILTS = [
-  { rotate: -1.8, y: -7 },
-  { rotate: 0.9, y: -2 },
-  { rotate: -1.1, y: 3 },
-  { rotate: 1.4, y: -5 },
-  { rotate: -0.8, y: 2 },
-  { rotate: 1.05, y: -1 },
-  { rotate: -0.4, y: 4 },
-] as const
 
 const MUSIC_REFINEMENT_OPTIONS = [
   {
@@ -3023,7 +3001,7 @@ function FloatingChatComposer({
               onThreadOpenChange(false)
               onOpenChange(false)
             }}
-            className="pointer-events-auto fixed inset-0 -z-10 bg-black/45 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0"
+            className="pointer-events-auto fixed inset-0 -z-10 bg-black/65 backdrop-blur-[24px] backdrop-saturate-[1.8]"
           />
         ) : null}
       </AnimatePresence>
@@ -5078,27 +5056,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     setQueuedPreviewRevision(null)
   }, [])
 
-  const handlePresetAction = React.useCallback((label: string) => {
-    if (label === 'Add music') {
-      submitMessage(buildMusicQuickActionPrompt(projectTitle, videoContext), {
-        forceMusic: true,
-        musicQuickAction: true,
-        scrollToReply: true,
-        showUserMessage: false,
-      })
-      return
-    }
-
-    const editStyleTemplate = selectEditStyleTemplate(label, videoContext)
-    const editPrompt = buildEditQuickActionPrompt(projectTitle, videoContext, editStyleTemplate)
-    const nextPrompt = label === 'Edit this video' ? editPrompt : `${label}. ${editPrompt}`
-    void submitMessage(nextPrompt, {
-      forceMusic: false,
-      scrollToReply: true,
-      showUserMessage: false,
-    })
-  }, [projectTitle, submitMessage, videoContext])
-
   React.useEffect(() => {
     if (!automationRequest) return
     if (handledAutomationRequestIdRef.current === automationRequest.id) return
@@ -5222,100 +5179,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               ))}
             </div>
           ) : null}
-        </motion.div>
-
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.16, distance: 12, blur: 8, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: threadViewportRef, once: false, amount: 0.4 }}
-          className="grid gap-2 sm:grid-cols-2"
-        >
-          {QUICK_ACTIONS.map(({ label, icon: Icon }, index) => {
-            const actionTilt = QUICK_ACTION_TILTS[index] ?? QUICK_ACTION_TILTS[QUICK_ACTION_TILTS.length - 1] ?? {
-              rotate: 0,
-              y: 0,
-            }
-
-            return (
-              <motion.button
-                key={label}
-                type="button"
-                onClick={() => handlePresetAction(label)}
-                initial={
-                  reduceMotion
-                    ? false
-                    : {
-                        opacity: 0,
-                        y: actionTilt.y + 12,
-                        scale: 0.94,
-                        rotate: actionTilt.rotate - 1.2,
-                      }
-                }
-                animate={
-                  reduceMotion
-                    ? undefined
-                    : {
-                        opacity: 1,
-                        y: actionTilt.y,
-                        scale: 1,
-                        rotate: actionTilt.rotate,
-                      }
-                }
-                transition={
-                  reduceMotion
-                    ? undefined
-                    : {
-                        duration: 0.34,
-                        delay: 0.1 + index * 0.07,
-                        ease: [0.22, 1, 0.36, 1],
-                      }
-                }
-                whileHover={
-                  reduceMotion
-                    ? undefined
-                    : {
-                        y: actionTilt.y - 2,
-                        rotate: actionTilt.rotate * 0.55,
-                        scale: 1.02,
-                      }
-                }
-                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                className="flex min-h-[40px] w-full min-w-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full border border-white/8 bg-[#101015]/94 px-3 py-2 text-center text-[10px] leading-none text-white/70 shadow-[0_18px_28px_-24px_rgba(0,0,0,0.82)] transition-colors hover:border-white/14 hover:text-white sm:text-[11px]"
-              >
-                <motion.span
-                  initial={reduceMotion ? false : { opacity: 0, scale: 0.72, rotate: -10 }}
-                  animate={reduceMotion ? undefined : { opacity: 1, scale: 1, rotate: 0 }}
-                  transition={
-                    reduceMotion
-                      ? undefined
-                      : {
-                          duration: 0.28,
-                          delay: 0.16 + index * 0.07,
-                          ease: [0.22, 1, 0.36, 1],
-                        }
-                  }
-                >
-                  <Icon className="size-3.5" />
-                </motion.span>
-                <motion.span
-                  initial={reduceMotion ? false : { opacity: 0, x: -10 }}
-                  animate={reduceMotion ? undefined : { opacity: 1, x: 0 }}
-                  transition={
-                    reduceMotion
-                      ? undefined
-                      : {
-                          duration: 0.28,
-                          delay: 0.2 + index * 0.07,
-                          ease: [0.22, 1, 0.36, 1],
-                        }
-                  }
-                >
-                  {label}
-                </motion.span>
-              </motion.button>
-            )
-          })}
         </motion.div>
 
         <motion.div className="space-y-3">
@@ -7762,34 +7625,7 @@ function OriginalEditorPage() {
                 viewport={{ once: false, amount: 0.45 }}
                 className="shrink-0 border-b border-white/8 px-4 py-3"
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="relative inline-flex rounded-full border border-white/10 bg-black/34 p-1 shadow-[0_18px_44px_-32px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
-                    {WORKSPACE_TABS.map(({ key, label, icon: Icon }) => {
-                      const active = activeWorkspaceTab === key
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setActiveWorkspaceTab(key)}
-                          className={cn(
-                            'relative z-10 inline-flex h-9 min-w-[5.75rem] items-center justify-center gap-2 rounded-full px-3 text-[12px] font-medium transition-colors',
-                            active ? 'text-white' : 'text-white/42 hover:text-white/72',
-                          )}
-                        >
-                          {active ? (
-                            <motion.span
-                              layoutId="editor-workspace-active-pill"
-                              className="absolute inset-0 rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.055)_100%)] shadow-[0_16px_34px_-24px_rgba(255,255,255,0.32),inset_0_1px_0_rgba(255,255,255,0.18)]"
-                              transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
-                            />
-                          ) : null}
-                          <Icon className="relative size-3.5" />
-                          <span className="relative">{label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-
+                <div className="flex justify-end">
                   <div className="inline-flex items-center gap-2 text-white/48">
                     {activeWorkspaceTab === 'Editor' ? (
                       <ViralClipTrigger

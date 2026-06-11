@@ -149,10 +149,11 @@ export function CinematicExportCluster({
 
   const [isOpen, setIsOpen] = React.useState(debugDefaultOpen)
   const [trayPosition, setTrayPosition] = React.useState<{ top: number; right: number } | null>(null)
-  const [connectedPlatforms, setConnectedPlatforms] = React.useState<Record<string, boolean>>(() =>
-    Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform.id, false])),
+  const connectedPlatforms = React.useMemo<Record<string, boolean>>(
+    () => Object.fromEntries(PLATFORM_OPTIONS.map((platform) => [platform.id, false])),
+    [],
   )
-  const [statusMessage, setStatusMessage] = React.useState('Bring channels online for the final handoff.')
+  const [statusMessage, setStatusMessage] = React.useState('Connect provider accounts in Settings before direct social publishing.')
   const [activePlatformId, setActivePlatformId] = React.useState<string | null>(null)
   const [spotlightPlatformId, setSpotlightPlatformId] = React.useState<string | null>(null)
 
@@ -168,7 +169,7 @@ export function CinematicExportCluster({
     [activePlatformId, spotlightPlatformId],
   )
   const connectionSummary =
-    linkedCount === 0 ? 'No destinations live yet.' : linkedCount === 1 ? '1 destination live.' : `${linkedCount} destinations live.`
+    linkedCount === 0 ? 'Provider setup required.' : linkedCount === 1 ? '1 destination live.' : `${linkedCount} destinations live.`
   const trayActivePlatform = activePlatform ?? PLATFORM_OPTIONS[0]!
 
   const clearCloseTimer = React.useCallback(() => {
@@ -185,10 +186,8 @@ export function CinematicExportCluster({
 
   const describePlatformState = React.useCallback(
     (platform: PlatformOption) =>
-      connectedPlatforms[platform.id]
-        ? `${platform.name} linked. Ready for master delivery.`
-        : `Ready to link ${platform.name} for cinematic publishing.`,
-    [connectedPlatforms],
+      `${platform.name} requires provider authorization before Prometheus can publish there.`,
+    [],
   )
 
   const focusPlatform = React.useCallback(
@@ -251,23 +250,9 @@ export function CinematicExportCluster({
     }, 1400)
   }, [])
 
-  const togglePlatformLink = React.useCallback((platform: PlatformOption) => {
-    setConnectedPlatforms((prev) => {
-      const nextConnected = !prev[platform.id]
-      setStatusMessage(
-        nextConnected
-          ? `${platform.name} connected. Destination is live.`
-          : `${platform.name} disconnected. Lane is on standby.`,
-      )
-      return {
-        ...prev,
-        [platform.id]: nextConnected,
-      }
-    })
-  }, [])
-
-  const queuePlatformUpload = React.useCallback((platform: PlatformOption) => {
-    setStatusMessage(`${platform.name} staged for delivery.`)
+  const openPlatformSetup = React.useCallback((platform: PlatformOption) => {
+    setStatusMessage(`Opening setup for ${platform.name}. Complete OAuth in Social Accounts to enable publishing.`)
+    window.open(`/settings/social-accounts?connect=${encodeURIComponent(platform.id)}`, '_blank', 'noopener,noreferrer')
   }, [])
 
   const handleBlurCapture = React.useCallback((event: React.FocusEvent<HTMLDivElement>) => {
@@ -417,11 +402,11 @@ export function CinematicExportCluster({
                       Release Map
                     </div>
                     <div className="mt-2 text-[1.35rem] leading-none text-white" style={GRAND_CRU_STYLE}>
-                      Social handoff
+                      Social setup
                     </div>
                   </div>
                   <div className="rounded-[18px] border border-white/8 bg-white/[0.035] px-3 py-2 text-right">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/34">Live</div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/34">Ready</div>
                     <div className="mt-0.5 text-lg text-white/90" style={GRAND_CRU_STYLE}>
                       {linkedCount}/5
                     </div>
@@ -479,7 +464,7 @@ export function CinematicExportCluster({
                         aria-label={`${platform.name} destination`}
                         onMouseEnter={() => focusPlatform(platform)}
                         onFocus={() => focusPlatform(platform)}
-                        onClick={() => togglePlatformLink(platform)}
+                        onClick={() => openPlatformSetup(platform)}
                         className={cn(
                           'absolute grid size-12 place-items-center rounded-[18px] border bg-[#090a0f]/88 text-white shadow-[0_18px_34px_-24px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition-[border-color,background-color,transform]',
                           connected ? 'border-emerald-300/34' : isActive ? 'border-white/26 bg-white/[0.08]' : 'border-white/10 hover:border-white/20',
@@ -519,7 +504,7 @@ export function CinematicExportCluster({
                     </div>
                     <button
                       type="button"
-                      onClick={() => togglePlatformLink(trayActivePlatform)}
+                      onClick={() => openPlatformSetup(trayActivePlatform)}
                       className={cn(
                         'h-9 rounded-full border px-3 text-[12px] font-semibold transition-colors',
                         connectedPlatforms[trayActivePlatform.id]
@@ -527,14 +512,14 @@ export function CinematicExportCluster({
                           : 'border-white/10 bg-white/[0.04] text-white/70 hover:text-white',
                       )}
                     >
-                      {connectedPlatforms[trayActivePlatform.id] ? 'Linked' : 'Link'}
+                      <Link2 className="mr-1 inline size-3" />
+                      Setup
                     </button>
                     <button
                       type="button"
                       disabled={!connectedPlatforms[trayActivePlatform.id]}
-                      onClick={() => queuePlatformUpload(trayActivePlatform)}
                       className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white text-black transition-colors hover:bg-white/90 disabled:border-white/6 disabled:bg-white/[0.04] disabled:text-white/22"
-                      aria-label={`Push to ${trayActivePlatform.name}`}
+                      aria-label={`${trayActivePlatform.name} publishing requires account setup`}
                     >
                       <ArrowUpRight className="size-4" />
                     </button>

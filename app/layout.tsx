@@ -9,7 +9,6 @@ import { RootClientEffects } from '@/components/root-client-effects'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import { ReactQueryProvider } from '@/components/ReactQueryProvider'
 import { RootLayoutFrame } from '@/components/root-layout-frame'
-import { SceneManager } from '@/components/webgl/SceneManager'
 import './globals.css'
 import './premium-vignette.css'
 
@@ -93,7 +92,6 @@ export default function RootLayout({
         <ReactQueryProvider>
           <AuthProvider>
             <RootSmoothScroll />
-            <SceneManager />
             <CustomCursor />
             <div className="relative z-10">
               <RootLayoutFrame>{children}</RootLayoutFrame>

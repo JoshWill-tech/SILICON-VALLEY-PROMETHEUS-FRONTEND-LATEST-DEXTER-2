@@ -178,9 +178,6 @@ export function EditorHamburgerSidebar({
           })}
         </nav>
 
-        <footer className="border-t border-white/10 px-5 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/32">Navigation Live</p>
-        </footer>
       </aside>
     </>
   )

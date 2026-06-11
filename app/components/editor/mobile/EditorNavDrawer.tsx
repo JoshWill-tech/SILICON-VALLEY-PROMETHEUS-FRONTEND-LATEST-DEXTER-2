@@ -270,15 +270,6 @@ export function EditorNavDrawer({
                 </div>
               </nav>
 
-              <footer className="border-t border-prometheus-border-subtle px-5 py-4">
-                <div className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.24em] text-white/36">
-                  <span className="size-2 rounded-full bg-white/55" />
-                  Navigation Live
-                </div>
-                <p className="mt-2 text-xs leading-5 text-white/42">
-                  The active blade follows hover, then settles back on the current route.
-                </p>
-              </footer>
             </motion.aside>
           </>
         ) : null}
