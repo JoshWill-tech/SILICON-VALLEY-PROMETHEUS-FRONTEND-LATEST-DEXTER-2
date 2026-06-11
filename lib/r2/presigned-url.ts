@@ -11,16 +11,21 @@ export async function getPresignedPutUrl(bucket: string, key: string, contentTyp
     ContentType: contentType,
   });
 
-  const url = await getSignedUrl(r2Client, command, { expiresIn: EXPIRE_IN_SECONDS });
+  const url = await getSignedUrl(r2Client as any, command, { expiresIn: EXPIRE_IN_SECONDS });
   return url;
 }
 
-export async function getPresignedGetUrl(bucket: string, key: string) {
+export async function getPresignedGetUrl(bucket: string, key: string, dispositionOrFilename?: string) {
+  const responseContentDisposition = dispositionOrFilename && !dispositionOrFilename.includes('attachment')
+    ? `attachment; filename="${dispositionOrFilename}"`
+    : dispositionOrFilename;
+
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: key,
+    ResponseContentDisposition: responseContentDisposition,
   });
 
-  const url = await getSignedUrl(r2Client, command, { expiresIn: EXPIRE_IN_SECONDS });
+  const url = await getSignedUrl(r2Client as any, command, { expiresIn: EXPIRE_IN_SECONDS });
   return url;
 }

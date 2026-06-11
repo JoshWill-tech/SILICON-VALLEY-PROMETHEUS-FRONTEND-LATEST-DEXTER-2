@@ -4,11 +4,13 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AtSignIcon, LockIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { writePendingVerificationEmail } from '@/lib/auth/pending-verification'
 import { normalizeNextPath } from '@/lib/auth/redirect'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 function isValidEmail(email: string) {
   return email.includes('@')
@@ -19,7 +21,9 @@ export function LoginForm() {
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-  const [serverError, setServerError] = React.useState<string | null>(searchParams.get('error'))
+  const [serverError, setServerError] = React.useState<string | null>(
+    searchParams.get('error') ? normalizeUxError(searchParams.get('error'), 'login') : null,
+  )
 
   const [errors, setErrors] = React.useState<{ email?: string; password?: string }>({})
   const nextPath = normalizeNextPath(searchParams.get('next'))
@@ -35,6 +39,8 @@ export function LoginForm() {
   return (
     <form
       onSubmit={async (e) => {
+        console.log("email submit")
+        console.log('auth form submitted', { email })
         e.preventDefault()
         setServerError(null)
         if (!validate()) return
@@ -75,7 +81,9 @@ export function LoginForm() {
 
             window.location.assign(nextPath)
           } catch (err) {
-            setServerError(err instanceof Error ? err.message : 'Login failed')
+            const message = normalizeUxError(err, 'login')
+            setServerError(message)
+            toast.error('Sign in paused', { description: message })
           } finally {
             setSubmitting(false)
           }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { BackButton } from '@/components/navigation/BackButton'
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 import { Button } from '@/components/ui/button'
 import { getMusicShowcaseSeeds } from '@/lib/music-catalog'
@@ -253,41 +254,44 @@ export function CinematicLibrary({
                 </AnimatePresence>
                 <div className="relative z-10 flex min-h-[640px] flex-col p-5 sm:p-7 lg:p-8">
                   <div className="flex flex-wrap items-start justify-between gap-4">
-                    <motion.div className="space-y-4" {...reveal(0.06, 18)}>
-                      <div className="text-[11px] uppercase tracking-[0.34em] text-white/42">Prometheus Library</div>
-                      <motion.div {...reveal(0.12, 18)}>
-                        <AnimatedTooltip
-                          items={FOUNDER_STRIP.map((item) => ({ ...item }))}
-                          activeId={tab === 'uploads' ? founderActiveId : null}
-                          onItemClick={(item) => {
-                            const match = showcaseItems.find((entry) => entry.title === item.name)
-                            if (match) setActiveId(match.id)
-                          }}
-                          className="pt-1"
-                        />
-                      </motion.div>
-                      <motion.div className="flex flex-wrap gap-2" {...reveal(0.18, 18)}>
-                        {TAB_ORDER.map((entry) => {
-                          const entryConfig = TAB_CONFIG[entry]
-                          const isActive = tab === entry
-                          return (
-                            <motion.button
-                              key={entry}
-                              type="button"
-                              onClick={() => onTabChange(entry)}
-                              className={cn(
-                                'border px-3 py-2 text-[11px] uppercase tracking-[0.2em] transition-colors',
-                                isActive
-                                  ? 'border-[#ff6a55]/34 bg-[#161920] text-white shadow-[0_18px_34px_-28px_rgba(255,106,85,0.36)]'
-                                  : 'border-white/12 bg-black/18 text-white/62 hover:border-white/22 hover:text-white',
-                              )}
-                              {...reveal(0.22 + entryConfig.label.length * 0.005, 16)}
-                            >
-                              {entryConfig.label} <span className="ml-2 text-white/45">{String(assetCounts[entry]).padStart(2, '0')}</span>
-                            </motion.button>
-                          )
-                        })}
-                      </motion.div>
+                    <motion.div className="flex min-w-0 items-start gap-3" {...reveal(0.06, 18)}>
+                      <BackButton className="border border-white/12 bg-black/20" />
+                      <div className="min-w-0 space-y-4 pt-1">
+                        <div className="text-[11px] uppercase tracking-[0.34em] text-white/42">Prometheus Library</div>
+                        <motion.div {...reveal(0.12, 18)}>
+                          <AnimatedTooltip
+                            items={FOUNDER_STRIP.map((item) => ({ ...item }))}
+                            activeId={tab === 'uploads' ? founderActiveId : null}
+                            onItemClick={(item) => {
+                              const match = showcaseItems.find((entry) => entry.title === item.name)
+                              if (match) setActiveId(match.id)
+                            }}
+                            className="pt-1"
+                          />
+                        </motion.div>
+                        <motion.div className="flex flex-wrap gap-2" {...reveal(0.18, 18)}>
+                          {TAB_ORDER.map((entry) => {
+                            const entryConfig = TAB_CONFIG[entry]
+                            const isActive = tab === entry
+                            return (
+                              <motion.button
+                                key={entry}
+                                type="button"
+                                onClick={() => onTabChange(entry)}
+                                className={cn(
+                                  'border px-3 py-2 text-[11px] uppercase tracking-[0.2em] transition-colors',
+                                  isActive
+                                    ? 'border-[#ff6a55]/34 bg-[#161920] text-white shadow-[0_18px_34px_-28px_rgba(255,106,85,0.36)]'
+                                    : 'border-white/12 bg-black/18 text-white/62 hover:border-white/22 hover:text-white',
+                                )}
+                                {...reveal(0.22 + entryConfig.label.length * 0.005, 16)}
+                              >
+                                {entryConfig.label} <span className="ml-2 text-white/45">{String(assetCounts[entry]).padStart(2, '0')}</span>
+                              </motion.button>
+                            )
+                          })}
+                        </motion.div>
+                      </div>
                     </motion.div>
 
                     <motion.div className="flex items-center gap-2" {...reveal(0.16, 18)}>

@@ -1,11 +1,13 @@
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { normalizeNextPath } from '@/lib/auth/redirect'
+import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/server'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 function buildRedirect(request: NextRequest, pathname: string, error?: string, nextPath?: string, email?: string) {
-  const url = new URL(pathname, request.nextUrl.origin)
+  const origin = getSiteOrigin(request)
+  const url = new URL(pathname, origin)
 
   if (error) {
     url.searchParams.set('error', error)
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
       buildRedirect(
         request,
         failurePath,
-        errorDescription || 'That confirmation link is no longer valid. Request a fresh email and try again.',
+        normalizeUxError(errorDescription || 'That confirmation link is no longer valid. Request a fresh email and try again.', 'verification'),
         nextPath,
         email ?? undefined,
       ),
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(redirectTo)
       }
 
-      return NextResponse.redirect(buildRedirect(request, '/login', error.message, nextPath, email ?? undefined))
+      return NextResponse.redirect(buildRedirect(request, '/login', normalizeUxError(error, 'oauth_callback'), nextPath, email ?? undefined))
     }
 
     if (tokenHash && type) {
@@ -80,12 +82,12 @@ export async function GET(request: NextRequest) {
       }
 
       const failurePath = type === 'recovery' ? '/forgot-password' : '/verify'
-      return NextResponse.redirect(buildRedirect(request, failurePath, error.message, nextPath, email ?? undefined))
+      return NextResponse.redirect(buildRedirect(request, failurePath, normalizeUxError(error, 'verification'), nextPath, email ?? undefined))
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Authentication confirmation failed'
+    const message = normalizeUxError(error, 'oauth_callback')
     return NextResponse.redirect(buildRedirect(request, '/login', message, nextPath, email ?? undefined))
   }
 
-  return NextResponse.redirect(buildRedirect(request, '/login', 'Authentication confirmation failed', nextPath, email ?? undefined))
+  return NextResponse.redirect(buildRedirect(request, '/login', normalizeUxError('Authentication confirmation failed', 'oauth_callback'), nextPath, email ?? undefined))
 }

@@ -1,14 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { AppleIcon, GithubIcon } from 'lucide-react'
+import { GithubIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
-import { normalizeNextPath } from '@/lib/auth/redirect'
+import { getSiteOrigin, normalizeNextPath } from '@/lib/auth/redirect'
 import { createClient } from '@/lib/supabase/client'
+import { normalizeUxError } from '@/lib/ux/errors'
+import { toast } from 'sonner'
 
-import { GoogleIcon } from './auth-visuals'
+import { GoogleIcon, AppleIcon } from './auth-visuals'
 
 type SocialProvider = 'google' | 'apple' | 'github'
 
@@ -30,6 +32,7 @@ export function SocialAuthButtons() {
   const searchParams = useSearchParams()
   const [busyProvider, setBusyProvider] = React.useState<SocialProvider | null>(null)
   const [serverError, setServerError] = React.useState<string | null>(null)
+  const [slowProvider, setSlowProvider] = React.useState<SocialProvider | null>(null)
 
   const nextPath = normalizeNextPath(searchParams.get('next'))
 
@@ -49,16 +52,26 @@ export function SocialAuthButtons() {
   const handleOAuth = React.useCallback(
     async (provider: SocialProvider) => {
       if (!SUPABASE_CLIENT_READY) {
-        setServerError('Supabase client env vars are missing. Add them to .env.local first.')
+        const message = 'Secure sign-in is temporarily unavailable. Use email sign-in while we reconnect identity providers.'
+        setServerError(message)
+        toast.error('Identity provider unavailable', { description: message })
         return
       }
 
       setBusyProvider(provider)
+      setSlowProvider(null)
       setServerError(null)
+      const slowTimer = window.setTimeout(() => {
+        setSlowProvider(provider)
+        toast.info('Still waiting on the provider', {
+          description: 'Keep this tab open while the secure identity handoff completes.',
+        })
+      }, 3000)
 
       try {
         const supabase = createClient()
-        const redirectTo = new URL('/auth/confirm', window.location.origin)
+        const origin = getSiteOrigin()
+        const redirectTo = new URL('/auth/confirm', origin)
 
         if (nextPath !== '/') {
           redirectTo.searchParams.set('next', nextPath)
@@ -68,6 +81,9 @@ export function SocialAuthButtons() {
           provider,
           options: {
             redirectTo: redirectTo.toString(),
+            queryParams: provider === 'google' ? {
+              prompt: 'select_account',
+            } : undefined,
           },
         })
 
@@ -75,8 +91,13 @@ export function SocialAuthButtons() {
           throw error
         }
       } catch (error) {
-        setServerError(error instanceof Error ? error.message : 'OAuth sign-in failed')
+        const message = normalizeUxError(error, 'oauth')
+        setServerError(message)
+        toast.error('Identity handoff paused', { description: message })
         setBusyProvider(null)
+        setSlowProvider(null)
+      } finally {
+        window.clearTimeout(slowTimer)
       }
     },
     [nextPath],
@@ -92,11 +113,15 @@ export function SocialAuthButtons() {
           className="w-full"
           disabled={busyProvider !== null}
           onClick={() => {
+            if (provider === 'google') console.log("google clicked")
+            if (provider === 'apple') console.log("apple clicked")
+            if (provider === 'github') console.log("github clicked")
+            console.log('oauth clicked', { provider })
             void handleOAuth(provider)
           }}
         >
           <Icon className="size-4 me-2" />
-          {busyProvider === provider ? 'Redirecting...' : label}
+          {busyProvider === provider ? (slowProvider === provider ? 'Still connecting...' : 'Redirecting...') : label}
         </Button>
       ))}
 

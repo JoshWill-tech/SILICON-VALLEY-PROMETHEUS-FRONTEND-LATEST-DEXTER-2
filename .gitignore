@@ -31,8 +31,13 @@ next-env.d.ts
 # local tooling artifacts
 .codex-*
 .npm-cache/
+cookies.txt
 test-results/
 .env.local
 .env.example
 .env.local
 env.local
+
+# Local render proofs / generated test media
+.tmp/
+.env.local.backup

@@ -10,6 +10,7 @@ type SignupBody = {
   email: string
   password: string
   next?: string
+  captchaToken?: string | null
 }
 
 export async function POST(req: Request) {
@@ -17,10 +18,10 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Partial<SignupBody>
 
+    const { captchaToken, next } = body
     const email = body.email ?? ''
     const password = body.password ?? ''
     const fullName = body.fullName ?? ''
-    const next = body.next
 
     console.info('[api/auth/signup] incoming', {
       email,
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
         data: {
           full_name: fullName,
         },
+        captchaToken: captchaToken ?? undefined,
         emailRedirectTo: buildAuthConfirmUrl(req, next).toString(),
       },
     })
@@ -57,7 +59,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user, requiresVerification })
   } catch (err) {
-    const message = getErrorMessage(err, 'Signup failed')
+    const rawMessage = err instanceof Error ? err.message.toLowerCase() : ''
+    const message = rawMessage.includes('captcha') || rawMessage.includes('turnstile')
+      ? 'Security check failed. Complete the verification and try again.'
+      : getErrorMessage(err, 'Signup failed', 'signup')
     console.error('[api/auth/signup] error', { ms: Date.now() - startedAt, message })
     return NextResponse.json({ error: message }, { status: 400 })
   }

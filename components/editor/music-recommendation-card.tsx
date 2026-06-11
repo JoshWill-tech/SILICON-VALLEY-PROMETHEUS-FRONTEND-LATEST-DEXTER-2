@@ -93,10 +93,10 @@ export function MusicRecommendationCard({
           </motion.div>
 
           <div className="min-w-0 flex-1 pl-3">
-            <div className="truncate text-[14px] font-semibold leading-[1.1] tracking-[-0.02em] text-white">
+            <div className="truncate text-[14px] font-semibold leading-[1.1] tracking-[-0.02em] text-white" style={{ fontFamily: 'var(--font-grand-cru), serif' }}>
               {recommendation.title}
             </div>
-            <div className="truncate text-[12px] leading-tight text-white/60">
+            <div className="truncate text-[12px] leading-tight text-white/60" style={{ fontFamily: 'var(--font-bellavoir-serif), serif' }}>
               {recommendation.artist}
               {producerLabel ? ` - ${producerLabel}` : ''}
             </div>
@@ -322,4 +322,3 @@ function getRecommendationTone(groupKey?: string | null) {
       }
   }
 }
-

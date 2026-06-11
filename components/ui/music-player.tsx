@@ -2,12 +2,16 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useAnimationFrame, useMotionValue } from 'framer-motion'
-import { Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react'
+import { Music, Pause, Play, Repeat, Shuffle, SkipBack, SkipForward } from 'lucide-react'
 import Image from 'next/image'
 
 import { chamberEase } from '@/lib/chamber-motion'
 import { cn } from '@/lib/utils'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
+
+const musicDisplayFont = 'tracking-[-0.035em]'
+const musicMetaFont = 'font-serif'
+const ARTIFICIAL_BUFFER_MS = 4200
 
 const formatTime = (timeInSeconds: number): string => {
   if (Number.isNaN(timeInSeconds)) return '00:00'
@@ -23,7 +27,11 @@ type MusicPlayerProps = {
   artistName: string
   audioSrc: string
   isPlaying?: boolean
+  isMuted?: boolean
+  seekRequest?: { time: number; token: number } | null
+  onBufferingChange?: (isBuffering: boolean) => void
   onPlayingChange?: (nextPlaying: boolean) => void
+  onProgressChange?: (progress: { currentTime: number; duration: number }) => void
   onPrevious?: (options: { shuffle: boolean }) => void
   onNext?: (options: { shuffle: boolean }) => void
   canPrevious?: boolean
@@ -38,7 +46,11 @@ export function MusicPlayer({
   artistName,
   audioSrc,
   isPlaying: isPlayingProp,
+  isMuted = false,
+  seekRequest = null,
+  onBufferingChange,
   onPlayingChange,
+  onProgressChange,
   onPrevious,
   onNext,
   canPrevious = false,
@@ -51,6 +63,9 @@ export function MusicPlayer({
   const [currentTime, setCurrentTime] = React.useState(0)
   const [isShuffle, setIsShuffle] = React.useState(false)
   const [isRepeat, setIsRepeat] = React.useState(false)
+  const [isBuffering, setIsBuffering] = React.useState(false)
+  const [canStartPlayback, setCanStartPlayback] = React.useState(false)
+  const [albumArtFailed, setAlbumArtFailed] = React.useState(false)
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const progressBarRef = React.useRef<HTMLInputElement | null>(null)
@@ -69,6 +84,14 @@ export function MusicPlayer({
     [isControlledPlaying, onPlayingChange],
   )
 
+  const setBufferingState = React.useCallback(
+    (nextBuffering: boolean) => {
+      setIsBuffering(nextBuffering)
+      onBufferingChange?.(nextBuffering)
+    },
+    [onBufferingChange],
+  )
+
   const syncProgressVisual = React.useCallback((time: number, totalDuration: number) => {
     if (!progressBarRef.current) return
     const progress = totalDuration > 0 ? (time / totalDuration) * 100 : 0
@@ -78,11 +101,20 @@ export function MusicPlayer({
   React.useEffect(() => {
     setCurrentTime(0)
     setDuration(0)
+    setCanStartPlayback(false)
+    setAlbumArtFailed(false)
+    setBufferingState(false)
     syncProgressVisual(0, 0)
     if (!reduceMotion) {
       rotation.set((rotation.get() + 24) % 360)
     }
-  }, [audioSrc, reduceMotion, rotation, syncProgressVisual])
+
+    const timer = window.setTimeout(() => {
+      setCanStartPlayback(true)
+    }, ARTIFICIAL_BUFFER_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [audioSrc, reduceMotion, rotation, setBufferingState, syncProgressVisual])
 
   React.useEffect(() => {
     const audio = audioRef.current
@@ -93,11 +125,13 @@ export function MusicPlayer({
       setDuration(nextDuration)
       setCurrentTime(audio.currentTime)
       syncProgressVisual(audio.currentTime, nextDuration)
+      onProgressChange?.({ currentTime: audio.currentTime, duration: nextDuration })
     }
 
     const setAudioTime = () => {
       setCurrentTime(audio.currentTime)
       syncProgressVisual(audio.currentTime, audio.duration)
+      onProgressChange?.({ currentTime: audio.currentTime, duration: Number.isFinite(audio.duration) ? audio.duration : 0 })
     }
 
     const handleEnded = () => {
@@ -105,24 +139,74 @@ export function MusicPlayer({
       setPlayingState(false)
     }
 
+    const handleBufferingStart = () => setBufferingState(true)
+    const handleBufferingEnd = () => {
+      if (canStartPlayback) {
+        setBufferingState(false)
+      }
+    }
+    const handleAudioError = () => {
+      setBufferingState(false)
+      setPlayingState(false)
+    }
+
     audio.addEventListener('loadedmetadata', setAudioData)
     audio.addEventListener('timeupdate', setAudioTime)
     audio.addEventListener('ended', handleEnded)
-
+    audio.addEventListener('loadstart', handleBufferingStart)
+    audio.addEventListener('waiting', handleBufferingStart)
+    audio.addEventListener('canplay', handleBufferingEnd)
+    audio.addEventListener('playing', handleBufferingEnd)
+    audio.addEventListener('error', handleAudioError)
     if (isPlaying) {
+      setBufferingState(true)
+      if (!canStartPlayback) {
+        audio.load()
+        return () => {
+          audio.removeEventListener('loadedmetadata', setAudioData)
+          audio.removeEventListener('timeupdate', setAudioTime)
+          audio.removeEventListener('ended', handleEnded)
+          audio.removeEventListener('loadstart', handleBufferingStart)
+          audio.removeEventListener('waiting', handleBufferingStart)
+          audio.removeEventListener('canplay', handleBufferingEnd)
+          audio.removeEventListener('playing', handleBufferingEnd)
+          audio.removeEventListener('error', handleAudioError)
+        }
+      }
+
       void audio.play().catch(() => {
-        // Keep the visual playback state alive even if the browser blocks preview audio.
+        setBufferingState(false)
+        setPlayingState(false)
       })
     } else {
       audio.pause()
+      setBufferingState(false)
     }
 
     return () => {
       audio.removeEventListener('loadedmetadata', setAudioData)
       audio.removeEventListener('timeupdate', setAudioTime)
       audio.removeEventListener('ended', handleEnded)
+      audio.removeEventListener('loadstart', handleBufferingStart)
+      audio.removeEventListener('waiting', handleBufferingStart)
+      audio.removeEventListener('canplay', handleBufferingEnd)
+      audio.removeEventListener('playing', handleBufferingEnd)
+      audio.removeEventListener('error', handleAudioError)
     }
-  }, [audioSrc, isPlaying, isRepeat, setPlayingState, syncProgressVisual])
+  }, [audioSrc, canStartPlayback, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
+
+  React.useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.muted = isMuted
+  }, [isMuted])
+
+  React.useEffect(() => {
+    if (!audioRef.current || !seekRequest) return
+    audioRef.current.currentTime = seekRequest.time
+    setCurrentTime(seekRequest.time)
+    syncProgressVisual(seekRequest.time, duration)
+    onProgressChange?.({ currentTime: seekRequest.time, duration })
+  }, [duration, onProgressChange, seekRequest, syncProgressVisual])
 
   useAnimationFrame((_, delta) => {
     if (reduceMotion) return
@@ -137,8 +221,9 @@ export function MusicPlayer({
       audioRef.current.currentTime = nextTime
       setCurrentTime(nextTime)
       syncProgressVisual(nextTime, duration)
+      onProgressChange?.({ currentTime: nextTime, duration })
     },
-    [duration, syncProgressVisual],
+    [duration, onProgressChange, syncProgressVisual],
   )
 
   const handlePrevious = React.useCallback(() => {
@@ -147,11 +232,12 @@ export function MusicPlayer({
       audio.currentTime = 0
       setCurrentTime(0)
       syncProgressVisual(0, duration)
+      onProgressChange?.({ currentTime: 0, duration })
       return
     }
 
     onPrevious?.({ shuffle: isShuffle })
-  }, [duration, isShuffle, onPrevious, syncProgressVisual])
+  }, [duration, isShuffle, onPrevious, onProgressChange, syncProgressVisual])
 
   const handleNext = React.useCallback(() => {
     onNext?.({ shuffle: isShuffle })
@@ -214,15 +300,22 @@ export function MusicPlayer({
           style={reduceMotion ? undefined : { rotate: rotation }}
           className="relative z-10 h-44 w-44 overflow-hidden rounded-full border border-white/8 shadow-[0_20px_42px_-30px_rgba(0,0,0,0.98)] sm:h-48 sm:w-48"
         >
-          <Image
-            src={albumArt}
-            alt={`${songTitle} album art`}
-            fill
-            sizes="192px"
-            priority
-            className="object-cover"
-            style={{ objectPosition: albumArtPosition }}
-          />
+          {albumArtFailed ? (
+            <div className="grid h-full w-full place-items-center bg-white/[0.04] text-white/24">
+              <Music className="size-12" strokeWidth={1.5} />
+            </div>
+          ) : (
+            <Image
+              src={albumArt}
+              alt={`${songTitle} album art`}
+              fill
+              sizes="192px"
+              priority
+              className="object-cover"
+              onError={() => setAlbumArtFailed(true)}
+              style={{ objectPosition: albumArtPosition }}
+            />
+          )}
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_20%,rgba(0,0,0,0.4)_100%)]" />
           <div className="absolute inset-[1px] rounded-full border border-white/10" />
           <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-black shadow-[0_0_0_8px_rgba(0,0,0,0.92)]" />
@@ -239,8 +332,15 @@ export function MusicPlayer({
           className="w-full"
         >
           <div className="text-center">
-            <h2 className="text-[1.38rem] font-semibold tracking-[-0.04em] text-white sm:text-[1.55rem]">{songTitle}</h2>
-            <p className="mt-1 text-[0.92rem] text-white/72">{artistName}</p>
+            <h2 className={cn(musicDisplayFont, 'text-[1.38rem] font-normal text-white sm:text-[1.55rem]')}>
+              {songTitle}
+            </h2>
+            <p className={cn(musicMetaFont, 'mt-1 text-[0.92rem] font-normal text-white/72')}>
+              {artistName}
+            </p>
+            <div aria-live="polite" className="mt-2 min-h-4 text-[11px] uppercase tracking-[0.18em] text-white/38">
+              {isBuffering && isPlaying ? 'Buffering...' : null}
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>
@@ -292,7 +392,10 @@ export function MusicPlayer({
             onClick={() => setPlayingState(!isPlaying)}
             whileHover={reduceMotion ? undefined : { scale: 1.04 }}
             whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-            className="flex h-10 w-10 items-center justify-center text-white"
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-full text-white transition-[box-shadow,background-color] duration-200 ease-out',
+              isBuffering && isPlaying && 'animate-pulse bg-white/[0.08] shadow-[0_0_30px_rgba(99,102,241,0.24)]',
+            )}
             aria-label={isPlaying ? 'Pause track' : 'Play track'}
           >
             <AnimatePresence mode="wait" initial={false}>

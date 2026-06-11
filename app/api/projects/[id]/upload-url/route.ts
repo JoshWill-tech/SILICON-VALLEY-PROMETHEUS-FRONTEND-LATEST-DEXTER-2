@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { ProjectService } from '@/lib/projects/service'
-import { R2Keys } from '@/lib/r2/keys'
+import { requireProjectSourceUploadContext } from '@/lib/r2/project-source-multipart'
 import { getPresignedPutUrl } from '@/lib/r2/presigned-url'
 
 export async function POST(
@@ -11,51 +9,34 @@ export async function POST(
   try {
     const { id: projectId } = await params
     const body = await req.json().catch(() => ({}))
-    const { filename, mimeType, sizeBytes, assetId: providedAssetId } = body
+    const context = await requireProjectSourceUploadContext(projectId, {
+      assetId: body.assetId,
+      contentType: body.contentType ?? body.mimeType,
+      filename: body.filename,
+      sizeBytes: body.sizeBytes,
+    })
 
-    if (!filename || !mimeType) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if ('error' in context) {
+      return NextResponse.json({ error: context.error }, { status: context.status })
     }
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Confirm user owns the project
-    const project = await ProjectService.getProject(projectId)
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    // Use provided assetId if it's a valid UUID, otherwise generate a new one
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    const assetId = providedAssetId && uuidRegex.test(providedAssetId) 
-      ? providedAssetId 
-      : crypto.randomUUID()
-
-    const bucket = process.env.R2_BUCKET_SOURCES || 'prometheus-sources'
-    const objectKey = R2Keys.sourceAsset(user.id, projectId, assetId, filename)
-
-    const uploadUrl = await getPresignedPutUrl(bucket, objectKey, mimeType)
+    const uploadUrl = await getPresignedPutUrl(context.bucket, context.key, context.contentType)
 
     return NextResponse.json({
       asset: {
-        id: assetId,
+        id: context.assetId,
         projectId,
         storageProvider: 'r2',
-        bucket,
-        objectKey,
-        mimeType,
-        sizeBytes,
+        bucket: context.bucket,
+        objectKey: context.key,
+        mimeType: context.contentType,
+        sizeBytes: context.sizeBytes,
       },
       upload: {
         url: uploadUrl,
         method: 'PUT',
         headers: {
-          'Content-Type': mimeType,
+          'Content-Type': context.contentType,
         },
       },
     })

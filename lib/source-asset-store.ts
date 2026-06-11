@@ -1,6 +1,10 @@
 const SOURCE_ASSET_DB_NAME = 'prometheus-source-assets.v1'
 const SOURCE_ASSET_STORE_NAME = 'source-assets'
 
+type SourceAssetStoreWindow = Window & {
+  __prometheusInMemorySourceAssets__?: Map<string, StoredSourceAssetRecord>
+}
+
 type StoredSourceAssetRecord = {
   id: string
   file: Blob
@@ -12,6 +16,17 @@ type StoredSourceAssetRecord = {
 
 function isBrowser() {
   return typeof window !== 'undefined'
+}
+
+function getInMemorySourceAssetStore() {
+  if (!isBrowser()) return null
+
+  const sourceAssetWindow = window as SourceAssetStoreWindow
+  if (!sourceAssetWindow.__prometheusInMemorySourceAssets__) {
+    sourceAssetWindow.__prometheusInMemorySourceAssets__ = new Map<string, StoredSourceAssetRecord>()
+  }
+
+  return sourceAssetWindow.__prometheusInMemorySourceAssets__
 }
 
 function createAssetId() {
@@ -67,13 +82,24 @@ async function withSourceAssetStore<T>(
 }
 
 async function readStoredSourceAssetRecord(assetId: string) {
-  return await withSourceAssetStore<StoredSourceAssetRecord | null>('readonly', (store, resolve, reject) => {
-    const request = store.get(assetId)
-    request.onsuccess = () => {
-      resolve((request.result as StoredSourceAssetRecord | undefined) ?? null)
+  try {
+    const persistedRecord = await withSourceAssetStore<StoredSourceAssetRecord | null>('readonly', (store, resolve, reject) => {
+      const request = store.get(assetId)
+      request.onsuccess = () => {
+        resolve((request.result as StoredSourceAssetRecord | undefined) ?? null)
+      }
+      request.onerror = () => reject(request.error ?? new Error('Unable to restore the uploaded source asset'))
+    })
+
+    if (persistedRecord) {
+      getInMemorySourceAssetStore()?.set(assetId, persistedRecord)
+      return persistedRecord
     }
-    request.onerror = () => reject(request.error ?? new Error('Unable to restore the uploaded source asset'))
-  })
+  } catch {
+    // Fall through to the in-memory session cache.
+  }
+
+  return getInMemorySourceAssetStore()?.get(assetId) ?? null
 }
 
 function restoreStoredSourceAssetFile(record: StoredSourceAssetRecord) {
@@ -94,11 +120,17 @@ export async function persistSourceAsset(file: File) {
     createdAt: new Date().toISOString(),
   }
 
-  return await withSourceAssetStore<string>('readwrite', (store, resolve, reject) => {
-    const request = store.put(record)
-    request.onsuccess = () => resolve(assetId)
-    request.onerror = () => reject(request.error ?? new Error('Unable to persist the uploaded source asset'))
-  })
+  getInMemorySourceAssetStore()?.set(assetId, record)
+
+  try {
+    return await withSourceAssetStore<string>('readwrite', (store, resolve, reject) => {
+      const request = store.put(record)
+      request.onsuccess = () => resolve(assetId)
+      request.onerror = () => reject(request.error ?? new Error('Unable to persist the uploaded source asset'))
+    })
+  } catch {
+    return assetId
+  }
 }
 
 export async function createSourceAssetObjectUrl(assetId: string) {

@@ -4,9 +4,11 @@ import * as React from 'react'
 import Link from 'next/link'
 import { AtSignIcon } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 function isValidEmail(email: string) {
   return email.includes('@')
@@ -16,7 +18,9 @@ export function ForgotPasswordForm() {
   const searchParams = useSearchParams()
   const [email, setEmail] = React.useState(() => searchParams.get('email') ?? '')
   const [submitting, setSubmitting] = React.useState(false)
-  const [serverError, setServerError] = React.useState<string | null>(searchParams.get('error'))
+  const [serverError, setServerError] = React.useState<string | null>(
+    searchParams.get('error') ? normalizeUxError(searchParams.get('error'), 'password_reset') : null,
+  )
   const [success, setSuccess] = React.useState(false)
 
   return (
@@ -47,8 +51,13 @@ export function ForgotPasswordForm() {
           }
 
           setSuccess(true)
+          toast.success('Recovery link sent', {
+            description: 'Use the newest email from Prometheus to reset your password.',
+          })
         } catch (error) {
-          setServerError(error instanceof Error ? error.message : 'Reset password failed')
+          const message = normalizeUxError(error, 'password_reset')
+          setServerError(message)
+          toast.error('Recovery email paused', { description: message })
         } finally {
           setSubmitting(false)
         }

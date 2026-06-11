@@ -3,12 +3,15 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { AtSignIcon, LockIcon, UserIcon } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { markPendingVerificationEmailSent, writePendingVerificationEmail } from '@/lib/auth/pending-verification'
 import { normalizeNextPath } from '@/lib/auth/redirect'
+import { normalizeUxError } from '@/lib/ux/errors'
 
 function isValidEmail(email: string) {
   return email.includes('@')
@@ -21,7 +24,11 @@ export function SignupForm() {
   const [password, setPassword] = React.useState('')
   const [confirmPassword, setConfirmPassword] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-  const [serverError, setServerError] = React.useState<string | null>(searchParams.get('error'))
+  const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
+  const turnstileRef = React.useRef<TurnstileInstance>(null)
+  const [serverError, setServerError] = React.useState<string | null>(
+    searchParams.get('error') ? normalizeUxError(searchParams.get('error'), 'signup') : null,
+  )
 
   const nextPath = normalizeNextPath(searchParams.get('next'))
 
@@ -45,6 +52,8 @@ export function SignupForm() {
   return (
     <form
       onSubmit={(e) => {
+        console.log("email submit")
+        console.log('signup clicked', { email })
         e.preventDefault()
         setServerError(null)
         if (!validate()) return
@@ -55,7 +64,7 @@ export function SignupForm() {
               const res = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullName: name, email, password, next: nextPath }),
+                body: JSON.stringify({ fullName: name, email, password, next: nextPath, captchaToken }),
               })
               const data = (await res.json()) as {
                 user?: unknown
@@ -78,7 +87,11 @@ export function SignupForm() {
 
               window.location.assign(nextPath)
             } catch (err) {
-              setServerError(err instanceof Error ? err.message : 'Signup failed')
+              const message = normalizeUxError(err, 'signup')
+              setServerError(message)
+              toast.error('Account setup paused', { description: message })
+              turnstileRef.current?.reset()
+              setCaptchaToken(null)
             } finally {
               setSubmitting(false)
             }
@@ -171,11 +184,17 @@ export function SignupForm() {
         ) : null}
       </div>
 
+      <Turnstile
+        ref={turnstileRef}
+        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+        onSuccess={(token) => setCaptchaToken(token)}
+      />
+
       <Button
         type="submit"
         size="lg"
         className="w-full"
-        disabled={submitting}
+        disabled={submitting || !captchaToken}
       >
         {submitting ? 'Creating account...' : 'Create account'}
       </Button>

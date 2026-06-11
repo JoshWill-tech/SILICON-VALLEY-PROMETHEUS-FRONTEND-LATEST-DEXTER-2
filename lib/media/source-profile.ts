@@ -14,6 +14,8 @@ import type {
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'])
 const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v'])
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'])
+const MEDIA_KINDS = new Set<MediaKind>(['video', 'image', 'audio', 'file'])
+const ORIENTATIONS = new Set<SourceOrientation>(['portrait', 'landscape', 'square', 'unknown'])
 
 export function detectSourceFileKind(file: File): MediaKind {
   const mime = file.type.toLowerCase()
@@ -109,12 +111,21 @@ export function formatSourceProfileMetric(profile: SourceProfile): {
   fileSize: string
   audio: string
 } {
-  const { inspection } = profile
+  const inspection = normalizeSourceProfile(profile)?.inspection
+  if (!inspection) {
+    return {
+      resolution: 'Unknown resolution',
+      duration: 'Unknown duration',
+      fileSize: 'Unknown file size',
+      audio: 'Audio unknown',
+    }
+  }
+
   return {
     resolution:
       inspection.width && inspection.height ? `${inspection.width}×${inspection.height}` : 'Unknown resolution',
     duration: inspection.durationSec ? formatDurationSeconds(inspection.durationSec) : 'Unknown duration',
-    fileSize: formatFileSize(inspection.fileSizeBytes),
+    fileSize: inspection.fileSizeBytes > 0 ? formatFileSize(inspection.fileSizeBytes) : 'Unknown file size',
     audio:
       inspection.hasAudio === null ? 'Audio unknown' : inspection.hasAudio ? 'Audio detected' : 'No audio track',
   }
@@ -141,12 +152,13 @@ export function getSourcePreviewAspectRatio(
   profile: SourceProfile | null | undefined,
   fallback = 16 / 9,
 ): number {
-  const inspectionRatio = profile?.inspection.aspectRatio
+  const normalizedProfile = normalizeSourceProfile(profile)
+  const inspectionRatio = normalizedProfile?.inspection.aspectRatio
   if (typeof inspectionRatio === 'number' && Number.isFinite(inspectionRatio) && inspectionRatio > 0) {
     return inspectionRatio
   }
 
-  switch (profile?.aspectFamily) {
+  switch (normalizedProfile?.aspectFamily) {
     case 'vertical_short':
     case 'high_res_vertical':
       return 9 / 16
@@ -164,7 +176,7 @@ export function getSourcePreviewAspectRatio(
 }
 
 export function getDefaultOutputProfile(profile: SourceProfile | null | undefined): OutputProfile {
-  switch (profile?.aspectFamily) {
+  switch (normalizeSourceProfile(profile)?.aspectFamily) {
     case 'vertical_short':
     case 'high_res_vertical':
       return '9:16'
@@ -199,6 +211,15 @@ export function getOutputProfileAspectRatio(
     default:
       return 16 / 9
   }
+}
+
+export function normalizeSourceProfile(profile: unknown): SourceProfile | undefined {
+  if (!profile || typeof profile !== 'object') return undefined
+
+  const inspection = normalizeSourceInspection((profile as { inspection?: unknown }).inspection)
+  if (!inspection) return undefined
+
+  return classifySourceProfile(inspection)
 }
 
 async function inspectVideoFile(file: File): Promise<SourceInspection> {
@@ -376,6 +397,38 @@ function inspectGenericFile(file: File): SourceInspection {
   }
 }
 
+function normalizeSourceInspection(inspection: unknown): SourceInspection | null {
+  if (!inspection || typeof inspection !== 'object') return null
+
+  const candidate = inspection as Partial<SourceInspection> & Record<string, unknown>
+  const mediaKind = MEDIA_KINDS.has(candidate.mediaKind as MediaKind)
+    ? (candidate.mediaKind as MediaKind)
+    : null
+
+  if (!mediaKind) return null
+
+  const width = asFiniteNumberOrNull(candidate.width)
+  const height = asFiniteNumberOrNull(candidate.height)
+  const orientation = ORIENTATIONS.has(candidate.orientation as SourceOrientation)
+    ? (candidate.orientation as SourceOrientation)
+    : getOrientation(width, height)
+
+  return {
+    mediaKind,
+    mimeType: typeof candidate.mimeType === 'string' ? candidate.mimeType : '',
+    fileName: typeof candidate.fileName === 'string' ? candidate.fileName : '',
+    fileSizeBytes: asNonNegativeNumber(candidate.fileSizeBytes),
+    width,
+    height,
+    aspectRatio: asFiniteNumberOrNull(candidate.aspectRatio),
+    durationSec: asFiniteNumberOrNull(candidate.durationSec),
+    fps: asFiniteNumberOrNull(candidate.fps),
+    hasAudio: typeof candidate.hasAudio === 'boolean' ? candidate.hasAudio : null,
+    orientation,
+    estimatedBitrateMbps: asFiniteNumberOrNull(candidate.estimatedBitrateMbps),
+  }
+}
+
 function classifyAspectFamily(inspection: SourceInspection): SourceAspectFamily {
   if (inspection.mediaKind === 'file' || inspection.mediaKind === 'audio') return 'unsupported'
   if (!inspection.aspectRatio || !inspection.width || !inspection.height) return 'unknown'
@@ -462,6 +515,14 @@ function classifyWeightBucket(inspection: SourceInspection): FileWeightBucket {
   if (weighted >= 1.55) return 'heavy'
   if (weighted >= 0.7) return 'moderate'
   return 'light'
+}
+
+function asFiniteNumberOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function asNonNegativeNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0
 }
 
 function classifyProcessingClass(

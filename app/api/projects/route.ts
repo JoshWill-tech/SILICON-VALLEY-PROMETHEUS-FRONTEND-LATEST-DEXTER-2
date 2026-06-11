@@ -3,12 +3,12 @@ import { ProjectService } from '@/lib/projects/service'
 
 export async function GET() {
   try {
-    const projects = await ProjectService.listProjects()
-    return NextResponse.json({ projects })
+    const projects = await ProjectService.listProjectCards()
+    return NextResponse.json({ success: true, projects })
   } catch (err) {
     console.error('[api/projects] GET error:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch projects' },
+      { success: false, error: { message: err instanceof Error ? err.message : 'Failed to fetch projects' } },
       { status: err instanceof Error && err.message === 'Unauthorized' ? 401 : 500 }
     )
   }
@@ -17,18 +17,27 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
+    console.log('[api/projects] POST payload:', body)
+    
     const project = await ProjectService.createProject({ 
-      title: body.title,
+      title: body.title || body.name,
+      description: body.description,
+      template: body.template,
+      prompt: body.prompt,
       previewKind: body.previewKind,
       sourceProfile: body.sourceProfile,
       sourceAssetId: body.sourceAssetId,
+      workspaceId: body.workspaceId,
     })
-    return NextResponse.json({ project })
+    
+    return NextResponse.json({ success: true, project })
   } catch (err) {
-    console.error('[api/projects] POST error:', err)
+    const message = err instanceof Error ? err.message : 'Failed to create project'
+    console.error('[api/projects] POST fatal error:', message, err)
+    
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to create project' },
-      { status: err instanceof Error && err.message === 'Unauthorized' ? 401 : 500 }
+      { success: false, error: { message } },
+      { status: message === 'Unauthorized' ? 401 : 500 }
     )
   }
 }

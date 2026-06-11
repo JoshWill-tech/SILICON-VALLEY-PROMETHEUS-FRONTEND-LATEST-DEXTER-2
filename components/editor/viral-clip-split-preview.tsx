@@ -46,6 +46,7 @@ const SPLIT_DURATION_SEC = 1.5
 const FINAL_PANEL_WIDTH_PERCENT = 25.5
 const FINAL_PANEL_INSET_PERCENT = 14
 const PANEL_INTERACTIVE_DELAY_MS = Math.round((SPLIT_DELAY_SEC + SPLIT_DURATION_SEC) * 1000)
+const CLIP_SLICE_COUNT = 6
 
 const SPLIT_SIDES: readonly SplitPanelSide[] = ['left', 'right'] as const
 
@@ -406,6 +407,15 @@ export function ViralClipSplitPreview({
 
       {!panelsInteractive ? (
         <>
+          <ClipSliceForgeOverlay
+            previewKind={previewKind}
+            previewUrl={previewUrl}
+            title={title}
+            objectFit={objectFit}
+            mediaTransformStyle={mediaTransformStyle}
+            reduceMotion={reduceMotion}
+          />
+
           <motion.div
             aria-hidden
             className="absolute inset-y-0 left-1/2 z-10 -translate-x-1/2 overflow-hidden border border-white/10 bg-black shadow-[0_22px_60px_-34px_rgba(0,0,0,0.58)]"
@@ -647,6 +657,144 @@ function PanelBlueprintOverlay({
         )}
       />
     </>
+  )
+}
+
+function ClipSliceForgeOverlay({
+  previewKind,
+  previewUrl,
+  title,
+  objectFit,
+  mediaTransformStyle,
+  reduceMotion,
+}: {
+  previewKind: SplitPreviewMediaKind
+  previewUrl: string
+  title: string
+  objectFit: 'cover' | 'contain'
+  mediaTransformStyle?: React.CSSProperties
+  reduceMotion: boolean
+}) {
+  return (
+    <motion.div
+      aria-hidden
+      className="pointer-events-none absolute inset-[7%] z-[24] overflow-hidden rounded-[18px] border border-[#9fcfff]/14 bg-black/18 shadow-[0_32px_80px_-44px_rgba(86,160,255,0.34)]"
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.985, filter: 'blur(12px)' }}
+      animate={
+        reduceMotion
+          ? { opacity: 0 }
+          : {
+              opacity: [0, 1, 1, 0],
+              scale: [0.985, 1, 1.006, 1.012],
+              filter: ['blur(12px)', 'blur(0px)', 'blur(0px)', 'blur(10px)'],
+            }
+      }
+      transition={{
+        duration: reduceMotion ? 0 : SPLIT_DELAY_SEC + SPLIT_DURATION_SEC + 0.24,
+        times: reduceMotion ? undefined : [0, 0.16, 0.72, 1],
+        ease: reduceMotion ? undefined : [0.22, 1, 0.36, 1],
+      }}
+    >
+      <div className="absolute inset-0 overflow-hidden rounded-[18px]">
+        {Array.from({ length: CLIP_SLICE_COUNT }, (_, index) => {
+          const width = 100 / CLIP_SLICE_COUNT
+          const centerOffset = index - (CLIP_SLICE_COUNT - 1) / 2
+
+          return (
+            <motion.div
+              key={`clip-slice-${index}`}
+              className="absolute inset-y-0 overflow-hidden border-x border-white/8 bg-black"
+              style={{
+                left: `${index * width}%`,
+                width: `${width}%`,
+                transformOrigin: `${centerOffset < 0 ? 'right' : 'left'} center`,
+              }}
+              initial={
+                reduceMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      y: 0,
+                      x: 0,
+                      scaleY: 0.96,
+                    }
+              }
+              animate={
+                reduceMotion
+                  ? undefined
+                  : {
+                      opacity: [0, 1, 1, 0.72, 0],
+                      x: [0, centerOffset * 3, centerOffset * 10, centerOffset * 17],
+                      y: [0, index % 2 === 0 ? -3 : 4, index % 2 === 0 ? -8 : 9, 0],
+                      scaleY: [0.96, 1, 1.03, 0.88],
+                      rotateZ: [0, centerOffset * 0.28, centerOffset * 0.72, centerOffset * 0.4],
+                    }
+              }
+              transition={{
+                duration: reduceMotion ? 0 : SPLIT_DURATION_SEC + 0.46,
+                delay: reduceMotion ? 0 : 0.18 + index * 0.035,
+                times: reduceMotion ? undefined : [0, 0.18, 0.68, 1],
+                ease: reduceMotion ? undefined : [0.645, 0.045, 0.355, 1],
+              }}
+            >
+              <div
+                className="absolute inset-y-0"
+                style={{
+                  left: `${-index * 100}%`,
+                  width: `${CLIP_SLICE_COUNT * 100}%`,
+                  ...mediaTransformStyle,
+                }}
+              >
+                {previewKind === 'image' ? (
+                  <img
+                    src={previewUrl}
+                    alt={`${title} slice ${index + 1}`}
+                    className="h-full w-full select-none bg-black"
+                    draggable={false}
+                    style={{ objectFit }}
+                  />
+                ) : (
+                  <video
+                    src={previewUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full select-none bg-black"
+                    style={{ objectFit }}
+                  />
+                )}
+              </div>
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.02)_28%,rgba(0,0,0,0.55)_100%)]" />
+              <div
+                className="absolute inset-0 opacity-45"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(0deg, rgba(159,207,255,0.18) 0 1px, transparent 1px 18px), repeating-linear-gradient(90deg, rgba(255,255,255,0.12) 0 1px, transparent 1px 24px)',
+                }}
+              />
+              <motion.div
+                className="absolute inset-y-0 w-[70%] bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.22)_50%,rgba(255,255,255,0)_100%)]"
+                animate={reduceMotion ? undefined : { x: ['-120%', '210%'] }}
+                transition={{
+                  duration: 1.08,
+                  delay: index * 0.05,
+                  repeat: Number.POSITIVE_INFINITY,
+                  ease: 'easeInOut',
+                }}
+              />
+            </motion.div>
+          )
+        })}
+      </div>
+
+      <div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-full border border-white/12 bg-black/58 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-white/72 backdrop-blur-md">
+        <span className="inline-flex items-center gap-2">
+          <span className="size-1.5 rounded-full bg-[#9fcfff]" />
+          Equal candidate cut
+        </span>
+        <span>{CLIP_SLICE_COUNT} panels</span>
+      </div>
+    </motion.div>
   )
 }
 

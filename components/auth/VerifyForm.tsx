@@ -3,9 +3,11 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { normalizeUxError } from '@/lib/ux/errors'
 import {
   markPendingVerificationEmailSent,
   readPendingVerificationEmail,
@@ -24,7 +26,7 @@ function formatVerificationError(message: string | null) {
     return 'That confirmation link is no longer valid. Request a fresh email below and use the newest message.'
   }
 
-  return message
+  return normalizeUxError(message, 'verification')
 }
 
 function formatCooldown(msRemaining: number) {
@@ -129,8 +131,13 @@ export function VerifyForm() {
                 setCooldownEndsAt(nextCooldownEndsAt)
                 setNow(Date.now())
                 setSuccess(true)
+                toast.success('Verification email requested', {
+                  description: 'Use the newest email link when it arrives.',
+                })
               } catch (err) {
-                setServerError(err instanceof Error ? err.message : 'Resend failed')
+                const message = normalizeUxError(err, 'verification')
+                setServerError(message)
+                toast.error('Verification resend paused', { description: message })
               } finally {
                 setSubmitting(false)
               }

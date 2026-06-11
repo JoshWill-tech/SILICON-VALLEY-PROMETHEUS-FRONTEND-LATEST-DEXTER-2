@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Circle, Loader2, XCircle } from 'lucide-react'
+import { CheckCircle2, Circle, Sparkles, XCircle } from 'lucide-react'
 
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { cn } from '@/lib/utils'
@@ -34,7 +34,7 @@ export function Plan({ items, className }: PlanProps) {
           ) : item.status === 'error' ? (
             <XCircle className="size-4 text-red-300" />
           ) : item.status === 'running' ? (
-            <Loader2 className="size-4 text-white/70 animate-spin" />
+            <Sparkles className="size-4 animate-pulse text-white/70" />
           ) : (
             <Circle className="size-4 text-white/25" />
           )

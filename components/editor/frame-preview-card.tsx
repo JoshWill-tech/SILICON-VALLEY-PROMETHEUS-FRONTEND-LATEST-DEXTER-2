@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, Clock3, Loader2, Sparkles, X } from 'lucide-react'
+import { ArrowUpRight, Clock3, Sparkles, X } from 'lucide-react'
 
 import { FrameTokenChip } from './frame-token-chip'
 import { cn } from '@/lib/utils'
@@ -125,7 +125,7 @@ export function FramePreviewCard({
             ) : null}
             {isQueueing ? (
               <span className="inline-flex items-center gap-1 rounded-full border border-[#7ff2d4]/16 bg-[#7ff2d4]/10 px-2.5 py-1 text-[11px] text-[#c8fff2]">
-                <Loader2 className="size-3 animate-spin" />
+                <Sparkles className="size-3 animate-pulse" />
                 Preparing preview
               </span>
             ) : isQueued ? (

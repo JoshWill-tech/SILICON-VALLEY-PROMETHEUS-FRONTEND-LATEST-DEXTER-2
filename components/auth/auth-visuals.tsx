@@ -50,6 +50,17 @@ export function FloatingPaths({ position }: { position: number }) {
 	);
 }
 
+export function AppleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <path
+        d="M17.05 20.28c-.96.95-2.14 2.05-3.6 2.05-1.5 0-1.95-.92-3.7-.92-1.76 0-2.32.92-3.72.92-1.45 0-2.83-1.35-3.78-2.73-1.94-2.82-1.94-7.25 0-10.08.97-1.4 2.43-2.28 3.96-2.28 1.5 0 2.52 1.03 3.44 1.03.88 0 2.13-1.15 3.76-1.15 1.53 0 2.92.83 3.73 1.9-3.23 1.9-2.7 6.13.55 7.42-.72 1.58-1.68 2.87-2.64 3.85zm-2.75-16.7c.78-.95 1.26-2.28 1.1-3.58-1.1.04-2.45.75-3.24 1.68-.7.83-1.3 2.18-1.1 3.45 1.24.1 2.47-.63 3.24-1.55z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
@@ -64,7 +75,7 @@ export function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 export function AuthSeparator() {
   return (
     <div className="relative my-6">
-      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+      <div className="absolute inset-0 flex items-center pointer-events-none" aria-hidden="true">
         <span className="w-full border-t" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">

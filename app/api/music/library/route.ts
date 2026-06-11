@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { listAvailableMusicCatalog } from '@/lib/music-drive'
+import { fetchCloudflareMusicCatalog, listAvailableMusicCatalog } from '@/lib/music-drive'
 import { findOwnedMusicTrackById, searchOwnedMusicLibrary } from '@/lib/music-library'
 import type { MusicPreference, MusicVideoContext } from '@/lib/types'
 
@@ -20,6 +20,31 @@ export async function GET(req: Request) {
     const query = sanitizeInline(url.searchParams.get('query') ?? '')
     const trackId = sanitizeInline(url.searchParams.get('trackId') ?? '')
     const limit = parseLimit(url.searchParams.get('limit'))
+    const source = sanitizeInline(url.searchParams.get('source') ?? '')
+
+    if (source === 'r2') {
+      const r2Tracks = await fetchCloudflareMusicCatalog()
+      return NextResponse.json({
+        tracks: r2Tracks.map((track) => {
+          const duration = normalizeMusicLibraryDuration(track.durationSec)
+
+          return {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            genre: track.genre,
+            duration,
+            durationSec: duration,
+            url: track.sourceUrl ?? '',
+            coverUrl: track.coverArtUrl ?? null,
+            thumbnail: track.coverArtUrl ?? null,
+          }
+        }),
+        total: r2Tracks.length,
+        source: 'r2',
+      })
+    }
+
     const catalog = await listAvailableMusicCatalog()
 
     if (trackId) {
@@ -97,6 +122,11 @@ export async function POST(req: Request) {
 
 function sanitizeInline(value: string) {
   return value.replace(/\s+/g, ' ').trim()
+}
+
+function normalizeMusicLibraryDuration(value: number | null | undefined) {
+  if (!value || !Number.isFinite(value) || value <= 0) return 0
+  return Math.round(value > 1000 ? value / 1000 : value)
 }
 
 function parseLimit(value: string | null) {

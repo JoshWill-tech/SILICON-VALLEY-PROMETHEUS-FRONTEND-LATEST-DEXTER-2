@@ -1,3 +1,5 @@
+import { normalizeUxError, type UxErrorContext } from '@/lib/ux/errors'
+
 export function extractToken(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined
   const obj = payload as Record<string, unknown>
@@ -27,9 +29,9 @@ export function getUserVerificationFlag(user: unknown): boolean | undefined {
   return undefined
 }
 
-export function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message.trim()) return error.message
-  return fallback
+export function getErrorMessage(error: unknown, fallback: string, context: UxErrorContext = 'auth') {
+  const message = normalizeUxError(error, context)
+  return message || fallback
 }
 
 export function looksLikeEmailConfirmationError(message: string) {

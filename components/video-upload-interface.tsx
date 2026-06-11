@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * Upload verification plan:
+ * 1. Test a 50MB MP4 on fast WiFi. It should complete through R2 multipart upload with a smooth progress bar.
+ * 2. Test a 2GB MP4 on throttled "Slow 3G" in DevTools. It should upload in 50MB parts and retry failed parts without crashing the browser.
+ * 3. Test an MKV. It should pass validation and upload to R2; AVI should reject with a clear unsupported-format error.
+ * 4. Test unplugging WiFi mid-upload. It should show the retrying state and retry the failed part with exponential backoff.
+ * 5. Test with expired/invalid auth. The UI should surface the exact 401/403 status and response body in console logs, not a generic upload failure.
+ */
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -26,7 +35,6 @@ import {
     MessageSquare,
     ImageIcon, // Added import for ImageIcon
     Link as LinkIcon,
-    Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as React from "react";
@@ -39,7 +47,7 @@ import { BillingRequiredDialog } from "@/components/billing/billing-required-dia
 import { GlassUploadModalView } from "@/components/ui/glass-upload-modal-view";
 import { DynamicFrameLayout } from "@/components/ui/dynamic-frame-layout";
 import { TextEffect } from "@/components/ui/text-effect";
-import { InfinityTrailLoader } from "@/components/editor/infinity-trail-loader";
+import { MinimalTypographicLoader } from "@/components/ui/minimal-typographic-loader";
 import type { DynamicFrame } from "@/components/ui/dynamic-frame-layout";
 import { InteractiveOrb } from "@/components/ui/interactive-orb";
 import { STYLE_TEMPLATES } from "@/lib/styles/style-templates";
@@ -60,8 +68,16 @@ import { createProcessingJob, getActiveStyleId, getMostRecentProject, startProce
 import { buildBillingHref, hasBillingAccess } from "@/lib/billing";
 import { setSessionSourcePreview } from "@/lib/source-preview-session";
 import type { SourceProfile } from "@/lib/types";
-import { useSourceStage } from "@/hooks/use-source-stage";
+import { SourceRetentionNotice } from "./source-retention-notice";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { normalizeUxError } from "@/lib/ux/errors";
+import {
+    R2_MULTIPART_CLIENT_MAX_BYTES,
+    R2_MULTIPART_CLIENT_PART_SIZE,
+    uploadProjectSourceMultipart,
+    type MultipartUploadProgress,
+} from "@/lib/r2/multipart-client";
 
 type AirtableImageArchiveResponse = {
     ok?: boolean;
@@ -84,6 +100,7 @@ const AIRTABLE_STYLE_PREVIEWS_SESSION_KEY = "prometheus.airtable-style-previews.
 const EDITOR_NAVIGATION_FALLBACK_DELAY_MS = 6000;
 const SHOULD_USE_EDITOR_NAVIGATION_FALLBACK = process.env.NODE_ENV === "production";
 const DISABLE_EDITOR_BILLING_GATE = process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE === "true";
+const STUDIO_SOURCE_MAX_BYTES = R2_MULTIPART_CLIENT_MAX_BYTES;
 
 function waitForNextPaint() {
     if (typeof window === "undefined") {
@@ -375,6 +392,8 @@ interface PromptComposerProps {
     onOpenUpload: () => void;
     onRemoveAttachment: (index: number) => void;
     onSubmit: (payload: PromptComposerSubmitPayload) => boolean | Promise<boolean>;
+    uploadStatus: UploadStatus;
+    uploadProgress: number;
 }
 
 type PendingUploadKind = "video" | "image" | "audio" | "file";
@@ -387,8 +406,61 @@ type PendingUpload = {
     inspectionError: string | null;
 };
 
+type QueuedSourceUpload = {
+    file: File;
+    previewKind: "video" | "image" | null;
+    sourceProfile: SourceProfile | null;
+};
+
+type UploadStatus = 'idle' | 'presigning' | 'uploading' | 'paused' | 'retrying' | 'done' | 'error';
+
 function detectUploadKind(file: File): PendingUploadKind {
     return detectSourceFileKind(file) as PendingUploadKind;
+}
+
+function validateStudioUpload(file: File) {
+    const kind = detectUploadKind(file);
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const supportedVideoExtensions = new Set(["mp4", "mov", "webm", "m4v", "mkv"]);
+    const supportedVideoMimeTypes = new Set(["video/mp4", "video/quicktime", "video/webm", "video/x-m4v", "video/x-matroska"]);
+
+    if (kind !== "video" || (!supportedVideoMimeTypes.has(file.type.toLowerCase()) && !supportedVideoExtensions.has(extension))) {
+        return "Unsupported format. Upload an MP4, MOV, M4V, WEBM, or MKV video.";
+    }
+
+    if (file.size > STUDIO_SOURCE_MAX_BYTES) {
+        return "That video is over the 10GB Studio limit. Choose a smaller source for this workspace.";
+    }
+
+    return null;
+}
+
+function describeMultipartUploadProgress(progress: MultipartUploadProgress, fileName: string) {
+    const partLabel = progress.totalParts > 1
+        ? `Part ${Math.max(1, progress.currentPart)} of ${progress.totalParts}`
+        : "Single part";
+
+    if (progress.phase === "initiating") {
+        return "Preparing secure multipart upload channel...";
+    }
+
+    if (progress.phase === "retrying") {
+        return `Network timeout — retrying ${partLabel.toLowerCase()} for ${fileName}.`;
+    }
+
+    if (progress.phase === "completing") {
+        return "Finalizing uploaded parts in Cloudflare R2...";
+    }
+
+    if (progress.phase === "aborting") {
+        return "Cancelling incomplete upload and cleaning up R2 parts...";
+    }
+
+    if (progress.phase === "done") {
+        return "Upload complete. Registering asset metadata...";
+    }
+
+    return `Uploading ${fileName} (${progress.percentage}%) — ${partLabel}.`;
 }
 
 const DEMO_FRAMES: DynamicFrame[] = [
@@ -545,6 +617,8 @@ const PromptComposer = React.memo(function PromptComposer({
     onOpenUpload,
     onRemoveAttachment,
     onSubmit,
+    uploadStatus,
+    uploadProgress,
 }: PromptComposerProps) {
     const [value, setValue] = useState("");
     const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -558,6 +632,7 @@ const PromptComposer = React.memo(function PromptComposer({
     const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
     const [mentionQuery, setMentionQuery] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isDisabled = isSubmitting || (value.trim().length < 5 && !activeSlashCommand && attachments.length === 0);
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
@@ -723,7 +798,7 @@ const PromptComposer = React.memo(function PromptComposer({
     }, []);
 
     const submitComposer = useCallback(() => {
-        if (isSubmitting) return;
+        if (isDisabled) return;
 
         setIsSubmitting(true);
         void Promise.resolve(
@@ -741,7 +816,7 @@ const PromptComposer = React.memo(function PromptComposer({
         }).finally(() => {
             setIsSubmitting(false);
         });
-    }, [activeSlashCommand, clearComposer, creatorMentions, isSubmitting, onSubmit, value]);
+    }, [activeSlashCommand, clearComposer, creatorMentions, isDisabled, onSubmit, value]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (activeSlashCommand && e.key === "Backspace") {
@@ -1178,22 +1253,33 @@ const PromptComposer = React.memo(function PromptComposer({
                     <motion.button
                         type="button"
                         onClick={submitComposer}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        disabled={isSubmitting || (!value.trim() && !activeSlashCommand && attachments.length === 0)}
+                        whileHover={!isDisabled ? { scale: 1.05 } : undefined}
+                        whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+                        disabled={isDisabled}
+                        aria-disabled={isDisabled}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all",
-                            isSubmitting
-                                ? "bg-white/80 text-[#0A0A0B] shadow-lg shadow-white/8"
-                                : (value.trim() || activeSlashCommand || attachments.length > 0)
-                                ? "bg-white text-[#0A0A0B] shadow-lg shadow-white/10"
-                                : "bg-white/[0.05] text-white/40"
+                            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300",
+                            isDisabled
+                                ? "opacity-40 cursor-not-allowed bg-white/[0.05] text-white/40"
+                                : uploadStatus === 'error'
+                                ? "bg-red-500 text-white shadow-lg shadow-red-500/20 opacity-100 cursor-pointer"
+                                : "bg-white text-[#0A0A0B] shadow-[0_0_20px_rgba(255,255,255,0.15)] opacity-100 cursor-pointer"
                         )}
                     >
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendIcon className="h-4 w-4" />}
-                        <span>{isSubmitting ? "Sending..." : "Send"}</span>
+                        {uploadStatus === 'error' ? (
+                            <ArrowUpIcon className="h-4 w-4" />
+                        ) : isSubmitting ? (
+                            <Sparkles className="h-4 w-4" />
+                        ) : (
+                            <SendIcon className="h-4 w-4" />
+                        )}
+                        <span>
+                            {uploadStatus === 'error' ? "Retry Upload" : isSubmitting ? "Sending..." : "Send"}
+                        </span>
                     </motion.button>
                 </div>
+
+                <SourceRetentionNotice variant="minimal" />
             </motion.div>
 
             <div className="flex flex-wrap items-center justify-center gap-2">
@@ -1238,6 +1324,7 @@ export function VideoUploadInterface() {
     const [uploadedFileName, setUploadedFileName] = useState<string>("");
     const uploadInspectionRunRef = useRef(0);
     const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+    const [queuedSourceUpload, setQueuedSourceUpload] = useState<QueuedSourceUpload | null>(null);
     const [addSourceMode, setAddSourceMode] = useState<"link" | "upload">("link");
     const [isSourceDragOver, setIsSourceDragOver] = useState(false);
     const sourceFileInputRef = useRef<HTMLInputElement>(null);
@@ -1259,19 +1346,32 @@ export function VideoUploadInterface() {
     } | null>(null);
     const [billingGateOpen, setBillingGateOpen] = useState(false);
 
+    const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const [uploadPartLabel, setUploadPartLabel] = useState<string | null>(null);
+    const [uploadErrorDetail, setUploadErrorDetail] = useState<string | null>(null);
+
+    const logAuthEvent = (event: string, detail?: any) => {
+        console.error('[AUTH_AUDIT]', event, detail);
+    };
+
+    const logUploadEvent = (status: string, detail?: any) => {
+        console.log('[UPLOAD_EVENT]', status, detail);
+    };
+
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (uploadStatus === 'uploading' || uploadStatus === 'retrying') {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [uploadStatus]);
+
     const [sourceUrl, setSourceUrl] = useState("");
-    const {
-        previewKind: stagedSourcePreviewKind,
-        sourceAssetId: stagedSourceAssetId,
-        sourceFile: stagedSourceFile,
-        sourceProfile: stagedSourceProfile,
-        stageSource,
-        awaitSettledSource,
-        resetStage: resetStagedSource,
-    } = useSourceStage({
-        currentPreviewUrl: null,
-        currentPreviewKind: null,
-    });
 
     const activeStyle = React.useMemo(
         () => STYLE_TEMPLATES.find((s) => s.id === activeStyleId) ?? null,
@@ -1303,7 +1403,6 @@ export function VideoUploadInterface() {
         ?? (addSourceMode === "link" ? "URL" : "MP4");
     const uploadStudioTabs = [
         { label: "Source Map", icon: Upload },
-        { label: "Preview Deck", icon: MonitorIcon },
         { label: "Delivery", icon: SendIcon },
     ];
     const uploadStudioVitals = [
@@ -1312,7 +1411,7 @@ export function VideoUploadInterface() {
             : { label: "Format", value: sourceExtension, meta: sourcePrimaryBadge },
         pendingSourceProfile
             ? { label: "Runtime", value: pendingSourceMetrics?.duration ?? "Unknown duration", meta: formatDurationBucket(pendingSourceProfile.durationBucket) }
-            : { label: "Mode", value: addSourceMode === "upload" ? "Upload" : "Link", meta: sourceReady ? "Preview armed" : "Signal standby" },
+            : { label: "Mode", value: addSourceMode === "upload" ? "Upload" : "Link", meta: sourceReady ? "Source staged" : "Signal standby" },
         pendingSourceProfile
             ? { label: "Weight", value: formatWeightBucket(pendingSourceProfile.weightBucket), meta: formatProcessingClass(pendingSourceProfile.processingClass) }
             : { label: "State", value: sourceReady ? "Live" : "Idle", meta: "Source signal" },
@@ -1322,7 +1421,7 @@ export function VideoUploadInterface() {
     ];
     const uploadStudioStages = [
         { label: "Source", meta: sourceReady ? "Signal armed" : "Awaiting clip", icon: Upload },
-        { label: "Preview", meta: "Central board", icon: MonitorIcon },
+        { label: "Engine", meta: "Central board", icon: MonitorIcon },
         { label: "Attach", meta: "Prompt ready", icon: ArrowUpIcon },
     ];
     const uploadStudioUtilities = [
@@ -1453,7 +1552,7 @@ export function VideoUploadInterface() {
                 : hasAttachedSource
                     ? `Start with ${uploadedSourceLabel}.${styleHint}`.trim()
                     : "";
-        if (!prompt && !hasAttachedSource) return false;
+        // REMOVED: if (!prompt && !hasAttachedSource) return false;
 
         submitLockRef.current = true;
         if (submitCooldownTimerRef.current !== null) {
@@ -1464,12 +1563,13 @@ export function VideoUploadInterface() {
             uploadedFileName?.trim().length > 0
                 ? uploadedFileName.replace(/\.[^/.]+$/, "")
                 : (message || activeSlashCommand?.label || prompt).slice(0, 28);
-        let resolvedPreviewKind = stagedSourcePreviewKind ?? null;
-        let resolvedSourceAssetId = stagedSourceAssetId ?? null;
-        let resolvedSourceProfile = stagedSourceProfile ?? null;
+        const selectedSourceFile = queuedSourceUpload?.file ?? null;
+        let resolvedPreviewKind = queuedSourceUpload?.previewKind ?? null;
+        let resolvedSourceAssetId: string | null = null;
+        let resolvedSourceProfile = queuedSourceUpload?.sourceProfile ?? null;
         const launchProjectTitle = nextProjectTitle || "PROMETHEUS Project";
         const launchDetail =
-            stagedSourceFile || resolvedSourceAssetId || uploadedFileName.trim().length > 0
+            selectedSourceFile || uploadedFileName.trim().length > 0
                 ? "Finalizing your upload and opening the editor."
                 : "Opening the editor workspace.";
 
@@ -1481,93 +1581,114 @@ export function VideoUploadInterface() {
 
         let currentStage = 'INIT';
         try {
-            if (!resolvedSourceAssetId && stagedSourceFile) {
-                currentStage = 'AWAIT_SETTLED_SOURCE';
-                const settledSource = await awaitSettledSource();
-                if (!settledSource?.assetId) {
-                    setEditorLaunchOverlay(null);
-                    submitLockRef.current = false;
-                    if (submitCooldownTimerRef.current !== null) {
-                        window.clearTimeout(submitCooldownTimerRef.current);
-                        submitCooldownTimerRef.current = null;
-                    }
-                    if (launchNavigationTimerRef.current !== null) {
-                        window.clearTimeout(launchNavigationTimerRef.current);
-                        launchNavigationTimerRef.current = null;
-                    }
-                    toast.error("The uploaded video did not finish staging. Please upload it again.");
-                    return false;
-                }
-
-                resolvedSourceAssetId = settledSource.assetId;
-                resolvedPreviewKind = settledSource.previewKind ?? resolvedPreviewKind;
-                resolvedSourceProfile = settledSource.sourceProfile ?? resolvedSourceProfile;
+            if (selectedSourceFile && !resolvedSourceProfile) {
+                currentStage = 'SOURCE_INSPECT';
+                resolvedSourceProfile = await inspectSourceFile(selectedSourceFile).catch(() => null);
             }
 
+            currentStage = 'AUTH_CHECK';
+            const supabase = createClient();
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError) {
+                logAuthEvent('SESSION_ERROR', sessionError);
+            }
+            if (!session?.user) {
+                logAuthEvent('UNAUTHORIZED');
+                throw new Error("You must be logged in to create a project.");
+            }
+            logAuthEvent('AUTHORIZED', { userId: session.user.id });
+
+            currentStage = 'WORKSPACE_FETCH';
+            const { data: workspaces, error: workspaceError } = await supabase
+                .from('workspaces')
+                .select('id')
+                .eq('owner_id', session.user.id)
+                .limit(1);
+
+            if (workspaceError) {
+                console.error("[video-upload] Workspace fetch error:", workspaceError);
+            }
+            const workspaceId = workspaces?.[0]?.id;
+
             currentStage = 'PROJECT_CREATE';
+            setUploadStatus('presigning');
             const projectRes = await fetch('/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    name: (nextProjectTitle || prompt).slice(0, 50),
                     title: nextProjectTitle || "PROMETHEUS Project",
+                    prompt: prompt,
                     previewKind: resolvedPreviewKind ?? undefined,
                     sourceProfile: resolvedSourceProfile ?? undefined,
+                    userId: session.user.id,
+                    workspaceId: workspaceId,
                 }),
             });
 
-            const { project, error: projectError } = await projectRes.json();
+            const projectData = await projectRes.json();
             
-            if (projectError || !project) {
-                throw new Error(projectError || "Failed to create project");
+            if (!projectRes.ok || projectData.error || !projectData.project) {
+                console.error("[video-upload] Project creation failed:", projectData.error);
+                throw new Error(projectData.error || "Failed to create project");
             }
+            const project = projectData.project;
 
             // Phase 2B: Wire Upload UI to Cloudflare R2
             let cloudAssetId = null;
-            if (stagedSourceFile) {
+            if (selectedSourceFile) {
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
                     detail: "Preparing secure upload channel...",
                 });
 
-                // 1. Request presigned R2 upload URL
-                currentStage = 'R2_UPLOAD_URL';
-                const uploadUrlRes = await fetch(`/api/projects/${project.id}/upload-url`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        filename: stagedSourceFile.name,
-                        mimeType: stagedSourceFile.type,
-                        sizeBytes: stagedSourceFile.size,
-                        assetId: stagedSourceAssetId,
-                    }),
-                });
+                currentStage = 'R2_MULTIPART_UPLOAD';
+                const abortController = new AbortController();
+                abortControllerRef.current = abortController;
+                setUploadProgress(0);
+                setUploadErrorDetail(null);
+                setUploadPartLabel(null);
 
-                if (!uploadUrlRes.ok) {
-                    const errorData = await uploadUrlRes.json().catch(() => ({}));
-                    throw new Error(errorData.error || `HTTP ${uploadUrlRes.status} from upload-url`);
-                }
+                const multipartResult = await uploadProjectSourceMultipart({
+                    assetId: resolvedSourceAssetId,
+                    file: selectedSourceFile,
+                    projectId: project.id,
+                    signal: abortController.signal,
+                    onProgress: (progress) => {
+                        const nextStatus: UploadStatus =
+                            progress.phase === 'initiating'
+                                ? 'presigning'
+                                : progress.phase === 'retrying'
+                                    ? 'retrying'
+                                    : progress.phase === 'aborting'
+                                        ? 'paused'
+                                        : progress.phase === 'done'
+                                            ? 'done'
+                                            : 'uploading';
+                        const partLabel = progress.totalParts > 1
+                            ? `Uploading part ${Math.max(1, progress.currentPart)} of ${progress.totalParts}`
+                            : `Uploading ${formatFileSize(selectedSourceFile.size)}`;
+                        const detail = describeMultipartUploadProgress(progress, selectedSourceFile.name);
 
-                const { asset: uploadAsset, upload } = await uploadUrlRes.json();
-                cloudAssetId = uploadAsset.id;
-
-                setEditorLaunchOverlay({
-                    title: launchProjectTitle,
-                    detail: `Uploading ${stagedSourceFile.name} to Cloudflare R2...`,
-                });
-
-                // 2. Upload the actual source file to R2 using the returned PUT URL
-                currentStage = 'R2_PUT';
-                const uploadRes = await fetch(upload.url, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': stagedSourceFile.type,
+                        logUploadEvent(progress.phase, {
+                            bytesUploaded: progress.bytesUploaded,
+                            currentPart: progress.currentPart,
+                            percentage: progress.percentage,
+                            totalParts: progress.totalParts,
+                        });
+                        setUploadStatus(nextStatus);
+                        setUploadProgress(progress.percentage);
+                        setUploadPartLabel(partLabel);
+                        setEditorLaunchOverlay({
+                            title: launchProjectTitle,
+                            detail,
+                        });
                     },
-                    body: stagedSourceFile,
                 });
 
-                if (!uploadRes.ok) {
-                    throw new Error(`Failed to upload to R2: HTTP ${uploadRes.status}`);
-                }
+                const uploadAsset = multipartResult.asset;
+                cloudAssetId = uploadAsset.id;
+                abortControllerRef.current = null;
 
                 setEditorLaunchOverlay({
                     title: launchProjectTitle,
@@ -1583,9 +1704,9 @@ export function VideoUploadInterface() {
                         assetId: uploadAsset.id,
                         bucket: uploadAsset.bucket,
                         objectKey: uploadAsset.objectKey,
-                        filename: stagedSourceFile.name,
-                        mimeType: stagedSourceFile.type,
-                        sizeBytes: stagedSourceFile.size,
+                        filename: selectedSourceFile.name,
+                        mimeType: selectedSourceFile.type,
+                        sizeBytes: selectedSourceFile.size,
                         durationMs: resolvedSourceProfile?.inspection.durationSec ? Math.round(resolvedSourceProfile.inspection.durationSec * 1000) : undefined,
                         width: resolvedSourceProfile?.inspection.width,
                         height: resolvedSourceProfile?.inspection.height,
@@ -1606,10 +1727,10 @@ export function VideoUploadInterface() {
             currentStage = 'SYNC_MOCK';
             upsertProject(project);
 
-            if (stagedSourceFile && (resolvedPreviewKind === "video" || resolvedPreviewKind === "image")) {
+            if (selectedSourceFile && (resolvedPreviewKind === "video" || resolvedPreviewKind === "image")) {
                 setSessionSourcePreview({
                     projectId: project.id,
-                    file: stagedSourceFile,
+                    file: selectedSourceFile,
                     previewKind: resolvedPreviewKind,
                     sourceAssetId: cloudAssetId || resolvedSourceAssetId,
                 });
@@ -1652,10 +1773,38 @@ export function VideoUploadInterface() {
             React.startTransition(() => {
                 router.push(editorRoute);
             });
+            setUploadStatus('done');
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                console.info('[UploadCancelled] R2 multipart upload aborted by user.');
+                logUploadEvent('cancelled', { stage: currentStage });
+                setUploadStatus('paused');
+                setUploadPartLabel('Upload cancelled');
+                setUploadErrorDetail(null);
+                setEditorLaunchOverlay(null);
+                submitLockRef.current = false;
+                clearPendingEditorNavigation();
+                if (submitCooldownTimerRef.current !== null) {
+                    window.clearTimeout(submitCooldownTimerRef.current);
+                    submitCooldownTimerRef.current = null;
+                }
+                if (launchNavigationTimerRef.current !== null) {
+                    window.clearTimeout(launchNavigationTimerRef.current);
+                    launchNavigationTimerRef.current = null;
+                }
+                return false;
+            }
+
+            const userMessage = normalizeUxError(error, "upload");
             console.error(`[UploadFailure] Stage: ${currentStage}, Error:`, error);
-            toast.error(`Failed at ${currentStage}: ${errorMessage}`);
+            logUploadEvent('error', { stage: currentStage, error: errorMessage });
+            setUploadStatus('error');
+            setUploadErrorDetail(errorMessage);
+            setUploadPartLabel(null);
+            toast.error('Upload handoff paused', {
+                description: userMessage,
+            });
 
             setEditorLaunchOverlay(null);
             submitLockRef.current = false;
@@ -1681,12 +1830,8 @@ export function VideoUploadInterface() {
         activeStyleId,
         attachments,
         router,
-        awaitSettledSource,
         uploadedFileName,
-        stagedSourceAssetId,
-        stagedSourceFile,
-        stagedSourcePreviewKind,
-        stagedSourceProfile,
+        queuedSourceUpload,
     ]);
 
     const openUploadComposer = useCallback(() => {
@@ -1717,9 +1862,31 @@ export function VideoUploadInterface() {
         setIsSourceDragOver(false);
     };
 
+    const cancelActiveUpload = useCallback(() => {
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = null;
+        setUploadStatus('paused');
+        setUploadPartLabel('Upload cancelled');
+        setEditorLaunchOverlay(null);
+        submitLockRef.current = false;
+        clearPendingEditorNavigation();
+        if (launchNavigationTimerRef.current !== null) {
+            window.clearTimeout(launchNavigationTimerRef.current);
+            launchNavigationTimerRef.current = null;
+        }
+        toast.message('Upload cancelled', {
+            description: 'Prometheus aborted the multipart upload and cleaned up incomplete R2 parts.',
+        });
+    }, []);
+
     const handleUploadSelection = async (files: File[]) => {
         if (files.length === 0) return;
         const file = files[0]!;
+        const validationError = validateStudioUpload(file);
+        if (validationError) {
+            toast.error("Source rejected", { description: validationError });
+            return;
+        }
         const previewUrl = URL.createObjectURL(file);
         const kind = detectUploadKind(file);
         const inspectionRunId = uploadInspectionRunRef.current + 1;
@@ -1774,11 +1941,20 @@ export function VideoUploadInterface() {
     const applyUploadToPrompt = () => {
         if (!pendingUpload) return;
         setUploadedFileName(pendingUpload.file.name);
-        void stageSource(pendingUpload.file, {
+        setQueuedSourceUpload({
+            file: pendingUpload.file,
+            previewKind: pendingUpload.kind === "video" || pendingUpload.kind === "image" ? pendingUpload.kind : null,
             sourceProfile: pendingUpload.sourceProfile ?? null,
         });
         addSourceChip(`Upload: ${pendingUpload.file.name}`);
         closeSourceModal();
+
+        // Directly transition to editor after applying upload
+        void handleComposerSubmit({
+            message: "",
+            activeSlashCommand: null,
+            creatorMentions: [],
+        });
     };
 
     const removeAttachment = (index: number) => {
@@ -1786,7 +1962,7 @@ export function VideoUploadInterface() {
             const target = prev[index] ?? "";
             if (target.startsWith("Upload: ")) {
                 setUploadedFileName("");
-                resetStagedSource();
+                setQueuedSourceUpload(null);
             }
             return prev.filter((_, i) => i !== index);
         });
@@ -1823,8 +1999,13 @@ export function VideoUploadInterface() {
         handleUploadSelection(files);
     };
 
+    const isUploading = uploadStatus === 'uploading' || uploadStatus === 'retrying';
+
     return (
-        <div className="relative min-h-full w-full overflow-hidden bg-transparent px-4 py-10 text-white sm:px-6 sm:py-12">
+        <div className={cn(
+            "relative min-h-full w-full overflow-hidden bg-transparent px-4 py-10 text-white sm:px-6 sm:py-12",
+            isUploading && "pointer-events-none opacity-80"
+        )}>
             <BillingRequiredDialog open={billingGateOpen} redirectHref={buildBillingHref('/')} contextLabel="Editing access" />
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-violet-500/14 blur-[130px]" />
@@ -1861,7 +2042,7 @@ export function VideoUploadInterface() {
                             delay={0.28}
                             className="max-w-lg text-sm text-white/55"
                         >
-                            Prompt your project, attach sources, and shape the edit flow in one place.
+                            Prometheus Studio is a professional video editing and production workspace for filmmakers.
                         </TextEffect>
                     </motion.div>
 
@@ -1874,6 +2055,8 @@ export function VideoUploadInterface() {
                         onOpenUpload={openUploadComposer}
                         onRemoveAttachment={removeAttachment}
                         onSubmit={handleComposerSubmit}
+                        uploadStatus={uploadStatus}
+                        uploadProgress={uploadProgress}
                     />
 
                     <div className="space-y-4">
@@ -2020,7 +2203,7 @@ export function VideoUploadInterface() {
                                         Upload Studio
                                     </DialogTitle>
                                         <DialogDescription className="mt-2 max-w-2xl text-sm leading-6 text-[#d9d4cb]">
-                                            Stage the source inside a structured preview board before it is attached to the prompt.
+                                            Stage the source inside a structured board before it is attached to the prompt.
                                     </DialogDescription>
                                     </div>
 
@@ -2060,31 +2243,17 @@ export function VideoUploadInterface() {
                                     >
                                         <div className="flex items-center gap-4">
                                             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[24px] border border-[#d4d0c8] bg-[#d9d5cd]">
-                                                {pendingUpload?.kind === "image" ? (
-                                                    <img
-                                                        src={pendingUpload.previewUrl}
-                                                        alt={pendingUpload.file.name}
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : pendingUpload?.kind === "video" ? (
-                                                    <video
-                                                        src={pendingUpload.previewUrl}
-                                                        muted
-                                                        playsInline
-                                                        preload="metadata"
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(36,33,43,0.18)_0%,rgba(36,33,43,0)_70%)] text-[#2b2831]">
-                                                        {pendingUpload?.kind === "audio" ? (
-                                                            <Music2 className="h-7 w-7" />
-                                                        ) : pendingUpload?.kind === "file" ? (
-                                                            <FileText className="h-7 w-7" />
-                                                        ) : (
-                                                            <Video className="h-7 w-7" />
-                                                        )}
-                                                    </div>
-                                                )}
+                                                <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_top,rgba(36,33,43,0.18)_0%,rgba(36,33,43,0)_70%)] text-[#2b2831]">
+                                                    {pendingUpload?.kind === "audio" ? (
+                                                        <Music2 className="h-7 w-7" />
+                                                    ) : pendingUpload?.kind === "file" ? (
+                                                        <FileText className="h-7 w-7" />
+                                                    ) : pendingUpload?.kind === "image" ? (
+                                                        <ImageIcon className="h-7 w-7" />
+                                                    ) : (
+                                                        <Video className="h-7 w-7" />
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="min-w-0 space-y-1">
@@ -2096,7 +2265,7 @@ export function VideoUploadInterface() {
                                                 </div>
                                                 <div className="text-sm text-[#706b63]">{sourceDetail}</div>
                                                 <div className="pt-1 text-xs text-[#8b857d]">
-                                                    Live shell feed staged for the central preview board.
+                                                    Live shell feed staged for the central board.
                                                 </div>
                                             </div>
                                         </div>
@@ -2172,7 +2341,7 @@ export function VideoUploadInterface() {
                                             </div>
 
                                             <span className="rounded-full border border-[#d9db59] bg-[#ecff49] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d1d1d] shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
-                                                {sourceReady ? "Preview Armed" : "Awaiting Clip"}
+                                                {sourceReady ? "Source Staged" : "Awaiting Clip"}
                                             </span>
                                             <span className="rounded-full border border-[#cbc7be] bg-white/60 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.18em] text-[#58534c]">
                                                 Neo dashboard shell
@@ -2274,6 +2443,7 @@ export function VideoUploadInterface() {
                                                         <p className="mt-3 text-sm leading-6 text-[#6d675f]">
                                                             Drop in a live reference URL and attach it from the right-side command node.
                                                         </p>
+
                                                     </div>
                                                 </motion.aside>
 
@@ -2289,7 +2459,7 @@ export function VideoUploadInterface() {
                                                                 URL
                                                             </span>
                                                             <span className="rounded-full border border-[#d1cdc4] bg-white px-3 py-1.5 text-[11px] font-medium text-[#2a2630]">
-                                                                Central Preview
+                                                                Source
                                                             </span>
                                                         </div>
                                                         <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#202020]">
@@ -2306,7 +2476,7 @@ export function VideoUploadInterface() {
                                                                 Remote source will resolve into this central board
                                                             </div>
                                                             <div className="mt-3 max-w-md text-sm leading-6 text-white/62">
-                                                                The preview lane stays device-like and cinematic while the link payload is staged.
+                                                                The lane stays device-like and cinematic while the link payload is staged.
                                                             </div>
                                                             {sourceUrlValue && (
                                                                 <div className="mt-6 max-w-lg rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs text-white/74">
@@ -2325,7 +2495,7 @@ export function VideoUploadInterface() {
                                                 >
                                                     <div className="rounded-[28px] border border-[#d1cdc4] bg-[#fbfaf6] p-4 shadow-[0_26px_48px_-40px_rgba(0,0,0,0.55)]">
                                                         <div className="flex items-center justify-between gap-3">
-                                                            <div className="text-sm font-semibold text-[#2d2932]">Preview Status</div>
+                                                            <div className="text-sm font-semibold text-[#2d2932]">Source Status</div>
                                                             <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1f1f1f]">
                                                                 {sourceReady ? "Ready" : "Idle"}
                                                             </span>
@@ -2375,6 +2545,7 @@ export function VideoUploadInterface() {
                                                         <input
                                                             ref={sourceFileInputRef}
                                                             type="file"
+                                                            accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv"
                                                             className="hidden"
                                                             onChange={handleSourceFileInputChange}
                                                         />
@@ -2400,7 +2571,7 @@ export function VideoUploadInterface() {
                                                                 <Upload className="h-4 w-4" />
                                                             </div>
                                                             <p className="text-base font-medium text-[#2f2b34]">Drop video</p>
-                                                            <p className="mt-1 text-xs text-[#6f6a62]">MP4, MOV, WEBM supported</p>
+                                                            <p className="mt-1 text-xs text-[#6f6a62]">MP4, MOV, M4V, WEBM, MKV supported</p>
                                                             <Button
                                                                 type="button"
                                                                 variant="outline"
@@ -2421,29 +2592,15 @@ export function VideoUploadInterface() {
                                                         >
                                                             <div className="flex items-center gap-3">
                                                                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] border border-[#d0cbc1] bg-[#1f1c25]">
-                                                                    {pendingUpload.kind === "image" ? (
-                                                                        <img
-                                                                            src={pendingUpload.previewUrl}
-                                                                            alt={pendingUpload.file.name}
-                                                                            className="h-full w-full object-cover"
-                                                                        />
-                                                                    ) : pendingUpload.kind === "video" ? (
-                                                                        <video
-                                                                            src={pendingUpload.previewUrl}
-                                                                            muted
-                                                                            playsInline
-                                                                            preload="metadata"
-                                                                            className="h-full w-full object-cover"
-                                                                        />
+                                                                <div className="flex h-full w-full items-center justify-center text-[#f4f3ee]">
+                                                                    {pendingUpload.kind === "audio" ? (
+                                                                        <Music2 className="h-4 w-4" />
+                                                                    ) : pendingUpload.kind === "image" ? (
+                                                                        <ImageIcon className="h-4 w-4" />
                                                                     ) : (
-                                                                        <div className="flex h-full w-full items-center justify-center text-[#f4f3ee]">
-                                                                            {pendingUpload.kind === "audio" ? (
-                                                                                <Music2 className="h-4 w-4" />
-                                                                            ) : (
-                                                                                <FileText className="h-4 w-4" />
-                                                                            )}
-                                                                        </div>
+                                                                        <FileText className="h-4 w-4" />
                                                                     )}
+                                                                </div>
                                                                 </div>
 
                                                                 <div className="min-w-0 flex-1">
@@ -2488,49 +2645,25 @@ export function VideoUploadInterface() {
                                                         </span>
                                                     </div>
                                                     <div className="mt-4 overflow-hidden rounded-[30px] border border-[#3f3a42]/14 bg-[radial-gradient(circle_at_top,rgba(236,255,73,0.14)_0%,rgba(236,255,73,0)_30%),linear-gradient(180deg,#26222c_0%,#191720_100%)]">
-                                                        {pendingUpload?.kind === "video" ? (
-                                                            <video
-                                                                src={pendingUpload.previewUrl}
-                                                                autoPlay
-                                                                muted
-                                                                loop
-                                                                playsInline
-                                                                preload="metadata"
-                                                                className="min-h-[360px] w-full object-cover sm:min-h-[430px]"
-                                                            />
-                                                        ) : pendingUpload?.kind === "image" ? (
-                                                            <img
-                                                                src={pendingUpload.previewUrl}
-                                                                alt={pendingUpload.file.name}
-                                                                className="min-h-[360px] w-full object-cover sm:min-h-[430px]"
-                                                            />
-                                                        ) : pendingUpload?.kind ? (
-                                                            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
-                                                                <div className="rounded-full border border-white/15 bg-white/[0.06] p-4">
-                                                                    {pendingUpload.kind === "audio" ? (
-                                                                        <Music2 className="h-7 w-7" />
-                                                                    ) : (
-                                                                        <FileText className="h-7 w-7" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="mt-5 text-lg font-medium">{pendingUpload.file.name}</div>
-                                                                <div className="mt-2 max-w-sm text-sm text-white/60">
-                                                                    This source is staged and ready even though it does not have a visual preview.
-                                                                </div>
+                                                        <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
+                                                            <div className="rounded-full border border-white/15 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(233,255,73,0.08)]">
+                                                                {pendingUpload?.kind === "video" ? (
+                                                                    <Video className="h-8 w-8" />
+                                                                ) : pendingUpload?.kind === "image" ? (
+                                                                    <ImageIcon className="h-8 w-8" />
+                                                                ) : pendingUpload?.kind === "audio" ? (
+                                                                    <Music2 className="h-8 w-8" />
+                                                                ) : (
+                                                                    <FileText className="h-8 w-8" />
+                                                                )}
                                                             </div>
-                                                        ) : (
-                                                            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f4f2eb] sm:min-h-[430px]">
-                                                                <div className="rounded-full border border-white/15 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(233,255,73,0.08)]">
-                                                                    <MonitorIcon className="h-8 w-8" />
-                                                                </div>
-                                                                <div className="mt-5 text-[28px] leading-tight">
-                                                                    Your uploaded clip will render into the central board
-                                                                </div>
-                                                                <div className="mt-2 max-w-md text-sm leading-6 text-white/60">
-                                                                    The layout now follows the reference: a single instrument panel with the source dock, rail, and bottom control strip.
-                                                                </div>
+                                                            <div className="mt-5 text-[28px] leading-tight">
+                                                                {pendingUpload ? "Source staged for editing" : "Your uploaded clip will resolve here"}
                                                             </div>
-                                                        )}
+                                                            <div className="mt-2 max-w-md text-sm leading-6 text-white/60">
+                                                                The layout now follows the reference: a single instrument panel with the source dock, rail, and bottom control strip.
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </motion.article>
 
@@ -2542,7 +2675,7 @@ export function VideoUploadInterface() {
                                                 >
                                                     <div className="rounded-[28px] border border-[#d1cdc4] bg-[#fbfaf6] p-4 shadow-[0_26px_48px_-40px_rgba(0,0,0,0.55)]">
                                                         <div className="flex items-center justify-between gap-3">
-                                                            <div className="text-sm font-semibold text-[#2d2932]">Preview Status</div>
+                                                            <div className="text-sm font-semibold text-[#2d2932]">Source Status</div>
                                                             <span className="rounded-full border border-[#d5d95a] bg-[#ecff49] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1f1f1f]">
                                                                 {sourceReady ? "Ready" : "Idle"}
                                                             </span>
@@ -2581,9 +2714,10 @@ export function VideoUploadInterface() {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="text-[10px] uppercase tracking-[0.18em] text-[#7b756d]">Studio rail</div>
-                                            <div className="truncate text-sm text-[#2d2932]">
-                                                Source dock, central preview, and attach command aligned on one board.
-                                            </div>
+                                            <p className="mt-1 text-xs text-white/46">
+                                                Source dock and attach command aligned on one board.
+                                            </p>
+
                                         </div>
                                         <Button
                                             type="button"
@@ -2797,12 +2931,50 @@ export function VideoUploadInterface() {
                                 aria-hidden
                                 className="pointer-events-none absolute inset-x-[12%] top-1/2 h-40 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.12)_0%,rgba(145,110,255,0.12)_34%,rgba(3,3,8,0)_74%)] blur-[58px]"
                             />
-                            <InfinityTrailLoader
-                                variant="stacked"
+                            <MinimalTypographicLoader
                                 label={`Opening ${editorLaunchOverlay.title}`}
-                                subtitle={editorLaunchOverlay.detail}
+                                message={editorLaunchOverlay.detail}
+                                size="lg"
+                                variant="panel"
                                 className="w-full"
                             />
+                            {(uploadStatus === 'presigning' || uploadStatus === 'uploading' || uploadStatus === 'retrying' || uploadStatus === 'paused') ? (
+                                <div className="mt-6 overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
+                                    <div className="flex items-center justify-between gap-4 text-xs text-white/62">
+                                        <span>
+                                            {uploadPartLabel ?? `Chunk size ${formatFileSize(R2_MULTIPART_CLIENT_PART_SIZE)}`}
+                                        </span>
+                                        <span className="font-semibold text-white">{uploadProgress}%</span>
+                                    </div>
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                                        <motion.div
+                                            className="h-full rounded-full bg-[#6366f1] shadow-[0_0_26px_rgba(99,102,241,0.55)]"
+                                            animate={{ width: `${Math.max(0, Math.min(100, uploadProgress))}%` }}
+                                            transition={{ duration: 0.25, ease: "easeOut" }}
+                                        />
+                                    </div>
+                                    {uploadStatus === 'retrying' ? (
+                                        <div className="mt-3 text-xs text-[#c7d2fe]">
+                                            Network timeout — retrying the failed chunk.
+                                        </div>
+                                    ) : null}
+                                    <div className="pointer-events-auto mt-4 flex justify-center">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-9 rounded-full border-white/12 bg-transparent px-4 text-xs text-white/72 hover:bg-white/[0.08] hover:text-white"
+                                            onClick={cancelActiveUpload}
+                                        >
+                                            Cancel Upload
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : null}
+                            {uploadStatus === 'error' && uploadErrorDetail ? (
+                                <div className="mt-5 rounded-[18px] border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                                    {uploadErrorDetail}
+                                </div>
+                            ) : null}
                         </motion.div>
                     </motion.div>
                 ) : null}

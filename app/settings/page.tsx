@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Bell, Link2, Shield } from 'lucide-react'
+import { Bell, ChevronRight, Link2, Shield, User } from 'lucide-react'
 
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { PageHeader } from '@/components/page-header'
@@ -25,9 +25,27 @@ export default function SettingsPage() {
 
   return (
     <PrometheusShell
-      header={<PageHeader title="Settings" description="Preferences and integrations (UI scaffolding)." />}
+      header={<PageHeader title="Settings" description="Preferences and integrations (UI scaffolding)." showBackButton />}
     >
       <div className="px-8 py-6 grid gap-4 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
+          <Link
+            href="/settings/profile"
+            className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12] hover:bg-white/[0.06]"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-white/60">
+                <User className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-white/85">Profile</div>
+                <div className="mt-1 truncate text-xs text-white/45">Account info, security, preferences</div>
+              </div>
+            </div>
+            <ChevronRight className="size-4 shrink-0 text-white/42" />
+          </Link>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -70,6 +88,16 @@ export default function SettingsPage() {
               </div>
               <Badge variant="secondary">Mock</Badge>
             </div>
+            <Link
+              href="/settings/social-accounts"
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-150 ease-out hover:-translate-y-1 hover:border-white/[0.12] hover:bg-white/[0.06]"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-white/85">Social Accounts</div>
+                <div className="mt-1 truncate text-xs text-white/45">Connect publishing channels.</div>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-white/42" />
+            </Link>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
               <div className="min-w-0">
                 <div className="text-sm font-medium text-white/85">Dropbox</div>
@@ -151,8 +179,23 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <div className="lg:col-span-2 mt-4 border-t border-white/10 pt-6 text-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-white/40">
+            <Link href="/terms" className="transition-colors hover:text-white/60">
+              Terms of Service
+            </Link>
+            <span>|</span>
+            <Link href="/privacy" className="transition-colors hover:text-white/60">
+              Privacy Policy
+            </Link>
+            <span>|</span>
+            <Link href="/refund" className="transition-colors hover:text-white/60">
+              Refund Policy
+            </Link>
+          </div>
+        </div>
       </div>
     </PrometheusShell>
   )
 }
-
