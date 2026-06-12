@@ -1403,7 +1403,7 @@ export function VideoUploadInterface() {
         ?? (addSourceMode === "link" ? "URL" : "MP4");
     const uploadStudioTabs = [
         { label: "Source Map", icon: Upload },
-        { label: "Delivery", icon: SendIcon },
+        { label: "Prompt", icon: SendIcon },
     ];
     const uploadStudioVitals = [
         pendingSourceProfile
@@ -2042,7 +2042,7 @@ export function VideoUploadInterface() {
                             delay={0.28}
                             className="max-w-lg text-sm text-white/55"
                         >
-                            Prometheus Studio is a professional video editing and production workspace for filmmakers.
+                            Upload a source, choose a visual lane, and send the next edit into motion.
                         </TextEffect>
                     </motion.div>
 

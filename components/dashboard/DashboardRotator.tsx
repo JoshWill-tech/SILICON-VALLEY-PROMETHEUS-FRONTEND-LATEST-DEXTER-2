@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
 import { useDashboardRotation } from "@/hooks/useDashboardRotation";
+import { MinimalTypographicLoader } from "@/components/ui/minimal-typographic-loader";
 
 import { PinButton } from "./PinButton";
 import { BlobGreeting } from "./views/BlobGreeting";
@@ -26,9 +27,7 @@ export function DashboardRotator() {
 
   if (!ready) {
     return (
-      <div className="flex h-full items-center justify-center bg-chrome-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-cyan border-t-transparent motion-reduce:animate-none" />
-      </div>
+      <MinimalTypographicLoader label="Loading..." message="Preparing the studio." size="md" variant="screen" />
     );
   }
 

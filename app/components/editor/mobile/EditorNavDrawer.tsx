@@ -126,6 +126,11 @@ export function EditorNavDrawer({
       return
     }
 
+    if (key === 'motion') {
+      router.push('/editor/motion')
+      return
+    }
+
     onSelectTool?.(key)
   }
 

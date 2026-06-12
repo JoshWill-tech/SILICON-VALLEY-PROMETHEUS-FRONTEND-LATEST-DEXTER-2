@@ -49,19 +49,16 @@ export const MotionBrainCanvas: React.FC = () => {
   useEffect(() => {
     if (isLowTier) return
 
-    // GSAP node processing animations
-    const tl = gsap.timeline()
-    
     gsap.fromTo(".connection-line", 
       { strokeDashoffset: 200 },
-      { strokeDashoffset: 0, duration: 1.5, ease: "power2.inOut", stagger: 0.2, repeat: -1 }
+      { strokeDashoffset: 0, duration: 7.2, ease: "sine.inOut", stagger: 0.38, repeat: -1 }
     )
     
     gsap.to(".node-brain", {
-      boxShadow: "0 0 30px rgba(0,240,255,0.4)",
-      duration: 1.5, 
-      repeat: -1, 
-      yoyo: true, 
+      boxShadow: "0 0 24px rgba(0,240,255,0.28)",
+      duration: 4.8,
+      repeat: -1,
+      yoyo: true,
       ease: "sine.inOut"
     })
 
@@ -79,24 +76,24 @@ export const MotionBrainCanvas: React.FC = () => {
           className="connection-line" 
           d="M 100 150 C 150 150, 150 300, 200 300" 
           fill="none" 
-          stroke="rgba(0,240,255,0.15)" 
-          strokeWidth="1.5" 
+          stroke="rgba(0,240,255,0.10)"
+          strokeWidth="1.5"
           strokeDasharray="4 4"
         />
         <path 
           className="connection-line" 
           d="M 100 450 C 150 450, 150 300, 200 300" 
           fill="none" 
-          stroke="rgba(0,240,255,0.15)" 
-          strokeWidth="1.5" 
+          stroke="rgba(0,240,255,0.10)"
+          strokeWidth="1.5"
           strokeDasharray="4 4"
         />
         <path 
           className="connection-line" 
           d="M 280 300 L 340 300" 
           fill="none" 
-          stroke="rgba(0,240,255,0.15)" 
-          strokeWidth="1.5" 
+          stroke="rgba(0,240,255,0.10)"
+          strokeWidth="1.5"
           strokeDasharray="4 4"
         />
       </svg>

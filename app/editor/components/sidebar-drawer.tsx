@@ -77,14 +77,22 @@ export function SidebarDrawer({ activePanel, isOpen, onClose, onTogglePanel }: S
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-2">
           {PANELS.map((panel) => {
-            const expanded = activePanel === panel.id
+            const expanded = panel.id !== 'motion' && activePanel === panel.id
             const Icon = panel.icon
 
             return (
               <section key={panel.id} className="rounded-xl border border-white/10 bg-white/[0.03]">
                 <button
                   type="button"
-                  onClick={() => onTogglePanel(panel.id)}
+                  onClick={() => {
+                    if (panel.id === 'motion') {
+                      onClose()
+                      router.push('/editor/motion')
+                      return
+                    }
+
+                    onTogglePanel(panel.id)
+                  }}
                   className="flex w-full items-center gap-3 px-3 py-3 text-left"
                   aria-expanded={expanded}
                 >

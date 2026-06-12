@@ -34,7 +34,7 @@ type SidebarItem =
       action: 'navigate'
       href: string
       icon: LucideIcon
-      id: 'projects'
+      id: 'projects' | 'motion'
       label: string
     }
   | {
@@ -53,7 +53,7 @@ type SidebarItem =
 
 const sidebarItems: SidebarItem[] = [
   { id: 'projects', label: 'Projects', icon: Folder, href: '/projects', action: 'navigate' },
-  { id: 'motion', label: 'Motion Brain', icon: Zap, action: 'panel', panel: 'motion' },
+  { id: 'motion', label: 'Motion Brain', icon: Zap, href: '/editor/motion', action: 'navigate' },
   { id: 'music', label: 'Music', icon: Music, action: 'panel', panel: 'music' },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, action: 'panel', panel: 'analytics' },
   { id: 'timeline', label: 'Timeline', icon: Clock3, action: 'panel', panel: 'timeline' },

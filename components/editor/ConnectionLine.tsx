@@ -36,7 +36,7 @@ export const ConnectionLine: React.FC<ConnectionLineProps> = ({
         strokeWidth="1.5"
         strokeOpacity={active ? 0.6 : 0.2}
         strokeDasharray={active ? "8, 4" : "0"}
-        className={active ? "animate-[flowLine_1s_linear_infinite]" : ""}
+        className={active ? "animate-[flowLine_5.5s_ease-in-out_infinite]" : ""}
         style={{ filter: active ? `url(#${filterId})` : 'none' }}
       />
     </svg>

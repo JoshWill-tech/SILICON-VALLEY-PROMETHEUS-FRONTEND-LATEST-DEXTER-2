@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { gsap } from 'gsap'
+import Image from 'next/image'
 
 import { cn } from '@/lib/utils'
 
@@ -19,10 +19,10 @@ const ROOT_VARIANT_CLASS_NAMES = {
   inline: 'min-h-[clamp(9rem,24vh,15rem)] px-4 py-5',
 } as const
 
-const TEXT_SIZE_CLASS_NAMES = {
-  sm: 'text-2xl sm:text-3xl',
-  md: 'text-4xl sm:text-5xl',
-  lg: 'text-5xl sm:text-7xl',
+const LOADER_SIZE_CLASS_NAMES = {
+  sm: 'w-[min(18rem,86vw)]',
+  md: 'w-[min(28rem,88vw)]',
+  lg: 'w-[min(40rem,92vw)]',
 } as const
 
 function subscribeToReducedMotion(callback: () => void) {
@@ -61,40 +61,7 @@ export function MinimalTypographicLoader({
 }: MinimalTypographicLoaderProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const rootRef = React.useRef<HTMLElement | null>(null)
-  const textRef = React.useRef<HTMLParagraphElement | null>(null)
   const ariaLabel = message ? `${label} ${message}` : label
-
-  React.useEffect(() => {
-    const root = rootRef.current
-    const text = textRef.current
-
-    if (!root || !text) return
-
-    const context = gsap.context(() => {
-      gsap.set(text, {
-        letterSpacing: prefersReducedMotion ? '2px' : '1px',
-        opacity: prefersReducedMotion ? 0.64 : 0.52,
-      })
-
-      if (prefersReducedMotion) return
-
-      gsap
-        .timeline({
-          repeat: -1,
-          yoyo: true,
-          defaults: {
-            duration: 3,
-            ease: 'sine.inOut',
-          },
-        })
-        .to(text, {
-          letterSpacing: '4px',
-          opacity: 0.76,
-        })
-    }, root)
-
-    return () => context.revert()
-  }, [prefersReducedMotion])
 
   return (
     <section
@@ -108,20 +75,28 @@ export function MinimalTypographicLoader({
       aria-live="polite"
       aria-label={ariaLabel}
     >
-      <p
-        ref={textRef}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(99,74,255,0.12)_0%,rgba(37,28,114,0.08)_28%,rgba(0,0,0,0)_58%),radial-gradient(circle_at_50%_50%,rgba(15,255,166,0.035)_0%,rgba(0,0,0,0)_52%)]"
+      />
+      <div
         className={cn(
-          'select-none text-center font-sans font-medium leading-none text-[#555555]',
-          TEXT_SIZE_CLASS_NAMES[size],
+          'relative aspect-[4/3] select-none overflow-hidden rounded-[28px]',
+          LOADER_SIZE_CLASS_NAMES[size],
+          prefersReducedMotion && 'opacity-90',
         )}
-        style={{
-          fontFamily: 'var(--font-ui)',
-          letterSpacing: '1px',
-          opacity: 0.52,
-        }}
       >
-        Prometheus
-      </p>
+        <Image
+          src="/loaders/prometheus-infinity-loader.gif"
+          alt=""
+          width={800}
+          height={600}
+          unoptimized
+          priority={variant === 'screen'}
+          className="h-full w-full object-contain"
+        />
+      </div>
+      <span className="sr-only">{ariaLabel}</span>
     </section>
   )
 }

@@ -85,6 +85,62 @@ function run() {
   assert.equal(landingPage.includes('What Prometheus Studio customers receive'), false)
   assert.equal(landingPage.includes('HD Video Exports'), false)
 
+  const uploadInterface = read('components/video-upload-interface.tsx')
+  assert.equal(uploadInterface.includes('Deliverables included with purchase'), false)
+  assert.equal(uploadInterface.includes('What Prometheus Studio customers receive'), false)
+  assert.equal(uploadInterface.includes('HD Video Exports'), false)
+  assert.equal(uploadInterface.includes('Prometheus Studio is a professional video editing and production workspace for filmmakers.'), false)
+  assert.equal(uploadInterface.includes('label: "Delivery"'), false)
+
+  const inspectorPanel = read('components/editor/InspectorPanel.tsx')
+  assert.equal(inspectorPanel.includes('Settings Node'), false)
+  assert.equal(inspectorPanel.includes('Source Intelligence'), false)
+  assert.equal(inspectorPanel.includes('Global Scale'), false)
+  assert.equal(inspectorPanel.includes('Offset X'), false)
+  assert.equal(inspectorPanel.includes('Offset Y'), false)
+  assert.equal(inspectorPanel.includes('H.264 High 10'), false)
+
+  const sharedLoader = read('components/ui/minimal-typographic-loader.tsx')
+  assert.match(sharedLoader, /\/loaders\/prometheus-infinity-loader\.gif/)
+  assert.equal(sharedLoader.includes('gsap'), false)
+
+  const editorLoading = read('app/editor/loading.tsx')
+  assert.match(editorLoading, /EditorLoadingScreen/)
+  assert.equal(editorLoading.includes('animate-spin'), false)
+
+  const workspaceFrame = read('components/workspace-frame.tsx')
+  assert.match(workspaceFrame, /overflow-y-auto/)
+  assert.match(workspaceFrame, /touch-pan-y/)
+  assert.match(workspaceFrame, /speed=\{0\.08\}/)
+
+  const awwwardsSidebar = read('components/sidebar/AwwwardsSidebar.tsx')
+  assert.match(awwwardsSidebar, /href: "\/editor\/motion"/)
+  assert.match(awwwardsSidebar, /href: "\/projects"/)
+  assert.equal(awwwardsSidebar.includes('setActive'), false)
+
+  const hamburgerSidebar = read('components/editor/EditorHamburgerSidebar.tsx')
+  assert.match(hamburgerSidebar, /href: '\/editor\/motion'/)
+
+  const mobileNavDrawer = read('app/components/editor/mobile/EditorNavDrawer.tsx')
+  assert.match(mobileNavDrawer, /router\.push\('\/editor\/motion'\)/)
+
+  const mobileSidebarDrawer = read('app/editor/components/sidebar-drawer.tsx')
+  assert.match(mobileSidebarDrawer, /router\.push\('\/editor\/motion'\)/)
+  assert.match(mobileSidebarDrawer, /panel\.id !== 'motion'/)
+
+  const editorConnectionLine = read('components/editor/ConnectionLine.tsx')
+  assert.equal(editorConnectionLine.includes('flowLine_1s'), false)
+  assert.match(editorConnectionLine, /flowLine_5\.5s/)
+
+  const motionBrainCanvas = read('components/editor/MotionBrainCanvas.tsx')
+  assert.equal(motionBrainCanvas.includes('duration: 1.5'), false)
+  assert.match(motionBrainCanvas, /duration: 7\.2/)
+
+  const motionConnectionLine = read('app/editor/motion/components/connection-line.tsx')
+  assert.equal(motionConnectionLine.includes("'0.9s'"), false)
+  assert.equal(motionConnectionLine.includes("'3.8s'"), false)
+  assert.match(motionConnectionLine, /'8\.5s'/)
+
   const soundtrackCard = read('components/editor/soundtrack-card.tsx')
   assert.equal(soundtrackCard.includes('animate-marquee'), false)
   assert.equal(soundtrackCard.includes('ArtistMarquee'), false)

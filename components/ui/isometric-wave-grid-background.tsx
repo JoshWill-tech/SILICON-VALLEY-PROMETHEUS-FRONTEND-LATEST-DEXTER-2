@@ -121,7 +121,7 @@ const IsoLevelWarp = ({
       mouse.x = smoothMix(mouse.x, mouse.targetX, 0.1);
       mouse.y = smoothMix(mouse.y, mouse.targetY, 0.1);
 
-      time += 0.01 * speed;
+      time += 0.004 * speed;
 
       ctx.beginPath();
       

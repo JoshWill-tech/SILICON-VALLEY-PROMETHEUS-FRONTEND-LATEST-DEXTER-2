@@ -2,20 +2,11 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { Settings2, Sparkles, BrainCircuit, Activity, Zap } from 'lucide-react'
-import { TextReveal } from '@/components/editor/text-reveal'
+import { BrainCircuit, Settings2 } from 'lucide-react'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
-import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { buildRevealVariants } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { PREVIEW_FRAME_PRESETS } from '@/lib/constants'
-import {
-  formatAspectFamily,
-  formatTimeProfile,
-  formatProcessingClass,
-  formatWeightBucket,
-  formatDurationBucket,
-} from '@/lib/media/source-profile'
 import type {
   Project,
   ProcessingJob,
@@ -60,24 +51,11 @@ export function InspectorPanel({
   previewFramePreset,
   clipModeActive,
   fitMode,
-  scale,
-  offsetX,
-  offsetY,
-  sourceMetrics,
   hasSourceAsset,
-  sourceStageError,
-  previewKind,
-  transportTime,
-  promptText,
-  previewOverlayPlan,
-  bottomMode,
   onSetViralClipSplitPreviewActive,
   onSetPreviewFramePreset,
   onPreviewFrameLabel,
   onSetFitMode,
-  onSetScale,
-  onSetOffsetX,
-  onSetOffsetY,
   onPickSource,
 }: InspectorPanelProps) {
   return (
@@ -93,10 +71,10 @@ export function InspectorPanel({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/10 text-accent-purple">
             <BrainCircuit className="size-4" />
           </div>
-          <div>
-            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white">Motion Brain</h2>
-            <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">Configuration Node</p>
-          </div>
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white">Motion Brain</h2>
+          <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">Frame Controls</p>
+        </div>
         </div>
         <button className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition-colors hover:bg-white/5 hover:text-white">
           <Settings2 className="size-4" />
@@ -105,161 +83,71 @@ export function InspectorPanel({
 
       <div
         ref={inspectorViewportRef}
-        className="premium-scroll-mask flex-1 overflow-y-auto px-6 py-6 space-y-8"
+        className="premium-scroll-mask flex-1 overflow-y-auto px-6 py-6"
       >
-        {/* Prompt Node */}
         <motion.div
           variants={buildRevealVariants({ delay: 0.1, distance: 20, blur: 10, duration: 0.4 })}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="relative rounded-2xl border border-accent-cyan/20 bg-accent-cyan/5 p-5 shadow-[0_0_30px_rgba(0,240,255,0.05)]"
+          className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.052)_0%,rgba(255,255,255,0.026)_100%)] p-4 shadow-[0_28px_70px_-48px_rgba(0,0,0,0.92)]"
         >
-          <div className="absolute -top-3 left-4 px-2 py-0.5 bg-void border border-accent-cyan/30 rounded text-[9px] font-bold uppercase tracking-widest text-accent-cyan flex items-center gap-1.5">
-            <Zap className="size-2.5 fill-current" />
-            Prompt Node
-          </div>
-          
-          <div className="text-sm leading-relaxed text-white/90 italic">
-            &ldquo;{promptText.slice(0, 120)}{promptText.length > 120 ? '...' : ''}&rdquo;
-          </div>
-          
-          {/* Node Connection Line */}
-          <div className="absolute left-1/2 -bottom-8 w-px h-8 bg-gradient-to-b from-accent-cyan/30 to-white/5" />
-        </motion.div>
-
-        {/* Settings Node */}
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.2, distance: 20, blur: 10, duration: 0.4 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-5 pt-8"
-        >
-          <div className="absolute -top-3 left-4 px-2 py-0.5 bg-void border border-white/10 rounded text-[9px] font-bold uppercase tracking-widest text-white/40">
-            Settings Node
-          </div>
-
-          <div className="space-y-6">
-            {/* Frame Section */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(38,125,255,0.16)_0%,rgba(38,125,255,0)_42%),radial-gradient(circle_at_90%_100%,rgba(159,246,227,0.09)_0%,rgba(159,246,227,0)_44%)]" />
+          <div className="relative flex items-center justify-between gap-3">
             <div>
-              <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Output Frame</label>
-              <div className="mt-3 grid grid-cols-5 gap-2">
-                {PREVIEW_FRAME_PRESETS.map((framePreset) => (
-                  <button
-                    key={framePreset}
-                    onClick={() => {
-                      onSetViralClipSplitPreviewActive(false)
-                      onSetPreviewFramePreset(framePreset)
-                    }}
-                    className={cn(
-                      'flex aspect-square flex-col items-center justify-center rounded-lg border text-[10px] font-bold transition-all',
-                      previewFramePreset === framePreset
-                        ? 'border-accent-cyan bg-accent-cyan/10 text-accent-cyan shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                        : 'border-white/5 bg-white/[0.02] text-white/30 hover:border-white/20 hover:text-white/60'
-                    )}
-                  >
-                    {onPreviewFrameLabel(framePreset)}
-                  </button>
-                ))}
-              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/40">Output frame</div>
+              <div className="mt-1 text-sm font-medium text-white/82">{clipModeActive ? 'Short-form cutdown' : 'Canvas format'}</div>
             </div>
-
-            {/* Transform Section */}
-            <div className="space-y-4">
-              <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Spatial Transform</label>
-              
-              <div className="grid grid-cols-2 gap-2 p-1 bg-void/60 rounded-xl border border-white/5">
-                {(['fill', 'fit'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => onSetFitMode(mode)}
-                    className={cn(
-                      'rounded-lg py-2 text-[11px] font-bold uppercase tracking-widest transition-all',
-                      fitMode === mode ? 'bg-white/10 text-white shadow-lg' : 'text-white/20 hover:text-white/40'
-                    )}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
-
-              <InspectorField label="Global Scale" value={`${Math.round(scale)}%`}>
-                <input
-                  type="range"
-                  min={80}
-                  max={130}
-                  value={scale}
-                  onChange={(e) => onSetScale(Number(e.target.value))}
-                  className="h-1 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-white"
-                />
-              </InspectorField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <InspectorNumberField label="Offset X" value={offsetX} onChange={onSetOffsetX} />
-                <InspectorNumberField label="Offset Y" value={offsetY} onChange={onSetOffsetY} />
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Final Result / Profile Node */}
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.3, distance: 20, blur: 10, duration: 0.4 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="relative rounded-2xl border border-white/5 bg-void/60 p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <label className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Source Intelligence</label>
-            <Activity className="size-3 text-accent-cyan animate-pulse" />
+            {!hasSourceAsset ? (
+              <button
+                type="button"
+                onClick={onPickSource}
+                className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium text-white/72 transition-colors hover:bg-white/[0.09] hover:text-white"
+              >
+                Add source
+              </button>
+            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <InspectorMeta label="Res" value={sourceMetrics?.resolution ?? '---'} />
-            <InspectorMeta label="Dur" value={sourceMetrics?.duration ?? '---'} />
-            <InspectorMeta label="Codec" value="H.264 High 10" />
-            <InspectorMeta label="FPS" value="23.976" />
+          <div className="relative mt-4 grid grid-cols-5 gap-2">
+            {PREVIEW_FRAME_PRESETS.map((framePreset) => (
+              <button
+                key={framePreset}
+                type="button"
+                onClick={() => {
+                  onSetViralClipSplitPreviewActive(false)
+                  onSetPreviewFramePreset(framePreset)
+                }}
+                className={cn(
+                  'flex aspect-square items-center justify-center rounded-[16px] border text-[11px] font-bold transition-[border-color,background-color,color,box-shadow] duration-200',
+                  previewFramePreset === framePreset
+                    ? 'border-[#9ff6e3]/70 bg-[#9ff6e3]/12 text-[#dffdf8] shadow-[0_0_26px_rgba(159,246,227,0.18)]'
+                    : 'border-white/8 bg-black/24 text-white/42 hover:border-white/18 hover:text-white/78',
+                )}
+              >
+                {onPreviewFrameLabel(framePreset)}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative mt-3 grid grid-cols-2 gap-2 rounded-[16px] border border-white/8 bg-black/24 p-1">
+            {(['fill', 'fit'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onSetFitMode(mode)}
+                className={cn(
+                  'rounded-[13px] py-2 text-[11px] font-bold uppercase tracking-[0.18em] transition-[background-color,color] duration-200',
+                  fitMode === mode ? 'bg-white/12 text-white' : 'text-white/34 hover:text-white/68',
+                )}
+              >
+                {mode}
+              </button>
+            ))}
           </div>
         </motion.div>
       </div>
     </motion.aside>
-  )
-}
-
-function InspectorField({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-white/40 font-medium">{label}</span>
-        <span className="text-[10px] font-mono text-accent-cyan">{value}</span>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function InspectorNumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="space-y-2">
-      <span className="text-[10px] text-white/40 font-medium">{label}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-9 w-full rounded-lg border border-white/5 bg-void px-3 font-mono text-xs text-white outline-none focus:border-white/20 transition-colors"
-      />
-    </div>
-  )
-}
-
-function InspectorMeta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
-      <span className="text-[10px] text-white/30 uppercase tracking-widest font-medium">{label}</span>
-      <span className="text-[10px] font-mono text-white/80">{value}</span>
-    </div>
   )
 }
 

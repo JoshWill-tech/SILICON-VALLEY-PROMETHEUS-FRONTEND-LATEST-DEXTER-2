@@ -12,21 +12,23 @@ import {
   Settings,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { useDeviceTier } from "@/hooks/useDeviceTier";
 
 const navItems = [
-  { id: "projects", label: "Projects", icon: Folder, count: 3 },
-  { id: "recent", label: "Recent", icon: Clock, count: 0 },
-  { id: "motion", label: "Motion Brain", icon: Zap, count: 0 },
-  { id: "analytics", label: "Analytics", icon: BarChart3, count: 0 },
+  { id: "projects", label: "Projects", icon: Folder, count: 3, href: "/projects" },
+  { id: "recent", label: "Recent", icon: Clock, count: 0, href: "/projects?view=recent" },
+  { id: "motion", label: "Motion Brain", icon: Zap, count: 0, href: "/editor/motion" },
+  { id: "analytics", label: "Analytics", icon: BarChart3, count: 0, href: "/dashboard?panel=analytics" },
 ];
 
 export function AwwwardsSidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [active, setActive] = useState("projects");
   const [hovered, setHovered] = useState<string | null>(null);
+  const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion();
   const tier = useDeviceTier();
   const animated = !shouldReduceMotion && tier !== "low";
@@ -90,13 +92,12 @@ export function AwwwardsSidebar() {
       <nav className="flex-1 overflow-y-auto overflow-x-visible p-2" aria-label="Editor sections">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = active === item.id;
+          const isActive = isNavItemActive(pathname, item.href);
 
           return (
-            <button
+            <Link
               key={item.id}
-              type="button"
-              onClick={() => setActive(item.id)}
+              href={item.href}
               onMouseEnter={() => setHovered(item.id)}
               onMouseLeave={() => setHovered(null)}
               className={`group relative flex min-h-11 w-full items-center rounded-xl border px-3 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan ${
@@ -104,6 +105,7 @@ export function AwwwardsSidebar() {
                   ? "border-accent-cyan/20 bg-accent-cyan-glow text-accent-cyan"
                   : "border-transparent text-text-secondary hover:bg-white/5 hover:text-text-primary"
               }`}
+              aria-current={isActive ? "page" : undefined}
               aria-label={collapsed ? item.label : undefined}
             >
               <Icon className="h-[18px] w-[18px] flex-shrink-0" />
@@ -146,7 +148,7 @@ export function AwwwardsSidebar() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </button>
+            </Link>
           );
         })}
       </nav>
@@ -200,4 +202,12 @@ export function AwwwardsSidebar() {
       </div>
     </motion.aside>
   );
+}
+
+function isNavItemActive(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (href.startsWith("/projects")) return pathname.startsWith("/projects");
+  if (href === "/editor/motion") return pathname === "/editor/motion";
+  if (href.startsWith("/dashboard")) return pathname.startsWith("/dashboard");
+  return pathname === href;
 }

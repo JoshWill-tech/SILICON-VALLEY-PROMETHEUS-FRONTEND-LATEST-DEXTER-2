@@ -61,8 +61,8 @@ export function ConnectionLine({
         }}
       />
       {edge.animated && !reduceMotion ? (
-        <circle r={executing ? 5 : 3.5} fill="#22c55e" style={{ filter: 'drop-shadow(0 0 8px rgba(34,197,94,0.85))' }}>
-          <animateMotion dur={executing ? '0.9s' : '3.8s'} path={geometry.path} repeatCount="indefinite" />
+        <circle r={executing ? 4.5 : 3.25} fill="#22c55e" style={{ filter: 'drop-shadow(0 0 7px rgba(34,197,94,0.62))' }}>
+          <animateMotion dur={executing ? '3.6s' : '8.5s'} path={geometry.path} repeatCount="indefinite" />
         </circle>
       ) : null}
     </g>
