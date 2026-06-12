@@ -4,7 +4,7 @@ import * as React from 'react'
 import dynamic from 'next/dynamic'
 import { safeDynamic } from '@/lib/dynamic-safe'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Activity,
@@ -60,7 +60,6 @@ import gsap from 'gsap'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
-import { StagedMusicRail } from '@/components/editor/staged-music-rail'
 import { EditWorkflowPanel } from '@/components/editor/edit-workflow-panel'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { EditorHeader } from '@/components/editor/EditorHeader'
@@ -768,6 +767,15 @@ const WORKSPACE_TABS: Array<{ key: HeaderNavMode; label: string; icon: React.Com
   { key: 'Music', label: 'Music', icon: Music4 },
   { key: 'Motion', label: 'Motion', icon: Sparkles },
 ]
+
+function normalizeWorkspaceTabParam(value: string | null): HeaderNavMode | null {
+  if (!value) return null
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'editor') return 'Editor'
+  if (normalized === 'music') return 'Music'
+  if (normalized === 'motion') return 'Motion'
+  return null
+}
 
 const MOBILE_EDITOR_TABS: Array<{ key: MobileEditorTabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { key: 'status', label: 'Status', icon: Activity },
@@ -3708,10 +3716,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     previewAudioRef.current.volume = musicPreviewVolume
   }, [musicPreviewVolume])
 
-  const handleMusicPreviewVolumeChange = React.useCallback((nextValue: number) => {
-    setMusicPreviewVolume(clampMusicPreviewVolume(nextValue / 100))
-  }, [])
-
   const flashReplyHighlight = React.useCallback((entryId: string) => {
     if (replyHighlightTimerRef.current) {
       window.clearTimeout(replyHighlightTimerRef.current)
@@ -4432,14 +4436,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     })
   }, [projectId, stagedTracks])
 
-  const removeStagedTrack = React.useCallback((trackId: string) => {
-    setStagedTracks((current) => current.filter((track) => track.id !== trackId))
-  }, [])
-
-  const clearStagedTracks = React.useCallback(() => {
-    setStagedTracks([])
-  }, [])
-
   const handleDismissSpotlightTrack = React.useCallback((trackId: string) => {
     setDismissedSpotlightTrackId(trackId)
 
@@ -5118,8 +5114,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     }
   }, [dismissedSpotlightTrackId, spotlightCandidateTrackId])
 
-  const latestMusicEntry = [...entries].reverse().find((entry) => Boolean(entry.music)) ?? null
-  const latestMusicBlock = latestMusicEntry?.music ?? null
   const spotlightTrack =
     spotlightCandidateTrack && dismissedSpotlightTrackId !== spotlightCandidateTrackId
       ? spotlightCandidateTrack
@@ -5143,44 +5137,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         />
         <div ref={threadViewportRef} className="premium-scroll-mask h-full overflow-y-auto overscroll-contain px-4 py-4 pb-32">
           <div ref={threadContentRef} className="space-y-4 pr-2">
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.04, distance: 14, blur: 8, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: threadViewportRef, once: false, amount: 0.4 }}
-          className="space-y-2"
-        >
-          <TextReveal as="div" text="Project" delay={0.03} className="text-[10px] uppercase tracking-[0.34em] text-white/32" />
-          <TextReveal as="h1" text={projectTitle} split="words" delay={0.06} className="editor-display text-[1.85rem] leading-tight text-white" />
-          <div className="flex items-center gap-2 text-xs text-white/42">
-            <CheckCircle2 className="size-3.5 text-white/48" />
-            All changes saved
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.1, distance: 16, blur: 10, duration: 0.3 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: threadViewportRef, once: false, amount: 0.4 }}
-          className="rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-        >
-          <TextReveal as="div" text="Prompt" delay={0.06} className="text-[10px] uppercase tracking-[0.32em] text-white/35" />
-          <p className="mt-3 text-sm leading-6 text-white/78">{initialPrompt}</p>
-          {initialSources.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {initialSources.slice(0, 4).map((source) => (
-                <span
-                  key={source}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-white/58"
-                >
-                  {source}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </motion.div>
-
         <motion.div className="space-y-3">
           {isComposerThreadOpen ? (
             <motion.div
@@ -5302,24 +5258,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           <div ref={threadEndRef} className="h-1" />
         </motion.div>
         </div>
-        <motion.div
-          variants={buildRevealVariants({ delay: 0.22, distance: 12, blur: 8, duration: 0.28 })}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ root: threadViewportRef, once: false, amount: 0.25 }}
-          className="shrink-0 border-t border-white/8 bg-[#101116]/92 px-4 py-3 backdrop-blur-md"
-        >
-          <StagedMusicRail
-            projectTitle={projectTitle}
-            preference={musicPreference}
-            profile={latestMusicBlock?.profile}
-            stagedTracks={stagedTracks}
-            musicVolumePercent={Math.round(musicPreviewVolume * 100)}
-            onMusicVolumeChange={handleMusicPreviewVolumeChange}
-            onRemoveTrack={removeStagedTrack}
-            onClearAll={clearStagedTracks}
-          />
-        </motion.div>
       </div>
       </div>
 
@@ -5835,6 +5773,8 @@ function MobileEditorView({
 function OriginalEditorPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedWorkspaceTab = normalizeWorkspaceTabParam(searchParams.get('tab'))
   const projectId = params.id
   const isMobile = useMediaQuery('(max-width: 1024px)')
   const { setShowExport } = useEditor()
@@ -5860,7 +5800,9 @@ function OriginalEditorPage() {
   const [isInlineSourceDragOver, setIsInlineSourceDragOver] = React.useState(false)
   const [previewFramePreset, setPreviewFramePreset] = React.useState<PreviewFramePreset>('source')
   const [bottomMode, setBottomMode] = React.useState<BottomMode>('Original')
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = React.useState<HeaderNavMode>('Editor')
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = React.useState<HeaderNavMode>(
+    () => (requestedWorkspaceTab && requestedWorkspaceTab !== 'Motion' ? requestedWorkspaceTab : 'Editor'),
+  )
   const [isAiLampOpen, setIsAiLampOpen] = React.useState(false)
   const [isExporting, setIsExporting] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
@@ -5870,6 +5812,18 @@ function OriginalEditorPage() {
   const [tempTitle, setTempTitle] = React.useState('')
   const titleInputRef = React.useRef<HTMLInputElement | null>(null)
   const [latestExport, setLatestExport] = React.useState<ProjectExport | null>(null)
+
+  React.useEffect(() => {
+    if (!requestedWorkspaceTab) return
+
+    if (requestedWorkspaceTab === 'Motion') {
+      router.replace('/editor/motion')
+      return
+    }
+
+    setActiveWorkspaceTab(requestedWorkspaceTab)
+    setBottomMode(requestedWorkspaceTab === 'Music' ? 'Music' : 'Original')
+  }, [requestedWorkspaceTab, router])
 
   React.useEffect(() => {
     const handleEditorCommand = (event: Event) => {

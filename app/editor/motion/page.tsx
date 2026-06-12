@@ -1,11 +1,22 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Film, Music4, Sparkles } from 'lucide-react'
 
 import { NodeGraphProvider } from './hooks/use-node-graph'
 import { MotionCanvas } from './components/motion-canvas'
+import { WorkspaceNavBar, type WorkspaceNavItem } from '@/components/ui/anime-navbar'
+
+const MOTION_WORKSPACE_TABS: WorkspaceNavItem[] = [
+  { name: 'Editor', icon: Film },
+  { name: 'Music', icon: Music4 },
+  { name: 'Motion', icon: Sparkles },
+]
 
 export default function MotionEditorPage() {
+  const router = useRouter()
+
   useEffect(() => {
     const selectors = [
       '.editor-root > aside',
@@ -41,6 +52,24 @@ export default function MotionEditorPage() {
   return (
     <NodeGraphProvider>
       <section className="fixed inset-0 z-[9999] bg-[#cddfcb] p-0 text-white md:p-3">
+        <div className="pointer-events-none absolute left-1/2 top-5 z-40 hidden -translate-x-1/2 md:block">
+          <WorkspaceNavBar
+            items={MOTION_WORKSPACE_TABS}
+            activeItem="Motion"
+            defaultActive="Motion"
+            onChange={(name) => {
+              if (name === 'Editor') {
+                router.push('/editor?tab=Editor')
+                return
+              }
+
+              if (name === 'Music') {
+                router.push('/editor?tab=Music')
+              }
+            }}
+            className="pointer-events-auto"
+          />
+        </div>
         <div className="grid h-full place-items-center bg-[#cddfcb] px-6 text-center md:hidden">
           <p className="max-w-[320px] text-sm font-medium leading-6 text-[#1d2b1d]">
             Motion Editor is optimized for desktop. Please use a larger screen.

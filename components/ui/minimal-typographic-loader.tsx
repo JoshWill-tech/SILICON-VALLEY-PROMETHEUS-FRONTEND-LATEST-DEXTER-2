@@ -67,7 +67,7 @@ export function MinimalTypographicLoader({
     <section
       ref={rootRef}
       className={cn(
-        'relative isolate flex w-full items-center justify-center overflow-hidden bg-[#000000]',
+        'relative isolate flex w-full items-center justify-center overflow-hidden bg-transparent',
         ROOT_VARIANT_CLASS_NAMES[variant],
         className,
       )}
@@ -93,7 +93,7 @@ export function MinimalTypographicLoader({
           height={600}
           unoptimized
           priority={variant === 'screen'}
-          className="h-full w-full object-contain"
+          className="h-full w-full object-contain mix-blend-screen"
         />
       </div>
       <span className="sr-only">{ariaLabel}</span>
