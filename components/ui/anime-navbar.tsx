@@ -4,7 +4,6 @@ import * as React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 
-import { TextReveal } from '@/components/editor/text-reveal'
 import { cn } from '@/lib/utils'
 
 export type AnimeNavItem = {
@@ -89,11 +88,12 @@ export function WorkspaceNavBar({
       <div className="relative inline-flex max-w-full items-center rounded-full border border-white/10 bg-black/26 p-0.5 shadow-[0_14px_28px_-24px_rgba(0,0,0,0.9)] backdrop-blur-xl">
         <div
           aria-hidden
-          className="pointer-events-none absolute bottom-0.5 top-0.5 rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_10px_24px_-20px_rgba(0,0,0,0.9)] transition-[transform,width,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className="pointer-events-none absolute bottom-0.5 top-0.5 rounded-full border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.065)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_34px_-22px_rgba(0,0,0,0.95),0_0_22px_rgba(94,106,210,0.12)] transition-[transform,width,opacity] duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
           style={{
             width: indicatorStyle.width,
             opacity: indicatorStyle.opacity,
-            transform: `translateX(${indicatorStyle.left}px)`,
+            transform: `translate3d(${indicatorStyle.left}px,0,0)`,
+            willChange: 'transform,width,opacity',
           }}
         />
 
@@ -116,13 +116,14 @@ export function WorkspaceNavBar({
               }}
               onMouseEnter={() => setHoveredTab(item.name)}
               onMouseLeave={() => setHoveredTab(null)}
+              aria-pressed={resolvedActiveTab === item.name}
               className={cn(
-                'focus-ring-glow relative z-10 inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium tracking-[-0.01em] transition-[color,transform] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-4.5',
+                'focus-ring-glow relative z-10 inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2 text-xs font-medium tracking-[-0.01em] transition-colors duration-[180ms] ease-[cubic-bezier(0.16,1,0.3,1)] sm:px-4.5',
                 isActive ? 'text-white' : 'text-white/56 hover:text-white/82',
               )}
             >
-              {Icon ? <Icon className="size-3.5" /> : null}
-              <TextReveal as="span" text={item.name} split="line" delay={0.03} className="whitespace-nowrap" />
+              {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+              <span className="select-none whitespace-nowrap antialiased">{item.name}</span>
             </button>
           )
         })}

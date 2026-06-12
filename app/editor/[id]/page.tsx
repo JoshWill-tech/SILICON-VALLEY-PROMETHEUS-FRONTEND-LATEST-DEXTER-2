@@ -7520,7 +7520,14 @@ function OriginalEditorPage() {
           onTitleSave={handleTitleSave}
           onTitleKeyDown={handleTitleKeyDown}
           onTitleStartEdit={handleTitleStartEdit}
-          onWorkspaceTabChange={(tab) => setActiveWorkspaceTab(tab as HeaderNavMode)}
+          onWorkspaceTabChange={(tab) => {
+            if (tab === 'Motion') {
+              router.push('/editor/motion')
+              return
+            }
+
+            setActiveWorkspaceTab(tab as HeaderNavMode)
+          }}
           onPrepareExport={handlePrepareExport}
           onDownload={handleDownload}
         />

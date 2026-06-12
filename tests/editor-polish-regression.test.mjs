@@ -58,12 +58,23 @@ function run() {
   assert.match(editorIndexPage, /router\.replace\(recentProject \? `\/editor\/\$\{recentProject\.id\}` : '\/projects'\)/)
 
   const motionEditorPage = read('app/editor/motion/page.tsx')
-  assert.match(motionEditorPage, /redirect\('\/editor'\)/)
-  assert.equal(motionEditorPage.includes('MotionCanvas'), false)
-  assert.equal(motionEditorPage.includes('NodeGraphProvider'), false)
-  assert.equal(motionEditorPage.includes('z-[9999]'), false)
-  assert.equal(existsSync(join(root, 'app/editor/motion/components/motion-canvas.tsx')), false)
-  assert.equal(existsSync(join(root, 'app/editor/motion/hooks/use-node-graph.ts')), false)
+  assert.equal(motionEditorPage.includes("redirect('/editor')"), false)
+  assert.equal(motionEditorPage.includes('MotionCanvas'), true)
+  assert.equal(motionEditorPage.includes('NodeGraphProvider'), true)
+  assert.equal(motionEditorPage.includes('z-[9999]'), true)
+  assert.equal(existsSync(join(root, 'app/editor/motion/components/motion-canvas.tsx')), true)
+  assert.equal(existsSync(join(root, 'app/editor/motion/hooks/use-node-graph.ts')), true)
+
+  const animeNavbar = read('components/ui/anime-navbar.tsx')
+  assert.equal(animeNavbar.includes('TextReveal'), false)
+  assert.match(animeNavbar, /translate3d\(\$\{indicatorStyle\.left\}px,0,0\)/)
+
+  const editorHeader = read('components/editor/EditorHeader.tsx')
+  assert.match(editorHeader, /defaultActive=\{activeWorkspaceTab\}/)
+
+  const editorProjectPage = read('app/editor/[id]/page.tsx')
+  assert.match(editorProjectPage, /router\.push\('\/editor\/motion'\)/)
+  assert.match(editorProjectPage, /if \(tab === 'Motion'\)/)
 
   const logoAlpha = readLogoAlphaStats(join(root, 'public/branding/prometheus-logo-no-bg.png'))
   assert.ok(logoAlpha.transparentPixels / logoAlpha.totalPixels > 0.25)

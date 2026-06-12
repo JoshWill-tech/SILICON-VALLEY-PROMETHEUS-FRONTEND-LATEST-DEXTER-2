@@ -145,7 +145,7 @@ export function EditorHeader({
 
           <WorkspaceNavBar
             items={headerNavItems}
-            defaultActive="Motion"
+            defaultActive={activeWorkspaceTab}
             activeItem={activeWorkspaceTab}
             onChange={onWorkspaceTabChange}
             className="h-10"
