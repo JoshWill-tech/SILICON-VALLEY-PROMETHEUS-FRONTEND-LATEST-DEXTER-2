@@ -61,7 +61,7 @@ export function InspectorPanel({
   return (
     <motion.aside
       layout
-      className="glass-panel relative flex h-full min-h-0 flex-col overflow-hidden border-y-0 border-r-0 rounded-none bg-abyss/40 backdrop-blur-2xl overscroll-contain lg:col-span-2 xl:col-span-1"
+      className="glass-panel relative flex h-full min-h-0 flex-col overflow-hidden border-y-0 border-r-0 rounded-none bg-abyss/40 backdrop-blur-2xl overscroll-contain lg:col-span-1"
     >
       <LuxuryVignette tone="cool" />
       

@@ -12,14 +12,12 @@ import {
   ArrowLeft,
   ArrowUp,
   BrainCircuit,
+  ChevronRight,
   CheckCircle2,
   Code2,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Facebook,
   Film,
-  FolderOpen,
   Download,
   GitBranch,
   ImageIcon,
@@ -27,9 +25,8 @@ import {
   Lock,
   MessageSquare,
   Music4,
-  Palette,
-  Pause,
   PenSquare,
+  Pause,
   Play,
   RefreshCw,
   Search,
@@ -60,7 +57,6 @@ import gsap from 'gsap'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
-import { EditWorkflowPanel } from '@/components/editor/edit-workflow-panel'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { EditorHeader } from '@/components/editor/EditorHeader'
 import { PreviewCanvas } from '@/components/editor/PreviewCanvas'
@@ -151,7 +147,6 @@ import type {
   CinematicAssetRegistry,
   ProjectExport,
 } from '@/lib/types'
-import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { EditorProvider, useEditor } from "@/components/editor/EditorContext";
 import { TimelineEngine } from "@/components/editor/TimelineEngine";
 import { SceneEditor } from "@/components/editor/SceneEditor";
@@ -159,7 +154,6 @@ import { CommandBubble } from "@/components/editor/CommandBubble";
 import { ExportDrawer } from "@/components/editor/ExportDrawer";
 import { CircularToast } from "@/components/editor/CircularToast";
 
-type LeftTabKey = 'chat' | 'edit' | 'design' | 'assets'
 type HeaderNavMode = 'Editor' | 'Music' | 'Motion'
 type PreviewMediaKind = 'video' | 'image'
 type PreviewFitMode = 'fill' | 'fit'
@@ -754,13 +748,6 @@ function buildClipTaskBlock({
 function removeChatEntry(entries: ChatEntry[], entryId: string) {
   return entries.filter((entry) => entry.id !== entryId)
 }
-
-const LEFT_TABS: Array<{ key: LeftTabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'chat', label: 'Chat', icon: MessageSquare },
-  { key: 'edit', label: 'Edit', icon: PenSquare },
-  { key: 'design', label: 'Design', icon: Palette },
-  { key: 'assets', label: 'Assets', icon: FolderOpen },
-]
 
 const WORKSPACE_TABS: Array<{ key: HeaderNavMode; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { key: 'Editor', label: 'Editor', icon: Film },
@@ -5320,48 +5307,6 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   )
 })
 
-function SecondaryPanel({
-  title,
-  description,
-  items,
-}: {
-  title: string
-  description: string
-  items: string[]
-}) {
-  const reduceMotion = useStableReducedMotion()
-  const panelViewportRef = React.useRef<HTMLDivElement | null>(null)
-
-  return (
-    <div className="flex h-full min-h-0 flex-col px-4 py-4">
-      <motion.div
-        variants={buildRevealVariants({ delay: 0.04, distance: 14, blur: 8, duration: 0.28 })}
-        initial={reduceMotion ? false : 'hidden'}
-        whileInView={reduceMotion ? undefined : 'visible'}
-        viewport={reduceMotion ? undefined : { once: false, amount: 0.45 }}
-        className="rounded-[18px] border border-white/8 bg-white/[0.02] p-4"
-      >
-        <div className="text-[10px] uppercase tracking-[0.32em] text-white/35">{title}</div>
-        <p className="mt-3 text-sm leading-6 text-white/66">{description}</p>
-      </motion.div>
-      <div ref={panelViewportRef} className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
-        {items.map((item) => (
-          <motion.div
-            key={item}
-            variants={buildRevealVariants({ delay: 0.06, distance: 10, blur: 6, duration: 0.24 })}
-            initial={reduceMotion ? false : 'hidden'}
-            whileInView={reduceMotion ? undefined : 'visible'}
-            viewport={reduceMotion ? undefined : { root: panelViewportRef, once: false, amount: 0.45 }}
-            className="rounded-[16px] border border-white/8 bg-white/[0.02] px-4 py-3 text-sm text-white/68"
-          >
-            {item}
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 type MobileEditorViewProps = {
   project: Project | null
   projectId: string
@@ -5749,15 +5694,17 @@ function MobileEditorView({
                   aria-label={`${projectTitle} preview`}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center">
-                  <MinimalTypographicLoader
-                    label="Loading..."
-                    message={`Video processing - ${sourceLabel}`}
-                    size="sm"
-                    variant="inline"
-                    className="w-full"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={onOpenUploadNewProject}
+                  aria-label="Upload a source video"
+                  className="group relative flex h-full w-full items-center justify-center overflow-hidden rounded-[18px] border border-dashed border-white/12 bg-[radial-gradient(circle_at_50%_22%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_42%),linear-gradient(180deg,rgba(255,255,255,0.035)_0%,rgba(255,255,255,0.012)_100%)] px-6 text-center transition duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-white/24 hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/55"
+                >
+                  <span className="pointer-events-none absolute inset-[14%] rounded-[18px] border border-white/8 opacity-70" />
+                  <span className="relative grid size-14 place-items-center rounded-[20px] border border-white/12 bg-white/[0.06] text-white shadow-[0_18px_50px_-28px_rgba(159,246,227,0.55)] backdrop-blur-xl transition duration-300 group-hover:scale-[1.035]">
+                    <Upload className="size-5" />
+                  </span>
+                </button>
               )}
             </div>
           </section>
@@ -5782,7 +5729,6 @@ function OriginalEditorPage() {
   const [project, setProject] = React.useState<Project | null>(null)
   const [job, setJob] = React.useState<ProcessingJob | null>(null)
   const [saveStatus, setSaveStatus] = React.useState<'saved' | 'saving' | 'error'>('saved')
-  const [leftTab, setLeftTab] = React.useState<LeftTabKey>('chat')
   const [fitMode, setFitMode] = React.useState<PreviewFitMode>('fill')
   const [scale, setScale] = React.useState(100)
   const [offsetX, setOffsetX] = React.useState(0)
@@ -5925,7 +5871,6 @@ function OriginalEditorPage() {
   const [musicSpotlightPortalTarget, setMusicSpotlightPortalTarget] = React.useState<HTMLDivElement | null>(null)
   const [composerAutomationRequest, setComposerAutomationRequest] = React.useState<ComposerAutomationRequest | null>(null)
   const inspectorViewportRef = React.useRef<HTMLDivElement | null>(null)
-  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false)
   const [isDeferredChromeReady, setIsDeferredChromeReady] = React.useState(false)
   const [isPreviewBriefGenerating, setIsPreviewBriefGenerating] = React.useState(false)
   const [showPreviewFeedback, setShowPreviewFeedback] = React.useState(false)
@@ -6592,7 +6537,6 @@ function OriginalEditorPage() {
       errorMessage: null,
     }
 
-    setLeftTab('chat')
     setActiveWorkspaceTab('Editor')
     setClipRelayState({
       id: relayId,
@@ -6952,8 +6896,6 @@ function OriginalEditorPage() {
 
   const handleAiChatOpen = React.useCallback(() => {
     setIsAiLampOpen(false)
-    setIsLeftPanelCollapsed(false)
-    setLeftTab('chat')
     setActiveWorkspaceTab('Editor')
     setBottomMode('Original')
   }, [])
@@ -6965,8 +6907,6 @@ function OriginalEditorPage() {
       const prompt = label === 'Edit this video' ? editPrompt : `${label}. ${editPrompt}`
 
       setIsAiLampOpen(false)
-      setIsLeftPanelCollapsed(false)
-      setLeftTab('chat')
       setActiveWorkspaceTab('Editor')
       setBottomMode('Original')
       handleEditRequest({ prompt, styleTemplate })
@@ -6981,8 +6921,6 @@ function OriginalEditorPage() {
   }, [])
 
   const handleMotionCanvasPrompt = React.useCallback((prompt: string) => {
-    setIsLeftPanelCollapsed(false)
-    setLeftTab('chat')
     setActiveWorkspaceTab('Editor')
     setComposerAutomationRequest({
       id: Date.now(),
@@ -7298,63 +7236,6 @@ function OriginalEditorPage() {
 
   const hasSourceAsset = Boolean(project?.sourceAssetId)
 
-  const renderLeftPanel = () => {
-    switch (leftTab) {
-      case 'edit':
-        return (
-          <EditWorkflowPanel
-            projectTitle={project?.title ?? 'Untitled Project'}
-            sourceLabel={sourceAssetLabel}
-            job={job}
-          />
-        )
-      case 'design':
-        return (
-          <SecondaryPanel
-            title="Design"
-            description="Shape the motion language, titles, and overlays without clutter."
-            items={[
-              'Use restrained typography',
-              'Keep one dominant visual anchor',
-              'Avoid over-animated transitions',
-            ]}
-          />
-        )
-      case 'assets':
-        return (
-          <SecondaryPanel
-            title="Assets"
-            description="Gather the lightweight elements for the edit without leaving the workspace."
-            items={[
-              'Reference stills',
-              'Music stems',
-              'Caption kit',
-              'Logo lockup',
-            ]}
-          />
-        )
-      case 'chat':
-      default:
-        return (
-          <ChatWorkspacePanel
-            key={projectId}
-            projectId={projectId}
-            projectTitle={project?.title ?? 'Untitled Project'}
-            initialPrompt={promptText}
-            initialSources={sourceList}
-            videoContext={videoContext}
-            composerPortalTarget={activeWorkspaceTab === 'Music' ? null : chatComposerPortal}
-            automationRequest={composerAutomationRequest}
-            clipRelayState={clipRelayState}
-            musicSpotlightPortalTarget={isDeferredChromeReady ? musicSpotlightPortalTarget : null}
-            onEditRequest={handleEditRequest}
-            initialEditorState={project?.editorState}
-            onSave={handleAutoSave}
-          />
-        )
-    }
-  }
-
   const [isIterationModalOpen, setIsIterationModalOpen] = React.useState(false)
 
   // GSAP Load Sequence
@@ -7501,79 +7382,9 @@ function OriginalEditorPage() {
               'grid min-h-0 w-full items-stretch gap-[clamp(0.75rem,1vw,1rem)] lg:h-full lg:overflow-hidden lg:grid-rows-[minmax(0,1fr)]',
               activeWorkspaceTab === 'Motion'
                 ? 'gap-0 lg:grid-cols-[minmax(0,1fr)]'
-                : isLeftPanelCollapsed
-                  ? 'lg:grid-cols-[84px_minmax(0,1fr)] xl:grid-cols-[84px_minmax(0,1fr)_clamp(17rem,20vw,20.5rem)]'
-                  : 'lg:grid-cols-[clamp(17rem,22vw,19.75rem)_minmax(0,1fr)] xl:grid-cols-[clamp(17rem,22vw,19.75rem)_minmax(0,1fr)_clamp(17rem,20vw,20.5rem)]',
+                : 'lg:grid-cols-[minmax(0,1fr)_clamp(17rem,22vw,20.5rem)]',
             )}
           >
-            <motion.aside
-              layout
-              className={cn(
-                'premium-ambient-panel premium-vignette-surface flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[#131317] overscroll-contain transition-[width,transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                isLeftPanelCollapsed && 'lg:rounded-[26px]',
-                activeWorkspaceTab === 'Motion' && 'hidden',
-              )}
-            >
-              <LuxuryVignette tone="neutral" />
-              <motion.div
-                variants={buildRevealVariants({ delay: 0.08, distance: 12, blur: 8, duration: 0.26 })}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.5 }}
-                className="border-b border-white/8 px-4 py-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  {!isLeftPanelCollapsed ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {LEFT_TABS.map(({ key, label, icon: Icon }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setLeftTab(key)}
-                          aria-label={label}
-                          className={cn(
-                            'inline-flex size-10 shrink-0 items-center justify-center rounded-full text-sm transition-colors',
-                            leftTab === key
-                              ? 'border border-white/10 bg-white/[0.08] text-white'
-                              : 'border border-transparent text-white/48 hover:bg-white/[0.04] hover:text-white/82',
-                          )}
-                        >
-                          <Icon className="size-4" />
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-1" aria-hidden />
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setIsLeftPanelCollapsed((current) => !current)}
-                    className="grid size-9 shrink-0 place-items-center rounded-full border border-white/8 bg-white/[0.03] text-white/48 transition-colors hover:text-white/80"
-                    aria-label={isLeftPanelCollapsed ? 'Expand left panel' : 'Collapse left panel'}
-                  >
-                    {isLeftPanelCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-                  </button>
-                </div>
-              </motion.div>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={leftTab}
-                  variants={buildRevealVariants({ delay: 0.12, distance: 16, blur: 10, duration: 0.3 })}
-                  initial="hidden"
-                  animate={isLeftPanelCollapsed ? 'hidden' : 'visible'}
-                  exit="exit"
-                  className={cn(
-                    'min-h-0 flex-1 overflow-hidden',
-                    isLeftPanelCollapsed ? 'pointer-events-none invisible' : 'visible',
-                  )}
-                  aria-hidden={isLeftPanelCollapsed}
-                >
-                  {renderLeftPanel()}
-                </motion.div>
-              </AnimatePresence>
-            </motion.aside>
-
             <section
               className={cn(
                 'premium-ambient-panel premium-vignette-surface editorial-light-effect relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden border border-white/8 bg-[#111115]',

@@ -82,7 +82,7 @@ export function SourceStagePlaceholder({
 
   if (isLoading) {
     return (
-      <div className="flex h-full min-h-[clamp(250px,40vh,460px)] w-full items-center justify-center rounded-[18px] border border-white/10 bg-[#07070a]">
+      <div className="pointer-events-none flex h-full min-h-[clamp(250px,40vh,460px)] w-full items-center justify-center bg-transparent">
         <MinimalTypographicLoader
           label="Restoring source preview"
           message="Rebuilding the media stage inside the editor."

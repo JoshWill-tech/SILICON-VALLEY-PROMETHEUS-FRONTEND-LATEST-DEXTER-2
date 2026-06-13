@@ -67,7 +67,7 @@ export function MinimalTypographicLoader({
     <section
       ref={rootRef}
       className={cn(
-        'relative isolate flex w-full items-center justify-center overflow-hidden bg-transparent',
+        'pointer-events-none relative flex w-full items-center justify-center overflow-visible bg-transparent',
         ROOT_VARIANT_CLASS_NAMES[variant],
         className,
       )}
@@ -81,7 +81,7 @@ export function MinimalTypographicLoader({
       />
       <div
         className={cn(
-          'relative aspect-[4/3] select-none overflow-hidden rounded-[28px]',
+          'relative aspect-[4/3] select-none overflow-visible',
           LOADER_SIZE_CLASS_NAMES[size],
           prefersReducedMotion && 'opacity-90',
         )}
@@ -93,7 +93,7 @@ export function MinimalTypographicLoader({
           height={600}
           unoptimized
           priority={variant === 'screen'}
-          className="h-full w-full object-contain mix-blend-screen"
+          className="h-full w-full object-contain mix-blend-screen [mask-image:radial-gradient(ellipse_at_center,black_0%,black_48%,rgba(0,0,0,0.72)_62%,transparent_82%)]"
         />
       </div>
       <span className="sr-only">{ariaLabel}</span>
