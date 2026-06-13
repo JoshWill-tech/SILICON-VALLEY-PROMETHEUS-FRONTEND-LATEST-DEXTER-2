@@ -20,8 +20,16 @@ export async function POST(request: Request) {
     const payload = checkoutRequestSchema.parse(await request.json())
     const planConfig = getDodoPlanConfig(payload.tier)
 
+    console.log('[dodo checkout] tier:', payload.tier)
+    console.log('[dodo checkout] env creator:', process.env.DODO_PRODUCT_CREATOR ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_CREATOR ?? null)
+    console.log('[dodo checkout] env studio:', process.env.DODO_PRODUCT_STUDIO ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_STUDIO ?? null)
+    console.log('[dodo checkout] env cinema:', process.env.DODO_PRODUCT_CINEMA ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_CINEMA ?? null)
+
     if (!planConfig.productId) {
-      return NextResponse.json({ error: 'Dodo product is not configured for this plan.' }, { status: 400 })
+      return NextResponse.json(
+        { error: `Dodo product is not configured for tier: ${payload.tier}` },
+        { status: 400 },
+      )
     }
 
     const supabase = await createClient()

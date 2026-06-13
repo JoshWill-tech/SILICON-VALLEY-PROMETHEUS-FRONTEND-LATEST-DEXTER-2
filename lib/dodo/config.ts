@@ -38,11 +38,21 @@ export function getDodoWebhookUrl() {
 }
 
 export function getDodoProductIdEnvName(tier: 'creator' | 'studio' | 'cinema') {
-  if (tier === 'creator') return 'DODO_CREATOR_PRODUCT_ID'
-  if (tier === 'studio') return 'DODO_STUDIO_PRODUCT_ID'
-  return 'DODO_CINEMA_PRODUCT_ID'
+  if (tier === 'creator') return 'DODO_PRODUCT_CREATOR'
+  if (tier === 'studio') return 'DODO_PRODUCT_STUDIO'
+  return 'DODO_PRODUCT_CINEMA'
+}
+
+function getLegacyDodoPublicProductEnvName(tier: 'creator' | 'studio' | 'cinema') {
+  if (tier === 'creator') return 'NEXT_PUBLIC_DODO_PRODUCT_CREATOR'
+  if (tier === 'studio') return 'NEXT_PUBLIC_DODO_PRODUCT_STUDIO'
+  return 'NEXT_PUBLIC_DODO_PRODUCT_CINEMA'
 }
 
 export function getDodoProductId(tier: 'creator' | 'studio' | 'cinema') {
-  return cleanEnvValue(process.env[getDodoProductIdEnvName(tier)]) ?? null
+  return (
+    cleanEnvValue(process.env[getDodoProductIdEnvName(tier)]) ??
+    cleanEnvValue(process.env[getLegacyDodoPublicProductEnvName(tier)]) ??
+    null
+  )
 }
