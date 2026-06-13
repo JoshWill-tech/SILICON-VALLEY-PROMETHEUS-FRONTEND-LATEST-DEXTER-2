@@ -47,6 +47,7 @@ import { BillingRequiredDialog } from "@/components/billing/billing-required-dia
 import { GlassUploadModalView } from "@/components/ui/glass-upload-modal-view";
 import { DynamicFrameLayout } from "@/components/ui/dynamic-frame-layout";
 import { TextEffect } from "@/components/ui/text-effect";
+import { GooeyText } from "@/components/ui/gooey-text-morphing";
 import { MinimalTypographicLoader } from "@/components/ui/minimal-typographic-loader";
 import type { DynamicFrame } from "@/components/ui/dynamic-frame-layout";
 import { InteractiveOrb } from "@/components/ui/interactive-orb";
@@ -376,6 +377,10 @@ const COMPOSER_MODES = [
     { label: "Music", icon: Music2 },
     { label: "Output", icon: Sparkles },
 ] as const;
+
+const STUDIO_DISPLAY_FONT_STYLE: React.CSSProperties = {
+    fontFamily: 'var(--font-migra), var(--font-vogue-display), var(--font-playfair-display), Georgia, serif',
+};
 
 interface PromptComposerSubmitPayload {
     message: string;
@@ -917,11 +922,19 @@ const PromptComposer = React.memo(function PromptComposer({
     return (
         <div className="space-y-4">
             <motion.div
-                className="relative rounded-[22px] border border-white/12 bg-[linear-gradient(165deg,rgba(24,15,37,0.78)_0%,rgba(10,8,16,0.9)_55%,rgba(8,7,12,0.92)_100%)] shadow-[0_40px_95px_-45px_rgba(194,149,255,0.55)] backdrop-blur-2xl"
+                className="relative overflow-hidden rounded-[16px] border border-white/[0.13] bg-[#070707]/90 shadow-[0_40px_120px_-70px_rgba(96,190,255,0.62)] backdrop-blur-2xl"
                 initial={{ scale: 0.98 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.1 }}
             >
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/22 to-transparent"
+                />
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-10 top-0 h-36 bg-[radial-gradient(ellipse_at_top,rgba(68,163,255,0.14)_0%,rgba(68,163,255,0)_72%)]"
+                />
                 <AnimatePresence>
                     {showCommandPalette && (
                         <motion.div
@@ -1132,7 +1145,7 @@ const PromptComposer = React.memo(function PromptComposer({
                             updateMentionStateFromInput(target.value, target.selectionStart ?? target.value.length);
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="Describe your video or add notes..."
+                        placeholder="Ask Prometheus to shape the cut..."
                         containerClassName="w-full"
                         className={cn(
                             "min-h-[60px] w-full resize-none px-4 py-3",
@@ -1198,7 +1211,7 @@ const PromptComposer = React.memo(function PromptComposer({
                     )}
                 </AnimatePresence>
 
-                <div className="flex items-center justify-between gap-4 border-t border-white/[0.08] p-4">
+                <div className="relative flex items-center justify-between gap-4 border-t border-white/[0.08] p-4">
                     <div className="flex items-center gap-3">
                         <motion.button
                             type="button"
@@ -2003,18 +2016,19 @@ export function VideoUploadInterface() {
 
     return (
         <div className={cn(
-            "relative min-h-full w-full overflow-hidden bg-transparent px-4 py-10 text-white sm:px-6 sm:py-12",
+            "relative min-h-full w-full overflow-hidden bg-[#050505] px-4 py-10 text-white sm:px-6 sm:py-12",
             isUploading && "pointer-events-none opacity-80"
         )}>
             <BillingRequiredDialog open={billingGateOpen} redirectHref={buildBillingHref('/')} contextLabel="Editing access" />
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-violet-500/14 blur-[130px]" />
-                <div className="absolute top-[18%] right-[10%] h-72 w-72 rounded-full bg-fuchsia-500/10 blur-[120px]" />
-                <div className="absolute bottom-[-140px] left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-indigo-400/10 blur-[150px]" />
+                <div className="absolute -top-40 left-[14%] h-80 w-80 rounded-full bg-[#2c7df7]/[0.1] blur-[130px]" />
+                <div className="absolute top-[18%] right-[10%] h-72 w-72 rounded-full bg-[#68f0d7]/[0.08] blur-[120px]" />
+                <div className="absolute bottom-[-140px] left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-[#f4df9a]/[0.07] blur-[150px]" />
+                <div className="absolute inset-x-0 top-[38%] h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
             </div>
-            <div className="relative mx-auto w-full max-w-4xl">
+            <div className="relative mx-auto w-full max-w-5xl">
                 <motion.div
-                    className="relative z-10 space-y-10"
+                    className="relative z-10 space-y-8"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
@@ -2025,22 +2039,31 @@ export function VideoUploadInterface() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.12, duration: 0.45 }}
                     >
-                        <InteractiveOrb size={118} intensity="vivid" />
-                        <TextEffect
-                            as="h1"
-                            per="word"
-                            preset="slide"
-                            delay={0.08}
-                            className="text-[29px] font-medium tracking-tight text-white/95 sm:text-[34px]"
+                        <InteractiveOrb size={76} intensity="vivid" />
+                        <motion.h1
+                            aria-label="Ready to Create Something New?"
+                            className="flex flex-wrap items-baseline justify-center gap-x-2 text-[38px] font-extrabold leading-[0.94] tracking-normal text-white sm:text-[52px] md:text-[64px]"
+                            style={STUDIO_DISPLAY_FONT_STYLE}
+                            initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
+                            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                            transition={{ delay: 0.08, duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
                         >
-                            Ready to Create Something New?
-                        </TextEffect>
+                            <span>Ready to Create Something</span>
+                            <GooeyText
+                                texts={["New", "Next", "Live"]}
+                                morphTime={0.95}
+                                cooldownTime={0.65}
+                                className="h-[0.95em] w-[3.35ch] translate-y-[0.04em]"
+                                textClassName="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[1em] font-extrabold leading-none text-white"
+                            />
+                            <span>?</span>
+                        </motion.h1>
                         <TextEffect
                             as="p"
                             per="word"
                             preset="fade"
                             delay={0.28}
-                            className="max-w-lg text-sm text-white/55"
+                            className="max-w-xl text-[15px] leading-7 text-white/58"
                         >
                             Upload a source, choose a visual lane, and send the next edit into motion.
                         </TextEffect>

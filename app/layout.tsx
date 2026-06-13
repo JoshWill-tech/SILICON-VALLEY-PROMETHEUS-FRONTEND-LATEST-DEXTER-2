@@ -53,6 +53,29 @@ const vogueDisplay = localFont({
   display: 'swap',
 })
 
+const migraDisplay = localFont({
+  src: [
+    {
+      path: '../public/fonts/migra/Migra-Extralight.woff2',
+      weight: '200',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/migra/Migra-Extrabold.woff2',
+      weight: '800',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/migra/MigraItalic-ExtraboldItalic.woff2',
+      weight: '800',
+      style: 'italic',
+    },
+  ],
+  variable: '--font-migra',
+  display: 'swap',
+  preload: false,
+})
+
 export const metadata: Metadata = {
   title: 'Prometheus',
   description: 'Prometheus Studio is a professional video editing and production workspace for filmmakers.',
@@ -88,7 +111,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} ${geist.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} ${vogueDisplay.variable} bg-background font-sans text-foreground antialiased`}>
+      <body className={`${inter.variable} ${geist.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${spaceGrotesk.variable} ${vogueDisplay.variable} ${migraDisplay.variable} bg-background font-sans text-foreground antialiased`}>
         <ReactQueryProvider>
           <AuthProvider>
             <RootSmoothScroll />
