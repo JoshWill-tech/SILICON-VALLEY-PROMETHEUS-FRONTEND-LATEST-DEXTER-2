@@ -3,7 +3,6 @@ import { z } from 'zod'
 
 import { normalizeNextPath } from '@/lib/auth/redirect'
 import { getDodoClient } from '@/lib/dodo/client'
-import { getDodoPlanConfig } from '@/lib/dodo/plans'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -15,17 +14,23 @@ const checkoutRequestSchema = z.object({
   nextPath: z.string().nullish(),
 })
 
+const DODO_PRODUCTS: Record<string, string> = {
+  creator: 'pdt_0NgxO87owRAyowKhB6scP',
+  studio: 'pdt_0NgxOqKzDAbOElM0wkGYG',
+  cinema: 'pdt_0NgxPG9bpsHGbHALTbMQw',
+}
+
 export async function POST(request: Request) {
   try {
     const payload = checkoutRequestSchema.parse(await request.json())
-    const planConfig = getDodoPlanConfig(payload.tier)
+    const normalizedTier = payload.tier?.toLowerCase?.() || payload.tier
+    const productId = DODO_PRODUCTS[normalizedTier]
 
-    console.log('[dodo checkout] tier:', payload.tier)
-    console.log('[dodo checkout] env creator:', process.env.DODO_PRODUCT_CREATOR ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_CREATOR ?? null)
-    console.log('[dodo checkout] env studio:', process.env.DODO_PRODUCT_STUDIO ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_STUDIO ?? null)
-    console.log('[dodo checkout] env cinema:', process.env.DODO_PRODUCT_CINEMA ?? process.env.NEXT_PUBLIC_DODO_PRODUCT_CINEMA ?? null)
+    console.log('[dodo checkout] received tier:', payload.tier)
+    console.log('[dodo checkout] normalized tier:', normalizedTier)
+    console.log('[dodo checkout] resolved productId:', productId)
 
-    if (!planConfig.productId) {
+    if (!productId) {
       return NextResponse.json(
         { error: `Dodo product is not configured for tier: ${payload.tier}` },
         { status: 400 },
@@ -47,7 +52,7 @@ export async function POST(request: Request) {
     const session = await dodo.checkoutSessions.create({
       product_cart: [
         {
-          product_id: planConfig.productId,
+          product_id: productId,
           quantity: 1,
         },
       ],
