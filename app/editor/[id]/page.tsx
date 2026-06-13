@@ -21,7 +21,6 @@ import {
   Download,
   GitBranch,
   ImageIcon,
-  Layers3,
   Lock,
   MessageSquare,
   Music4,
@@ -45,6 +44,7 @@ import {
 import { MusicPlayNotification } from '@/components/editor/music-play-notification'
 import { MusicSpotlightOrb } from '@/components/editor/music-spotlight-orb'
 import { MusicRecommendationShowcase } from '@/components/editor/music-recommendation-showcase'
+import { ChatStyleSelector } from '@/components/editor/chat-style-selector'
 import { AiLampDialog } from '@/components/editor/ai-lamp-dialog'
 import { MusicTabPanel } from '@/components/editor/music-tab-panel'
 import { MotionPropertyCanvas } from '@/components/editor/motion-property-canvas'
@@ -200,7 +200,14 @@ type ChatEntry = {
     toolCalls?: ChatToolCall[]
     frames?: ChatFrameReference[]
     attachments?: ChatAttachment[]
+    selectedStyle?: ChatSelectedStyle
   }
+}
+
+type ChatSelectedStyle = {
+  id: string
+  name: string
+  description?: string
 }
 
 type ChatSource = {
@@ -2622,6 +2629,22 @@ function ChatAttachmentStrip({
   )
 }
 
+function ChatSelectedStylePill({ style }: { style: ChatSelectedStyle }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 5, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 4, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      className="mt-3 inline-flex max-w-full items-center gap-2 rounded-full border border-[#9ff6e3]/18 bg-[#9ff6e3]/[0.055] px-3 py-2 text-[11px] text-white/74 shadow-[0_12px_34px_-28px_rgba(159,246,227,0.58)]"
+    >
+      <Sparkles className="size-3.5 shrink-0 text-[#9ff6e3]/88" />
+      <span className="shrink-0 uppercase tracking-[0.16em] text-white/38">Animation</span>
+      <span className="min-w-0 truncate font-medium text-white/84">{style.name}</span>
+    </motion.div>
+  )
+}
+
 function ChatFrameReferenceStrip({ frames }: { frames: ChatFrameReference[] }) {
   if (!frames.length) return null
 
@@ -2812,6 +2835,9 @@ function CurvedThreadPill({
           {entry.metadata?.attachments?.length ? (
             <ChatAttachmentStrip attachments={entry.metadata.attachments} />
           ) : null}
+          {entry.metadata?.selectedStyle ? (
+            <ChatSelectedStylePill style={entry.metadata.selectedStyle} />
+          ) : null}
           {entry.metadata?.frames?.length ? (
             <ChatFrameReferenceStrip frames={entry.metadata.frames} />
           ) : null}
@@ -2892,6 +2918,8 @@ function FloatingChatComposer({
   onDonePosting,
   onPostNow,
   attachments = [],
+  activeStyleTemplate = null,
+  onSelectStyleTemplate,
   onAttachImages,
   onRemoveAttachment,
 }: {
@@ -2925,6 +2953,8 @@ function FloatingChatComposer({
   onDonePosting?: (entryId: string) => void
   onPostNow?: (entryId: string) => void
   attachments?: ChatAttachment[]
+  activeStyleTemplate?: StyleTemplate | null
+  onSelectStyleTemplate?: (template: StyleTemplate) => void
   onAttachImages?: (files: FileList | null) => void
   onRemoveAttachment?: (id: string) => void
 }) {
@@ -3255,7 +3285,9 @@ function FloatingChatComposer({
       : null
 
   const handleComposerSubmit = React.useCallback(async () => {
-    const nextValue = draft.trim() || (attachments.length ? 'Use these visual references for the next response.' : '')
+    const nextValue = draft.trim()
+      || (attachments.length ? 'Use these visual references for the next response.' : '')
+      || (activeStyleTemplate ? `Use the ${activeStyleTemplate.name} animation style for the next recommendation.` : '')
     if (!nextValue) return
     onThreadOpenChange(true)
 
@@ -3269,7 +3301,7 @@ function FloatingChatComposer({
       analysis: frameAssist.analysis,
       revisionRequest,
     })
-  }, [attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
+  }, [activeStyleTemplate, attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
 
   const handleComposerKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -3306,13 +3338,14 @@ function FloatingChatComposer({
           return
         }
 
-        if (!hasDraft && attachments.length === 0) return
+        if (!hasDraft && attachments.length === 0 && !activeStyleTemplate) return
         event.preventDefault()
         void handleComposerSubmit()
       }
     },
     [
       activeFrameSuggestion,
+      activeStyleTemplate,
       frameAssist,
       frameAssistKey,
       handleComposerSubmit,
@@ -3528,6 +3561,11 @@ function FloatingChatComposer({
                     editable
                     onRemove={onRemoveAttachment}
                   />
+                  <AnimatePresence>
+                    {activeStyleTemplate ? (
+                      <ChatSelectedStylePill key={activeStyleTemplate.id} style={activeStyleTemplate} />
+                    ) : null}
+                  </AnimatePresence>
 
                   <textarea
                     id={`${composerId}-thread`}
@@ -3564,20 +3602,18 @@ function FloatingChatComposer({
                     >
                       <ImageIcon className="size-4" />
                     </motion.button>
-                    <motion.button
-                      type="button"
-                      aria-label="Open grid tools"
-                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
-                      whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
-                      whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-                    >
-                      <Layers3 className="size-4" />
-                    </motion.button>
+                    <ChatStyleSelector
+                      activeStyleId={activeStyleTemplate?.id ?? null}
+                      compact
+                      disabled={!onSelectStyleTemplate}
+                      onSelectStyle={(template) => onSelectStyleTemplate?.(template)}
+                      className="shrink-0"
+                    />
                     <div aria-hidden />
                     <motion.button
                       type="submit"
                       aria-label={loading ? 'Stop response' : 'Send message'}
-                      disabled={!loading && !hasDraft && attachments.length === 0}
+                      disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
                       className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -3669,6 +3705,11 @@ function FloatingChatComposer({
                   editable
                   onRemove={onRemoveAttachment}
                 />
+                <AnimatePresence>
+                  {activeStyleTemplate ? (
+                    <ChatSelectedStylePill key={activeStyleTemplate.id} style={activeStyleTemplate} />
+                  ) : null}
+                </AnimatePresence>
 
                 <div className="relative mt-2 flex-1 overflow-visible">
                   {!hasDraft ? (
@@ -3738,20 +3779,18 @@ function FloatingChatComposer({
                   >
                     <ImageIcon className="size-4" />
                   </motion.button>
-                  <motion.button
-                    type="button"
-                    aria-label="Open grid tools"
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
-                    whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
-                    whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-                  >
-                    <Layers3 className="size-4" />
-                  </motion.button>
+                  <ChatStyleSelector
+                    activeStyleId={activeStyleTemplate?.id ?? null}
+                    compact
+                    disabled={!onSelectStyleTemplate}
+                    onSelectStyle={(template) => onSelectStyleTemplate?.(template)}
+                    className="shrink-0"
+                  />
                   <div aria-hidden />
                   <motion.button
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
-                    disabled={!loading && !hasDraft && attachments.length === 0}
+                    disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
                     className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -3823,6 +3862,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [isComposerOpen, setIsComposerOpen] = React.useState(false)
   const [isComposerThreadOpen, setIsComposerThreadOpen] = React.useState(false)
   const [pendingChatAttachments, setPendingChatAttachments] = React.useState<ChatAttachment[]>([])
+  const [selectedChatStyleId, setSelectedChatStyleId] = React.useState<string | null>(null)
   const [queuedPreviewRevision, setQueuedPreviewRevision] = React.useState<QueuedPreviewRevisionState | null>(null)
   const [musicPreference, setMusicPreference] = React.useState<MusicPreference>(() =>
     createDefaultMusicPreference(),
@@ -3835,6 +3875,10 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [previewPlaying, setPreviewPlaying] = React.useState(false)
   const [dismissedSpotlightTrackId, setDismissedSpotlightTrackId] = React.useState<string | null>(null)
   const entriesRef = React.useRef(entries)
+  const selectedChatStyleTemplate = React.useMemo(
+    () => STYLE_TEMPLATES.find((template) => template.id === selectedChatStyleId) ?? null,
+    [selectedChatStyleId],
+  )
   const requestControllersRef = React.useRef<AbortController[]>([])
   const previewAudioRef = React.useRef<HTMLAudioElement | null>(null)
   const musicPreviewToggleCooldownRef = React.useRef<number | null>(null)
@@ -4948,7 +4992,9 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const shouldShowUserMessage = options?.showUserMessage ?? true
       const musicContextConfidence = videoContext.confidence ?? 0.5
       const editPromptBasis = options?.revisionRequest?.instructionText?.trim() || nextValue
-      const editStyleTemplate = shouldEditRequest ? selectEditStyleTemplate(editPromptBasis, videoContext) : null
+      const editStyleTemplate = shouldEditRequest
+        ? selectedChatStyleTemplate ?? selectEditStyleTemplate(editPromptBasis, videoContext)
+        : null
       const isBroadMusicRequest =
         shouldRecommendMusic &&
         (options?.musicQuickAction === true || isGenericMusicRequest(nextValue) || nextValue.length < 20)
@@ -5000,10 +5046,19 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 
       const baseEntries = entriesRef.current.filter((entry) => entry.status !== 'loading')
       const userMetadata =
-        requestAttachments.length || requestFrameReferences.length
+        requestAttachments.length || requestFrameReferences.length || selectedChatStyleTemplate
           ? {
               ...(requestAttachments.length ? { attachments: requestAttachments } : {}),
               ...(requestFrameReferences.length ? { frames: requestFrameReferences } : {}),
+              ...(selectedChatStyleTemplate
+                ? {
+                    selectedStyle: {
+                      id: selectedChatStyleTemplate.id,
+                      name: selectedChatStyleTemplate.name,
+                      description: selectedChatStyleTemplate.description,
+                    },
+                  }
+                : {}),
             }
           : undefined
       const userEntry: ChatEntry | null = shouldShowUserMessage
@@ -5159,6 +5214,14 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                         revisionRequest: options?.revisionRequest ?? null,
                         frameReferences: requestFrameReferences,
                         attachments: requestAttachments,
+                        selectedStyleTemplate: selectedChatStyleTemplate
+                          ? {
+                              id: selectedChatStyleTemplate.id,
+                              name: selectedChatStyleTemplate.name,
+                              description: selectedChatStyleTemplate.description,
+                              tags: selectedChatStyleTemplate.tags,
+                            }
+                          : null,
                       }
                     : {
                         message: nextValue,
@@ -5170,6 +5233,14 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                         videoContext,
                         frameReferences: requestFrameReferences,
                         attachments: requestAttachments,
+                        selectedStyleTemplate: selectedChatStyleTemplate
+                          ? {
+                              id: selectedChatStyleTemplate.id,
+                              name: selectedChatStyleTemplate.name,
+                              description: selectedChatStyleTemplate.description,
+                              tags: selectedChatStyleTemplate.tags,
+                            }
+                          : null,
                         verbosity: 'brief',
                       },
                 ),
@@ -5416,6 +5487,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       removeEntryInState,
       recentPostingFiles,
       resolveMusicRecommendations,
+      selectedChatStyleTemplate,
       videoContext,
     ],
   )
@@ -5732,6 +5804,8 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   onDonePosting={donePostingMock}
                   onPostNow={completePostingMock}
                   attachments={pendingChatAttachments}
+                  activeStyleTemplate={selectedChatStyleTemplate}
+                  onSelectStyleTemplate={(template) => setSelectedChatStyleId(template.id)}
                   onAttachImages={addPendingChatAttachments}
                   onRemoveAttachment={removePendingChatAttachment}
                 />

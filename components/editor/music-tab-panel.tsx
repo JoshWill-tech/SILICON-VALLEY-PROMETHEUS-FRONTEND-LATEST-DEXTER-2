@@ -150,8 +150,8 @@ function PhysicsMusicDeck({
             <motion.button
               key={track.id}
               type="button"
-              aria-label={`Inspect ${track.title}`}
-              onClick={() => onFocusTrack(track)}
+              aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
+              onClick={() => onPlayPause(track)}
               className="group relative mr-3.5 h-[13rem] w-[10.25rem] shrink-0 overflow-hidden rounded-[24px] border border-white/12 bg-black text-left shadow-[0_28px_50px_-34px_rgba(0,0,0,0.98)] outline-none"
               animate={
                 reduceMotion
@@ -720,6 +720,16 @@ export function MusicTabPanel({
     [onSelectTrack],
   )
 
+  const handleTrackActivate = React.useCallback(
+    (track: MusicRecommendation) => {
+      setLocalSelectedTrackId(track.id)
+      setFocusedTrackId(track.id)
+      setPlayingTrackId(track.id)
+      onSelectTrack(track)
+    },
+    [onSelectTrack],
+  )
+
   const handleTrackPlayPause = React.useCallback(
     (track: MusicRecommendation) => {
       setLocalSelectedTrackId(track.id)
@@ -913,7 +923,7 @@ export function MusicTabPanel({
                   isPlaying={playingTrackId === track.id}
                   isSelected={selectedTrackIds.has(track.id)}
                   onArtworkError={() => setBrokenArtworkIds((current) => ({ ...current, [track.id]: true }))}
-                  onFocus={() => handleTrackPlayPause(track)}
+                  onFocus={() => handleTrackActivate(track)}
                   onPlayPause={() => handleTrackPlayPause(track)}
                   onToggleSelected={() => toggleMultiSelect(track.id)}
                 />
@@ -1040,7 +1050,7 @@ export function MusicTabPanel({
                   isPlaying={playingTrackId === track.id}
                   isSelected={selectedTrackIds.has(track.id)}
                   onArtworkError={() => setBrokenArtworkIds((current) => ({ ...current, [track.id]: true }))}
-                  onFocus={() => handleTrackFocus(track)}
+                  onFocus={() => handleTrackActivate(track)}
                   onPlayPause={() => handleTrackPlayPause(track)}
                   onToggleSelected={() => toggleMultiSelect(track.id)}
                 />

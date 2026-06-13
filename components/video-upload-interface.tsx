@@ -51,6 +51,7 @@ import { GooeyText } from "@/components/ui/gooey-text-morphing";
 import { MinimalTypographicLoader } from "@/components/ui/minimal-typographic-loader";
 import type { DynamicFrame } from "@/components/ui/dynamic-frame-layout";
 import { InteractiveOrb } from "@/components/ui/interactive-orb";
+import { ChatStyleSelector } from "@/components/editor/chat-style-selector";
 import { STYLE_TEMPLATES } from "@/lib/styles/style-templates";
 import {
     detectSourceFileKind,
@@ -389,6 +390,7 @@ interface PromptComposerSubmitPayload {
 }
 
 interface PromptComposerProps {
+    activeStyleId: string | null;
     activeStyleName: string | null;
     attachments: string[];
     templatesOpen: boolean;
@@ -396,6 +398,7 @@ interface PromptComposerProps {
     onOpenTemplates: () => void;
     onOpenUpload: () => void;
     onRemoveAttachment: (index: number) => void;
+    onSelectStyle: (styleId: string) => void;
     onSubmit: (payload: PromptComposerSubmitPayload) => boolean | Promise<boolean>;
     uploadStatus: UploadStatus;
     uploadProgress: number;
@@ -614,6 +617,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 Textarea.displayName = "Textarea"
 
 const PromptComposer = React.memo(function PromptComposer({
+    activeStyleId,
     activeStyleName,
     attachments,
     templatesOpen,
@@ -621,6 +625,7 @@ const PromptComposer = React.memo(function PromptComposer({
     onOpenTemplates,
     onOpenUpload,
     onRemoveAttachment,
+    onSelectStyle,
     onSubmit,
     uploadStatus,
     uploadProgress,
@@ -1242,6 +1247,12 @@ const PromptComposer = React.memo(function PromptComposer({
                                 layoutId="button-highlight"
                             />
                         </motion.button>
+                        <ChatStyleSelector
+                            activeStyleId={activeStyleId}
+                            compact
+                            onSelectStyle={(template) => onSelectStyle(template.id)}
+                            className="shrink-0"
+                        />
                         <motion.button
                             type="button"
                             data-command-button
@@ -1330,6 +1341,132 @@ const PromptComposer = React.memo(function PromptComposer({
         </div>
     );
 });
+
+function StudioCinematicMarqueeRails({
+    activeStyleId,
+    onSelectStyle,
+}: {
+    activeStyleId: string | null;
+    onSelectStyle: (styleId: string) => void;
+}) {
+    const railItems = React.useMemo(() => {
+        return STYLE_TEMPLATES.flatMap((template) => {
+            const images = template.previewImages.length ? template.previewImages : [""];
+            return images.slice(0, 2).map((src, index) => ({
+                id: `${template.id}-${index}`,
+                styleId: template.id,
+                name: template.name,
+                description: template.description,
+                src,
+            }));
+        });
+    }, []);
+    const upperRail = [...railItems, ...railItems];
+    const lowerRail = [...railItems].reverse().concat([...railItems].reverse());
+
+    const renderRailItem = (item: (typeof railItems)[number], index: number) => {
+        const selected = item.styleId === activeStyleId;
+
+        return (
+            <button
+                key={`${item.id}-${index}`}
+                type="button"
+                aria-label={`Select ${item.name} animation style`}
+                onClick={() => onSelectStyle(item.styleId)}
+                className={cn(
+                    "group relative h-24 w-44 shrink-0 overflow-hidden rounded-[18px] border bg-white/[0.035] text-left shadow-[0_22px_48px_-34px_rgba(0,0,0,0.92)] transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 sm:h-28 sm:w-56",
+                    selected
+                        ? "border-[#9ff6e3]/42 bg-[#9ff6e3]/[0.08]"
+                        : "border-white/10 hover:border-white/18 hover:bg-white/[0.055]",
+                )}
+            >
+                {item.src ? (
+                    <Image
+                        src={item.src}
+                        alt=""
+                        fill
+                        sizes="224px"
+                        className="object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-95"
+                    />
+                ) : (
+                    <div className="grid h-full w-full place-items-center text-white/26">
+                        <ImageIcon className="h-5 w-5" />
+                    </div>
+                )}
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.82)_100%)]" />
+                <div className="absolute inset-x-3 bottom-3">
+                    <div className="truncate text-xs font-semibold text-white/92">{item.name}</div>
+                    <div className="mt-1 line-clamp-1 text-[10px] text-white/48">{item.description}</div>
+                </div>
+                <div
+                    aria-hidden
+                    className={cn(
+                        "absolute left-3 top-3 h-1.5 w-1.5 rounded-full transition-colors",
+                        selected ? "bg-[#9ff6e3] shadow-[0_0_18px_rgba(159,246,227,0.72)]" : "bg-white/32",
+                    )}
+                />
+            </button>
+        );
+    };
+
+    return (
+        <div className="studio-cinematic-rails group relative overflow-hidden rounded-[18px] border border-white/[0.08] bg-black/[0.22] py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <style>{`
+                @keyframes studio-marquee-right {
+                    from { transform: translateX(-50%); }
+                    to { transform: translateX(0%); }
+                }
+
+                @keyframes studio-marquee-left {
+                    from { transform: translateX(0%); }
+                    to { transform: translateX(-50%); }
+                }
+
+                .studio-cinematic-rail-track {
+                    width: max-content;
+                    animation-duration: 38s;
+                    animation-timing-function: linear;
+                    animation-iteration-count: infinite;
+                    will-change: transform;
+                }
+
+                .studio-cinematic-rail-track[data-direction="right"] {
+                    animation-name: studio-marquee-right;
+                }
+
+                .studio-cinematic-rail-track[data-direction="left"] {
+                    animation-name: studio-marquee-left;
+                }
+
+                .studio-cinematic-rails:hover .studio-cinematic-rail-track,
+                .studio-cinematic-rails:focus-within .studio-cinematic-rail-track {
+                    animation-play-state: paused;
+                }
+
+                @media (prefers-reduced-motion: reduce) {
+                    .studio-cinematic-rail-track {
+                        animation: none;
+                        transform: none;
+                    }
+                }
+            `}</style>
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-[linear-gradient(90deg,#050505_0%,rgba(5,5,5,0)_100%)]"
+            />
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-[linear-gradient(270deg,#050505_0%,rgba(5,5,5,0)_100%)]"
+            />
+            <div className="flex studio-cinematic-rail-track gap-3 px-3" data-direction="left">
+                {upperRail.map(renderRailItem)}
+            </div>
+            <div className="mt-3 flex studio-cinematic-rail-track gap-3 px-3" data-direction="right">
+                {lowerRail.map(renderRailItem)}
+            </div>
+        </div>
+    );
+}
 
 export function VideoUploadInterface() {
     const router = useRouter();
@@ -1558,6 +1695,9 @@ export function VideoUploadInterface() {
         const styleHint = creatorMentions.length
             ? ` Style reference creators: ${creatorMentions.map((creator) => creator.name).join(", ")}.`
             : "";
+        const activeStyleSignal = activeStyle
+            ? `Animation style: ${activeStyle.name} - ${activeStyle.description}`
+            : null;
         const prompt = activeSlashCommand
             ? `${activeSlashCommand.raw}${message ? ` ${message}` : ""}`
             : message.trim().length > 0
@@ -1757,6 +1897,7 @@ export function VideoUploadInterface() {
                     sources: [
                         ...attachments,
                         ...creatorMentions.map((creator) => `Creator: ${creator.name}`),
+                        ...(activeStyleSignal ? [activeStyleSignal] : []),
                     ],
                     styleId: activeStyleId ?? undefined,
                 },
@@ -1840,6 +1981,7 @@ export function VideoUploadInterface() {
 
         return true;
     }, [
+        activeStyle,
         activeStyleId,
         attachments,
         router,
@@ -2042,7 +2184,7 @@ export function VideoUploadInterface() {
                         <InteractiveOrb size={76} intensity="vivid" />
                         <motion.h1
                             aria-label="Ready to Create Something New?"
-                            className="flex flex-wrap items-baseline justify-center gap-x-2 text-[38px] font-extrabold leading-[0.94] tracking-normal text-white sm:text-[52px] md:text-[64px]"
+                            className="flex flex-wrap items-baseline justify-center gap-x-2 text-[35px] font-extrabold leading-[0.94] tracking-normal text-white sm:text-[48px] md:text-[59px]"
                             style={STUDIO_DISPLAY_FONT_STYLE}
                             initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
                             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
@@ -2070,6 +2212,7 @@ export function VideoUploadInterface() {
                     </motion.div>
 
                     <PromptComposer
+                        activeStyleId={activeStyleId}
                         activeStyleName={activeStyle?.name ?? null}
                         attachments={attachments}
                         templatesOpen={templatesOpen}
@@ -2077,9 +2220,21 @@ export function VideoUploadInterface() {
                         onOpenTemplates={() => setTemplatesOpen(true)}
                         onOpenUpload={openUploadComposer}
                         onRemoveAttachment={removeAttachment}
+                        onSelectStyle={(styleId) => {
+                            setActiveStyleId(styleId);
+                            persistActiveStyleId(styleId);
+                        }}
                         onSubmit={handleComposerSubmit}
                         uploadStatus={uploadStatus}
                         uploadProgress={uploadProgress}
+                    />
+
+                    <StudioCinematicMarqueeRails
+                        activeStyleId={activeStyleId}
+                        onSelectStyle={(styleId) => {
+                            setActiveStyleId(styleId);
+                            persistActiveStyleId(styleId);
+                        }}
                     />
 
                     <div className="space-y-4">

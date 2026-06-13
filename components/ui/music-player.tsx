@@ -11,7 +11,6 @@ import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 
 const musicDisplayFont = 'tracking-[-0.035em]'
 const musicMetaFont = 'font-serif'
-const ARTIFICIAL_BUFFER_MS = 4200
 
 const formatTime = (timeInSeconds: number): string => {
   if (Number.isNaN(timeInSeconds)) return '00:00'
@@ -64,7 +63,6 @@ export function MusicPlayer({
   const [isShuffle, setIsShuffle] = React.useState(false)
   const [isRepeat, setIsRepeat] = React.useState(false)
   const [isBuffering, setIsBuffering] = React.useState(false)
-  const [canStartPlayback, setCanStartPlayback] = React.useState(false)
   const [albumArtFailed, setAlbumArtFailed] = React.useState(false)
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
@@ -101,19 +99,12 @@ export function MusicPlayer({
   React.useEffect(() => {
     setCurrentTime(0)
     setDuration(0)
-    setCanStartPlayback(false)
     setAlbumArtFailed(false)
     setBufferingState(false)
     syncProgressVisual(0, 0)
     if (!reduceMotion) {
       rotation.set((rotation.get() + 24) % 360)
     }
-
-    const timer = window.setTimeout(() => {
-      setCanStartPlayback(true)
-    }, ARTIFICIAL_BUFFER_MS)
-
-    return () => window.clearTimeout(timer)
   }, [audioSrc, reduceMotion, rotation, setBufferingState, syncProgressVisual])
 
   React.useEffect(() => {
@@ -140,11 +131,7 @@ export function MusicPlayer({
     }
 
     const handleBufferingStart = () => setBufferingState(true)
-    const handleBufferingEnd = () => {
-      if (canStartPlayback) {
-        setBufferingState(false)
-      }
-    }
+    const handleBufferingEnd = () => setBufferingState(false)
     const handleAudioError = () => {
       setBufferingState(false)
       setPlayingState(false)
@@ -160,20 +147,6 @@ export function MusicPlayer({
     audio.addEventListener('error', handleAudioError)
     if (isPlaying) {
       setBufferingState(true)
-      if (!canStartPlayback) {
-        audio.load()
-        return () => {
-          audio.removeEventListener('loadedmetadata', setAudioData)
-          audio.removeEventListener('timeupdate', setAudioTime)
-          audio.removeEventListener('ended', handleEnded)
-          audio.removeEventListener('loadstart', handleBufferingStart)
-          audio.removeEventListener('waiting', handleBufferingStart)
-          audio.removeEventListener('canplay', handleBufferingEnd)
-          audio.removeEventListener('playing', handleBufferingEnd)
-          audio.removeEventListener('error', handleAudioError)
-        }
-      }
-
       void audio.play().catch(() => {
         setBufferingState(false)
         setPlayingState(false)
@@ -193,7 +166,7 @@ export function MusicPlayer({
       audio.removeEventListener('playing', handleBufferingEnd)
       audio.removeEventListener('error', handleAudioError)
     }
-  }, [audioSrc, canStartPlayback, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
+  }, [audioSrc, isPlaying, isRepeat, onProgressChange, setBufferingState, setPlayingState, syncProgressVisual])
 
   React.useEffect(() => {
     if (!audioRef.current) return

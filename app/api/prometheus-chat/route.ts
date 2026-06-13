@@ -31,6 +31,13 @@ type ChatAttachment = {
   dataUrl?: string
 }
 
+type ChatSelectedStyleTemplate = {
+  id?: string
+  name?: string
+  description?: string
+  tags?: string[]
+}
+
 type ChatFrameReference = {
   id?: string
   label?: string
@@ -51,6 +58,7 @@ type PrometheusChatRequest = {
   videoContext?: unknown
   frameReferences?: unknown
   attachments?: unknown
+  selectedStyleTemplate?: unknown
   verbosity?: unknown
 }
 
@@ -471,6 +479,8 @@ function normalizeFrameReferences(value: unknown): ChatFrameReference[] {
 }
 
 function normalizeProjectContext(body: PrometheusChatRequest | null) {
+  const selectedStyleTemplate = normalizeSelectedStyleTemplate(body?.selectedStyleTemplate)
+
   return {
     projectId: cleanInline(body?.projectId),
     projectTitle: cleanInline(body?.projectTitle) || 'Untitled Project',
@@ -479,6 +489,21 @@ function normalizeProjectContext(body: PrometheusChatRequest | null) {
       ? body.initialSources.map(cleanInline).filter(Boolean).slice(0, 8)
       : [],
     videoContext: body?.videoContext && typeof body.videoContext === 'object' ? body.videoContext : null,
+    selectedStyleTemplate,
+  }
+}
+
+function normalizeSelectedStyleTemplate(value: unknown): ChatSelectedStyleTemplate | null {
+  const record = asRecord(value)
+  const id = cleanInline(record.id)
+  const name = cleanInline(record.name)
+  if (!id && !name) return null
+
+  return {
+    id,
+    name: name || id || 'Selected style',
+    description: cleanInline(record.description),
+    tags: Array.isArray(record.tags) ? record.tags.map(cleanInline).filter(Boolean).slice(0, 8) : [],
   }
 }
 
