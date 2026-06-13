@@ -23,6 +23,15 @@ type CheckoutSessionStatus = {
   subscriptionId: string | null
 }
 
+type DodoSubscriptionResponse = {
+  status?: string | null
+  tier?: string | null
+  product_id?: string | null
+  dodo_subscription_id?: string | null
+  dodo_customer_id?: string | null
+  error?: string
+} | null
+
 export function BillingSuccessPanel() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
@@ -33,42 +42,40 @@ export function BillingSuccessPanel() {
 
   React.useEffect(() => {
     if (!sessionId) {
-      setError('Missing Paddle session reference.')
-      return
+      setSessionState(null)
     }
 
     let cancelled = false
 
     void (async () => {
       try {
-        const response = await fetch(`/api/billing/checkout-session?session_id=${encodeURIComponent(sessionId)}`, {
+        const response = await fetch('/api/dodo/subscription', {
           cache: 'no-store',
         })
 
-        const data = (await response.json().catch(() => null)) as
-          | ({ error?: string } & Partial<CheckoutSessionStatus>)
-          | null
+        const data = (await response.json().catch(() => null)) as DodoSubscriptionResponse
 
         if (!response.ok) {
-          throw new Error(data?.error ?? 'Failed to confirm your Paddle subscription.')
+          throw new Error(data?.error ?? 'Failed to confirm your Dodo subscription.')
         }
 
         if (cancelled) return
 
+        const tier = data?.tier === 'creator' || data?.tier === 'studio' || data?.tier === 'cinema' ? data.tier : null
         const nextSessionState: CheckoutSessionStatus = {
           status: data?.status ?? null,
-          paymentStatus: data?.paymentStatus ?? null,
-          planId: data?.planId ?? null,
-          priceId: data?.priceId ?? null,
-          customerEmail: data?.customerEmail ?? null,
-          subscriptionId: data?.subscriptionId ?? null,
+          paymentStatus: data?.status === 'active' ? 'paid' : data?.status ?? null,
+          planId: tier,
+          priceId: data?.product_id ?? null,
+          customerEmail: data?.dodo_customer_id ?? null,
+          subscriptionId: data?.dodo_subscription_id ?? null,
         }
 
         setSessionState(nextSessionState)
 
         if (
           nextSessionState.planId &&
-          nextSessionState.status === 'complete' &&
+          nextSessionState.status === 'active' &&
           nextSessionState.paymentStatus !== 'unpaid' &&
           !hasAppliedStorageTierRef.current
         ) {
@@ -82,7 +89,7 @@ export function BillingSuccessPanel() {
         }
       } catch (nextError) {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : 'Failed to confirm your Paddle subscription.')
+          setError(nextError instanceof Error ? nextError.message : 'Failed to confirm your Dodo subscription.')
         }
       }
     })()
@@ -93,7 +100,7 @@ export function BillingSuccessPanel() {
   }, [sessionId])
 
   const isReady =
-    sessionState?.planId && sessionState.status === 'complete' && sessionState.paymentStatus !== 'unpaid'
+    sessionState?.planId && sessionState.status === 'active' && sessionState.paymentStatus !== 'unpaid'
 
   return (
     <div className="px-4 py-5 md:px-6 md:py-6">
@@ -109,8 +116,8 @@ export function BillingSuccessPanel() {
               </div>
               <div className="mt-1 text-sm text-white/52">
                 {isReady
-                  ? 'Paddle completed the checkout flow and your workspace can continue.'
-                  : 'We are checking your Paddle session and syncing the current workspace access.'}
+                  ? 'Dodo completed the checkout flow and your workspace can continue.'
+                  : 'We are checking your Dodo subscription and syncing the current workspace access.'}
               </div>
             </div>
           </div>
@@ -167,7 +174,7 @@ export function BillingSuccessPanel() {
 
           <div className="text-sm leading-6 text-white/46">
             This success screen currently mirrors access into local workspace state so you can keep testing the gate.
-            The webhook route is ready for the next step: persisting subscription status in your database and enforcing
+            The Dodo webhook route persists subscription status in your database and enforces
             billing from the server.
           </div>
         </div>

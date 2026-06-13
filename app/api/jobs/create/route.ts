@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { deductCredits } from '@/lib/dodo/credits'
 import { createClient } from '@/lib/supabase/server'
 import type { CreateJobRequest } from '@/lib/types/jobs'
 
@@ -18,18 +19,31 @@ export async function POST(request: Request) {
 
     // Check subscription status
     const { data: subscription } = await supabase
-      .from('subscriptions')
+      .from('dodo_subscriptions')
       .select('status')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    const hasAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
+    const hasAccess = subscription?.status === 'active'
 
     if (!hasAccess && process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE !== 'true') {
       return NextResponse.json({ 
         error: 'A paid subscription is required to run AI tasks.',
         code: 'BILLING_REQUIRED'
       }, { status: 403 })
+    }
+
+    if (hasAccess && payload.type === 'ai_enhancement') {
+      try {
+        await deductCredits(user.id, 1)
+      } catch {
+        return NextResponse.json({
+          error: 'Insufficient AI generation credits.',
+          code: 'INSUFFICIENT_CREDITS',
+        }, { status: 402 })
+      }
     }
 
     const { data, error } = await supabase

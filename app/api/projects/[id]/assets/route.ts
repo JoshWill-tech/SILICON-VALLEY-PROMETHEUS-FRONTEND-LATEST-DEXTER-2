@@ -106,15 +106,17 @@ export async function POST(
     }
 
     const { data: subscription, error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .select('plan_id, status')
+      .from('dodo_subscriptions')
+      .select('tier, status')
       .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (subscriptionError) throw subscriptionError
 
-    const hasPaidAccess = subscription?.status === 'active' || subscription?.status === 'trialing'
-    const tier = getStorageTierFromPlan(hasPaidAccess ? subscription?.plan_id ?? 'free' : 'free')
+    const hasPaidAccess = subscription?.status === 'active'
+    const tier = getStorageTierFromPlan(hasPaidAccess ? subscription?.tier ?? 'free' : 'free')
     const storageLimit = getStorageLimit(tier)
     const { data: existingAssets, error: existingAssetsError } = await supabase
       .from('source_assets')
