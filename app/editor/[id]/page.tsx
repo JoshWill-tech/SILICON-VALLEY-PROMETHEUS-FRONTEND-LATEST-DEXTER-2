@@ -3847,7 +3847,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   initialPrompt: string
   initialSources: string[]
   videoContext: MusicVideoContext
-  composerPortalTarget: HTMLDivElement | null
+  composerPortalTarget: HTMLElement | null
   automationRequest?: ComposerAutomationRequest | null
   clipRelayState?: ClipRelayState | null
   musicSpotlightPortalTarget?: HTMLDivElement | null
@@ -3861,6 +3861,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [pendingReplies, setPendingReplies] = React.useState(0)
   const [isComposerOpen, setIsComposerOpen] = React.useState(false)
   const [isComposerThreadOpen, setIsComposerThreadOpen] = React.useState(false)
+  const [composerFallbackPortalTarget, setComposerFallbackPortalTarget] = React.useState<HTMLElement | null>(null)
   const [pendingChatAttachments, setPendingChatAttachments] = React.useState<ChatAttachment[]>([])
   const [selectedChatStyleId, setSelectedChatStyleId] = React.useState<string | null>(null)
   const [queuedPreviewRevision, setQueuedPreviewRevision] = React.useState<QueuedPreviewRevisionState | null>(null)
@@ -3879,6 +3880,12 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
     () => STYLE_TEMPLATES.find((template) => template.id === selectedChatStyleId) ?? null,
     [selectedChatStyleId],
   )
+  const resolvedComposerPortalTarget = composerPortalTarget ?? composerFallbackPortalTarget
+
+  React.useEffect(() => {
+    setComposerFallbackPortalTarget(document.body)
+  }, [])
+
   const requestControllersRef = React.useRef<AbortController[]>([])
   const previewAudioRef = React.useRef<HTMLAudioElement | null>(null)
   const musicPreviewToggleCooldownRef = React.useRef<number | null>(null)
@@ -5770,7 +5777,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           )
         : null}
 
-      {composerPortalTarget
+      {resolvedComposerPortalTarget
            ? createPortal(
               <>
                 <FloatingChatComposer
@@ -5810,7 +5817,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   onRemoveAttachment={removePendingChatAttachment}
                 />
               </>,
-              composerPortalTarget,
+              resolvedComposerPortalTarget,
             )
           : null}    </div>
   )
@@ -6394,14 +6401,16 @@ function OriginalEditorPage() {
   const stableProjectPreviewUrl =
     handoffPreviewForCurrentSource?.url
     ?? (project?.sourceAssetId ? persistedPreviewUrl ?? project?.thumbnailUrl ?? null : project?.thumbnailUrl ?? null)
+  const stableProjectPreviewKind = (handoffPreviewForCurrentSource?.kind ?? project?.previewKind ?? null) as PreviewMediaKind | null
   const {
+    visiblePreviewUrl: sourceStageVisiblePreviewUrl,
     previewKind: stagedPreviewKind,
     phase: sourceStagePhase,
     error: sourceStageError,
     stageSource: stageSourceFile,
   } = useSourceStage({
-    currentPreviewUrl: null,
-    currentPreviewKind: null,
+    currentPreviewUrl: stableProjectPreviewUrl,
+    currentPreviewKind: stableProjectPreviewKind,
   })
   const viralClipJob = useViralClipJob({
     projectId,
@@ -6728,7 +6737,7 @@ function OriginalEditorPage() {
     return Math.round((job.steps.reduce((sum, step) => sum + step.progress, 0) / job.steps.length) * 100)
   }, [job])
 
-  const incomingPreviewKind = (handoffPreviewForCurrentSource?.kind ?? stagedPreviewKind ?? project?.previewKind ?? 'video') as PreviewMediaKind
+  const incomingPreviewKind = ((sourceStageVisiblePreviewUrl ? stagedPreviewKind : null) ?? stableProjectPreviewKind ?? 'video') as PreviewMediaKind
   const previewSourceKey = projectPreviewSourceKey
 
   React.useEffect(() => {
@@ -6737,20 +6746,21 @@ function OriginalEditorPage() {
       previewSourceKey,
       sourceAssetId: project?.sourceAssetId ?? null,
       stagedPreviewKind,
+      sourceStageVisiblePreviewUrl,
       stableProjectPreviewUrl,
       handoffPreviewUrl: handoffPreviewForCurrentSource?.url ?? null,
       handoffPreviewKind: handoffPreviewForCurrentSource?.kind ?? null,
       sourceStagePhase,
     })
-  }, [handoffPreviewForCurrentSource, project?.sourceAssetId, projectId, previewSourceKey, sourceStagePhase, stableProjectPreviewUrl, stagedPreviewKind])
+  }, [handoffPreviewForCurrentSource, project?.sourceAssetId, projectId, previewSourceKey, sourceStagePhase, sourceStageVisiblePreviewUrl, stableProjectPreviewUrl, stagedPreviewKind])
 
   const transportDurationSec = previewDurationSec > 0 ? previewDurationSec : totalDurationMs / 1000
   const transportProgress = transportDurationSec > 0 ? (previewCurrentTimeSec / transportDurationSec) * 100 : 0
   const transportCurrentTime = msToTime(previewCurrentTimeSec * 1000)
   const transportTime = msToTime(transportDurationSec * 1000)
-  const previewUrl = stableProjectPreviewUrl ?? ''
+  const previewUrl = sourceStageVisiblePreviewUrl ?? stableProjectPreviewUrl ?? ''
   const previewKind = incomingPreviewKind
-  const shouldUseLegacySessionPreviewSurface = Boolean(handoffPreviewForCurrentSource?.url) && previewKind === 'video'
+  const shouldUseLegacySessionPreviewSurface = handoffPreviewForCurrentSource?.url === previewUrl && previewKind === 'video'
   const hasPreviewMedia = Boolean(previewUrl)
   const isSourceStageActivelyLoading =
     sourceStagePhase === 'staging_local_preview' || sourceStagePhase === 'persisting'
@@ -8166,6 +8176,26 @@ function OriginalEditorPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed left-0 top-0 h-0 w-0 overflow-hidden"
+      >
+        <ChatWorkspacePanel
+          key={`desktop-chat-${projectId}`}
+          projectId={projectId}
+          projectTitle={project?.title ?? 'Untitled Project'}
+          initialPrompt={promptText}
+          initialSources={sourceList}
+          videoContext={videoContext}
+          composerPortalTarget={chatComposerPortal}
+          automationRequest={composerAutomationRequest}
+          clipRelayState={clipRelayState}
+          musicSpotlightPortalTarget={musicSpotlightPortalTarget}
+          onEditRequest={handleEditRequest}
+          initialEditorState={project?.editorState}
+          onSave={handleAutoSave}
+        />
+      </div>
       <EditorNewProjectUploadDialog open={isNewProjectUploadOpen} onOpenChange={setIsNewProjectUploadOpen} />
       <div
         ref={setChatComposerPortal}

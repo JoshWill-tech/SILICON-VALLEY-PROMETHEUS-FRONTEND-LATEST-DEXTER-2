@@ -11,6 +11,7 @@ type MinimalTypographicLoaderProps = {
   label?: string
   message?: string
   size?: 'sm' | 'md' | 'lg'
+  standalone?: boolean
   variant?: 'screen' | 'panel' | 'inline'
 }
 
@@ -59,11 +60,13 @@ export function MinimalTypographicLoader({
   label = 'Loading...',
   message = 'Preparing the workspace.',
   size = 'lg',
+  standalone = false,
   variant = 'screen',
 }: MinimalTypographicLoaderProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const rootRef = React.useRef<HTMLElement | null>(null)
   const ariaLabel = message ? `${label} ${message}` : label
+  const showAmbient = ambient && !standalone
 
   return (
     <section
@@ -77,7 +80,7 @@ export function MinimalTypographicLoader({
       aria-live="polite"
       aria-label={ariaLabel}
     >
-      {ambient ? (
+      {showAmbient ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(99,74,255,0.12)_0%,rgba(37,28,114,0.08)_28%,rgba(0,0,0,0)_58%),radial-gradient(circle_at_50%_50%,rgba(15,255,166,0.035)_0%,rgba(0,0,0,0)_52%)]"
@@ -98,10 +101,13 @@ export function MinimalTypographicLoader({
           unoptimized
           priority={variant === 'screen'}
           className={cn(
-            'h-full w-full object-contain mix-blend-screen',
-            ambient
-              ? '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_48%,rgba(0,0,0,0.72)_62%,transparent_82%)]'
-              : '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_36%,rgba(0,0,0,0.62)_50%,transparent_70%)]',
+            'h-full w-full object-contain',
+            standalone ? 'mix-blend-normal [mask-image:none]' : 'mix-blend-screen',
+            !standalone && (
+              ambient
+                ? '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_48%,rgba(0,0,0,0.72)_62%,transparent_82%)]'
+                : '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_36%,rgba(0,0,0,0.62)_50%,transparent_70%)]'
+            ),
           )}
         />
       </div>

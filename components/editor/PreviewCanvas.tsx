@@ -273,13 +273,15 @@ export function PreviewCanvas({
                           </div>
 
                           {!isPreviewMediaReady && isPreviewLoadingVisible ? (
-                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/15 px-6">
+                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-transparent">
                               <MinimalTypographicLoader
+                                ambient={false}
+                                standalone
                                 label="Loading source preview"
                                 message="Preparing the visible video surface."
                                 variant="inline"
                                 size="sm"
-                                className="w-full max-w-[320px]"
+                                className="!min-h-0 w-[min(14rem,58%)] max-w-[224px] !px-0 !py-0"
                               />
                             </div>
                           ) : null}
@@ -405,6 +407,8 @@ function BriefPipelineProgress({
   return (
     <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 px-8 backdrop-blur-sm">
       <MinimalTypographicLoader
+        ambient={false}
+        standalone
         label={isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
         message={
           isTranscribing

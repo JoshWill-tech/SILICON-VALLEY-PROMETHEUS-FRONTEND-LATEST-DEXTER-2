@@ -101,7 +101,7 @@ export function SourceStagePlaceholder({
         isDragActive
           ? 'border-[#9ff6e3]/38 bg-[#9ff6e3]/[0.055] shadow-[0_0_42px_rgba(159,246,227,0.12)]'
           : isLoading
-            ? 'border-white/12 bg-white/[0.012] hover:border-white/20 hover:bg-white/[0.028]'
+            ? 'border-white/8 bg-black hover:border-white/12'
             : isError
               ? 'border-rose-400/24 bg-rose-400/[0.055]'
               : 'border-white/10 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_38%),linear-gradient(180deg,rgba(255,255,255,0.025)_0%,rgba(255,255,255,0.01)_100%)] hover:border-white/18 hover:bg-white/[0.035]',
@@ -111,35 +111,40 @@ export function SourceStagePlaceholder({
         <div className="pointer-events-none absolute inset-0 z-0 flex h-full w-full items-center justify-center overflow-hidden bg-transparent">
           <MinimalTypographicLoader
             ambient={false}
+            standalone
             label="Restoring source preview"
             message="Rebuilding the media stage inside the editor."
             variant="inline"
             size="sm"
-            className="!min-h-0 w-[min(15rem,62%)] max-w-[240px] !px-0 !py-0 opacity-70"
+            className="!min-h-0 w-[min(14rem,58%)] max-w-[224px] !px-0 !py-0 opacity-95"
           />
         </div>
       ) : null}
-      <div
-        aria-hidden
-        className={cn('pointer-events-none absolute inset-0 z-[1] opacity-50', isLoading && 'opacity-28')}
-        style={{
-          backgroundImage:
-            'radial-gradient(circle, rgba(255,255,255,0.28) 0.7px, rgba(255,255,255,0) 1px)',
-          backgroundSize: '22px 22px',
-          maskImage: 'radial-gradient(circle at 50% 50%, black 0%, transparent 68%)',
-        }}
-      />
-      <motion.span
-        aria-hidden
-        className="pointer-events-none absolute inset-[10%] z-[1] rounded-[18px] border border-dashed border-white/10"
-        animate={reduceMotion ? undefined : { opacity: isDragActive ? 0.64 : [0.22, 0.42, 0.22] }}
-        transition={reduceMotion ? undefined : { duration: 2.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
-      />
-      <span className="pointer-events-none absolute inset-x-[18%] top-0 z-[1] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(159,246,227,0.52)_48%,rgba(255,255,255,0)_100%)]" />
+      {!isLoading ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[1] opacity-50"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle, rgba(255,255,255,0.28) 0.7px, rgba(255,255,255,0) 1px)',
+              backgroundSize: '22px 22px',
+              maskImage: 'radial-gradient(circle at 50% 50%, black 0%, transparent 68%)',
+            }}
+          />
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-[10%] z-[1] rounded-[18px] border border-dashed border-white/10"
+            animate={reduceMotion ? undefined : { opacity: isDragActive ? 0.64 : [0.22, 0.42, 0.22] }}
+            transition={reduceMotion ? undefined : { duration: 2.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+          />
+          <span className="pointer-events-none absolute inset-x-[18%] top-0 z-[1] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(159,246,227,0.52)_48%,rgba(255,255,255,0)_100%)]" />
 
-      <span className="relative z-10 inline-flex">
-        <SourceAddGlyph isDragActive={isDragActive} isError={isError} reduceMotion={reduceMotion} />
-      </span>
+          <span className="relative z-10 inline-flex">
+            <SourceAddGlyph isDragActive={isDragActive} isError={isError} reduceMotion={reduceMotion} />
+          </span>
+        </>
+      ) : null}
 
       <span className="sr-only">{statusLabel}</span>
     </button>

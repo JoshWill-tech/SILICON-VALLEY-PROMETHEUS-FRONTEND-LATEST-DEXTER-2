@@ -372,6 +372,15 @@ const COMMAND_SUGGESTIONS: CommandSuggestion[] = [
     },
 ];
 
+function studioActionButtonClassName(active = false) {
+    return cn(
+        "group relative inline-flex h-8 items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium leading-none transition-all duration-200",
+        active
+            ? "border-white/18 bg-white/[0.09] text-white shadow-[0_10px_26px_-22px_rgba(255,255,255,0.5)]"
+            : "border-white/10 bg-white/[0.028] text-white/64 hover:border-white/16 hover:bg-white/[0.052] hover:text-white/88"
+    );
+}
+
 const COMPOSER_MODES = [
     { label: "Prompt", icon: MessageSquare },
     { label: "Motion", icon: Film },
@@ -393,6 +402,7 @@ interface PromptComposerProps {
     activeStyleId: string | null;
     activeStyleName: string | null;
     attachments: string[];
+    footerAction?: React.ReactNode;
     templatesOpen: boolean;
     onClearStyle: () => void;
     onOpenTemplates: () => void;
@@ -620,6 +630,7 @@ const PromptComposer = React.memo(function PromptComposer({
     activeStyleId,
     activeStyleName,
     attachments,
+    footerAction,
     templatesOpen,
     onClearStyle,
     onOpenTemplates,
@@ -1315,28 +1326,17 @@ const PromptComposer = React.memo(function PromptComposer({
                             key={suggestion.prefix}
                             type="button"
                             onClick={() => selectCommandSuggestion(index)}
-                            className="group relative flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/65 transition-all hover:bg-white/[0.06] hover:text-white/90"
+                            className={studioActionButtonClassName()}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
                         >
-                            <Icon className="h-4 w-4" />
+                            <Icon className="h-3.5 w-3.5" />
                             <span>{suggestion.label}</span>
-                            <motion.div
-                                className="absolute inset-0 rounded-xl border border-white/[0.06]"
-                                initial={false}
-                                animate={{
-                                    opacity: [0, 1],
-                                    scale: [0.98, 1],
-                                }}
-                                transition={{
-                                    duration: 0.3,
-                                    ease: "easeOut",
-                                }}
-                            />
                         </motion.button>
                     );
                 })}
+                {footerAction}
             </div>
         </div>
     );
@@ -2227,6 +2227,19 @@ export function VideoUploadInterface() {
                         onSubmit={handleComposerSubmit}
                         uploadStatus={uploadStatus}
                         uploadProgress={uploadProgress}
+                        footerAction={
+                            <motion.button
+                                type="button"
+                                onClick={() => setShowInspirationWall((prev) => !prev)}
+                                className={studioActionButtonClassName(showInspirationWall)}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: COMMAND_SUGGESTIONS.length * 0.1 }}
+                            >
+                                <PanelsTopLeft className="h-3.5 w-3.5" />
+                                <span>{showInspirationWall ? "Hide Showcase" : "Reveal Showcase"}</span>
+                            </motion.button>
+                        }
                     />
 
                     <StudioCinematicMarqueeRails
@@ -2238,37 +2251,6 @@ export function VideoUploadInterface() {
                     />
 
                     <div className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                            <motion.button
-                                type="button"
-                                onClick={() => setShowInspirationWall((prev) => !prev)}
-                                className={cn(
-                                    "group relative flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-all",
-                                    showInspirationWall
-                                        ? "border-[#a979ef]/45 bg-[#7a46bc]/22 text-white"
-                                        : "border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.06] hover:text-white/90"
-                                )}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: COMMAND_SUGGESTIONS.length * 0.1 }}
-                            >
-                                <PanelsTopLeft className="h-4 w-4" />
-                                <span>{showInspirationWall ? "Hide Showcase" : "Reveal Showcase"}</span>
-                                <motion.div
-                                    className="absolute inset-0 rounded-xl border border-white/[0.08]"
-                                    initial={false}
-                                    animate={{
-                                        opacity: showInspirationWall ? 1 : 0.7,
-                                        scale: [0.98, 1],
-                                    }}
-                                    transition={{
-                                        duration: 0.3,
-                                        ease: "easeOut",
-                                    }}
-                                />
-                            </motion.button>
-                        </div>
-
                         <AnimatePresence>
                             {showInspirationWall && (
                                 <motion.div
