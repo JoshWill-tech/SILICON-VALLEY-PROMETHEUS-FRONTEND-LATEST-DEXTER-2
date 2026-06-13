@@ -197,6 +197,9 @@ type ChatEntry = {
   posting?: SocialPostingBlock
   metadata?: {
     sources?: ChatSource[]
+    toolCalls?: ChatToolCall[]
+    frames?: ChatFrameReference[]
+    attachments?: ChatAttachment[]
   }
 }
 
@@ -205,6 +208,33 @@ type ChatSource = {
   title?: string
   type?: string
   name?: string
+}
+
+type ChatToolCall = {
+  id: string
+  name: string
+  label: string
+  status: 'completed' | 'needs_approval' | 'failed'
+  summary: string
+  input?: unknown
+  output?: unknown
+}
+
+type ChatFrameReference = {
+  id: string
+  label: string
+  timecode?: string
+  seconds?: number
+  thumbnailUrl?: string | null
+  reason?: string
+}
+
+type ChatAttachment = {
+  id: string
+  name: string
+  type: string
+  dataUrl?: string
+  url?: string
 }
 
 type ChatMusicBlock = MusicRecommendationPipelineResult & {
@@ -306,6 +336,9 @@ type ChatApiResponse = {
   answer?: string
   error?: string
   sources?: unknown
+  toolCalls?: unknown
+  frames?: unknown
+  attachments?: unknown
 }
 
 type ComposerAutomationRequest = {
@@ -922,6 +955,160 @@ function normalizeChatSources(value: unknown): ChatSource[] {
   }
 
   return sources.slice(0, 8)
+}
+
+function normalizeChatToolCalls(value: unknown): ChatToolCall[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((toolCall, index): ChatToolCall | null => {
+      if (!toolCall || typeof toolCall !== 'object') return null
+      const record = toolCall as Record<string, unknown>
+      const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim() : `tool-${index + 1}`
+      const name = typeof record.name === 'string' ? record.name.trim() : ''
+      const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim() : name || `Tool ${index + 1}`
+      const summary = typeof record.summary === 'string' ? record.summary.trim() : ''
+      const status: ChatToolCall['status'] =
+        record.status === 'needs_approval' || record.status === 'failed' || record.status === 'completed'
+          ? record.status
+          : 'completed'
+
+      if (!name && !summary) return null
+      return {
+        id,
+        name,
+        label,
+        status,
+        summary,
+        input: record.input,
+        output: record.output,
+      }
+    })
+    .filter((toolCall): toolCall is ChatToolCall => Boolean(toolCall))
+    .slice(0, 6)
+}
+
+function normalizeChatFrames(value: unknown): ChatFrameReference[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((frame, index): ChatFrameReference | null => {
+      if (!frame || typeof frame !== 'object') return null
+      const record = frame as Record<string, unknown>
+      const label = typeof record.label === 'string' && record.label.trim() ? record.label.trim() : `Frame ${index + 1}`
+      const thumbnailUrl = typeof record.thumbnailUrl === 'string' && record.thumbnailUrl.trim() ? record.thumbnailUrl.trim() : null
+      const timecode = typeof record.timecode === 'string' && record.timecode.trim() ? record.timecode.trim() : undefined
+      const reason = typeof record.reason === 'string' && record.reason.trim() ? record.reason.trim() : undefined
+      const seconds = typeof record.seconds === 'number' && Number.isFinite(record.seconds) ? record.seconds : undefined
+
+      if (!label && !thumbnailUrl && !timecode) return null
+      return {
+        id: typeof record.id === 'string' && record.id.trim() ? record.id.trim() : `frame-${index + 1}`,
+        label,
+        timecode,
+        seconds,
+        thumbnailUrl,
+        reason,
+      }
+    })
+    .filter((frame): frame is ChatFrameReference => Boolean(frame))
+    .slice(0, 8)
+}
+
+function normalizeChatAttachments(value: unknown): ChatAttachment[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((attachment, index): ChatAttachment | null => {
+      if (!attachment || typeof attachment !== 'object') return null
+      const record = attachment as Record<string, unknown>
+      const dataUrl = typeof record.dataUrl === 'string' ? record.dataUrl : ''
+      const url = typeof record.url === 'string' ? record.url : ''
+      const name = typeof record.name === 'string' && record.name.trim() ? record.name.trim() : `Visual reference ${index + 1}`
+      const type = typeof record.type === 'string' && record.type.trim() ? record.type.trim() : 'image'
+
+      if (!dataUrl && !url && !name) return null
+      return {
+        id: typeof record.id === 'string' && record.id.trim() ? record.id.trim() : `attachment-${index + 1}`,
+        name,
+        type,
+        dataUrl,
+        url,
+      }
+    })
+    .filter((attachment): attachment is ChatAttachment => Boolean(attachment))
+    .slice(0, 4)
+}
+
+function buildChatFrameReferences(revisionRequest?: FrameAssistSubmission['revisionRequest'] | null): ChatFrameReference[] {
+  if (!revisionRequest?.frameTarget && !revisionRequest?.selectedRegionMetadata) return []
+
+  const target = revisionRequest.frameTarget
+  const selectedRegion = revisionRequest.selectedRegionMetadata
+  const label =
+    revisionRequest.matchedRegionLabel ??
+    selectedRegion?.label ??
+    (target ? `Frame ${target.startFrame}${target.type === 'range' ? `-${target.endFrame}` : ''}` : 'Current frame')
+
+  const startMs = selectedRegion?.startTimeMs ?? null
+  const endMs = selectedRegion?.endTimeMs ?? null
+  const timecode =
+    startMs !== null && endMs !== null
+      ? `${formatFrameSeconds(startMs / 1000)}-${formatFrameSeconds(endMs / 1000)}`
+      : startMs !== null
+        ? formatFrameSeconds(startMs / 1000)
+        : target
+          ? `f${target.startFrame}${target.type === 'range' ? `-f${target.endFrame}` : ''}`
+          : undefined
+
+  return [
+    {
+      id: revisionRequest.matchedRegionId ?? `${target?.startFrame ?? 'current'}-${target?.endFrame ?? 'frame'}`,
+      label,
+      timecode,
+      seconds: startMs !== null ? startMs / 1000 : undefined,
+      thumbnailUrl: revisionRequest.previewThumbnailUrl,
+      reason: revisionRequest.instructionText,
+    },
+  ]
+}
+
+function formatFrameSeconds(seconds: number) {
+  if (!Number.isFinite(seconds)) return '0:00'
+  const safeSeconds = Math.max(0, Math.round(seconds))
+  const minutes = Math.floor(safeSeconds / 60)
+  const remainder = safeSeconds % 60
+  return `${minutes}:${remainder.toString().padStart(2, '0')}`
+}
+
+function readImageAttachment(file: File): Promise<ChatAttachment | null> {
+  if (!file.type.startsWith('image/')) return Promise.resolve(null)
+
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      resolve({
+        id: `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: file.name,
+        type: file.type,
+        dataUrl: result,
+      })
+    }
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(file)
+  })
+}
+
+function stringifyToolPreview(value: unknown) {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return ''
+  }
 }
 
 function toStoredChatEntries(entries: ChatEntry[]): ChatEntry[] {
@@ -2356,6 +2543,162 @@ function SocialPostingCard({
   )
 }
 
+function ChatSkeletonLoader({ reduceMotion }: { reduceMotion: boolean }) {
+  return (
+    <div className="min-w-[min(22rem,72vw)] py-1" aria-label="Assistant is thinking">
+      <div className="mb-3 flex items-center gap-3 text-white/52">
+        <motion.span
+          aria-hidden
+          className="size-8 shrink-0 rounded-full bg-white/10"
+          animate={reduceMotion ? undefined : { opacity: [0.45, 0.9, 0.45] }}
+          transition={{ duration: reduceMotion ? 0 : 1.6, ease: 'easeInOut', repeat: Number.POSITIVE_INFINITY }}
+        />
+        <span className="text-xs uppercase tracking-[0.22em] text-white/42">Thinking</span>
+      </div>
+      <div className="space-y-2.5">
+        {[88, 74, 52].map((width, index) => (
+          <motion.span
+            key={width}
+            aria-hidden
+            className="block h-2.5 rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.2),rgba(255,255,255,0.08))]"
+            style={{ width: `${width}%`, backgroundSize: '220% 100%' }}
+            animate={reduceMotion ? undefined : { backgroundPositionX: ['120%', '-120%'] }}
+            transition={{
+              duration: reduceMotion ? 0 : 1.45,
+              delay: index * 0.08,
+              ease: 'easeInOut',
+              repeat: Number.POSITIVE_INFINITY,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ChatAttachmentStrip({
+  attachments,
+  editable = false,
+  onRemove,
+}: {
+  attachments: ChatAttachment[]
+  editable?: boolean
+  onRemove?: (id: string) => void
+}) {
+  if (!attachments.length) return null
+
+  return (
+    <div className="premium-scroll-hide mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
+      {attachments.map((attachment) => {
+        const previewUrl = attachment.dataUrl || attachment.url
+        return (
+          <div
+            key={attachment.id}
+            className="group/attachment relative flex min-h-16 min-w-16 max-w-28 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]"
+            title={attachment.name}
+          >
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewUrl} alt={attachment.name} className="h-16 w-24 object-cover" />
+            ) : (
+              <div className="grid h-16 w-20 place-items-center text-white/42">
+                <ImageIcon className="size-4" />
+              </div>
+            )}
+            {editable && onRemove ? (
+              <button
+                type="button"
+                aria-label={`Remove ${attachment.name}`}
+                onClick={() => onRemove(attachment.id)}
+                className="absolute right-1 top-1 grid size-6 place-items-center rounded-full border border-white/10 bg-black/60 text-white/70 opacity-100 transition hover:bg-white/12 hover:text-white sm:opacity-0 sm:group-hover/attachment:opacity-100"
+              >
+                <X className="size-3" />
+              </button>
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ChatFrameReferenceStrip({ frames }: { frames: ChatFrameReference[] }) {
+  if (!frames.length) return null
+
+  return (
+    <div className="premium-scroll-hide mt-3 flex max-w-full gap-2 overflow-x-auto pb-1">
+      {frames.map((frame) => (
+        <div
+          key={frame.id}
+          className="min-w-[9rem] max-w-[12rem] shrink-0 overflow-hidden rounded-2xl border border-[#7ff2d4]/14 bg-[#7ff2d4]/[0.045]"
+        >
+          {frame.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={frame.thumbnailUrl} alt={frame.label} className="h-20 w-full object-cover" />
+          ) : (
+            <div className="grid h-20 place-items-center bg-black/20 text-white/36">
+              <Film className="size-4" />
+            </div>
+          )}
+          <div className="space-y-1 px-3 py-2">
+            <div className="truncate text-[11px] font-semibold text-white/78">{frame.label}</div>
+            {frame.timecode ? <div className="text-[10px] text-[#b7fff1]/58">{frame.timecode}</div> : null}
+            {frame.reason ? <div className="line-clamp-2 text-[10px] leading-4 text-white/42">{frame.reason}</div> : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ChatToolCallGroup({ toolCalls }: { toolCalls: ChatToolCall[] }) {
+  if (!toolCalls.length) return null
+
+  const approvalCount = toolCalls.filter((toolCall) => toolCall.status === 'needs_approval').length
+
+  return (
+    <details className="group/tool mt-3 rounded-2xl border border-white/10 bg-black/18 px-3 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[11px] font-semibold text-white/72 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex items-center gap-2">
+          <Code2 className="size-3.5 text-[#7ff2d4]/78" />
+          {toolCalls.length} tool call{toolCalls.length === 1 ? '' : 's'}
+          {approvalCount ? <span className="text-amber-200/78">approval needed</span> : null}
+        </span>
+        <ChevronRight className="size-3.5 transition-transform group-open/tool:rotate-90" />
+      </summary>
+      <div className="mt-2 space-y-2">
+        {toolCalls.map((toolCall) => {
+          const preview = stringifyToolPreview(toolCall.input || toolCall.output)
+          return (
+            <div
+              key={toolCall.id}
+              className={cn(
+                'rounded-xl border px-3 py-2 text-[11px] leading-5',
+                toolCall.status === 'needs_approval'
+                  ? 'border-amber-300/24 bg-amber-300/8 text-amber-50/82'
+                  : toolCall.status === 'failed'
+                    ? 'border-rose-300/20 bg-rose-500/10 text-rose-50/76'
+                    : 'border-white/8 bg-white/[0.035] text-white/62',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-white/82">{toolCall.label}</span>
+                <span className="uppercase tracking-[0.18em] text-white/36">{toolCall.status.replace('_', ' ')}</span>
+              </div>
+              {toolCall.summary ? <div className="mt-1 text-white/52">{toolCall.summary}</div> : null}
+              {preview ? (
+                <code className="mt-2 block truncate rounded-lg bg-black/22 px-2 py-1 font-mono text-[10px] text-[#d6fff7]/58">
+                  {preview}
+                </code>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+    </details>
+  )
+}
+
 function CurvedThreadPill({
   entry,
   index,
@@ -2440,22 +2783,7 @@ function CurvedThreadPill({
             <ChatTaskProcess task={entry.task} reduceMotion={reduceMotion} loading={isLoading} />
           ) : null}
           {isLoading && !entry.clip ? (
-            <div className="flex min-h-5 items-center gap-1 py-1" aria-label="Assistant is typing">
-              {[0, 1, 2].map((i) => (
-                <motion.span
-                  key={i}
-                  initial={{ opacity: 0.3 }}
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{
-                    duration: reduceMotion ? 0 : 1.2,
-                    delay: i * 0.12,
-                    ease: 'easeInOut',
-                    repeat: Number.POSITIVE_INFINITY,
-                  }}
-                  className="size-1.5 rounded-full bg-current"
-                />
-              ))}
-            </div>
+            <ChatSkeletonLoader reduceMotion={reduceMotion} />
           ) : (
             <span className="whitespace-pre-wrap">{entry.text}</span>
           )}
@@ -2480,6 +2808,15 @@ function CurvedThreadPill({
               onDonePosting={onDonePosting}
               onPostNow={onPostNow}
             />
+          ) : null}
+          {entry.metadata?.attachments?.length ? (
+            <ChatAttachmentStrip attachments={entry.metadata.attachments} />
+          ) : null}
+          {entry.metadata?.frames?.length ? (
+            <ChatFrameReferenceStrip frames={entry.metadata.frames} />
+          ) : null}
+          {isAssistant && entry.metadata?.toolCalls?.length ? (
+            <ChatToolCallGroup toolCalls={entry.metadata.toolCalls} />
           ) : null}
 
           {isAssistant && entry.metadata?.sources?.length ? (
@@ -2554,6 +2891,9 @@ function FloatingChatComposer({
   onOpenSocialSettings,
   onDonePosting,
   onPostNow,
+  attachments = [],
+  onAttachImages,
+  onRemoveAttachment,
 }: {
   projectId: string
   draft: string
@@ -2584,6 +2924,9 @@ function FloatingChatComposer({
   onOpenSocialSettings?: () => void
   onDonePosting?: (entryId: string) => void
   onPostNow?: (entryId: string) => void
+  attachments?: ChatAttachment[]
+  onAttachImages?: (files: FileList | null) => void
+  onRemoveAttachment?: (id: string) => void
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const responsivePlaceholderText = 'Ask about editing, color, sound...'
@@ -2604,6 +2947,7 @@ function FloatingChatComposer({
   const [suppressedAssistKey, setSuppressedAssistKey] = React.useState<string | null>(null)
   const [draftScrollLeft, setDraftScrollLeft] = React.useState(0)
   const expandedThreadEndRef = React.useRef<HTMLDivElement | null>(null)
+  const attachmentInputRef = React.useRef<HTMLInputElement | null>(null)
   const isThreadOpen = isOpen || threadOpen
   const frameAssist = useFrameTargeting({ projectId, draft, caretIndex })
   const draftMirrorAnalysis = React.useMemo(() => parseFrameReference(draft, draft.length), [draft])
@@ -2911,7 +3255,7 @@ function FloatingChatComposer({
       : null
 
   const handleComposerSubmit = React.useCallback(async () => {
-    const nextValue = draft.trim()
+    const nextValue = draft.trim() || (attachments.length ? 'Use these visual references for the next response.' : '')
     if (!nextValue) return
     onThreadOpenChange(true)
 
@@ -2925,7 +3269,7 @@ function FloatingChatComposer({
       analysis: frameAssist.analysis,
       revisionRequest,
     })
-  }, [draft, frameAssist, onSubmit, onThreadOpenChange])
+  }, [attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
 
   const handleComposerKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -2962,7 +3306,7 @@ function FloatingChatComposer({
           return
         }
 
-        if (!hasDraft) return
+        if (!hasDraft && attachments.length === 0) return
         event.preventDefault()
         void handleComposerSubmit()
       }
@@ -2974,6 +3318,7 @@ function FloatingChatComposer({
       handleComposerSubmit,
       handleFrameAssistSelect,
       hasDraft,
+      attachments.length,
       isFrameAssistSuppressed,
       isThreadOpen,
       onOpenChange,
@@ -2983,8 +3328,8 @@ function FloatingChatComposer({
 
   return (
     <div className={cn(
-      'pointer-events-none fixed inset-0 z-40 flex items-end justify-end overflow-visible transition-[transform,opacity] duration-300 ease-out',
-      isThreadOpen ? 'md:p-6' : 'p-6',
+      'pointer-events-none fixed inset-0 z-40 flex overflow-visible transition-[transform,opacity] duration-300 ease-out',
+      isThreadOpen ? 'items-center justify-center p-3 sm:p-5 md:p-6' : 'items-end justify-end p-6',
     )}>
       <AnimatePresence initial={false}>
         {isThreadOpen ? (
@@ -2996,7 +3341,7 @@ function FloatingChatComposer({
               onThreadOpenChange(false)
               onOpenChange(false)
             }}
-            className="pointer-events-auto fixed inset-0 -z-10 bg-black/65 backdrop-blur-[24px] backdrop-saturate-[1.8]"
+            className="pointer-events-auto fixed inset-0 -z-10 bg-black/72 backdrop-blur-[24px] backdrop-saturate-[1.75]"
           />
         ) : null}
       </AnimatePresence>
@@ -3012,15 +3357,15 @@ function FloatingChatComposer({
           }
         }}
         className={cn(
-          'pointer-events-auto relative origin-bottom-right overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
+          'pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
           isThreadOpen
             ? [
-                'h-[92dvh] max-h-[92dvh] w-full rounded-b-none rounded-t-3xl',
-                'md:h-[min(640px,calc(100vh-48px))] md:max-h-[640px] md:w-[420px] md:rounded-[20px]',
+                'origin-center h-[min(92dvh,860px)] max-h-[92dvh] w-[min(100%,calc(100vw-1.5rem))] rounded-[28px]',
+                'md:h-[min(86dvh,820px)] md:max-h-[calc(100vh-48px)] md:w-[min(980px,calc(100vw-48px))] md:rounded-[30px]',
               ]
-            : 'h-14 w-14 rounded-full',
+            : 'origin-bottom-right h-14 w-14 rounded-full',
         )}
-        style={{ ...CHAT_COMPOSER_FONT_STYLE, transformOrigin: 'bottom right' }}
+        style={{ ...CHAT_COMPOSER_FONT_STYLE, transformOrigin: isThreadOpen ? 'center center' : 'bottom right' }}
         initial={reduceMotion ? false : { opacity: 0, scale: isThreadOpen ? 0.8 : 0.92 }}
         animate={
           reduceMotion
@@ -3055,6 +3400,17 @@ function FloatingChatComposer({
         ) : null}
 
         <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-transparent">
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={(event) => {
+              onAttachImages?.(event.currentTarget.files)
+              event.currentTarget.value = ''
+            }}
+          />
           <AnimatePresence initial={false} mode="wait">
             {isThreadOpen ? (
               <motion.div
@@ -3167,6 +3523,12 @@ function FloatingChatComposer({
                     className="relative z-30 mb-3"
                   />
 
+                  <ChatAttachmentStrip
+                    attachments={attachments}
+                    editable
+                    onRemove={onRemoveAttachment}
+                  />
+
                   <textarea
                     id={`${composerId}-thread`}
                     ref={composerInputRef}
@@ -3195,6 +3557,7 @@ function FloatingChatComposer({
                     <motion.button
                       type="button"
                       aria-label="Attach image"
+                      onClick={() => attachmentInputRef.current?.click()}
                       className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.96 }}
@@ -3214,7 +3577,7 @@ function FloatingChatComposer({
                     <motion.button
                       type="submit"
                       aria-label={loading ? 'Stop response' : 'Send message'}
-                      disabled={!loading && !hasDraft}
+                      disabled={!loading && !hasDraft && attachments.length === 0}
                       className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -3301,6 +3664,12 @@ function FloatingChatComposer({
                   className="relative z-30 mt-2"
                 />
 
+                <ChatAttachmentStrip
+                  attachments={attachments}
+                  editable
+                  onRemove={onRemoveAttachment}
+                />
+
                 <div className="relative mt-2 flex-1 overflow-visible">
                   {!hasDraft ? (
                     <div className="pointer-events-none absolute inset-0 flex items-center overflow-hidden">
@@ -3362,6 +3731,7 @@ function FloatingChatComposer({
                   <motion.button
                     type="button"
                     aria-label="Attach image"
+                    onClick={() => attachmentInputRef.current?.click()}
                     className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.96 }}
@@ -3381,7 +3751,7 @@ function FloatingChatComposer({
                   <motion.button
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
-                    disabled={!loading && !hasDraft}
+                    disabled={!loading && !hasDraft && attachments.length === 0}
                     className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -3448,6 +3818,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   const [pendingReplies, setPendingReplies] = React.useState(0)
   const [isComposerOpen, setIsComposerOpen] = React.useState(false)
   const [isComposerThreadOpen, setIsComposerThreadOpen] = React.useState(false)
+  const [pendingChatAttachments, setPendingChatAttachments] = React.useState<ChatAttachment[]>([])
   const [queuedPreviewRevision, setQueuedPreviewRevision] = React.useState<QueuedPreviewRevisionState | null>(null)
   const [musicPreference, setMusicPreference] = React.useState<MusicPreference>(() =>
     createDefaultMusicPreference(),
@@ -3777,6 +4148,25 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       entriesRef.current = next
       return next
     })
+  }, [])
+
+  const addPendingChatAttachments = React.useCallback((files: FileList | null) => {
+    const nextFiles = Array.from(files ?? []).filter((file) => file.type.startsWith('image/')).slice(0, 4)
+    if (!nextFiles.length) return
+
+    void Promise.all(nextFiles.map(readImageAttachment))
+      .then((nextAttachments) => {
+        const cleanAttachments = nextAttachments.filter((attachment): attachment is ChatAttachment => Boolean(attachment))
+        if (!cleanAttachments.length) return
+        setPendingChatAttachments((current) => [...current, ...cleanAttachments].slice(-4))
+      })
+      .catch(() => {
+        toast.error('That image could not be attached. Try a smaller visual reference.')
+      })
+  }, [])
+
+  const removePendingChatAttachment = React.useCallback((id: string) => {
+    setPendingChatAttachments((current) => current.filter((attachment) => attachment.id !== id))
   }, [])
 
   const recentPostingFiles = React.useMemo<RecentPostingFile[]>(() => {
@@ -4534,11 +4924,14 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         scrollToReply?: boolean
         showUserMessage?: boolean
         revisionRequest?: FrameAssistSubmission['revisionRequest'] | null
+        attachments?: ChatAttachment[]
       },
     ) => {
       const nextValue = rawValue.trim()
       if (!nextValue) return
 
+      const requestFrameReferences = buildChatFrameReferences(options?.revisionRequest ?? null)
+      const requestAttachments = options?.attachments ?? []
       const shouldScrollToReply = options?.scrollToReply ?? true
       const shouldRecommendMusicCandidate = options?.forceMusic ?? isMusicIntent(nextValue)
       const shouldEditRequest = !options?.forceMusic && (isEditIntent(nextValue) || Boolean(options?.revisionRequest?.frameTarget))
@@ -4602,11 +4995,19 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
         : []
 
       const baseEntries = entriesRef.current.filter((entry) => entry.status !== 'loading')
+      const userMetadata =
+        requestAttachments.length || requestFrameReferences.length
+          ? {
+              ...(requestAttachments.length ? { attachments: requestAttachments } : {}),
+              ...(requestFrameReferences.length ? { frames: requestFrameReferences } : {}),
+            }
+          : undefined
       const userEntry: ChatEntry | null = shouldShowUserMessage
         ? {
             id: `user-${Date.now()}`,
             role: 'user',
             text: nextValue,
+            metadata: userMetadata,
           }
         : null
       const displayEntries = userEntry ? [...baseEntries, userEntry] : baseEntries
@@ -4733,7 +5134,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           ? Promise.resolve()
           : (async () => {
             try {
-              const endpoint = shouldEditRequest ? '/api/chat' : '/api/rag'
+              const endpoint = shouldEditRequest ? '/api/chat' : '/api/prometheus-chat'
               const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -4752,9 +5153,20 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                         workflow: 'edit',
                         messages: messageHistory,
                         revisionRequest: options?.revisionRequest ?? null,
+                        frameReferences: requestFrameReferences,
+                        attachments: requestAttachments,
                       }
                     : {
-                        query: nextValue,
+                        message: nextValue,
+                        messages: messageHistory,
+                        projectId,
+                        projectTitle,
+                        originalPrompt: initialPrompt,
+                        initialSources,
+                        videoContext,
+                        frameReferences: requestFrameReferences,
+                        attachments: requestAttachments,
+                        verbosity: 'brief',
                       },
                 ),
               })
@@ -4805,6 +5217,18 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                     : ''
               const nextError = typeof payload?.error === 'string' ? payload.error.trim() : ''
               const nextSources = normalizeChatSources(payload?.sources)
+              const nextToolCalls = normalizeChatToolCalls(payload?.toolCalls)
+              const nextFrames = normalizeChatFrames(payload?.frames)
+              const nextAttachments = normalizeChatAttachments(payload?.attachments)
+              const responseMetadata =
+                nextSources.length || nextToolCalls.length || nextFrames.length || nextAttachments.length
+                  ? {
+                      ...(nextSources.length ? { sources: nextSources } : {}),
+                      ...(nextToolCalls.length ? { toolCalls: nextToolCalls } : {}),
+                      ...(nextFrames.length ? { frames: nextFrames } : {}),
+                      ...(nextAttachments.length ? { attachments: nextAttachments } : {}),
+                    }
+                  : undefined
 
               if (controller.signal.aborted) return
 
@@ -4817,7 +5241,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   text: nextReply,
                   status: 'ready',
                   task: settleChatTask(entry.task),
-                  metadata: nextSources.length ? { ...entry.metadata, sources: nextSources } : entry.metadata,
+                  metadata: responseMetadata ? { ...entry.metadata, ...responseMetadata } : entry.metadata,
                 }))
                 return
               }
@@ -4982,6 +5406,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       onEditRequest,
       musicPreference,
       postingProjectGroups,
+      projectId,
       projectTitle,
       mergeEntryInState,
       removeEntryInState,
@@ -5026,12 +5451,15 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
           })
       }
 
+      const outgoingAttachments = pendingChatAttachments
       void submitMessage(nextValue, {
         revisionRequest: enrichedRevisionRequest,
+        attachments: outgoingAttachments,
       })
+      setPendingChatAttachments([])
       setDraft('')
     },
-    [submitMessage],
+    [pendingChatAttachments, submitMessage],
   )
 
   const clearQueuedPreviewRevision = React.useCallback(() => {
@@ -5299,6 +5727,9 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   onOpenSocialSettings={openSocialSettings}
                   onDonePosting={donePostingMock}
                   onPostNow={completePostingMock}
+                  attachments={pendingChatAttachments}
+                  onAttachImages={addPendingChatAttachments}
+                  onRemoveAttachment={removePendingChatAttachment}
                 />
               </>,
               composerPortalTarget,

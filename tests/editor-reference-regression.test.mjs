@@ -15,7 +15,7 @@ function run() {
   assert.equal(editorPage.includes('layoutId="editor-workspace-active-pill"'), false)
   assert.equal(editorPage.includes('bg-black/45 backdrop-blur-sm md:bg-transparent md:backdrop-blur-0'), false)
   assert.match(editorPage, /backdrop-blur-\[24px\]/)
-  assert.match(editorPage, /bg-black\/65/)
+  assert.match(editorPage, /bg-black\/72/)
 
   const musicPanel = read('components/editor/music-tab-panel.tsx')
   assert.match(musicPanel, /catalogReady/)
