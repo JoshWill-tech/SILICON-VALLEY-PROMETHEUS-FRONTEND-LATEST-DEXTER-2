@@ -108,7 +108,9 @@ function run() {
   assert.match(sourceStagePlaceholder, /SourceAddGlyph/)
   assert.match(sourceStagePlaceholder, /border-dashed/)
   assert.match(sourceStagePlaceholder, /MinimalTypographicLoader/)
-  assert.match(sourceStagePlaceholder, /pointer-events-none flex h-full/)
+  assert.match(sourceStagePlaceholder, /ambient=\{false\}/)
+  assert.match(sourceStagePlaceholder, /aria-busy=\{isLoading\}/)
+  assert.match(sourceStagePlaceholder, /pointer-events-none absolute inset-0 z-0 flex h-full/)
   assert.equal(sourceStagePlaceholder.includes('bg-[#07070a]'), false)
 
   const logoAlpha = readLogoAlphaStats(join(root, 'public/branding/prometheus-logo-no-bg.png'))
@@ -143,9 +145,15 @@ function run() {
   assert.equal(sharedLoader.includes('bg-[#000000]'), false)
   assert.match(sharedLoader, /bg-transparent/)
   assert.match(sharedLoader, /pointer-events-none/)
+  assert.match(sharedLoader, /ambient = true/)
   assert.match(sharedLoader, /mix-blend-screen/)
   assert.match(sharedLoader, /mask-image:radial-gradient/)
   assert.equal(sharedLoader.includes('rounded-[28px]'), false)
+
+  const musicPlayer = read('components/ui/music-player.tsx')
+  assert.match(musicPlayer, /overflow-hidden/)
+  assert.match(musicPlayer, /truncate/)
+  assert.match(musicPlayer, /title=\{artistName\}/)
 
   const editorLoading = read('app/editor/loading.tsx')
   assert.match(editorLoading, /EditorLoadingScreen/)

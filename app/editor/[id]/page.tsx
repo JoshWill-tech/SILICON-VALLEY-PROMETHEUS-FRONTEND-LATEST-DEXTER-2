@@ -3328,7 +3328,7 @@ function FloatingChatComposer({
 
   return (
     <div className={cn(
-      'pointer-events-none fixed inset-0 z-40 flex overflow-visible transition-[transform,opacity] duration-300 ease-out',
+      'pointer-events-none fixed inset-0 z-[120] flex overflow-visible transition-[transform,opacity] duration-300 ease-out',
       isThreadOpen ? 'items-center justify-center p-3 sm:p-5 md:p-6' : 'items-end justify-end p-6',
     )}>
       <AnimatePresence initial={false}>
@@ -3763,7 +3763,7 @@ function FloatingChatComposer({
             ) : (
               <motion.div
                 key="closed-composer-icon"
-                className="relative grid h-full w-full place-items-center rounded-full bg-[#0a0a0a]/95 text-white/82"
+                className="relative grid h-full w-full place-items-center rounded-full border border-white/16 bg-[radial-gradient(circle_at_34%_26%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_32%),linear-gradient(145deg,rgba(18,18,22,0.98)_0%,rgba(4,4,6,0.98)_100%)] text-white shadow-[0_18px_42px_-20px_rgba(0,0,0,0.95),0_0_34px_-22px_rgba(127,242,212,0.82)]"
                 initial={reduceMotion ? false : { opacity: 0.92, scale: 0.94 }}
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
                 exit={reduceMotion ? undefined : { opacity: 0.95, scale: 1 }}
@@ -3775,7 +3775,11 @@ function FloatingChatComposer({
                 whileHover={reduceMotion ? undefined : { scale: 1.05, boxShadow: '0 18px 42px rgba(0,0,0,0.42)' }}
                 whileTap={reduceMotion ? undefined : { scale: 0.96 }}
               >
-                <MessageSquare className="relative size-5" />
+                <span
+                  aria-hidden
+                  className="absolute inset-[7px] rounded-full border border-[#7ff2d4]/18"
+                />
+                <MessageSquare className="relative size-5 drop-shadow-[0_0_10px_rgba(127,242,212,0.22)]" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -8092,7 +8096,7 @@ function OriginalEditorPage() {
       <div
         ref={setChatComposerPortal}
         aria-hidden
-        className="pointer-events-none fixed inset-0 z-[60] h-0 w-0 overflow-visible"
+        className="pointer-events-none fixed inset-0 z-[120] h-0 w-0 overflow-visible"
       />
     </>
   )

@@ -246,7 +246,7 @@ export function MusicPlayer({
   return (
     <div
       className={cn(
-        'flex h-full w-full flex-col items-center rounded-[26px] bg-black px-5 py-6 text-white sm:px-6 sm:py-6',
+        'flex h-full min-h-0 w-full flex-col items-center overflow-hidden rounded-[26px] bg-black px-5 py-5 text-white sm:px-6',
         className,
       )}
     >
@@ -290,7 +290,7 @@ export function MusicPlayer({
 
       <audio ref={audioRef} src={audioSrc} loop={isRepeat} preload="metadata" />
 
-      <div className="relative mb-5 flex min-h-[14.5rem] items-center justify-center">
+      <div className="relative mb-4 flex min-h-[clamp(9.5rem,28vh,13rem)] shrink items-center justify-center">
         <motion.div
           key={albumArt}
           initial={reduceMotion ? false : { opacity: 0, scale: 0.96, filter: 'blur(8px)' }}
@@ -298,7 +298,7 @@ export function MusicPlayer({
           exit={reduceMotion ? undefined : { opacity: 0, scale: 1.02, filter: 'blur(8px)' }}
           transition={{ duration: reduceMotion ? 0 : 0.28, ease: chamberEase }}
           style={reduceMotion ? undefined : { rotate: rotation }}
-          className="relative z-10 h-44 w-44 overflow-hidden rounded-full border border-white/8 shadow-[0_20px_42px_-30px_rgba(0,0,0,0.98)] sm:h-48 sm:w-48"
+          className="relative z-10 h-[clamp(8.75rem,24vh,11rem)] w-[clamp(8.75rem,24vh,11rem)] overflow-hidden rounded-full border border-white/8 shadow-[0_20px_42px_-30px_rgba(0,0,0,0.98)]"
         >
           {albumArtFailed ? (
             <div className="grid h-full w-full place-items-center bg-white/[0.04] text-white/24">
@@ -329,13 +329,19 @@ export function MusicPlayer({
           animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
           exit={reduceMotion ? undefined : { opacity: 0, y: -6, filter: 'blur(4px)' }}
           transition={{ duration: reduceMotion ? 0 : 0.24, ease: chamberEase }}
-          className="w-full"
+          className="w-full min-w-0 max-w-full overflow-hidden px-1"
         >
-          <div className="text-center">
-            <h2 className={cn(musicDisplayFont, 'text-[1.38rem] font-normal text-white sm:text-[1.55rem]')}>
+          <div className="min-w-0 text-center">
+            <h2
+              className={cn(musicDisplayFont, 'mx-auto max-w-full truncate text-[1.08rem] font-normal text-white sm:text-[1.18rem]')}
+              title={songTitle}
+            >
               {songTitle}
             </h2>
-            <p className={cn(musicMetaFont, 'mt-1 text-[0.92rem] font-normal text-white/72')}>
+            <p
+              className={cn(musicMetaFont, 'mx-auto mt-1 max-w-full truncate text-[0.82rem] font-normal text-white/72')}
+              title={artistName}
+            >
               {artistName}
             </p>
             <div aria-live="polite" className="mt-2 min-h-4 text-[11px] uppercase tracking-[0.18em] text-white/38">
@@ -345,8 +351,8 @@ export function MusicPlayer({
         </motion.div>
       </AnimatePresence>
 
-      <div className="mt-6 w-full max-w-[18rem]">
-        <div className="mb-7 flex items-center gap-x-3">
+      <div className="mt-4 w-full max-w-[18rem]">
+        <div className="mb-5 flex items-center gap-x-3">
           <span className="w-12 text-left font-mono text-[11px] text-white/78">{formatTime(currentTime)}</span>
           <input
             ref={progressBarRef}

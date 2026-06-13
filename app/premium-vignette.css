@@ -165,7 +165,7 @@
 
   .music-disc-safe-stage {
     position: relative;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .music-disc-safe-stage::before,

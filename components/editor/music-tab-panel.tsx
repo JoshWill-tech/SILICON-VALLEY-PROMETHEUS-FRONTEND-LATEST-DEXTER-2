@@ -997,7 +997,7 @@ export function MusicTabPanel({
                 onNext={({ shuffle }) => handlePlayerStep('next', { shuffle })}
                 canPrevious={(filteredTracks.length || displayTracks.length) > 1}
                 canNext={(filteredTracks.length || displayTracks.length) > 1}
-                className="relative z-10 flex-1"
+                className="relative z-10 min-h-0 flex-1 overflow-hidden"
               />
             </div>
           ) : null}

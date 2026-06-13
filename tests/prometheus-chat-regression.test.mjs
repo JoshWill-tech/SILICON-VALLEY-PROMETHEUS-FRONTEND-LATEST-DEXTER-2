@@ -17,6 +17,8 @@ function run() {
   assert.equal(editorPage.includes('md:w-[420px]'), false)
   assert.equal(editorPage.includes('lg:w-[420px]'), false)
   assert.equal(editorPage.includes('max-w-[420px]'), false)
+  assert.match(editorPage, /z-\[120\]/)
+  assert.match(editorPage, /setChatComposerPortal[\s\S]*z-\[120\]/)
   assert.match(editorPage, /md:w-\[min\(980px,calc\(100vw-48px\)\)\]/)
 
   assert.match(editorPage, /const endpoint = shouldEditRequest \? '\/api\/chat' : '\/api\/prometheus-chat'/)

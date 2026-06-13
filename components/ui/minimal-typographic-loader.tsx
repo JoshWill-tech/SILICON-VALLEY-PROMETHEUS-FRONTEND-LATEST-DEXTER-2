@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 type MinimalTypographicLoaderProps = {
+  ambient?: boolean
   className?: string
   label?: string
   message?: string
@@ -53,6 +54,7 @@ function usePrefersReducedMotion() {
 }
 
 export function MinimalTypographicLoader({
+  ambient = true,
   className,
   label = 'Loading...',
   message = 'Preparing the workspace.',
@@ -75,10 +77,12 @@ export function MinimalTypographicLoader({
       aria-live="polite"
       aria-label={ariaLabel}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(99,74,255,0.12)_0%,rgba(37,28,114,0.08)_28%,rgba(0,0,0,0)_58%),radial-gradient(circle_at_50%_50%,rgba(15,255,166,0.035)_0%,rgba(0,0,0,0)_52%)]"
-      />
+      {ambient ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_44%,rgba(99,74,255,0.12)_0%,rgba(37,28,114,0.08)_28%,rgba(0,0,0,0)_58%),radial-gradient(circle_at_50%_50%,rgba(15,255,166,0.035)_0%,rgba(0,0,0,0)_52%)]"
+        />
+      ) : null}
       <div
         className={cn(
           'relative aspect-[4/3] select-none overflow-visible',
@@ -93,7 +97,12 @@ export function MinimalTypographicLoader({
           height={600}
           unoptimized
           priority={variant === 'screen'}
-          className="h-full w-full object-contain mix-blend-screen [mask-image:radial-gradient(ellipse_at_center,black_0%,black_48%,rgba(0,0,0,0.72)_62%,transparent_82%)]"
+          className={cn(
+            'h-full w-full object-contain mix-blend-screen',
+            ambient
+              ? '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_48%,rgba(0,0,0,0.72)_62%,transparent_82%)]'
+              : '[mask-image:radial-gradient(ellipse_at_center,black_0%,black_36%,rgba(0,0,0,0.62)_50%,transparent_70%)]',
+          )}
         />
       </div>
       <span className="sr-only">{ariaLabel}</span>
