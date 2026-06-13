@@ -6298,6 +6298,8 @@ function OriginalEditorPage() {
   const previewKind = incomingPreviewKind
   const shouldUseLegacySessionPreviewSurface = Boolean(handoffPreviewForCurrentSource?.url) && previewKind === 'video'
   const hasPreviewMedia = Boolean(previewUrl)
+  const isSourceStageActivelyLoading =
+    sourceStagePhase === 'staging_local_preview' || sourceStagePhase === 'persisting'
   const clipModeActive = previewFramePreset === '9:16'
   const viralClipTriggerBusy =
     viralClipLifecycle === 'submitting' || viralClipLifecycle === 'submitted' || viralClipLifecycle === 'polling'
@@ -6320,7 +6322,7 @@ function OriginalEditorPage() {
   React.useEffect(() => {
     const isInlinePreviewStatusActive =
       Boolean(hasPreviewMedia) &&
-      (sourceStageError || sourceStagePhase === 'staging_local_preview' || sourceStagePhase === 'persisting')
+      (sourceStageError || isSourceStageActivelyLoading)
 
     if (!isInlinePreviewStatusActive) {
       inlinePreviewStatusHasShownRef.current = false
@@ -6346,7 +6348,7 @@ function OriginalEditorPage() {
       setInlinePreviewStatusVariant('icon')
       inlinePreviewStatusTimeoutRef.current = null
     }, 2200)
-  }, [hasPreviewMedia, sourceStageError, sourceStagePhase])
+  }, [hasPreviewMedia, isSourceStageActivelyLoading, sourceStageError])
 
   const hasPreviewFrameAdjustment = scale !== 100 || offsetX !== 0 || offsetY !== 0
   const showInlinePreviewStatus = Boolean(hasPreviewMedia) && inlinePreviewStatusVariant !== 'hidden'
@@ -7697,6 +7699,7 @@ function OriginalEditorPage() {
                       isPreviewMuted={isPreviewMuted}
                       isPreviewMediaReady={isPreviewMediaReady}
                       isPreviewLoadingVisible={isPreviewLoadingVisible}
+                      isSourceStageActivelyLoading={isSourceStageActivelyLoading}
                       isPreviewBriefGenerating={isPreviewBriefGenerating}
                       showPreviewFeedback={showPreviewFeedback}
                       showInlinePreviewStatus={showInlinePreviewStatus}

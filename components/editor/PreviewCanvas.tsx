@@ -46,6 +46,7 @@ export interface PreviewCanvasProps {
   isPreviewMuted: boolean
   isPreviewMediaReady: boolean
   isPreviewLoadingVisible: boolean
+  isSourceStageActivelyLoading: boolean
   isPreviewBriefGenerating: boolean
   showPreviewFeedback: boolean
   showInlinePreviewStatus: boolean
@@ -104,6 +105,7 @@ export function PreviewCanvas({
   isPreviewMuted,
   isPreviewMediaReady,
   isPreviewLoadingVisible,
+  isSourceStageActivelyLoading,
   isPreviewBriefGenerating,
   showPreviewFeedback,
   showInlinePreviewStatus,
@@ -309,7 +311,7 @@ export function PreviewCanvas({
                   </>
                 ) : (
                   <SourceStagePlaceholder
-                    status={sourceStageError ? 'error' : previewUrl || hasSourceAsset ? 'loading' : 'empty'}
+                    status={sourceStageError ? 'error' : isSourceStageActivelyLoading ? 'loading' : 'empty'}
                     isDragActive={isInlineSourceDragOver}
                     onPickSource={onPickSource}
                     onDragOver={onInlineSourceDragOver}

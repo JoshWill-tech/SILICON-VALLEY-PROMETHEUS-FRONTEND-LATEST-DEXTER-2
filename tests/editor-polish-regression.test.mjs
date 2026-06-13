@@ -87,6 +87,20 @@ function run() {
   assert.equal(editorProjectPage.includes("text=\"Prompt\" delay={0.06}"), false)
   assert.equal(editorProjectPage.includes('<StagedMusicRail'), false)
   assert.equal(editorProjectPage.includes('latestMusicBlock'), false)
+  assert.match(editorProjectPage, /const isSourceStageActivelyLoading =/)
+  assert.match(editorProjectPage, /sourceStagePhase === 'staging_local_preview'/)
+  assert.match(editorProjectPage, /sourceStagePhase === 'persisting'/)
+  assert.match(editorProjectPage, /isSourceStageActivelyLoading=\{isSourceStageActivelyLoading\}/)
+
+  const previewCanvas = read('components/editor/PreviewCanvas.tsx')
+  assert.equal(previewCanvas.includes("previewUrl || hasSourceAsset ? 'loading' : 'empty'"), false)
+  assert.match(previewCanvas, /isSourceStageActivelyLoading: boolean/)
+  assert.match(previewCanvas, /status=\{sourceStageError \? 'error' : isSourceStageActivelyLoading \? 'loading' : 'empty'\}/)
+
+  const sourceStagePlaceholder = read('components/editor/source-stage-placeholder.tsx')
+  assert.match(sourceStagePlaceholder, /SourceAddGlyph/)
+  assert.match(sourceStagePlaceholder, /border-dashed/)
+  assert.match(sourceStagePlaceholder, /MinimalTypographicLoader/)
 
   const logoAlpha = readLogoAlphaStats(join(root, 'public/branding/prometheus-logo-no-bg.png'))
   assert.ok(logoAlpha.transparentPixels / logoAlpha.totalPixels > 0.25)
