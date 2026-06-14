@@ -21,7 +21,10 @@ function run() {
   assert.match(loader, /standalone\?: boolean/)
   assert.match(loader, /standalone = false/)
   assert.match(loader, /const showAmbient = ambient && !standalone/)
-  assert.match(loader, /standalone \? 'mix-blend-normal \[mask-image:none\]' : 'mix-blend-screen/)
+  assert.match(loader, /function StandaloneInfinityMark/)
+  assert.match(loader, /standalone \? \(/)
+  assert.match(loader, /<StandaloneInfinityMark prefersReducedMotion=\{prefersReducedMotion\} \/>/)
+  assert.equal(loader.includes("standalone ? 'mix-blend-normal [mask-image:none]'"), false)
 
   const sourceStagePlaceholder = read('components/editor/source-stage-placeholder.tsx')
   assert.match(sourceStagePlaceholder, /standalone/)
