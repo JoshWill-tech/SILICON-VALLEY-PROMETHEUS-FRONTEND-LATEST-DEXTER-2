@@ -22,7 +22,7 @@ const navItems = [
   { id: "projects", label: "Projects", icon: Folder, count: 3, href: "/projects" },
   { id: "recent", label: "Recent", icon: Clock, count: 0, href: "/projects?view=recent" },
   { id: "motion", label: "Motion Brain", icon: Zap, count: 0, href: "/editor/motion" },
-  { id: "analytics", label: "Analytics", icon: BarChart3, count: 0, href: "/dashboard?panel=analytics" },
+  { id: "analytics", label: "Analytics", icon: BarChart3, count: 0, href: "/analytics" },
 ];
 
 export function AwwwardsSidebar() {
@@ -208,6 +208,7 @@ function isNavItemActive(pathname: string | null, href: string) {
   if (!pathname) return false;
   if (href.startsWith("/projects")) return pathname.startsWith("/projects");
   if (href === "/editor/motion") return pathname === "/editor/motion";
+  if (href === "/analytics") return pathname.startsWith("/analytics");
   if (href.startsWith("/dashboard")) return pathname.startsWith("/dashboard");
   return pathname === href;
 }

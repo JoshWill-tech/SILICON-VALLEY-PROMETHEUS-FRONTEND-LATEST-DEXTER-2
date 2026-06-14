@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
+  BarChart3,
   ChevronsLeft,
   ChevronsRight,
   FolderKanban,
@@ -59,6 +60,7 @@ const BASE_MENU_ITEMS: MenuItem[] = [
   { key: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban },
   { key: 'library', label: 'Library', href: '/assets', icon: LibraryBig },
   { key: 'editor', label: 'Editor', href: '/editor', icon: Wand2 },
+  { key: 'analytics', label: 'Analytics', href: '/analytics', icon: BarChart3 },
   { key: 'settings', label: 'Settings', href: '/settings', icon: Settings },
 ]
 

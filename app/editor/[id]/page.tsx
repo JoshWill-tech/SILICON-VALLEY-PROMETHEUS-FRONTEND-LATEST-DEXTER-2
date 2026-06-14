@@ -56,6 +56,7 @@ import { ContinueBanner } from '@/components/editor/ContinueBanner'
 import gsap from 'gsap'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
+import { AiResponseLoader } from '@/components/ui/ai-response-loader'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { EditorHeader } from '@/components/editor/EditorHeader'
@@ -881,6 +882,31 @@ const EDITOR_REQUEST_TIMEOUT_MS = 25_000
 const CHAT_COMPOSER_FONT_STYLE = {
   fontFamily: '"SF Pro Text","SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif',
 } satisfies React.CSSProperties
+
+const chatMorphSpring = {
+  type: 'spring' as const,
+  mass: 1.2,
+  stiffness: 90,
+  damping: 24,
+}
+
+const chatMorphVariants = {
+  closed: {
+    opacity: 1,
+    scale: 1,
+    borderRadius: 999,
+  },
+  open: {
+    opacity: 1,
+    scale: 1,
+    borderRadius: 28,
+  },
+  thread: {
+    opacity: 1,
+    scale: 1,
+    borderRadius: 32,
+  },
+}
 
 function debugEditorPreview(event: string, detail?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== 'development') return
@@ -2550,39 +2576,6 @@ function SocialPostingCard({
   )
 }
 
-function ChatSkeletonLoader({ reduceMotion }: { reduceMotion: boolean }) {
-  return (
-    <div className="min-w-[min(22rem,72vw)] py-1" aria-label="Assistant is thinking">
-      <div className="mb-3 flex items-center gap-3 text-white/52">
-        <motion.span
-          aria-hidden
-          className="size-8 shrink-0 rounded-full bg-white/10"
-          animate={reduceMotion ? undefined : { opacity: [0.45, 0.9, 0.45] }}
-          transition={{ duration: reduceMotion ? 0 : 1.6, ease: 'easeInOut', repeat: Number.POSITIVE_INFINITY }}
-        />
-        <span className="text-xs uppercase tracking-[0.22em] text-white/42">Thinking</span>
-      </div>
-      <div className="space-y-2.5">
-        {[88, 74, 52].map((width, index) => (
-          <motion.span
-            key={width}
-            aria-hidden
-            className="block h-2.5 rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.2),rgba(255,255,255,0.08))]"
-            style={{ width: `${width}%`, backgroundSize: '220% 100%' }}
-            animate={reduceMotion ? undefined : { backgroundPositionX: ['120%', '-120%'] }}
-            transition={{
-              duration: reduceMotion ? 0 : 1.45,
-              delay: index * 0.08,
-              ease: 'easeInOut',
-              repeat: Number.POSITIVE_INFINITY,
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function ChatAttachmentStrip({
   attachments,
   editable = false,
@@ -2806,7 +2799,7 @@ function CurvedThreadPill({
             <ChatTaskProcess task={entry.task} reduceMotion={reduceMotion} loading={isLoading} />
           ) : null}
           {isLoading && !entry.clip ? (
-            <ChatSkeletonLoader reduceMotion={reduceMotion} />
+            <AiResponseLoader className="min-w-[min(22rem,72vw)] py-1" />
           ) : (
             <span className="whitespace-pre-wrap">{entry.text}</span>
           )}
@@ -3379,7 +3372,7 @@ function FloatingChatComposer({
         ) : null}
       </AnimatePresence>
       <motion.div
-        layout
+        layout={!reduceMotion}
         drag={isMobile && isThreadOpen ? "y" : false}
         dragConstraints={{ top: 0 }}
         dragElastic={0.2}
@@ -3390,33 +3383,20 @@ function FloatingChatComposer({
           }
         }}
         className={cn(
-          'premium-motion-surface premium-telemetry-panel pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
+          'premium-motion-surface premium-telemetry-panel pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl',
           isThreadOpen
             ? [
-                'origin-center h-[min(92dvh,860px)] max-h-[92dvh] w-[min(100%,calc(100vw-1.5rem))] rounded-[28px]',
-                'md:h-[min(86dvh,820px)] md:max-h-[calc(100vh-48px)] md:w-[min(980px,calc(100vw-48px))] md:rounded-[30px]',
+                'origin-center h-[min(92dvh,900px)] max-h-[92dvh] w-[min(100%,calc(100vw-1.5rem))] rounded-[30px]',
+                'md:h-[min(88dvh,860px)] md:max-h-[calc(100vh-48px)] md:w-[min(1080px,calc(100vw-48px))] md:rounded-[32px]',
               ]
             : 'origin-bottom-right h-14 w-14 rounded-full',
         )}
         style={{ ...CHAT_COMPOSER_FONT_STYLE, transformOrigin: isThreadOpen ? 'center center' : 'bottom right' }}
-        initial={reduceMotion ? false : { opacity: 0, scale: isThreadOpen ? 0.8 : 0.92 }}
-        animate={
-          reduceMotion
-            ? undefined
-            : {
-                opacity: 1,
-                scale: 1,
-              }
-        }
-        exit={reduceMotion ? undefined : { opacity: 0, scale: isThreadOpen ? 0.9 : 1 }}
-        transition={
-          reduceMotion
-            ? undefined
-            : {
-                duration: isThreadOpen ? 0.3 : 0.24,
-                ease: [0.22, 1, 0.36, 1],
-              }
-        }
+        variants={chatMorphVariants}
+        initial={reduceMotion ? false : isThreadOpen ? 'thread' : 'closed'}
+        animate={reduceMotion ? undefined : isThreadOpen ? 'thread' : isOpen ? 'open' : 'closed'}
+        exit={reduceMotion ? undefined : { opacity: 0, scale: isThreadOpen ? 0.985 : 1 }}
+        transition={reduceMotion ? undefined : chatMorphSpring}
         whileHover={!isThreadOpen && !reduceMotion ? { scale: 1.05, boxShadow: '0 18px 42px rgba(0,0,0,0.42)' } : undefined}
         whileTap={!isThreadOpen && !reduceMotion ? { scale: 0.96 } : undefined}
       >
@@ -3618,7 +3598,7 @@ function FloatingChatComposer({
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
-                      {loading ? <div className="h-3 w-3 rounded-[2px] bg-current" /> : <ArrowUp className="size-5" />}
+                      {loading ? <span className="loader-orb !size-[18px]" aria-hidden="true" /> : <ArrowUp className="size-5" />}
                     </motion.button>
                   </div>
                 </form>
@@ -3795,7 +3775,7 @@ function FloatingChatComposer({
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                   >
-                    {loading ? <div className="h-3 w-3 rounded-[2px] bg-current" /> : <ArrowUp className="size-4" />}
+                    {loading ? <span className="loader-orb !size-[18px]" aria-hidden="true" /> : <ArrowUp className="size-4" />}
                   </motion.button>
                 </div>
               </motion.div>
@@ -5706,20 +5686,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               {entry.role === 'assistant' ? (
                 <div className="space-y-3">
                   {entry.status === 'loading' && !entry.music ? (
-                    <div className="flex items-start gap-2 text-sm leading-6 text-white/72">
-                      <span className="mt-2.5 flex shrink-0 items-center gap-1">
-                        {[0, 1, 2].map((dotIndex) => (
-                          <motion.span
-                            key={dotIndex}
-                            className="size-1.5 rounded-full bg-white/48"
-                            initial={reduceMotion ? false : { opacity: 0.3 }}
-                            animate={reduceMotion ? undefined : { opacity: [0.3, 1, 0.3] }}
-                            transition={{ duration: reduceMotion ? 0 : 0.48, delay: dotIndex * 0.08, ease: 'easeOut' }}
-                          />
-                        ))}
-                      </span>
-                      <span>{entry.text}</span>
-                    </div>
+                    <AiResponseLoader className="justify-start py-1" />
                   ) : (
                     <p className="whitespace-pre-wrap text-sm leading-6 tracking-[0.01em] text-white/74">
                       {entry.text}

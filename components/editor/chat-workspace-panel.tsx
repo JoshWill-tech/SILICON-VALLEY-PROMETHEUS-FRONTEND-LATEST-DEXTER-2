@@ -7,7 +7,6 @@ import {
   AlertCircle,
   ArrowUp,
   MessageSquare,
-  Sparkles,
   Volume2,
   X,
 } from 'lucide-react'
@@ -38,6 +37,7 @@ import type {
 
 import { StagedMusicRail } from '@/components/editor/staged-music-rail'
 import { MusicSpotlightOrb } from '@/components/editor/music-spotlight-orb'
+import { AiResponseLoader } from '@/components/ui/ai-response-loader'
 
 export interface ChatEntry {
   id: string
@@ -225,10 +225,9 @@ export const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 px-2 text-xs text-white/32"
+              className="px-2"
             >
-              <Sparkles className="size-3 animate-pulse text-[#9ff6e3]" />
-              <span>Thinking...</span>
+              <AiResponseLoader />
             </motion.div>
           )}
         </div>
