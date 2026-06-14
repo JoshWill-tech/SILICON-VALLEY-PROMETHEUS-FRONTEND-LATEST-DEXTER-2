@@ -809,7 +809,6 @@ export function MusicTabPanel({
         <div className="relative z-10 flex min-h-[220px] w-full items-center justify-center px-4 text-center">
           <MinimalTypographicLoader
             ambient={false}
-            standalone
             label="Loading catalog"
             message="Preparing Cloudflare soundtrack imagery."
             size="sm"
@@ -920,7 +919,6 @@ export function MusicTabPanel({
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
                   <MinimalTypographicLoader
                     ambient={false}
-                    standalone
                     label="Loading catalog"
                     message="Preparing soundtrack previews."
                     size="sm"
@@ -1054,7 +1052,6 @@ export function MusicTabPanel({
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
                   <MinimalTypographicLoader
                     ambient={false}
-                    standalone
                     label="Loading catalog"
                     message="Preparing soundtrack previews."
                     size="sm"

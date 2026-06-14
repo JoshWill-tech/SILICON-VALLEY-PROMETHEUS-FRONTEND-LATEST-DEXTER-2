@@ -107,10 +107,10 @@ function run() {
   const sourceStagePlaceholder = read('components/editor/source-stage-placeholder.tsx')
   assert.match(sourceStagePlaceholder, /SourceAddGlyph/)
   assert.match(sourceStagePlaceholder, /border-dashed/)
-  assert.match(sourceStagePlaceholder, /MinimalTypographicLoader/)
-  assert.match(sourceStagePlaceholder, /ambient=\{false\}/)
+  assert.equal(sourceStagePlaceholder.includes('MinimalTypographicLoader'), false)
+  assert.equal(sourceStagePlaceholder.includes('prometheus-infinity-loader'), false)
   assert.match(sourceStagePlaceholder, /aria-busy=\{isLoading\}/)
-  assert.match(sourceStagePlaceholder, /pointer-events-none absolute inset-0 z-0 flex h-full/)
+  assert.match(sourceStagePlaceholder, /pointer-events-none absolute inset-0 z-0 bg-transparent/)
   assert.equal(sourceStagePlaceholder.includes('bg-[#07070a]'), false)
 
   const logoAlpha = readLogoAlphaStats(join(root, 'public/branding/prometheus-logo-no-bg.png'))

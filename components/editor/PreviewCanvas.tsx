@@ -7,7 +7,6 @@ import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-r
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
 import { PreviewGenerationState } from '@/components/editor/preview-generation-state'
 import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell'
-import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { cn } from '@/lib/utils'
 import type {
@@ -389,27 +388,17 @@ function BriefPipelineProgress({
   if (!isTranscribing && !hasSteps) return null
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 px-8 backdrop-blur-sm">
-      <MinimalTypographicLoader
-        ambient={false}
-        standalone
-        label={isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
-        message={
-          isTranscribing
-            ? 'Mapping audio patterns and speech timestamps.'
-            : 'Extracting motion parameters from your prompt.'
-        }
-        variant="inline"
-        size="sm"
-        className="w-full max-w-[320px]"
-      />
-      <div className="mt-8 flex flex-wrap justify-center gap-2">
+    <div className="absolute inset-x-4 bottom-4 z-30 flex flex-col items-center gap-3 px-4">
+      <div className="rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] font-medium text-white/70 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
+        {isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
+      </div>
+      <div className="flex flex-wrap justify-center gap-2">
         {(steps ?? []).map((item) => (
           <motion.div
             key={item}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-[16px] border border-white/8 bg-white/[0.02] px-4 py-3 text-sm text-white/68"
+            className="rounded-full border border-white/8 bg-black/44 px-3 py-1.5 text-[11px] text-white/62 backdrop-blur-sm"
           >
             {item}
           </motion.div>

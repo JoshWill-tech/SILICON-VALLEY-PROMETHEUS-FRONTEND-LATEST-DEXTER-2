@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
 
-import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
 import { cn } from '@/lib/utils'
 
@@ -108,17 +107,7 @@ export function SourceStagePlaceholder({
       )}
     >
       {isLoading ? (
-        <div className="pointer-events-none absolute inset-0 z-0 flex h-full w-full items-center justify-center overflow-hidden bg-transparent">
-          <MinimalTypographicLoader
-            ambient={false}
-            standalone
-            label="Restoring source preview"
-            message="Rebuilding the media stage inside the editor."
-            variant="inline"
-            size="sm"
-            className="!min-h-0 w-[min(14rem,58%)] max-w-[224px] !px-0 !py-0 opacity-95"
-          />
-        </div>
+        <div className="pointer-events-none absolute inset-0 z-0 bg-transparent" />
       ) : null}
       {!isLoading ? (
         <>

@@ -18,21 +18,20 @@ function run() {
   assert.match(editorPage, /createPortal\([\s\S]*resolvedComposerPortalTarget/)
 
   const loader = read('components/ui/minimal-typographic-loader.tsx')
-  assert.match(loader, /standalone\?: boolean/)
-  assert.match(loader, /standalone = false/)
-  assert.match(loader, /const showAmbient = ambient && !standalone/)
-  assert.match(loader, /function StandaloneInfinityMark/)
-  assert.match(loader, /standalone \? \(/)
-  assert.match(loader, /<StandaloneInfinityMark prefersReducedMotion=\{prefersReducedMotion\} \/>/)
-  assert.equal(loader.includes("standalone ? 'mix-blend-normal [mask-image:none]'"), false)
+  assert.match(loader, /\/loaders\/prometheus-infinity-loader\.gif/)
+  assert.match(loader, /mix-blend-screen/)
+  assert.equal(loader.includes('standalone'), false)
+  assert.equal(loader.includes('function StandaloneInfinityMark'), false)
 
   const sourceStagePlaceholder = read('components/editor/source-stage-placeholder.tsx')
-  assert.match(sourceStagePlaceholder, /standalone/)
   assert.match(sourceStagePlaceholder, /!isLoading \? \(/)
   assert.equal(sourceStagePlaceholder.includes("isLoading && 'opacity-28'"), false)
+  assert.equal(sourceStagePlaceholder.includes('MinimalTypographicLoader'), false)
+  assert.equal(sourceStagePlaceholder.includes('prometheus-infinity-loader'), false)
 
   const previewCanvas = read('components/editor/PreviewCanvas.tsx')
-  assert.match(previewCanvas, /standalone/)
+  assert.equal(previewCanvas.includes('MinimalTypographicLoader'), false)
+  assert.equal(previewCanvas.includes('prometheus-infinity-loader'), false)
   assert.equal(previewCanvas.includes('bg-black/15 px-6'), false)
   assert.equal(previewCanvas.includes('Loading source preview'), false)
   assert.equal(previewCanvas.includes('isPreviewLoadingVisible ?'), false)
@@ -44,14 +43,6 @@ function run() {
   assert.match(uploadInterface, /text-\[12px\]/)
   assert.match(uploadInterface, /footerAction=\{/)
   assert.equal(uploadInterface.includes('rounded-xl border px-3 py-2 text-sm'), false)
-
-  const musicTabPanel = read('components/editor/music-tab-panel.tsx')
-  const musicLoaderCalls = musicTabPanel.match(/<MinimalTypographicLoader[\s\S]*?\/>/g) ?? []
-  assert.ok(musicLoaderCalls.length > 0)
-  for (const loaderCall of musicLoaderCalls) {
-    assert.match(loaderCall, /ambient=\{false\}/)
-    assert.match(loaderCall, /standalone/)
-  }
 }
 
 run()
