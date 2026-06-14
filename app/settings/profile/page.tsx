@@ -1167,7 +1167,8 @@ function ProfileCard({ children, className }: { children: React.ReactNode; class
   return (
     <GlassCard
       as="section"
-      initial={{ opacity: 0, y: 8 }}
+      // Keep the cards visible on first paint; motion should enhance, not gate content.
+      initial={false}
       className={cn(
         'p-5',
         className,
