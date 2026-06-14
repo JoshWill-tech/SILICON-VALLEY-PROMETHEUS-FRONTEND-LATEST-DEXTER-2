@@ -46,7 +46,7 @@ export function ChatStyleSelector({
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          'group relative grid h-11 w-11 place-items-center overflow-hidden rounded-full border border-white/10 bg-white/[0.035] text-white/56 transition-colors hover:bg-white/[0.065] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 disabled:cursor-not-allowed disabled:opacity-40 md:h-12 md:w-12',
+          'group premium-icon-orbit relative grid h-11 w-11 place-items-center overflow-hidden rounded-full border border-white/10 bg-white/[0.035] text-white/56 transition-colors hover:bg-white/[0.065] hover:text-white/88 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 disabled:cursor-not-allowed disabled:opacity-40 md:h-12 md:w-12',
           activeTemplate && 'border-[#9ff6e3]/24 bg-[#9ff6e3]/[0.075] text-white',
         )}
         whileHover={disabled ? undefined : { y: -1, scale: 1.03 }}
@@ -75,7 +75,7 @@ export function ChatStyleSelector({
         {open ? (
           <motion.div
             className={cn(
-              'absolute bottom-[calc(100%+0.75rem)] left-0 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(165deg,rgba(16,16,22,0.96)_0%,rgba(5,5,8,0.98)_100%)] p-2 shadow-[0_30px_84px_-38px_rgba(0,0,0,0.98),0_0_44px_-34px_rgba(159,246,227,0.84)] backdrop-blur-2xl',
+              'premium-telemetry-panel absolute bottom-[calc(100%+0.75rem)] left-0 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(165deg,rgba(16,16,22,0.96)_0%,rgba(5,5,8,0.98)_100%)] p-2 shadow-[0_30px_84px_-38px_rgba(0,0,0,0.98),0_0_44px_-34px_rgba(159,246,227,0.84)] backdrop-blur-2xl',
               compact && 'w-[min(20rem,calc(100vw-2rem))]',
             )}
             initial={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
@@ -96,7 +96,7 @@ export function ChatStyleSelector({
                 type="button"
                 aria-label="Close animation style picker"
                 onClick={() => setOpen(false)}
-                className="grid size-8 shrink-0 place-items-center rounded-full border border-white/8 bg-white/[0.035] text-white/48 transition-colors hover:bg-white/[0.07] hover:text-white/84"
+                className="premium-icon-orbit grid size-8 shrink-0 place-items-center rounded-full border border-white/8 bg-white/[0.035] text-white/48 transition-colors hover:bg-white/[0.07] hover:text-white/84"
               >
                 <X className="size-3.5" />
               </button>
@@ -119,7 +119,7 @@ export function ChatStyleSelector({
                     onMouseEnter={() => setHoveredStyleId(template.id)}
                     onMouseLeave={() => setHoveredStyleId(null)}
                     className={cn(
-                      'group/style relative min-h-[8rem] overflow-hidden rounded-[16px] border bg-white/[0.025] text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35',
+                      'group/style premium-liquid-pill relative min-h-[8rem] overflow-hidden rounded-[16px] border bg-white/[0.025] text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35',
                       selected
                         ? 'border-[#9ff6e3]/42 bg-[#9ff6e3]/[0.08]'
                         : 'border-white/10 hover:border-white/18 hover:bg-white/[0.045]',

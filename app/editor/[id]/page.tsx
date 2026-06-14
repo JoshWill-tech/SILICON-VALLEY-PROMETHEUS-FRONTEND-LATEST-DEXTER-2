@@ -3390,7 +3390,7 @@ function FloatingChatComposer({
           }
         }}
         className={cn(
-          'pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
+          'premium-motion-surface premium-telemetry-panel pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-[transform,opacity,height,width,max-height,border-radius,bottom,right] duration-300 ease-out',
           isThreadOpen
             ? [
                 'origin-center h-[min(92dvh,860px)] max-h-[92dvh] w-[min(100%,calc(100vw-1.5rem))] rounded-[28px]',
@@ -3458,8 +3458,8 @@ function FloatingChatComposer({
                   <span className="h-1 w-10 rounded-full bg-white/18" aria-hidden />
                 </div>
 
-                <div className="relative flex min-h-14 items-center justify-between gap-3 border-b border-white/5 px-1 pb-3 md:min-h-[60px] md:px-1">
-                  <div className="inline-flex min-w-0 items-center gap-2">
+                  <div className="relative flex min-h-14 items-center justify-between gap-3 border-b border-white/5 px-1 pb-3 md:min-h-[60px] md:px-1">
+                  <div className="premium-liquid-pill inline-flex min-w-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1">
                     <motion.span
                       aria-hidden
                       className="size-1.5 rounded-full bg-emerald-400"
@@ -3480,7 +3480,7 @@ function FloatingChatComposer({
                         onThreadOpenChange(false)
                         onOpenChange(false)
                       }}
-                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white/90"
+                      className="premium-icon-orbit grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-white/58 transition-colors hover:bg-white/[0.07] hover:text-white/90"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                     >
@@ -3596,7 +3596,7 @@ function FloatingChatComposer({
                       type="button"
                       aria-label="Attach image"
                       onClick={() => attachmentInputRef.current?.click()}
-                      className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                      className="premium-icon-orbit grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.96 }}
                     >
@@ -3614,7 +3614,7 @@ function FloatingChatComposer({
                       type="submit"
                       aria-label={loading ? 'Stop response' : 'Send message'}
                       disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
+                      className="premium-liquid-pill grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                     >
@@ -3650,7 +3650,7 @@ function FloatingChatComposer({
                 />
 
                 <div className="relative flex items-center justify-between gap-3">
-                  <div className="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-[10px] uppercase tracking-[0.28em] text-white/38">
+                  <div className="premium-liquid-pill inline-flex min-h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-[10px] uppercase tracking-[0.28em] text-white/38">
                     <span
                       aria-hidden
                       className="size-1.5 rounded-full bg-[#7ff2d4]"
@@ -3669,7 +3669,7 @@ function FloatingChatComposer({
                       onThreadOpenChange(false)
                       onOpenChange(false)
                     }}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/54 transition-colors hover:text-white/82"
+                    className="premium-icon-orbit grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/54 transition-colors hover:text-white/82"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.05 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.94 }}
                   >
@@ -3773,7 +3773,7 @@ function FloatingChatComposer({
                     type="button"
                     aria-label="Attach image"
                     onClick={() => attachmentInputRef.current?.click()}
-                    className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
+                    className="premium-icon-orbit grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.03] text-white/52 transition-colors hover:bg-white/[0.06] hover:text-white/82 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.03 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.96 }}
                   >
@@ -3791,7 +3791,7 @@ function FloatingChatComposer({
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
                     disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
+                    className="premium-liquid-pill grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
                   >
@@ -3802,7 +3802,7 @@ function FloatingChatComposer({
             ) : (
               <motion.div
                 key="closed-composer-icon"
-                className="relative grid h-full w-full place-items-center rounded-full border border-white/16 bg-[radial-gradient(circle_at_34%_26%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_32%),linear-gradient(145deg,rgba(18,18,22,0.98)_0%,rgba(4,4,6,0.98)_100%)] text-white shadow-[0_18px_42px_-20px_rgba(0,0,0,0.95),0_0_34px_-22px_rgba(127,242,212,0.82)]"
+                className="premium-icon-orbit relative grid h-full w-full place-items-center rounded-full border border-white/16 bg-[radial-gradient(circle_at_34%_26%,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0)_32%),linear-gradient(145deg,rgba(18,18,22,0.98)_0%,rgba(4,4,6,0.98)_100%)] text-white shadow-[0_18px_42px_-20px_rgba(0,0,0,0.95),0_0_34px_-22px_rgba(127,242,212,0.82)]"
                 initial={reduceMotion ? false : { opacity: 0.92, scale: 0.94 }}
                 animate={reduceMotion ? undefined : { opacity: 1, scale: 1 }}
                 exit={reduceMotion ? undefined : { opacity: 0.95, scale: 1 }}

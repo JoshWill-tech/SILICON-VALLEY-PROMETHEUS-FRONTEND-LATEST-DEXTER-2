@@ -374,7 +374,7 @@ const COMMAND_SUGGESTIONS: CommandSuggestion[] = [
 
 function studioActionButtonClassName(active = false) {
     return cn(
-        "group relative inline-flex h-8 items-center gap-1.5 rounded-[8px] border px-2.5 text-[12px] font-medium leading-none transition-all duration-200",
+        "group premium-liquid-pill premium-kinetic-text relative inline-flex h-7 items-center gap-1.5 rounded-[8px] border px-2.5 text-[11px] font-semibold leading-none transition-all duration-200",
         active
             ? "border-white/18 bg-white/[0.09] text-white shadow-[0_10px_26px_-22px_rgba(255,255,255,0.5)]"
             : "border-white/10 bg-white/[0.028] text-white/64 hover:border-white/16 hover:bg-white/[0.052] hover:text-white/88"
@@ -938,7 +938,7 @@ const PromptComposer = React.memo(function PromptComposer({
     return (
         <div className="space-y-4">
             <motion.div
-                className="relative overflow-hidden rounded-[16px] border border-white/[0.13] bg-[#070707]/90 shadow-[0_40px_120px_-70px_rgba(96,190,255,0.62)] backdrop-blur-2xl"
+                className="premium-motion-surface premium-telemetry-panel relative overflow-hidden rounded-[16px] border border-white/[0.13] bg-[#070707]/90 shadow-[0_40px_120px_-70px_rgba(96,190,255,0.62)] backdrop-blur-2xl"
                 initial={{ scale: 0.98 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.1 }}
@@ -955,7 +955,7 @@ const PromptComposer = React.memo(function PromptComposer({
                     {showCommandPalette && (
                         <motion.div
                             ref={commandPaletteRef}
-                            className="absolute bottom-full left-4 right-4 z-50 mb-2 overflow-hidden rounded-xl border border-white/10 bg-black/85 shadow-2xl backdrop-blur-xl"
+                            className="premium-telemetry-panel absolute bottom-full left-4 right-4 z-50 mb-2 overflow-hidden rounded-xl border border-white/10 bg-black/85 shadow-2xl backdrop-blur-xl"
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 5 }}
@@ -1233,7 +1233,7 @@ const PromptComposer = React.memo(function PromptComposer({
                             type="button"
                             onClick={onOpenUpload}
                             whileTap={{ scale: 0.94 }}
-                            className="group relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90"
+                            className="group premium-icon-orbit relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90"
                             title="Upload source"
                         >
                             <FileUp className="h-4 w-4" />
@@ -1247,7 +1247,7 @@ const PromptComposer = React.memo(function PromptComposer({
                             onClick={onOpenTemplates}
                             whileTap={{ scale: 0.94 }}
                             className={cn(
-                                "group relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90",
+                                "group premium-icon-orbit relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90",
                                 templatesOpen && "bg-white/10 text-white/90"
                             )}
                             title="Templates and styles"
@@ -1273,7 +1273,7 @@ const PromptComposer = React.memo(function PromptComposer({
                             }}
                             whileTap={{ scale: 0.94 }}
                             className={cn(
-                                "group relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90",
+                                "group premium-icon-orbit relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90",
                                 showCommandPalette && "bg-white/10 text-white/90"
                             )}
                         >
@@ -1293,7 +1293,7 @@ const PromptComposer = React.memo(function PromptComposer({
                         disabled={isDisabled}
                         aria-disabled={isDisabled}
                         className={cn(
-                            "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300",
+                            "premium-liquid-pill flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-300",
                             isDisabled
                                 ? "opacity-40 cursor-not-allowed bg-white/[0.05] text-white/40"
                                 : uploadStatus === 'error'
@@ -1374,7 +1374,7 @@ function StudioCinematicMarqueeRails({
                 aria-label={`Select ${item.name} animation style`}
                 onClick={() => onSelectStyle(item.styleId)}
                 className={cn(
-                    "group relative h-24 w-44 shrink-0 overflow-hidden rounded-[18px] border bg-white/[0.035] text-left shadow-[0_22px_48px_-34px_rgba(0,0,0,0.92)] transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 sm:h-28 sm:w-56",
+                    "group premium-motion-surface relative h-24 w-44 shrink-0 overflow-hidden rounded-[18px] border bg-white/[0.035] text-left shadow-[0_22px_48px_-34px_rgba(0,0,0,0.92)] transition-[border-color,background-color,transform] duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 sm:h-28 sm:w-56",
                     selected
                         ? "border-[#9ff6e3]/42 bg-[#9ff6e3]/[0.08]"
                         : "border-white/10 hover:border-white/18 hover:bg-white/[0.055]",
@@ -1410,7 +1410,7 @@ function StudioCinematicMarqueeRails({
     };
 
     return (
-        <div className="studio-cinematic-rails group relative overflow-hidden rounded-[18px] border border-white/[0.08] bg-black/[0.22] py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <div className="studio-cinematic-rails premium-telemetry-panel premium-vignette-edges group relative overflow-hidden rounded-[18px] border border-white/[0.08] bg-black/[0.22] py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <style>{`
                 @keyframes studio-marquee-right {
                     from { transform: translateX(-50%); }

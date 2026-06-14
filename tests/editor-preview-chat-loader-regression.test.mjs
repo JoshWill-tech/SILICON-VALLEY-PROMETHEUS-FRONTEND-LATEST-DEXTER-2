@@ -40,7 +40,7 @@ function run() {
   assert.match(uploadInterface, /footerAction\?: React\.ReactNode/)
   assert.match(uploadInterface, /studioActionButtonClassName/)
   assert.match(uploadInterface, /rounded-\[8px\]/)
-  assert.match(uploadInterface, /text-\[12px\]/)
+  assert.match(uploadInterface, /text-\[11px\]/)
   assert.match(uploadInterface, /footerAction=\{/)
   assert.equal(uploadInterface.includes('rounded-xl border px-3 py-2 text-sm'), false)
 }
