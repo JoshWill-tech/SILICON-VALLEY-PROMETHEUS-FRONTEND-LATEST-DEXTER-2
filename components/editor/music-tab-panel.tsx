@@ -807,7 +807,14 @@ export function MusicTabPanel({
       <section className="premium-ambient-panel premium-vignette-surface flex w-full max-w-[1060px] self-center rounded-[30px] px-5 py-5 shadow-[0_28px_64px_-38px_rgba(0,0,0,0.95)]">
         <LuxuryVignette tone="music" />
         <div className="relative z-10 flex min-h-[220px] w-full items-center justify-center px-4 text-center">
-          <MinimalTypographicLoader label="Loading catalog" message="Preparing Cloudflare soundtrack imagery." size="sm" variant="inline" />
+          <MinimalTypographicLoader
+            ambient={false}
+            standalone
+            label="Loading catalog"
+            message="Preparing Cloudflare soundtrack imagery."
+            size="sm"
+            variant="inline"
+          />
         </div>
       </section>
     )
@@ -911,7 +918,14 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <MinimalTypographicLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
+                  <MinimalTypographicLoader
+                    ambient={false}
+                    standalone
+                    label="Loading catalog"
+                    message="Preparing soundtrack previews."
+                    size="sm"
+                    variant="inline"
+                  />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (
@@ -1038,7 +1052,14 @@ export function MusicTabPanel({
             <div className="space-y-2 pb-4">
               {catalogLoading && !visibleTracks.length ? (
                 <div className="flex min-h-[220px] items-center justify-center px-4 text-center">
-                  <MinimalTypographicLoader label="Loading catalog" message="Preparing soundtrack previews." size="sm" variant="inline" />
+                  <MinimalTypographicLoader
+                    ambient={false}
+                    standalone
+                    label="Loading catalog"
+                    message="Preparing soundtrack previews."
+                    size="sm"
+                    variant="inline"
+                  />
                 </div>
               ) : null}
               {visibleTracks.map((track) => (

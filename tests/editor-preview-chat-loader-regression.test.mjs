@@ -31,6 +31,8 @@ function run() {
   const previewCanvas = read('components/editor/PreviewCanvas.tsx')
   assert.match(previewCanvas, /standalone/)
   assert.equal(previewCanvas.includes('bg-black/15 px-6'), false)
+  assert.equal(previewCanvas.includes('Loading source preview'), false)
+  assert.equal(previewCanvas.includes('isPreviewLoadingVisible ?'), false)
 
   const uploadInterface = read('components/video-upload-interface.tsx')
   assert.match(uploadInterface, /footerAction\?: React\.ReactNode/)
@@ -39,6 +41,14 @@ function run() {
   assert.match(uploadInterface, /text-\[12px\]/)
   assert.match(uploadInterface, /footerAction=\{/)
   assert.equal(uploadInterface.includes('rounded-xl border px-3 py-2 text-sm'), false)
+
+  const musicTabPanel = read('components/editor/music-tab-panel.tsx')
+  const musicLoaderCalls = musicTabPanel.match(/<MinimalTypographicLoader[\s\S]*?\/>/g) ?? []
+  assert.ok(musicLoaderCalls.length > 0)
+  for (const loaderCall of musicLoaderCalls) {
+    assert.match(loaderCall, /ambient=\{false\}/)
+    assert.match(loaderCall, /standalone/)
+  }
 }
 
 run()

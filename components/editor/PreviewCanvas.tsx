@@ -45,7 +45,6 @@ export interface PreviewCanvasProps {
   isLockedViralClipTriggerHovered: boolean
   isPreviewMuted: boolean
   isPreviewMediaReady: boolean
-  isPreviewLoadingVisible: boolean
   isSourceStageActivelyLoading: boolean
   isPreviewBriefGenerating: boolean
   showPreviewFeedback: boolean
@@ -104,7 +103,6 @@ export function PreviewCanvas({
   isLockedViralClipTriggerHovered,
   isPreviewMuted,
   isPreviewMediaReady,
-  isPreviewLoadingVisible,
   isSourceStageActivelyLoading,
   isPreviewBriefGenerating,
   showPreviewFeedback,
@@ -271,20 +269,6 @@ export function PreviewCanvas({
                               }}
                             />
                           </div>
-
-                          {!isPreviewMediaReady && isPreviewLoadingVisible ? (
-                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-transparent">
-                              <MinimalTypographicLoader
-                                ambient={false}
-                                standalone
-                                label="Loading source preview"
-                                message="Preparing the visible video surface."
-                                variant="inline"
-                                size="sm"
-                                className="!min-h-0 w-[min(14rem,58%)] max-w-[224px] !px-0 !py-0"
-                              />
-                            </div>
-                          ) : null}
                         </div>
                       )}
                     </CinematicPreviewRuntime>

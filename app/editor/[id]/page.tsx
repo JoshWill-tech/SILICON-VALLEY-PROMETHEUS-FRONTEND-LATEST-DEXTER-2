@@ -8028,7 +8028,6 @@ function OriginalEditorPage() {
                       isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered}
                       isPreviewMuted={isPreviewMuted}
                       isPreviewMediaReady={isPreviewMediaReady}
-                      isPreviewLoadingVisible={isPreviewLoadingVisible}
                       isSourceStageActivelyLoading={isSourceStageActivelyLoading}
                       isPreviewBriefGenerating={isPreviewBriefGenerating}
                       showPreviewFeedback={showPreviewFeedback}
