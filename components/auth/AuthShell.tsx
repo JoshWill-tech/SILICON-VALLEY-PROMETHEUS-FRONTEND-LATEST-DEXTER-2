@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeftIcon } from 'lucide-react';
 import { FloatingPaths, AuthSeparator } from './auth-visuals';
 import { SocialAuthButtons } from './SocialAuthButtons';
+import { PrometheusAuthCharacters } from './animated-auth-characters';
+import { AuthInteractionProvider } from './auth-interaction';
 
 type AuthShellProps = {
   title: string;
@@ -16,112 +18,108 @@ type AuthShellProps = {
 };
 
 export function AuthShell({ title, subtitle, children, showMobileBrandRow = true }: AuthShellProps) {
-  React.useEffect(() => {
-    const handleGlobalClick = (e: MouseEvent) => {
-      console.log('DOM Click Target:', {
-        tag: (e.target as HTMLElement).tagName,
-        classes: (e.target as HTMLElement).className,
-        id: (e.target as HTMLElement).id,
-      });
-    };
-    window.addEventListener('mousedown', handleGlobalClick, true);
-    return () => window.removeEventListener('mousedown', handleGlobalClick, true);
-  }, []);
-
   return (
-    <main className="relative md:h-screen lg:grid lg:grid-cols-2 bg-background">
-      <div className="bg-muted/60 relative hidden h-full flex-col border-r p-10 lg:flex overflow-hidden">
-        <div className="from-background pointer-events-none absolute inset-0 z-10 bg-gradient-to-t to-transparent" />
-        <div className="z-10 flex items-center">
-          <Image 
-            src="/branding/prometheus-logo-no-bg.png" 
-            alt="Prometheus" 
-            width={28} 
-            height={28} 
-            className="size-7 object-contain"
-          />
-          <p className="text-xl font-bold tracking-tight ml-0.5" style={{ fontFamily: 'var(--font-mono), ui-sans-serif, system-ui, sans-serif' }}>
-            rometheus
-          </p>
-        </div>
+    <AuthInteractionProvider>
+      <main className="relative min-h-dvh overflow-hidden bg-[#050505] text-white lg:grid lg:grid-cols-[minmax(0,1.03fr)_minmax(420px,0.97fr)]">
+        <div className="relative hidden h-full min-h-dvh flex-col overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_22%_8%,rgba(112,72,255,0.16),transparent_36%),linear-gradient(135deg,rgba(13,13,16,1)_0%,rgba(5,5,5,1)_100%)] p-10 lg:flex">
+          <div className="pointer-events-none absolute inset-0 opacity-45">
+            <FloatingPaths position={1} />
+            <FloatingPaths position={-1} />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.03)_28%,transparent_58%),linear-gradient(180deg,transparent_0%,rgba(5,5,5,0.66)_100%)]" />
 
-        <div className="z-10 mt-auto">
-          <blockquote className="space-y-2">
-            <p className="text-xl">
-              &ldquo;This Platform has helped me to save time and serve my clients faster than ever before.&rdquo;
+          <div className="relative z-10 flex items-center">
+            <Image
+              src="/branding/prometheus-logo-no-bg.png"
+              alt="Prometheus"
+              width={28}
+              height={28}
+              className="size-7 object-contain"
+            />
+            <p className="ml-0.5 text-xl font-bold tracking-tight text-white" style={{ fontFamily: 'var(--font-mono), ui-sans-serif, system-ui, sans-serif' }}>
+              rometheus
             </p>
-            <footer className="font-mono text-sm font-semibold">~ Ali Hassan</footer>
-          </blockquote>
-        </div>
-
-        <div className="absolute inset-0 pointer-events-none">
-          <FloatingPaths position={1} />
-          <FloatingPaths position={-1} />
-        </div>
-      </div>
-
-      <div className="relative flex h-full flex-col justify-center p-4 md:p-8 pointer-events-auto z-[100] bg-background">
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-60">
-          <div className="bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,--theme(--color-foreground/.06)_0,hsla(0,0%,55%,.02)_50%,--theme(--color-foreground/.01)_80%)] absolute top-0 right-0 h-320 w-140 -translate-y-87.5 rounded-full" />
-          <div className="bg-[radial-gradient(50%_50%_at_50%_50%,--theme(--color-foreground/.04)_0,--theme(--color-foreground/.01)_80%,transparent_100%)] absolute top-0 right-0 h-320 w-60 [translate:5%_-50%] rounded-full" />
-          <div className="bg-[radial-gradient(50%_50%_at_50%_50%,--theme(--color-foreground/.04)_0,--theme(--color-foreground/.01)_80%,transparent_100%)] absolute top-0 right-0 h-320 w-60 -translate-y-87.5 rounded-full" />
-        </div>
-
-        <Button 
-          variant="ghost" 
-          className="absolute top-7 left-5 pointer-events-auto z-[110]" 
-          asChild
-          title="Return home"
-        >
-          <Link href="/">
-            <ChevronLeftIcon className="size-4 me-2" />
-            Home
-          </Link>
-        </Button>
-
-        <div className="mx-auto w-full max-w-sm space-y-4 pointer-events-auto z-[110]">
-          {showMobileBrandRow ? (
-            <div className="flex items-center lg:hidden">
-              <Image 
-                src="/branding/prometheus-logo-no-bg.png" 
-                alt="Prometheus" 
-                width={28} 
-                height={28} 
-                className="size-7 object-contain"
-              />
-              <p className="text-xl font-bold tracking-tight ml-0.5" style={{ fontFamily: 'var(--font-mono), ui-sans-serif, system-ui, sans-serif' }}>
-                rometheus
-              </p>
-            </div>
-          ) : null}
-
-          <div className="flex flex-col space-y-1">
-            <h1 className="font-heading text-2xl font-bold tracking-wide">{title}</h1>
-            <p className="text-muted-foreground text-base">{subtitle}</p>
           </div>
 
-          <Suspense fallback={null}>
-            <SocialAuthButtons />
-          </Suspense>
+          <div className="relative z-10 flex min-h-0 flex-1 items-end justify-center py-8">
+            <PrometheusAuthCharacters />
+          </div>
 
-          <AuthSeparator />
-
-          <Suspense fallback={null}>{children}</Suspense>
-
-          <p className="text-muted-foreground mt-8 text-sm">
-            By clicking continue, you agree to our{' '}
-            <Link href="/terms" className="hover:text-primary underline underline-offset-4">
-              Terms of Service
-            </Link>{' '}
-            and{' '}
-            <Link href="/privacy" className="hover:text-primary underline underline-offset-4">
+          <div className="relative z-10 flex items-center gap-7 text-xs text-white/38">
+            <Link href="/privacy" className="transition-colors hover:text-white/72">
               Privacy Policy
             </Link>
-            .
-          </p>
+            <Link href="/terms" className="transition-colors hover:text-white/72">
+              Terms of Service
+            </Link>
+            <Link href="/contact" className="transition-colors hover:text-white/72">
+              Contact
+            </Link>
+          </div>
         </div>
-      </div>
-    </main>
+
+        <div className="pointer-events-auto relative z-[100] flex min-h-dvh flex-col justify-center bg-[#050505] px-5 py-8 md:px-8">
+          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-70">
+            <div className="absolute right-0 top-0 h-[46rem] w-[18rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.055)_0%,rgba(255,255,255,0.015)_62%,transparent_100%)] blur-sm" />
+            <div className="absolute bottom-[-20%] left-[18%] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(112,72,255,0.12)_0%,transparent_66%)]" />
+          </div>
+
+          <Button
+            variant="ghost"
+            className="absolute left-5 top-7 z-[110] text-white/60 hover:bg-white/[0.06] hover:text-white"
+            asChild
+            title="Return home"
+          >
+            <Link href="/">
+              <ChevronLeftIcon className="me-2 size-4" />
+              Home
+            </Link>
+          </Button>
+
+          <div className="pointer-events-auto z-[110] mx-auto w-full max-w-[390px] space-y-4">
+            {showMobileBrandRow ? (
+              <div className="flex items-center lg:hidden">
+                <Image
+                  src="/branding/prometheus-logo-no-bg.png"
+                  alt="Prometheus"
+                  width={28}
+                  height={28}
+                  className="size-7 object-contain"
+                />
+                <p className="ml-0.5 text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-mono), ui-sans-serif, system-ui, sans-serif' }}>
+                  rometheus
+                </p>
+              </div>
+            ) : null}
+
+            <div className="flex flex-col space-y-1 text-center sm:text-left">
+              <h1 className="font-heading text-2xl font-semibold tracking-tight text-white">{title}</h1>
+              <p className="text-sm leading-6 text-white/46">{subtitle}</p>
+            </div>
+
+            <Suspense fallback={null}>
+              <SocialAuthButtons />
+            </Suspense>
+
+            <AuthSeparator />
+
+            <Suspense fallback={null}>{children}</Suspense>
+
+            <p className="mt-8 text-sm leading-6 text-white/38">
+              By clicking continue, you agree to our{' '}
+              <Link href="/terms" className="underline underline-offset-4 transition-colors hover:text-white/72">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="underline underline-offset-4 transition-colors hover:text-white/72">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+      </main>
+    </AuthInteractionProvider>
   );
 }
 
