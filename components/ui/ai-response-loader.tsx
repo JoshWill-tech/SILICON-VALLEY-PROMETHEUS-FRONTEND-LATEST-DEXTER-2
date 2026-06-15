@@ -3,14 +3,40 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
+import { PrometheusVapourText } from '@/components/ui/vapour-text-effect'
 
 type AiResponseLoaderProps = {
   className?: string
+  delayMs?: number
   label?: string
+  variant?: 'letters' | 'vapour'
 }
 
-export function AiResponseLoader({ className, label = 'Generating' }: AiResponseLoaderProps) {
+export function AiResponseLoader({
+  className,
+  delayMs = 240,
+  label = 'Generating',
+  variant = 'letters',
+}: AiResponseLoaderProps) {
   const letters = React.useMemo(() => Array.from(label), [label])
+
+  if (variant === 'vapour') {
+    return (
+      <div
+        className={cn('ai-loader-wrapper', className)}
+        role="status"
+        aria-live="polite"
+        aria-label={`${label} response`}
+      >
+        <PrometheusVapourText
+          text={label}
+          label={`${label} response`}
+          delayMs={delayMs}
+          className="h-12 w-[min(18rem,68vw)]"
+        />
+      </div>
+    )
+  }
 
   return (
     <div

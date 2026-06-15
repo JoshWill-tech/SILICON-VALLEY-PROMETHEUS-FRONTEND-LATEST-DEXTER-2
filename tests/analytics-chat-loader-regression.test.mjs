@@ -42,13 +42,16 @@ function run() {
   assert.match(aiLoader, /ai-loader-wrapper/)
   assert.match(aiLoader, /loader-letter/)
   assert.match(aiLoader, /loader-orb/)
+  assert.match(aiLoader, /variant\?: 'letters' \| 'vapour'/)
+  assert.match(aiLoader, /PrometheusVapourText/)
 
   const editorPage = read('app/editor/[id]/page.tsx')
   assert.match(editorPage, /AiResponseLoader/)
   assert.match(editorPage, /chatMorphVariants/)
   assert.match(editorPage, /type: 'spring'/)
   assert.match(editorPage, /mass: 1\.2/)
-  assert.match(editorPage, /w-\[min\(1080px,calc\(100vw-48px\)\)\]/)
+  assert.match(editorPage, /data-editorial-chat=\{isThreadOpen \? 'moon-expanded' : 'launcher'\}/)
+  assert.match(editorPage, /AiResponseLoader label="Prometheus" variant="vapour"/)
   assert.equal(editorPage.includes('transition-[transform,opacity,height,width,max-height,border-radius,bottom,right]'), false)
   assert.equal(editorPage.includes('ChatSkeletonLoader reduceMotion'), false)
 

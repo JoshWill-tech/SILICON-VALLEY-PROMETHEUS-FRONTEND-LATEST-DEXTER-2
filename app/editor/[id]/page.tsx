@@ -22,12 +22,15 @@ import {
   GitBranch,
   ImageIcon,
   Lock,
+  Layers,
   MessageSquare,
   Music4,
+  Palette,
   PenSquare,
   Pause,
   Play,
   RefreshCw,
+  Rocket,
   Search,
   Settings2,
   Scissors,
@@ -57,6 +60,7 @@ import gsap from 'gsap'
 import { TextReveal } from '@/components/editor/text-reveal'
 import { MinimalTypographicLoader } from '@/components/ui/minimal-typographic-loader'
 import { AiResponseLoader } from '@/components/ui/ai-response-loader'
+import { MicroExpander } from '@/components/ui/micro-expander'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
 import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-project-upload-dialog'
 import { EditorHeader } from '@/components/editor/EditorHeader'
@@ -893,20 +897,51 @@ const chatMorphSpring = {
 const chatMorphVariants = {
   closed: {
     opacity: 1,
-    scale: 1,
-    borderRadius: 999,
+    scale: 0.98,
+    y: 6,
+    filter: 'blur(0px)',
   },
   open: {
     opacity: 1,
     scale: 1,
-    borderRadius: 28,
+    y: 0,
+    filter: 'blur(0px)',
   },
   thread: {
     opacity: 1,
     scale: 1,
-    borderRadius: 32,
+    y: 0,
+    filter: 'blur(0px)',
   },
 }
+
+const CHAT_QUICK_ACTIONS = [
+  {
+    label: 'Generate Code',
+    prompt: 'Generate code-oriented notes for the next edit pass.',
+    icon: Code2,
+  },
+  {
+    label: 'Launch App',
+    prompt: 'Map this edit into a launch-ready app/product story.',
+    icon: Rocket,
+  },
+  {
+    label: 'UI Components',
+    prompt: 'Suggest UI component motion that matches this edit direction.',
+    icon: Layers,
+  },
+  {
+    label: 'Theme Ideas',
+    prompt: 'Give me restrained theme ideas for this video treatment.',
+    icon: Palette,
+  },
+  {
+    label: 'Image Assets',
+    prompt: 'Help me search for visual assets and image references for this video.',
+    icon: ImageIcon,
+  },
+] as const
 
 function debugEditorPreview(event: string, detail?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== 'development') return
@@ -1145,11 +1180,19 @@ function stringifyToolPreview(value: unknown) {
 }
 
 function toStoredChatEntries(entries: ChatEntry[]): ChatEntry[] {
-  return entries.map((entry) => {
-    if (!entry.metadata) return entry
-    const { metadata: _metadata, ...storedEntry } = entry
-    return storedEntry
-  })
+  return entries.map((entry) => ({
+    ...entry,
+    metadata: entry.metadata
+      ? {
+          ...entry.metadata,
+          sources: entry.metadata.sources?.slice(0, 8),
+          toolCalls: entry.metadata.toolCalls?.slice(0, 6),
+          frames: entry.metadata.frames?.slice(0, 8),
+          attachments: entry.metadata.attachments?.slice(0, 4),
+          selectedStyle: entry.metadata.selectedStyle,
+        }
+      : undefined,
+  }))
 }
 
 function useMediaQuery(query: string) {
@@ -2799,7 +2842,7 @@ function CurvedThreadPill({
             <ChatTaskProcess task={entry.task} reduceMotion={reduceMotion} loading={isLoading} />
           ) : null}
           {isLoading && !entry.clip ? (
-            <AiResponseLoader className="min-w-[min(22rem,72vw)] py-1" />
+            <AiResponseLoader label="Prometheus" variant="vapour" className="min-w-[min(22rem,72vw)] py-1" />
           ) : (
             <span className="whitespace-pre-wrap">{entry.text}</span>
           )}
@@ -3296,6 +3339,20 @@ function FloatingChatComposer({
     })
   }, [activeStyleTemplate, attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
 
+  const handleQuickAction = React.useCallback(
+    (prompt: string) => {
+      const nextDraft = draft.trim() ? `${draft.trim()}\n${prompt}` : prompt
+      onDraftChange(nextDraft)
+      setCaretIndex(nextDraft.length)
+      window.requestAnimationFrame(() => {
+        composerInputRef.current?.focus()
+        composerInputRef.current?.setSelectionRange(nextDraft.length, nextDraft.length)
+        updateCaretTarget(false)
+      })
+    },
+    [composerInputRef, draft, onDraftChange, updateCaretTarget],
+  )
+
   const handleComposerKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const hasVisibleSuggestions = frameAssist.isPopoverOpen && !isFrameAssistSuppressed && frameAssist.suggestions.length > 0
@@ -3353,26 +3410,29 @@ function FloatingChatComposer({
   )
 
   return (
-    <div className={cn(
+    <div
+      data-editorial-chat={isThreadOpen ? 'moon-expanded' : 'launcher'}
+      className={cn(
       'pointer-events-none fixed inset-0 z-[120] flex overflow-visible transition-[transform,opacity] duration-300 ease-out',
-      isThreadOpen ? 'items-center justify-center p-3 sm:p-5 md:p-6' : 'items-end justify-end p-6',
-    )}>
+      isThreadOpen ? 'items-stretch justify-stretch p-2 sm:p-3 md:p-4' : 'items-end justify-end p-6',
+    )}
+    >
       <AnimatePresence initial={false}>
         {isThreadOpen ? (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2 } }}
-            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.15 } }}
+            animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.26 } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.18 } }}
             onClick={() => {
               onThreadOpenChange(false)
               onOpenChange(false)
             }}
-            className="pointer-events-auto fixed inset-0 -z-10 bg-black/72 backdrop-blur-[24px] backdrop-saturate-[1.75]"
+            className="pointer-events-auto fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_30%,rgba(66,108,142,0.24)_0%,rgba(7,9,13,0.78)_42%,rgba(0,0,0,0.94)_100%)] backdrop-blur-[30px] backdrop-saturate-[1.75]"
           />
         ) : null}
       </AnimatePresence>
       <motion.div
-        layout={!reduceMotion}
+        layout={false}
         drag={isMobile && isThreadOpen ? "y" : false}
         dragConstraints={{ top: 0 }}
         dragElastic={0.2}
@@ -3383,13 +3443,13 @@ function FloatingChatComposer({
           }
         }}
         className={cn(
-          'premium-motion-surface premium-telemetry-panel pointer-events-auto relative overflow-hidden border border-white/8 bg-[#0a0a0a]/95 shadow-[0_24px_64px_rgba(0,0,0,0.4)] backdrop-blur-xl',
+          'pointer-events-auto relative',
           isThreadOpen
             ? [
-                'origin-center h-[min(92dvh,900px)] max-h-[92dvh] w-[min(100%,calc(100vw-1.5rem))] rounded-[30px]',
-                'md:h-[min(88dvh,860px)] md:max-h-[calc(100vh-48px)] md:w-[min(1080px,calc(100vw-48px))] md:rounded-[32px]',
+                'premium-motion-surface premium-telemetry-panel origin-center h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] overflow-hidden rounded-[28px] border border-white/8 bg-[#050607]/92 shadow-[0_30px_90px_rgba(0,0,0,0.52)] backdrop-blur-2xl',
+                'md:h-[calc(100dvh-2rem)] md:max-h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:rounded-[34px]',
               ]
-            : 'origin-bottom-right h-14 w-14 rounded-full',
+            : 'origin-bottom-right overflow-visible border border-transparent bg-transparent shadow-none',
         )}
         style={{ ...CHAT_COMPOSER_FONT_STYLE, transformOrigin: isThreadOpen ? 'center center' : 'bottom right' }}
         variants={chatMorphVariants}
@@ -3401,18 +3461,32 @@ function FloatingChatComposer({
         whileTap={!isThreadOpen && !reduceMotion ? { scale: 0.96 } : undefined}
       >
         {!isThreadOpen ? (
-          <button
-            type="button"
-            aria-label="Open chat composer"
+          <MicroExpander
+            text="Chat"
+            icon={<MessageSquare className="size-4" />}
+            variant="ghost"
             onClick={() => {
               onOpenChange(true)
               onThreadOpenChange(true)
             }}
-            className="absolute inset-0 z-20 cursor-pointer"
+            className="border-white/10 bg-white/[0.045] text-white/72 shadow-[0_18px_42px_-26px_rgba(0,0,0,0.92)] hover:bg-white/[0.075] hover:text-white"
           />
         ) : null}
 
-        <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-transparent">
+        <div className={cn('relative h-full w-full overflow-hidden rounded-[inherit] bg-transparent', !isThreadOpen && 'hidden')}>
+          {isThreadOpen ? (
+            <>
+              <div
+                aria-hidden
+                className="absolute inset-0 -z-20 bg-cover bg-center opacity-[0.44] mix-blend-screen"
+                style={{ backgroundImage: "url('/style-previews/dark-cinematic-1.jpg')" }}
+              />
+              <div
+                aria-hidden
+                className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_24%,rgba(132,178,204,0.22)_0%,rgba(20,28,34,0.36)_34%,rgba(2,3,5,0.92)_72%),linear-gradient(180deg,rgba(0,0,0,0.16)_0%,rgba(0,0,0,0.76)_100%)]"
+              />
+            </>
+          ) : null}
           <input
             ref={attachmentInputRef}
             type="file"
@@ -3496,7 +3570,22 @@ function FloatingChatComposer({
                         />
                       ))
                     ) : (
-                      <div className="min-h-[14rem]" aria-hidden />
+                      <motion.div
+                        initial={reduceMotion ? false : { opacity: 0, y: 14, filter: 'blur(10px)' }}
+                        animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: reduceMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+                        className="flex min-h-[42dvh] flex-col items-center justify-center px-4 text-center"
+                      >
+                        <p
+                          className="text-[clamp(2.5rem,7vw,5.8rem)] font-extralight leading-[0.9] text-white"
+                          style={{ fontFamily: 'var(--font-migra), var(--font-playfair-display), Georgia, serif' }}
+                        >
+                          Prometheus AI
+                        </p>
+                        <p className="mt-4 max-w-[34rem] text-sm leading-6 text-white/58">
+                          Build something amazing - just start typing below.
+                        </p>
+                      </motion.div>
                     )}
                     <div ref={expandedThreadEndRef} className="h-1" />
                   </div>
@@ -3546,6 +3635,23 @@ function FloatingChatComposer({
                       <ChatSelectedStylePill key={activeStyleTemplate.id} style={activeStyleTemplate} />
                     ) : null}
                   </AnimatePresence>
+
+                  <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {CHAT_QUICK_ACTIONS.map((action) => {
+                      const Icon = action.icon
+                      return (
+                        <button
+                          key={action.label}
+                          type="button"
+                          onClick={() => handleQuickAction(action.prompt)}
+                          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-white/10 bg-black/28 px-3 text-[11px] font-medium text-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-[transform,border-color,background-color,color] duration-200 hover:-translate-y-0.5 hover:border-white/18 hover:bg-white/[0.065] hover:text-white/86 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                        >
+                          <Icon className="size-3.5" />
+                          {action.label}
+                        </button>
+                      )
+                    })}
+                  </div>
 
                   <textarea
                     id={`${composerId}-thread`}
@@ -5686,7 +5792,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               {entry.role === 'assistant' ? (
                 <div className="space-y-3">
                   {entry.status === 'loading' && !entry.music ? (
-                    <AiResponseLoader className="justify-start py-1" />
+                    <AiResponseLoader label="Prometheus" variant="vapour" className="justify-start py-1" />
                   ) : (
                     <p className="whitespace-pre-wrap text-sm leading-6 tracking-[0.01em] text-white/74">
                       {entry.text}

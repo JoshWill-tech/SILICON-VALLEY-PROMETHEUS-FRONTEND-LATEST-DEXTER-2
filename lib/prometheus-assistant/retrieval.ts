@@ -48,9 +48,7 @@ export function formatKnowledgeContext(matches: PrometheusKnowledgeMatch[]) {
   return matches
     .map((match, index) => {
       return [
-        `Source ${index + 1}: ${match.title}`,
-        `File: ${match.source}`,
-        `Chunk: ${match.chunkIndex}`,
+        `Knowledge ${index + 1}: ${match.title}`,
         `Relevance: ${match.score.toFixed(2)}`,
         `Content: ${match.content}`,
       ].join('\n')
@@ -79,7 +77,6 @@ export function createExtractivePrometheusAnswer(query: string, matches: Prometh
     .sort((a, b) => b.score - a.score || a.sentence.length - b.sentence.length)
     .slice(0, 4)
 
-  const sourceLine = `Sources: ${[...new Set(matches.slice(0, 3).map((match) => match.title))].join(', ')}.`
   const body = excerpts.length
     ? excerpts.map((entry) => entry.sentence).join(' ')
     : matches
@@ -87,7 +84,7 @@ export function createExtractivePrometheusAnswer(query: string, matches: Prometh
         .map((match) => match.content.slice(0, 320))
         .join(' ')
 
-  return clampText(`${body} ${sourceLine}`, maxChars)
+  return clampText(body, maxChars)
 }
 
 export function normalizeAssistantText(value: unknown, maxChars = 1400) {
