@@ -8,9 +8,9 @@ import { useNodeGraph } from '../hooks/use-node-graph'
 import type { NodeType, Point, ToolbarTool } from '../types/motion-editor'
 import { CanvasGrid } from './canvas-grid'
 import { MotionContextMenu } from './context-menu'
+import { MotionDirectionDial } from './motion-direction-dial'
 import { MotionHeader } from './motion-header'
 import { MotionSidebar } from './motion-sidebar'
-import { MotionFirstRunOrbit } from './motion-first-run-orbit'
 import { MotionToolbar } from './motion-toolbar'
 import { NodeDragPreview } from './node-drag-preview'
 import { NodeGraph } from './node-graph'
@@ -156,7 +156,7 @@ export function MotionCanvas() {
       <MotionToolbar />
       <MotionContextMenu />
       <NodeDragPreview />
-      <MotionFirstRunOrbit />
+      <MotionDirectionDial />
     </div>
   )
 }
