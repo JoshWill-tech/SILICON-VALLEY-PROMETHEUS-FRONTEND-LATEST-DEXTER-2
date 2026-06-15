@@ -4,9 +4,15 @@ import { Suspense } from 'react'
 
 export default function SignupPage() {
   return (
-    <AuthShell title="Create account" subtitle="Create a new account in under a minute.">
+    <AuthShell
+      title="Create account"
+      subtitle="Create a new account in under a minute."
+      compact
+      showLegalCopy={false}
+      showSocialAuth={false}
+    >
       <Suspense fallback={null}>
-        <SignupForm />
+        <SignupForm compact />
       </Suspense>
     </AuthShell>
   )

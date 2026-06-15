@@ -2,11 +2,9 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, CheckCircle2, Sparkles, Undo2, Redo2 } from 'lucide-react'
+import { CheckCircle2, Sparkles, Undo2, Redo2 } from 'lucide-react'
 import { WorkspaceNavBar, type WorkspaceNavItem } from '@/components/ui/anime-navbar'
 import { CinematicExportCluster } from '@/components/editor/cinematic-export-cluster'
-import { TextReveal } from '@/components/editor/text-reveal'
-import { buildRevealVariants } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { Project, ProcessingJob, ProjectExport, HeaderNavMode } from '@/lib/types'
 import { toast } from 'sonner'
@@ -27,7 +25,6 @@ export interface EditorHeaderProps {
   latestExport: ProjectExport | null
   hasSourceAsset: boolean
   headerNavItems: WorkspaceNavItem[]
-  onBack: () => void
   onTitleSave: () => void
   onTitleKeyDown: (e: React.KeyboardEvent) => void
   onTitleStartEdit: () => void
@@ -52,7 +49,6 @@ export function EditorHeader({
   latestExport,
   hasSourceAsset,
   headerNavItems,
-  onBack,
   onTitleSave,
   onTitleKeyDown,
   onTitleStartEdit,
@@ -77,14 +73,6 @@ export function EditorHeader({
       <div className="mx-auto flex h-full w-full max-w-[1800px] items-center justify-between px-4 lg:px-6">
         {/* Left: Project Info */}
         <div className="flex items-center gap-6">
-          <motion.button
-            type="button"
-            onClick={onBack}
-            className="group flex h-8 w-8 items-center justify-center rounded-full border border-white/8 bg-white/[0.03] text-white/40 transition-all hover:border-white/20 hover:text-white"
-          >
-            <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-0.5" />
-          </motion.button>
-
           <div className="flex flex-col">
             <div className="flex items-center gap-3">
               {isEditingTitle ? (

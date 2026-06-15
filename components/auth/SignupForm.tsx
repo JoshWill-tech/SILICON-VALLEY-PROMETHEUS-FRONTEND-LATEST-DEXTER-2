@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
 import { useAuthInteraction, type AuthActiveField } from '@/components/auth/auth-interaction'
 import { markPendingVerificationEmailSent, writePendingVerificationEmail } from '@/lib/auth/pending-verification'
 import { normalizeNextPath } from '@/lib/auth/redirect'
@@ -18,7 +19,18 @@ function isValidEmail(email: string) {
   return email.includes('@')
 }
 
-export function SignupForm() {
+function deriveSignupName(name: string, email: string) {
+  const trimmedName = name.trim()
+  if (trimmedName) return trimmedName
+  const emailHandle = email.split('@')[0]?.trim()
+  return emailHandle || 'Prometheus User'
+}
+
+type SignupFormProps = {
+  compact?: boolean
+}
+
+export function SignupForm({ compact = false }: SignupFormProps) {
   const searchParams = useSearchParams()
   const { setActiveField, setPasswordSignal } = useAuthInteraction()
   const [name, setName] = React.useState('')
@@ -44,7 +56,7 @@ export function SignupForm() {
 
   const validate = () => {
     const next: typeof errors = {}
-    if (!name.trim()) next.name = 'Full name is required.'
+    if (!compact && !name.trim()) next.name = 'Full name is required.'
     if (!email.trim() || !isValidEmail(email)) next.email = 'Enter a valid email.'
     if (!password || password.length < 8) next.password = 'Password must be at least 8 characters.'
     if (confirmPassword !== password) next.confirmPassword = 'Passwords must match.'
@@ -84,7 +96,7 @@ export function SignupForm() {
               const res = await fetch('/api/auth/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullName: name, email, password, next: nextPath, captchaToken }),
+                body: JSON.stringify({ fullName: deriveSignupName(name, email), email, password, next: nextPath, captchaToken }),
               })
               const data = (await res.json()) as {
                 user?: unknown
@@ -118,8 +130,9 @@ export function SignupForm() {
           })()
         }, 800)
       }}
-      className="space-y-4"
+      className={compact ? 'auth-signup-form-compact space-y-3' : 'space-y-4'}
     >
+      {compact ? null : (
       <div>
         <label className="text-sm font-medium text-white/76" htmlFor="signup-name">
           Full name
@@ -142,6 +155,7 @@ export function SignupForm() {
           <div className="mt-1 text-xs text-red-500/80">{errors.name}</div>
         ) : null}
       </div>
+      )}
 
       <div>
         <label className="text-sm font-medium text-white/76" htmlFor="signup-email">
@@ -153,7 +167,7 @@ export function SignupForm() {
             id="signup-email"
             type="email"
             placeholder="you@domain.com"
-            className="peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 text-white placeholder:text-white/26 focus-visible:ring-white/20"
+            className={compact ? 'peer h-10 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 text-white placeholder:text-white/26 focus-visible:ring-white/20' : 'peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 text-white placeholder:text-white/26 focus-visible:ring-white/20'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onFocus={() => focusField('email')}
@@ -176,7 +190,7 @@ export function SignupForm() {
             id="signup-password"
             type={showPassword ? 'text' : 'password'}
             placeholder="Create a password"
-            className="peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20"
+            className={compact ? 'peer h-10 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20' : 'peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onFocus={() => focusField('password')}
@@ -207,7 +221,7 @@ export function SignupForm() {
             id="signup-confirm"
             type={showPassword ? 'text' : 'password'}
             placeholder="Repeat your password"
-            className="peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20"
+            className={compact ? 'peer h-10 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20' : 'peer h-11 rounded-[10px] border-white/10 bg-white/[0.025] ps-9 pe-10 text-white placeholder:text-white/26 focus-visible:ring-white/20'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             onFocus={() => focusField('confirm')}
@@ -228,16 +242,20 @@ export function SignupForm() {
         ) : null}
       </div>
 
-      <Turnstile
-        ref={turnstileRef}
-        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-        onSuccess={(token) => setCaptchaToken(token)}
-      />
+      <div className={compact ? 'h-11 overflow-hidden rounded-[10px]' : undefined}>
+        <div className={compact ? 'origin-top-left scale-[0.78]' : undefined}>
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setCaptchaToken(token)}
+          />
+        </div>
+      </div>
 
       <Button
         type="submit"
         size="lg"
-        className="h-11 w-full rounded-[10px]"
+        className={compact ? 'h-10 w-full rounded-[10px]' : 'h-11 w-full rounded-[10px]'}
         disabled={submitting || !captchaToken}
       >
         {submitting ? 'Creating account...' : 'Create account'}
@@ -245,7 +263,9 @@ export function SignupForm() {
 
       {serverError ? <div className="text-xs text-red-500/80">{serverError}</div> : null}
 
-      <div className="text-sm text-white/42">
+      {compact ? <SocialAuthButtons providers={['google']} /> : null}
+
+      <div className={compact ? 'text-center text-xs text-white/42' : 'text-sm text-white/42'}>
         Already have an account?{' '}
         <Link
           href={nextPath === '/' ? '/login' : `/login?next=${encodeURIComponent(nextPath)}`}

@@ -2,11 +2,9 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { BrainCircuit, Settings2 } from 'lucide-react'
 import { LuxuryVignette } from '@/components/editor/luxury-vignette'
+import { LiquidFrameSelector } from '@/components/editor/liquid-frame-selector'
 import { buildRevealVariants } from '@/lib/motion'
-import { cn } from '@/lib/utils'
-import { PREVIEW_FRAME_PRESETS } from '@/lib/constants'
 import type {
   Project,
   ProcessingJob,
@@ -46,10 +44,7 @@ export interface InspectorPanelProps {
 
 export function InspectorPanel({
   inspectorViewportRef,
-  project,
-  job,
   previewFramePreset,
-  clipModeActive,
   fitMode,
   hasSourceAsset,
   onSetViralClipSplitPreviewActive,
@@ -58,123 +53,37 @@ export function InspectorPanel({
   onSetFitMode,
   onPickSource,
 }: InspectorPanelProps) {
+  const handlePresetChange = React.useCallback((preset: PreviewFramePreset) => {
+    onSetViralClipSplitPreviewActive(false)
+    onSetPreviewFramePreset(preset)
+  }, [onSetPreviewFramePreset, onSetViralClipSplitPreviewActive])
+
   return (
     <motion.aside
       layout
       className="glass-panel relative flex h-full min-h-0 flex-col overflow-hidden border-y-0 border-r-0 rounded-none bg-abyss/40 backdrop-blur-2xl overscroll-contain lg:col-span-1"
     >
       <LuxuryVignette tone="cool" />
-      <svg className="pointer-events-none absolute h-0 w-0" aria-hidden="true" focusable="false">
-        <defs>
-          <filter
-            id="lusion-viscous-membrane"
-            x="-42%"
-            y="-42%"
-            width="184%"
-            height="184%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feGaussianBlur in="SourceGraphic" stdDeviation="8.5" result="spatial-melt" />
-            <feColorMatrix
-              in="spatial-melt"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 25 -10.5"
-              result="cohesive-edge"
-            />
-            <feBlend in="SourceGraphic" in2="cohesive-edge" mode="normal" />
-          </filter>
-        </defs>
-      </svg>
-      
-      {/* Panel Header */}
-      <div className="flex items-center justify-between border-b border-white/5 px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-purple/10 text-accent-purple">
-            <BrainCircuit className="size-4" />
-          </div>
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-white">Motion Brain</h2>
-          <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">Frame Controls</p>
-        </div>
-        </div>
-        <button className="flex h-8 w-8 items-center justify-center rounded-full text-white/20 transition-colors hover:bg-white/5 hover:text-white">
-          <Settings2 className="size-4" />
-        </button>
-      </div>
 
       <div
         ref={inspectorViewportRef}
-        className="premium-scroll-mask flex-1 overflow-y-auto px-6 py-6"
+        className="premium-scroll-mask flex-1 overflow-y-auto px-4 py-5"
       >
         <motion.div
           variants={buildRevealVariants({ delay: 0.1, distance: 20, blur: 10, duration: 0.4 })}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.052)_0%,rgba(255,255,255,0.026)_100%)] p-4 shadow-[0_28px_70px_-48px_rgba(0,0,0,0.92)]"
+          className="relative"
         >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(38,125,255,0.16)_0%,rgba(38,125,255,0)_42%),radial-gradient(circle_at_90%_100%,rgba(159,246,227,0.09)_0%,rgba(159,246,227,0)_44%)]" />
-          <div className="relative flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/40">Output frame</div>
-              <div className="mt-1 text-sm font-medium text-white/82">{clipModeActive ? 'Short-form cutdown' : 'Canvas format'}</div>
-            </div>
-            {!hasSourceAsset ? (
-              <button
-                type="button"
-                onClick={onPickSource}
-                className="rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[11px] font-medium text-white/72 transition-colors hover:bg-white/[0.09] hover:text-white"
-              >
-                Add source
-              </button>
-            ) : null}
-          </div>
-
-          <div className="relative mt-4 grid grid-cols-5 gap-2">
-            {PREVIEW_FRAME_PRESETS.map((framePreset) => (
-              <button
-                key={framePreset}
-                type="button"
-                onClick={() => {
-                  onSetViralClipSplitPreviewActive(false)
-                  onSetPreviewFramePreset(framePreset)
-                }}
-                className={cn(
-                  'liquid-video-size-chip flex aspect-square items-center justify-center rounded-[16px] border text-[11px] font-bold transition-[border-color,background-color,color,box-shadow] duration-200',
-                  previewFramePreset === framePreset
-                    ? 'is-active border-[#9ff6e3]/70 bg-[#9ff6e3]/12 text-[#dffdf8] shadow-[0_0_26px_rgba(159,246,227,0.18)]'
-                    : 'border-white/8 bg-black/24 text-white/42 hover:border-white/18 hover:text-white/78',
-                )}
-              >
-                <span className="liquid-video-size-chip__membrane" aria-hidden="true">
-                  <span className="liquid-video-size-chip__core" />
-                  <span className="liquid-video-size-chip__satellite liquid-video-size-chip__satellite--alpha" />
-                  <span className="liquid-video-size-chip__satellite liquid-video-size-chip__satellite--beta" />
-                </span>
-                <span className="liquid-video-size-chip__label">{onPreviewFrameLabel(framePreset)}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="liquid-video-fit-toggle relative mt-3 grid grid-cols-2 gap-1 rounded-[16px] border border-white/8 bg-black/24 p-1">
-            <span
-              className={cn('liquid-video-fit-toggle__pool', fitMode === 'fit' && 'is-right')}
-              aria-hidden="true"
-            />
-            {(['fill', 'fit'] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => onSetFitMode(mode)}
-                className={cn(
-                  'liquid-video-fit-option rounded-[13px] py-2 text-[11px] font-bold uppercase tracking-[0.18em] transition-[color,filter] duration-200',
-                  fitMode === mode ? 'is-active text-white' : 'text-white/34 hover:text-white/68',
-                )}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
+          <LiquidFrameSelector
+            value={previewFramePreset}
+            fitMode={fitMode}
+            hasSourceAsset={hasSourceAsset}
+            onPresetChange={handlePresetChange}
+            onFitModeChange={onSetFitMode}
+            onPickSource={onPickSource}
+          />
         </motion.div>
       </div>
     </motion.aside>

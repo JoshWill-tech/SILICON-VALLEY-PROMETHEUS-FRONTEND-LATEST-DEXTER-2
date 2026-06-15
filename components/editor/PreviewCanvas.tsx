@@ -387,11 +387,15 @@ function BriefPipelineProgress({
 
   if (!isTranscribing && !hasSteps) return null
 
+  const statusLabel = isTranscribing ? null : 'Analyzing cinematic brief'
+
   return (
     <div className="absolute inset-x-4 bottom-4 z-30 flex flex-col items-center gap-3 px-4">
-      <div className="rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] font-medium text-white/70 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
-        {isTranscribing ? 'Transcribing source' : 'Analyzing cinematic brief'}
-      </div>
+      {statusLabel ? (
+        <div className="rounded-full border border-white/10 bg-black/48 px-3 py-1.5 text-[11px] font-medium text-white/70 shadow-[0_18px_30px_-22px_rgba(0,0,0,0.95)] backdrop-blur-md">
+          {statusLabel}
+        </div>
+      ) : null}
       <div className="flex flex-wrap justify-center gap-2">
         {(steps ?? []).map((item) => (
           <motion.div

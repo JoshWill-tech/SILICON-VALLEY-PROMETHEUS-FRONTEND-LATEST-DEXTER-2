@@ -28,13 +28,21 @@ const SUPABASE_CLIENT_READY = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 )
 
-export function SocialAuthButtons() {
+type SocialAuthButtonsProps = {
+  providers?: SocialProvider[]
+}
+
+export function SocialAuthButtons({ providers }: SocialAuthButtonsProps) {
   const searchParams = useSearchParams()
   const [busyProvider, setBusyProvider] = React.useState<SocialProvider | null>(null)
   const [serverError, setServerError] = React.useState<string | null>(null)
   const [slowProvider, setSlowProvider] = React.useState<SocialProvider | null>(null)
 
   const nextPath = normalizeNextPath(searchParams.get('next'))
+  const enabledProviders = React.useMemo(
+    () => SOCIAL_OPTIONS.filter(({ provider }) => !providers || providers.includes(provider)),
+    [providers],
+  )
 
   React.useEffect(() => {
     const resetBusyState = () => {
@@ -105,7 +113,7 @@ export function SocialAuthButtons() {
 
   return (
     <div className="space-y-2">
-      {SOCIAL_OPTIONS.map(({ provider, label, Icon }) => (
+      {enabledProviders.map(({ provider, label, Icon }) => (
         <Button
           key={provider}
           type="button"
@@ -114,8 +122,6 @@ export function SocialAuthButtons() {
           disabled={busyProvider !== null}
           onClick={() => {
             if (provider === 'google') console.log("google clicked")
-            if (provider === 'apple') console.log("apple clicked")
-            if (provider === 'github') console.log("github clicked")
             console.log('oauth clicked', { provider })
             void handleOAuth(provider)
           }}

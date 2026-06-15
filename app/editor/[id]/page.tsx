@@ -6694,6 +6694,29 @@ function OriginalEditorPage() {
     router.push('/projects')
   }, [router])
 
+  const handleEditorHistoryKeyDown = React.useCallback((event: KeyboardEvent) => {
+    if (!event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
+
+    const target = event.target instanceof HTMLElement ? event.target : null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      handleBackNavigation()
+      return
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      router.forward()
+    }
+  }, [handleBackNavigation, router])
+
+  React.useEffect(() => {
+    window.addEventListener('keydown', handleEditorHistoryKeyDown)
+    return () => window.removeEventListener('keydown', handleEditorHistoryKeyDown)
+  }, [handleEditorHistoryKeyDown])
+
   const totalDurationMs = React.useMemo(() => {
     const scenes = job?.artifacts.scenes ?? []
     return scenes.length > 0 ? scenes[scenes.length - 1]!.endMs : 48_000
@@ -7839,7 +7862,6 @@ function OriginalEditorPage() {
             name: tab.key,
             icon: tab.icon
           }))}
-          onBack={handleBackNavigation}
           onTitleSave={handleTitleSave}
           onTitleKeyDown={handleTitleKeyDown}
           onTitleStartEdit={handleTitleStartEdit}
