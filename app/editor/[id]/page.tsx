@@ -47,6 +47,7 @@ import {
 import { MusicPlayNotification } from '@/components/editor/music-play-notification'
 import { MusicSpotlightOrb } from '@/components/editor/music-spotlight-orb'
 import { MusicRecommendationShowcase } from '@/components/editor/music-recommendation-showcase'
+import { PrometheusChat, type PrometheusChatMessage } from '@/components/editor/PrometheusChat'
 import { ChatStyleSelector } from '@/components/editor/chat-style-selector'
 import { AiLampDialog } from '@/components/editor/ai-lamp-dialog'
 import { MusicTabPanel } from '@/components/editor/music-tab-panel'
@@ -792,6 +793,31 @@ function buildClipTaskBlock({
 
 function removeChatEntry(entries: ChatEntry[], entryId: string) {
   return entries.filter((entry) => entry.id !== entryId)
+}
+
+function toPrometheusChatMessages(entries: ChatEntry[]): PrometheusChatMessage[] {
+  return entries
+    .filter((entry) => entry.role !== 'system')
+    .map((entry): PrometheusChatMessage => ({
+      id: entry.id,
+      role: entry.role === 'user' ? 'user' : 'assistant',
+      content: entry.text,
+      status: entry.status === 'loading' ? 'thinking' : 'ready',
+      pills: [
+        ...(entry.metadata?.frames ?? []).map((frame) => ({
+          id: `frame-${frame.id}`,
+          label: frame.label,
+        })),
+        ...(entry.metadata?.toolCalls ?? []).map((toolCall) => ({
+          id: `tool-${toolCall.id}`,
+          label: toolCall.label,
+        })),
+        ...(entry.metadata?.sources ?? []).map((source, index) => ({
+          id: `source-${index}`,
+          label: source.title || source.name || `Source ${index + 1}`,
+        })),
+      ],
+    }))
 }
 
 const WORKSPACE_TABS: Array<{ key: HeaderNavMode; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -2681,6 +2707,11 @@ function ChatSelectedStylePill({ style }: { style: ChatSelectedStyle }) {
   )
 }
 
+function MaybeChatSelectedStylePill({ style }: { style: ChatSelectedStyle | null }) {
+  if (!style) return null
+  return <ChatSelectedStylePill key={style.id} style={style} />
+}
+
 function ChatFrameReferenceStrip({ frames }: { frames: ChatFrameReference[] }) {
   if (!frames.length) return null
 
@@ -3023,6 +3054,21 @@ function FloatingChatComposer({
   )
   const queuedPreviewRawText = queuedPreviewRevision?.request.rawText ?? null
   const latestThreadEntry = visibleThreadEntries[visibleThreadEntries.length - 1]
+  const activeChatStyle = React.useMemo<ChatSelectedStyle | null>(
+    () =>
+      activeStyleTemplate
+        ? {
+            id: activeStyleTemplate.id,
+            name: activeStyleTemplate.name,
+            description: activeStyleTemplate.description,
+          }
+        : null,
+    [activeStyleTemplate],
+  )
+  const editorOverlayMessages = React.useMemo(
+    () => toPrometheusChatMessages(visibleThreadEntries),
+    [visibleThreadEntries],
+  )
 
   React.useEffect(() => {
     if (!isThreadOpen) return
@@ -3323,7 +3369,7 @@ function FloatingChatComposer({
   const handleComposerSubmit = React.useCallback(async () => {
     const nextValue = draft.trim()
       || (attachments.length ? 'Use these visual references for the next response.' : '')
-      || (activeStyleTemplate ? `Use the ${activeStyleTemplate.name} animation style for the next recommendation.` : '')
+      || (activeChatStyle ? `Use the ${activeChatStyle.name} animation style for the next recommendation.` : '')
     if (!nextValue) return
     onThreadOpenChange(true)
 
@@ -3337,7 +3383,7 @@ function FloatingChatComposer({
       analysis: frameAssist.analysis,
       revisionRequest,
     })
-  }, [activeStyleTemplate, attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
+  }, [activeChatStyle, attachments.length, draft, frameAssist, onSubmit, onThreadOpenChange])
 
   const handleQuickAction = React.useCallback(
     (prompt: string) => {
@@ -3388,14 +3434,14 @@ function FloatingChatComposer({
           return
         }
 
-        if (!hasDraft && attachments.length === 0 && !activeStyleTemplate) return
+        if (!hasDraft && attachments.length === 0 && !activeChatStyle) return
         event.preventDefault()
         void handleComposerSubmit()
       }
     },
     [
       activeFrameSuggestion,
-      activeStyleTemplate,
+      activeChatStyle,
       frameAssist,
       frameAssistKey,
       handleComposerSubmit,
@@ -3501,6 +3547,33 @@ function FloatingChatComposer({
           <AnimatePresence initial={false} mode="wait">
             {isThreadOpen ? (
               <motion.div
+                key="thread-prometheus-chat"
+                className="relative h-full min-h-0"
+                initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                exit={reduceMotion ? undefined : { opacity: 0, y: 8 }}
+                transition={{ duration: reduceMotion ? 0 : 0.32, ease: 'easeOut' }}
+              >
+                <PrometheusChat
+                  title="Current Chat"
+                  messages={editorOverlayMessages}
+                  draft={draft}
+                  onDraftChange={onDraftChange}
+                  thinking={loading}
+                  onSend={async () => {
+                    await handleComposerSubmit()
+                  }}
+                  onAttachImage={() => attachmentInputRef.current?.click()}
+                  actions={CHAT_QUICK_ACTIONS.map((action) => ({
+                    id: action.label,
+                    label: action.label,
+                    icon: action.icon,
+                  }))}
+                  className="min-h-full"
+                />
+              </motion.div>
+            ) : false ? (
+              <motion.div
                 key="thread-composer"
                 className="relative flex h-full min-h-0 flex-col px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-4"
                 initial={reduceMotion ? false : { opacity: 0, y: 18, filter: 'blur(12px)' }}
@@ -3522,7 +3595,7 @@ function FloatingChatComposer({
                       transition={{ duration: reduceMotion ? 0 : 0.4, ease: 'easeOut' }}
                     />
                     <span className="text-xs font-medium uppercase tracking-[0.2em] text-white/60">
-                      EDITOR RELAY
+                      EDITORIAL THREAD
                     </span>
                   </div>
 
@@ -3580,10 +3653,10 @@ function FloatingChatComposer({
                           className="text-[clamp(2.5rem,7vw,5.8rem)] font-extralight leading-[0.9] text-white"
                           style={{ fontFamily: 'var(--font-migra), var(--font-playfair-display), Georgia, serif' }}
                         >
-                          Prometheus AI
+                          Current Chat
                         </p>
                         <p className="mt-4 max-w-[34rem] text-sm leading-6 text-white/58">
-                          Build something amazing - just start typing below.
+                          Ask Prometheus...
                         </p>
                       </motion.div>
                     )}
@@ -3631,9 +3704,7 @@ function FloatingChatComposer({
                     onRemove={onRemoveAttachment}
                   />
                   <AnimatePresence>
-                    {activeStyleTemplate ? (
-                      <ChatSelectedStylePill key={activeStyleTemplate.id} style={activeStyleTemplate} />
-                    ) : null}
+                    <MaybeChatSelectedStylePill style={activeChatStyle} />
                   </AnimatePresence>
 
                   <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -3699,7 +3770,7 @@ function FloatingChatComposer({
                     <motion.button
                       type="submit"
                       aria-label={loading ? 'Stop response' : 'Send message'}
-                      disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
+                      disabled={!loading && !hasDraft && attachments.length === 0 && !activeChatStyle}
                       className="premium-liquid-pill grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                       whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                       whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -3792,9 +3863,7 @@ function FloatingChatComposer({
                   onRemove={onRemoveAttachment}
                 />
                 <AnimatePresence>
-                  {activeStyleTemplate ? (
-                    <ChatSelectedStylePill key={activeStyleTemplate.id} style={activeStyleTemplate} />
-                  ) : null}
+                  <MaybeChatSelectedStylePill style={activeChatStyle} />
                 </AnimatePresence>
 
                 <div className="relative mt-2 flex-1 overflow-visible">
@@ -3876,7 +3945,7 @@ function FloatingChatComposer({
                   <motion.button
                     type="button"
                     onClick={loading ? onStop : () => void handleComposerSubmit()}
-                    disabled={!loading && !hasDraft && attachments.length === 0 && !activeStyleTemplate}
+                    disabled={!loading && !hasDraft && attachments.length === 0 && !activeChatStyle}
                     className="premium-liquid-pill grid h-11 w-11 shrink-0 place-items-center rounded-full border border-emerald-300/20 bg-emerald-500 p-0 text-white shadow-[0_12px_26px_rgba(16,185,129,0.26)] transition-colors hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40 disabled:cursor-not-allowed disabled:opacity-45 md:h-12 md:w-12"
                     whileHover={reduceMotion ? undefined : { y: -1, scale: 1.04 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.95 }}
@@ -8211,7 +8280,7 @@ function OriginalEditorPage() {
       <AiLampDialog
         open={isAiLampOpen}
         onOpenChange={setIsAiLampOpen}
-        badge="Prometheus AI"
+        badge="Prometheus Studio"
         title="Shape the next pass"
         description="Call up a directed AI lane for this project without leaving the chamber. Pick the route you want, and Prometheus will move the edit, music, or chat flow forward from there."
         actions={aiLampActions}
