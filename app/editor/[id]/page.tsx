@@ -3026,6 +3026,7 @@ function CurvedThreadPill({
 
 function FloatingChatComposer({
   projectId,
+  hasSourceMedia,
   previewUrl = null,
   previewKind = 'video',
   sourceLabel = 'Source video',
@@ -3072,6 +3073,7 @@ function FloatingChatComposer({
   focusPulse = 0,
 }: {
   projectId: string
+  hasSourceMedia?: boolean
   previewUrl?: string | null
   previewKind?: PreviewMediaKind
   sourceLabel?: string
@@ -3131,6 +3133,15 @@ function FloatingChatComposer({
   const expandedThreadEndRef = React.useRef<HTMLDivElement | null>(null)
   const attachmentInputRef = React.useRef<HTMLInputElement | null>(null)
   const isThreadOpen = isOpen || threadOpen
+  const launcherRef = React.useRef<HTMLButtonElement | null>(null)
+  const wasThreadOpenRef = React.useRef(isThreadOpen)
+  React.useEffect(() => {
+    const closing = wasThreadOpenRef.current && !isThreadOpen
+    wasThreadOpenRef.current = isThreadOpen
+    if (!closing) return
+    const frame = window.requestAnimationFrame(() => launcherRef.current?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [isThreadOpen])
   const frameAssist = useFrameTargeting({ projectId, draft, caretIndex })
   const draftMirrorAnalysis = React.useMemo(() => parseFrameReference(draft, draft.length), [draft])
   const visibleThreadEntries = React.useMemo(
@@ -3475,6 +3486,7 @@ function FloatingChatComposer({
           <button
             type="button"
             aria-label="Open editorial chat"
+            ref={launcherRef}
             onClick={() => {
               onOpenChange(true)
               onThreadOpenChange(true)
@@ -3562,6 +3574,8 @@ function FloatingChatComposer({
                 <div className="relative min-h-0 min-w-0">
                   <PrometheusChat
                     projectId={projectId}
+                    hasSourceMedia={hasSourceMedia}
+                    autoFocus
                     title="Current Chat"
                     messages={editorOverlayMessages}
                     draft={draft}
@@ -3777,6 +3791,7 @@ function FloatingChatComposer({
 
 const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   projectId,
+  hasSourceMedia,
   projectTitle,
   previewUrl = null,
   previewKind = 'video',
@@ -3799,6 +3814,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   workspaceTab = null,
 }: {
   projectId: string
+  hasSourceMedia?: boolean
   projectTitle: string
   previewUrl?: string | null
   previewKind?: PreviewMediaKind
@@ -5713,6 +5729,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
               <>
                 <FloatingChatComposer
                   projectId={projectId}
+                  hasSourceMedia={hasSourceMedia}
                   previewUrl={previewUrl}
                   previewKind={previewKind}
                   sourceLabel={sourceLabel}
@@ -5961,6 +5978,7 @@ function MobileEditorView({
             <ChatWorkspacePanel
               key={`mobile-chat-${projectId}`}
               projectId={projectId}
+              hasSourceMedia={Boolean(project?.sourceAssetId)}
               projectTitle={projectTitle}
               initialPrompt={initialPrompt}
               initialSources={initialSources}
@@ -7624,18 +7642,17 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [previewCurrentTimeSec])
 
   const videoMetadata = React.useMemo(() => {
+    if (!project?.sourceAssetId) return undefined
     const inspection = project?.sourceProfile?.inspection
-    const aspect = getSourcePreviewAspectRatio(project?.sourceProfile, previewAspectRatio)
-    const resLabel = aspect > 1 ? '1920x1080' : '1080x1920'
     return {
-      resolution: inspection?.width && inspection?.height ? `${inspection.width}x${inspection.height}` : resLabel,
-      fps: inspection?.fps ?? '30.00',
-      duration: transportTime || (inspection?.durationSec ? `${inspection.durationSec}s` : '00:48.00'),
-      codec: inspection?.mimeType || 'H.264 / AAC (48 kHz)',
-      aspectRatio: `${aspect.toFixed(2)}:1`,
+      resolution: inspection?.width && inspection?.height ? `${inspection.width}x${inspection.height}` : undefined,
+      fps: inspection?.fps ?? undefined,
+      duration: inspection?.durationSec ? `${inspection.durationSec}s` : undefined,
+      codec: inspection?.mimeType || undefined,
+      aspectRatio: inspection?.width && inspection?.height ? `${(inspection.width / inspection.height).toFixed(2)}:1` : undefined,
       size: inspection?.fileSizeBytes ? `${(inspection.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB` : undefined,
     }
-  }, [project?.sourceProfile, previewAspectRatio, transportTime])
+  }, [project?.sourceAssetId, project?.sourceProfile])
   const viralClipPrompt = React.useMemo(
     () =>
       buildViralClipQuickActionPrompt({
@@ -9491,6 +9508,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
                 {activeWorkspaceTab === 'Motion' ? (
                   <MotionEditWorkspace
                     captionStyle={editorCaptionStyle}
+                    hasSourceMedia={hasSourceAsset}
                     projectTitle={project?.title ?? 'Untitled Project'}
                     previewUrl={previewUrl}
                     previewKind={previewKind}
@@ -9718,11 +9736,13 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       </Dialog>
       <div
         aria-hidden
+        inert
         className="pointer-events-none fixed left-0 top-0 h-0 w-0 overflow-hidden"
       >
         <ChatWorkspacePanel
           key={`desktop-chat-${projectId}`}
           projectId={projectId}
+          hasSourceMedia={hasSourceAsset}
           projectTitle={project?.title ?? 'Untitled Project'}
           previewUrl={previewUrl}
           previewKind={previewKind}
@@ -9791,7 +9811,6 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       />
       <div
         ref={setChatComposerPortal}
-        aria-hidden
         className="pointer-events-none fixed inset-0 z-[120] h-0 w-0 overflow-visible"
       />
     </>

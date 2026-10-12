@@ -119,8 +119,8 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
     <Dialog open={showExport} onOpenChange={open => { if (!isRendering) setShowExport(open) }}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-24px)] max-w-[520px] overflow-y-auto border-white/[0.11] bg-[#0b0d11] p-0 text-white shadow-[0_24px_80px_rgba(0,0,0,.58)]">
         <DialogHeader className="border-b border-white/[0.08] px-6 pb-5 pt-6">
-          <DialogTitle className="text-xl font-semibold tracking-[-.025em]">Export video</DialogTitle>
-          <DialogDescription className="mt-1 text-xs text-white/50">Render a share-ready MP4 from this source.</DialogDescription>
+          <DialogTitle className="text-xl font-semibold tracking-[-.025em]">Export source video</DialogTitle>
+          <DialogDescription className="mt-1 text-xs text-white/50">Create a source Mini-Run MP4 for this project.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 px-6 py-5">
@@ -144,7 +144,11 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
                 <span className="text-[10px] text-white/40">Fixed profile</span>
               </div>
             </div>
-            <p className="mt-2.5 text-[11px] leading-relaxed text-white/45">Saved timeline edits, editor captions, and selected music are not included in this render.</p>
+            <div role="note" aria-label="Source export capabilities" className="mt-3 rounded-lg border border-white/[0.1] bg-white/[0.025] px-4 py-3 text-xs leading-relaxed text-[var(--light-ui-text,#e8e8ed)]">
+              <p className="font-semibold">What this export includes</p>
+              <p className="mt-1">Original source footage with automatic captions and music. Saved timeline edits, editor captions, and your selected music are not included.</p>
+              <p className="mt-2">The MP4 is saved to project exports. Direct social posting and cloud delivery are unavailable; destination links manage connected accounts.</p>
+            </div>
           </section>
 
           <details className="group border-t border-white/[0.08] pt-4">
@@ -163,7 +167,7 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             <section aria-label="Render readiness" className="rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[10px]">
               {readinessStatus === 'checking' && <p role="status" className="text-white/60">Checking render readiness…</p>}
               {readinessError && <p role="alert" className="text-rose-200">{readinessError} <button type="button" onClick={retryReadiness} className="underline">Retry</button></p>}
-              {readiness && !readiness.canSubmit && <p role="alert" className="text-amber-100/80">{readiness.blockers.join(' · ') || 'Render readiness needs attention.'}</p>}
+              {readiness && !readiness.canSubmit && <p role="alert" className="text-[var(--light-ui-danger,#fde68a)]">{readiness.blockers.join(' · ') || 'Render readiness needs attention.'}</p>}
             </section>
           )}
 
@@ -172,7 +176,7 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
               {timelineSync.status === 'loading' ? 'Checking timeline sync…' : timelineSync.status === 'saving' ? 'Saving editor timeline. This source export remains available.' : `Timeline sync failed: ${timelineSync.error || 'The save could not be confirmed.'}`} {timelineSync.status === 'error' && <button type="button" onClick={timelineSync.retry} className="underline">Retry</button>}
             </p>
           )}
-          {!hasSource && <p role="alert" className="text-[10px] text-amber-200">Add a source video before exporting.</p>}
+          {!hasSource && <p role="alert" className="text-[10px] text-[var(--light-ui-danger,#fde68a)]">Add a source video before exporting.</p>}
           {connectionError && <p role="alert" className="text-[10px] text-amber-200">Account status unavailable. <button type="button" className="underline" onClick={() => void refresh()}>Retry</button></p>}
           {error && <p role="alert" className="text-[11px] text-rose-200">{error}</p>}
           {isRendering && <p role="status" aria-live="polite" className="text-[10px] text-sky-100">Submitting the source MP4 and waiting for a tracked render job. Saved timeline edits are not rendered.</p>}
@@ -183,7 +187,7 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             {hasFinishedRender && onDownloadFinished && <Button variant="outline" onClick={onDownloadFinished} className="min-h-10 border-white/15 bg-white/[0.04] px-4 text-xs text-white hover:bg-white/10"><Download className="size-3.5" /> Download MP4</Button>}
             <Button variant="outline" disabled={isRendering} onClick={() => setShowExport(false)} className="min-h-10 border-white/15 bg-transparent px-4 text-xs text-white/75 hover:bg-white/[0.06]">Cancel</Button>
             <Button disabled={isRendering || !onStartRender || !hasSource || readinessStatus !== 'ready'} onClick={() => void startRender()} className="min-h-10 bg-white px-4 text-xs font-semibold text-[#111318] shadow-none hover:bg-white/90">
-              {isRendering ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Download className="size-3.5" />}{isRendering ? 'Exporting…' : 'Export video'}
+              {isRendering ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Download className="size-3.5" />}{isRendering ? 'Exporting…' : 'Export source MP4'}
             </Button>
           </div>
         </DialogFooter>

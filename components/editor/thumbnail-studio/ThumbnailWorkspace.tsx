@@ -238,7 +238,7 @@ export function ThumbnailWorkspace(props: Props) {
           <div className={styles.canvasToolbar}><div className={styles.previewIdentity}><span className={styles.previewSparkle}><Sparkles size={14} /></span><div><span className={styles.previewEyebrow}>YOUR NEXT FIRST IMPRESSION</span><p className={styles.subtitle}>A great video deserves a great first look.</p></div></div><div className={styles.aspectGroup} aria-label="Aspect ratio">{(['16:9','3:2','1:1','2:3','9:16'] as const).map(ratio => <button type="button" className={styles.aspectButton} key={ratio} aria-pressed={props.aspectRatio === ratio} onClick={() => props.onAspectRatio(ratio)}>{ratio}</button>)}</div></div>
           <div className={styles.previewSourceLayout}>
           <div className={styles.previewColumn}>
-          <div className={styles.stage} data-ratio={props.aspectRatio} ref={stageRef} aria-busy={props.isGenerating} onPointerMove={handleStagePointerMove} onPointerLeave={resetStageTilt}>
+          <div data-theme-independent="thumbnail-preview" className={styles.stage} data-ratio={props.aspectRatio} ref={stageRef} aria-busy={props.isGenerating} onPointerMove={handleStagePointerMove} onPointerLeave={resetStageTilt}>
             {image ? <div className={styles.artboard} data-testid="thumbnail-artboard" style={{ width: artboardSize.width * feedScale, height: artboardSize.height * feedScale, transform: `perspective(1200px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, '--pointer-x': `${tilt.pointerX}%`, '--pointer-y': `${tilt.pointerY}%` } as React.CSSProperties}>
               <img key={image} src={image} alt={view === 'source' || !props.generatedUrl ? 'Selected video frame at ' + source?.timecode : props.headline ? 'Thumbnail: ' + props.headline : 'Generated thumbnail artwork'} className={[styles.stageImage, view === 'source' || !props.generatedUrl ? styles.stageSource : ''].join(' ')} onLoad={event => setDimensions(`${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`)} />
               {props.generatedUrl && <div className={styles.stageGlare} aria-hidden="true" />}
@@ -295,7 +295,7 @@ export function ThumbnailWorkspace(props: Props) {
             </>}
             {tab === 'chat' && <div className={styles.chatContainer}>
               {props.generatedUrl ? (
-                <div className={styles.chatContextCard}>
+                <div data-theme-independent="thumbnail-chat" className={styles.chatContextCard}>
                   <img src={props.generatedUrl} alt="Active thumbnail base" className={styles.chatContextThumb} />
                   <div className={styles.chatContextInfo}>
                     <p className={styles.chatContextTitle}>{props.headline || 'Active Artwork'}</p>
@@ -304,7 +304,7 @@ export function ThumbnailWorkspace(props: Props) {
                   <span className={styles.chatRefineBadge}><Sparkles size={11} /> Iterative Mode</span>
                 </div>
               ) : (
-                <div className={styles.chatContextCard}>
+                <div data-theme-independent="thumbnail-chat" className={styles.chatContextCard}>
                   <div className={styles.chatContextInfo}>
                     <p className={styles.chatContextTitle}>Draft Layout</p>
                     <p className={styles.chatContextSubtitle}>Generate initial artwork first, or describe the concept below to begin.</p>
@@ -321,7 +321,7 @@ export function ThumbnailWorkspace(props: Props) {
                       : "Welcome to Thumbnail Studio Assistant. Select your video frame or describe the visual hook you'd like to create.",
                   }
                 ]).map(msg => (
-                  <div key={msg.id} className={`${styles.chatBubble} ${msg.role === 'user' ? styles.chatBubbleUser : styles.chatBubbleAssistant}`}>
+                  <div data-theme-independent="thumbnail-chat" key={msg.id} className={`${styles.chatBubble} ${msg.role === 'user' ? styles.chatBubbleUser : styles.chatBubbleAssistant}`}>
                     <div className={styles.chatBubbleSender}>{msg.role === 'user' ? 'You' : 'Jarvis Co-Director'}</div>
                     <div>{msg.content}</div>
                   </div>
@@ -338,11 +338,11 @@ export function ThumbnailWorkspace(props: Props) {
                     'Shift to luxury minimalist editorial look',
                     'Warm up lighting and add gold accents',
                   ].map(chip => (
-                    <button key={chip} type="button" className={styles.chatPromptChip} disabled={props.isGenerating} onClick={() => handleSendChat(chip)}>{chip}</button>
+                    <button data-theme-independent="thumbnail-chat" key={chip} type="button" className={styles.chatPromptChip} disabled={props.isGenerating} onClick={() => handleSendChat(chip)}>{chip}</button>
                   ))}
                 </div>
               </div>
-              <div className={styles.chatInputBox}>
+              <div data-theme-independent="thumbnail-chat" className={styles.chatInputBox}>
                 <textarea
                   className={styles.chatTextarea}
                   placeholder={props.generatedUrl ? "Describe specific changes (e.g. 'Make headline neon cyan, darken background, preserve face')..." : "Describe the thumbnail you want to generate..."}

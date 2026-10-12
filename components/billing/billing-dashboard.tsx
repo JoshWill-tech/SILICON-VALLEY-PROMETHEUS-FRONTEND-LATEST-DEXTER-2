@@ -237,7 +237,7 @@ export function BillingDashboard() {
             </div>
             <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4">
               <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40"><Database className="size-3 text-blue-300" /> Storage</p>
-              <p className="mt-2 truncate text-lg font-semibold text-white">{formatStorage(usage.storageBytes)}<span className="text-sm text-white/40"> / {formatStorage(usage.storageLimit)}</span></p>
+              <p className="mt-2 flex flex-wrap gap-x-1 text-lg font-semibold text-white"><span>{formatStorage(usage.storageBytes)}</span><span className="text-sm text-white/40">/ {formatStorage(usage.storageLimit)}</span></p>
               <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.08]"><motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(storageProgress, 100)}%` }} transition={{ duration: 0.3, ease: 'easeOut' }} className={cn('h-full', storageProgress > 90 ? 'bg-red-400' : 'bg-blue-400')} /></div>
             </div>
             <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4">

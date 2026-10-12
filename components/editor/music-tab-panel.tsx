@@ -218,6 +218,7 @@ function MusicCollectionTabs({
         {/* Mood dropdown */}
         <div className="relative">
           <select
+            aria-label="Mood"
             value={moodFilter ?? ''}
             onChange={(e) => onMoodChange?.(e.target.value)}
             className="appearance-none rounded-full border border-white/10 bg-white/[0.03] pl-3 pr-7 py-1.5 text-xs text-white/70 hover:border-white/20 hover:text-white outline-none cursor-pointer focus:border-[#3b82f6]"
@@ -236,6 +237,7 @@ function MusicCollectionTabs({
         {/* Genre dropdown */}
         <div className="relative">
           <select
+            aria-label="Genre"
             value={genreFilter ?? ''}
             onChange={(e) => onGenreChange?.(e.target.value)}
             className="appearance-none rounded-full border border-white/10 bg-white/[0.03] pl-3 pr-7 py-1.5 text-xs text-white/70 hover:border-white/20 hover:text-white outline-none cursor-pointer focus:border-[#3b82f6]"
@@ -251,6 +253,7 @@ function MusicCollectionTabs({
         {/* Duration dropdown */}
         <div className="relative">
           <select
+            aria-label="Duration"
             value={durationFilter ?? ''}
             onChange={(e) => onDurationChange?.(e.target.value)}
             className="appearance-none rounded-full border border-white/10 bg-white/[0.03] pl-3 pr-7 py-1.5 text-xs text-white/70 hover:border-white/20 hover:text-white outline-none cursor-pointer focus:border-[#3b82f6]"

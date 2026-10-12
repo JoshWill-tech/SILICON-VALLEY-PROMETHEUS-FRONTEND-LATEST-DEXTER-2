@@ -363,7 +363,7 @@ export function CinematicLibrary({
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={`hero-copy-${active.id}`}
-                      className="mt-auto max-w-[620px] pt-24 sm:pt-32"
+                      className="mt-auto max-w-[620px] rounded-md bg-[#06070b]/90 p-5 sm:p-6"
                       initial={reduceMotion ? undefined : { opacity: 0, y: 26, filter: 'blur(14px)' }}
                       animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
                       exit={reduceMotion ? undefined : { opacity: 0, y: -10, filter: 'blur(12px)' }}
@@ -405,7 +405,7 @@ export function CinematicLibrary({
 
                       <motion.div className="mt-8 flex flex-wrap items-center gap-3" {...reveal(0.38, 18)}>
                         {heroVideo ? (
-                          <Button type="button" onClick={() => setSelectedVideo(heroVideo)} className="h-12 rounded-md bg-[#55ff9b] px-6 text-[#06110b] shadow-[0_22px_40px_-28px_rgba(85,255,155,0.7)] hover:bg-[#86ffb6]">
+                          <Button type="button" onClick={() => setSelectedVideo(heroVideo)} style={{ color: 'var(--void)' }} className="h-12 rounded-md bg-[#55ff9b] px-6 text-[#06110b] shadow-[0_22px_40px_-28px_rgba(85,255,155,0.7)] hover:bg-[#86ffb6]">
                             <Play className="mr-2 h-4 w-4 fill-current" />
                             Watch Hero
                           </Button>
@@ -602,6 +602,8 @@ function HoverTiltMediaCard({
 }) {
   const [hovered, setHovered] = React.useState(false)
   const [imageFailed, setImageFailed] = React.useState(false)
+  const [fallbackFailed, setFallbackFailed] = React.useState(false)
+  const [imageLoaded, setImageLoaded] = React.useState(false)
   const [pointerPos, setPointerPos] = React.useState({ x: 50, y: 50 })
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -622,6 +624,8 @@ function HoverTiltMediaCard({
 
   React.useEffect(() => {
     setImageFailed(false)
+    setFallbackFailed(false)
+    setImageLoaded(false)
   }, [item.image, item.videoId])
 
   return (
@@ -648,19 +652,28 @@ function HoverTiltMediaCard({
           compact && 'min-h-[240px]',
         )}
       >
-        <motion.img
+        {!imageLoaded && <div role={fallbackFailed ? 'img' : undefined} aria-label={fallbackFailed ? `${title}: thumbnail unavailable` : undefined} className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-[var(--theme-surface)] px-4 text-center text-xs text-[var(--theme-foreground)]">
+          {fallbackFailed ? 'Thumbnail unavailable' : 'Loading thumbnail…'}
+        </div>}
+        {!fallbackFailed && <motion.img
           src={resolvedImage}
-          alt={item.title}
+          alt=""
           sizes={imageSizes}
           fetchPriority={item.videoId ? 'high' : 'auto'}
           className="absolute inset-0 h-full w-full object-cover object-center"
           style={{ objectPosition: item.imagePosition ?? 'center' }}
-          onError={() => setImageFailed(true)}
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setImageLoaded(false)
+            const fallback = item.image || ART_POOL[hashValue(`${item.id}-${item.title}`) % ART_POOL.length]
+            if (imageFailed || resolvedImage === fallback) setFallbackFailed(true)
+            else setImageFailed(true)
+          }}
           animate={reduceMotion ? undefined : { scale: 1 }}
           whileHover={reduceMotion ? undefined : { scale: 1.06 }}
           transition={reduceMotion ? { duration: 0 } : { duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        />
-        {item.videoId && hovered && !reduceMotion ? (
+        />}
+        {item.videoId && imageLoaded && hovered && !reduceMotion ? (
           <React.Suspense fallback={null}>
             <PaperImage src={resolvedImage} alt="" className="absolute inset-0 overflow-hidden" />
           </React.Suspense>
@@ -734,7 +747,7 @@ function HoverTiltMediaCard({
       {item.videoId ? (
         <div className="px-1 pb-1 pt-3">
           <div className="truncate text-[10px] uppercase tracking-[0.18em] text-[#63ffa4]/80">{subtitle}</div>
-          <div className="mt-1.5 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-white transition-colors group-hover:text-[#c4ffd9]">{title}</div>
+          <div title={title} className="mt-1.5 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-white transition-colors group-hover:text-[#c4ffd9]">{title}</div>
           {meta ? <div className="mt-1 truncate text-xs text-white/60 font-mono">{meta}</div> : null}
         </div>
       ) : null}

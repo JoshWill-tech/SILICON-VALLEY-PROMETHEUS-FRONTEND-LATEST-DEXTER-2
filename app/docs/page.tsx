@@ -21,15 +21,15 @@ const chapters = [
     'Keep the project open until changes have saved. Reopen it from Projects to continue later.',
   ] },
   { id: 'assistant', title: 'Work with the assistant', steps: [
-    'Open the editorial chat inside a project so the assistant has that project?s context. Describe a specific result, such as adding captions or shortening pauses.',
+    "Open the editorial chat inside a project so the assistant has that project's context. Describe a specific result, such as adding captions or shortening pauses.",
     'Review any proposal and its scope before confirming it. A reply alone is not evidence of an edit: check the timeline, preview, and action history.',
     'For actions that require compute, review the credit cost and balance. Confirm only when you want the action to run; cancel a running job when a Cancel control is offered.',
     'If an action cannot run, follow its error or credit guidance. Contact support with the project name and steps if the problem persists.',
   ] },
   { id: 'media', title: 'Manage source media', steps: [
-    'Use Assets to find media available to your account. Choose footage or audio that you have permission to use.',
-    'Add the source to the intended project and verify it appears in the editor. Library availability and timeline placement are separate steps.',
-    'Before removing source media, check whether you still need it for an active edit or delivery.',
+    'In Studio, select Upload source to start a project with footage you have permission to use. In an existing project, use Choose source media in the editor to add or replace footage.',
+    'Wait for the upload to finish, then verify the source in the preview before requesting edits or transcription.',
+    'Open Music in the editor to choose a soundtrack. Review the selected track in the project before continuing.',
   ] },
   { id: 'exports', title: 'Review an export', steps: [
     'Review the cut, captions, audio, aspect ratio, and project duration in the preview before opening Export.',

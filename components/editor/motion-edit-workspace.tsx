@@ -109,6 +109,7 @@ export interface MotionEditWorkspaceProps {
   previewUrl: string
   previewKind: PreviewMediaKind
   hasPreviewMedia: boolean
+  hasSourceMedia?: boolean
   sourceLabel?: string | null
   previewAspectRatio: number
   fitMode: 'fill' | 'fit'
@@ -283,7 +284,7 @@ function HighlightedTranscript({
 }
 
 export function MotionEditWorkspace({
-  projectTitle, previewUrl, previewKind, hasPreviewMedia, sourceLabel, previewAspectRatio, fitMode,
+  projectTitle, previewUrl, previewKind, hasPreviewMedia, hasSourceMedia = hasPreviewMedia, sourceLabel, previewAspectRatio, fitMode,
   onFitModeChange, objectFit, mediaTransformStyle, currentTimeLabel, durationLabel, currentTimeSec,
   durationSec, previewPlaying, previewMuted, onPreviewMutedChange, videoRef, transcriptSegments, captionStyle,
   onUpdateTranscriptSegment, onToggleCutSegment, onToggleCutWord, cutRanges, onCutRangesChange, editorialReadiness, editorialCleanupRun, onApplySuggestedSilenceCuts, onRequestTranscribe, isTranscribing = false, transcriptError = null, isSourceUploading = false, videoMetadata,
@@ -678,9 +679,9 @@ export function MotionEditWorkspace({
               <button
                 type="button"
                 onClick={onRequestTranscribe}
-                disabled={isTranscribing || isSourceUploading}
+                disabled={!hasSourceMedia || isTranscribing || isSourceUploading}
                 className="inline-flex items-center gap-1 rounded bg-white/[0.08] px-2 py-1 text-[10px] text-white/70 hover:bg-white/[0.14] hover:text-white disabled:opacity-40"
-                title={isSourceUploading ? 'Source media is saving' : 'Create a new transcript from the source video'}
+                title={!hasSourceMedia ? 'Choose source media before transcribing' : isSourceUploading ? 'Source media is saving' : 'Create a new transcript from the source video'}
               >
                 {isTranscribing || isSourceUploading ? <Loader2 className="size-3 animate-spin text-[#98f237]" /> : <RefreshCw className="size-3" />}
                 <span>Retranscribe</span>
@@ -724,30 +725,32 @@ export function MotionEditWorkspace({
             <div className="border-b border-white/8 bg-white/[0.02] p-4 text-xs text-white/80">
               <div className="flex items-center justify-between pb-2">
                 <span className="font-semibold text-white flex items-center gap-1.5"><Film className="size-3.5 text-[#98f237]" /> Video Metadata</span>
-                <span className="text-[10px] text-white/40">Server Source</span>
+                <span className="text-[10px] text-white/65">{hasSourceMedia ? 'Source media' : 'Source required'}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+              {!hasSourceMedia ? (
+                <button type="button" onClick={onPickSource} className="rounded border border-white/20 px-3 py-2 text-white/90 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50">Choose source media to inspect its metadata</button>
+              ) : <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
                 <div className="rounded bg-black/40 p-2 border border-white/5">
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">Resolution</div>
-                  <div className="font-mono text-white/90">{videoMetadata?.resolution || (previewAspectRatio ? (previewAspectRatio > 1 ? '1920x1080' : '1080x1920') : '1080p')}</div>
+                  <div className="font-mono text-white/90">{videoMetadata?.resolution || 'Metadata pending'}</div>
                 </div>
                 <div className="rounded bg-black/40 p-2 border border-white/5">
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">Aspect Ratio</div>
-                  <div className="font-mono text-white/90">{videoMetadata?.aspectRatio || (safeAspectRatio.toFixed(2) + ':1')}</div>
+                  <div className="font-mono text-white/90">{videoMetadata?.aspectRatio || 'Metadata pending'}</div>
                 </div>
                 <div className="rounded bg-black/40 p-2 border border-white/5">
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">Duration</div>
-                  <div className="font-mono text-white/90">{durationLabel || formatTime(effectiveDuration)}</div>
+                  <div className="font-mono text-white/90">{videoMetadata?.duration || 'Metadata pending'}</div>
                 </div>
                 <div className="rounded bg-black/40 p-2 border border-white/5">
                   <div className="text-[10px] text-white/40 uppercase tracking-wider">Framerate</div>
-                  <div className="font-mono text-white/90">{videoMetadata?.fps ? `${videoMetadata.fps} fps` : '30.00 fps'}</div>
+                  <div className="font-mono text-white/90">{videoMetadata?.fps ? `${videoMetadata.fps} fps` : 'Metadata pending'}</div>
                 </div>
                 <div className="rounded bg-black/40 p-2 border border-white/5 col-span-2">
-                  <div className="text-[10px] text-white/40 uppercase tracking-wider">Encoding / Codec</div>
-                  <div className="font-mono text-white/90">{videoMetadata?.codec || 'H.264 / AAC (48.0 kHz)'}</div>
+                  <div className="text-[10px] text-white/40 uppercase tracking-wider">Source format</div>
+                  <div className="font-mono text-white/90">{videoMetadata?.codec || 'Metadata pending'}</div>
                 </div>
-              </div>
+              </div>}
             </div>
           ) : null}
 
@@ -1189,7 +1192,8 @@ export function MotionEditWorkspace({
           <div className="flex items-center justify-between border-b border-white/8 bg-black/60 px-3 py-1">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold tracking-wide text-white/88">Editorial timeline</span>
-              <EditorialSyncStatus />
+              <EditorialSyncStatus subject={hasSourceMedia ? 'Audio' : 'Workspace'} />
+              {!hasSourceMedia ? <span className="text-[10px] text-white/65">Workspace defaults · add source media</span> : null}
             </div>
             <div className="flex items-center gap-1.5">
               <button

@@ -320,7 +320,7 @@ export function ProjectsPageEditorial() {
         <div className="mx-auto max-w-[1540px]">
           <div className="flex items-center justify-between gap-4 border-b border-[var(--project-line)]/15 pb-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--light-ui-muted,rgba(255,255,255,0.7))]">
             <span className="flex items-center gap-2"><Sparkles className="size-3.5" /> Prometheus studio</span>
-            <span>{isLoading ? 'Loading your projects?' : `${projects.length} pieces in motion`}</span>
+            <span>{isLoading ? 'Loading your projects?' : `${projects.length} ${projects.length === 1 ? 'piece' : 'pieces'} in motion`}</span>
           </div>
 
           <div className="flex flex-col justify-between gap-7 pt-8 lg:flex-row lg:items-end lg:pt-12">

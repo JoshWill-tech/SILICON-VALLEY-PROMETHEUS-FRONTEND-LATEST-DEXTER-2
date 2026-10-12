@@ -521,6 +521,12 @@ html[data-color-mode='light'] [data-theme-independent] {
   color: #fff;
 }
 
+/* The pricing wordmark is a dark-theme effect; it becomes a dark band when
+   legacy white utilities are remapped on pale cards. Scope the opt-out to pricing. */
+html[data-color-mode='light'] [data-pricing-decoration] {
+  color: transparent !important;
+}
+
 /* Preview controls follow the workspace theme; only the footage is independent.
    The legacy accent-cyan/void utilities have no Tailwind color mapping. */
 html[data-color-mode='light'] [data-preview-controls] .text-chrome-dim {
