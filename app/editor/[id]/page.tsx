@@ -49,6 +49,7 @@ import { ChatStyleSelector } from '@/components/editor/chat-style-selector'
 import { MusicTabPanel } from '@/components/editor/music-tab-panel'
 import { MotionPropertyCanvas } from '@/components/editor/motion-property-canvas'
 import { MotionEditWorkspace } from '@/components/editor/motion-edit-workspace'
+import motionWorkspaceStyles from '@/components/editor/motion-edit-workspace.module.css'
 import { IterationModal } from '@/components/editor/IterationModal'
 import { ContinueBanner } from '@/components/editor/ContinueBanner'
 import gsap from 'gsap'
@@ -9389,7 +9390,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.035)_0_1px,transparent_1.2px)] bg-[length:7px_7px] opacity-[0.24]"
       />
 
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      <div className={cn('relative flex h-full min-h-0 flex-col overflow-hidden', activeWorkspaceTab === 'Motion' && motionWorkspaceStyles.editorFrame)}>
         <EditorHeader
           project={project}
           job={job}
@@ -9423,6 +9424,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         />
 
         <main
+          data-motion-editor-main={activeWorkspaceTab === 'Motion' ? '' : undefined}
           className={cn(
             'relative z-20 mx-auto flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden lg:overflow-hidden',
             'max-w-[1580px] px-3 py-3 pb-24 lg:pb-4 lg:px-5 xl:px-6',
@@ -9465,6 +9467,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
               </motion.div>
 
               <div
+                data-motion-editor-content={activeWorkspaceTab === 'Motion' ? '' : undefined}
                 className={cn(
                   'flex min-h-0 flex-1 flex-col',
                   activeWorkspaceTab === 'Music'

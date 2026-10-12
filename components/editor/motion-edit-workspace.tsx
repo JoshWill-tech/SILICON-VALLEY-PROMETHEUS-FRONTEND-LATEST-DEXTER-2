@@ -20,6 +20,7 @@ import {
   Loader2,
   Maximize2,
   Monitor,
+  MoreHorizontal,
   Music,
   Pause,
   PanelBottomClose,
@@ -44,6 +45,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import styles from './motion-edit-workspace.module.css'
 import { motionCropTransform } from '@/lib/editor/motion-framing'
 import { StyleCloneCard } from '@/components/editor/style-clone-card'
 import { ReferenceCaptionOverlay } from '@/components/editor/reference-caption-overlay'
@@ -656,16 +658,15 @@ export function MotionEditWorkspace({
   }
 
   return (
-    <section ref={workspaceRef} data-motion-chamber className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_42%,#080808_0%,#000_68%)] text-white" aria-label="Motion editing workspace" onDragOver={onSourceDragOver} onDragLeave={onSourceDragLeave} onDrop={onSourceDrop}>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.035)_0_1px,transparent_1.2px)] bg-[length:7px_7px] opacity-[0.28]" aria-hidden="true" />
+    <section ref={workspaceRef} data-motion-chamber className={cn('relative flex h-full min-h-0 flex-col text-white', styles.workspace)} aria-label="Motion editing workspace" onDragOver={onSourceDragOver} onDragLeave={onSourceDragLeave} onDrop={onSourceDrop}>
       {isSourceDragOver ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/70 backdrop-blur-sm" aria-hidden="true">
           <span className="inline-flex items-center gap-2 rounded-md border border-[#98f237]/45 bg-[#0a0d08] px-5 py-3 text-sm text-[#b4fb60] shadow-[0_0_40px_rgba(152,242,55,0.22)]"><Upload className="size-4" /> Drop source video to replace media</span>
         </div>
       ) : null}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-        <aside data-motion-panel="transcript" className="hidden w-[clamp(250px,24vw,340px)] shrink-0 flex-col border-r border-white/10 xl:flex">
-          <div className="flex min-h-14 shrink-0 items-center gap-2 border-b border-white/8 px-4">
+      <div className={styles.upperRow}>
+        <aside data-motion-panel="transcript" className={styles.transcript}>
+          <div className={styles.transcriptHeader}>
             <span className="text-sm font-medium">Transcript</span>
             <span className="rounded bg-[#98f237]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#b4fb60]">Prometheus AI</span>
             {totalCutSeconds > 0 ? (
@@ -688,29 +689,34 @@ export function MotionEditWorkspace({
             <div className="ml-auto flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setShowMetadata((v) => !v)}
-                className={cn('grid size-8 place-items-center rounded transition-colors', showMetadata ? 'bg-[#98f237]/15 text-[#b4fb60]' : 'text-white/58 hover:bg-white/5 hover:text-white')}
-                aria-label="Toggle Video Metadata"
-                title="Video Metadata"
-              >
-                <Info className="size-3.5" />
-              </button>
-              <button
-                type="button"
                 onClick={() => setTranscriptQuery((value) => value ? '' : ' ')}
                 className="grid size-8 place-items-center rounded text-white/58 transition-colors hover:bg-white/5 hover:text-white"
                 aria-label="Search transcript"
               >
                 <Search className="size-3.5" />
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveOnly((value) => !value)}
-                className={cn('grid size-8 place-items-center rounded transition-colors', activeOnly ? 'text-[#b4fb60]' : 'text-white/58 hover:bg-white/5 hover:text-white')}
-                aria-label="Filter transcript to current line"
-              >
-                <Filter className="size-3.5" />
-              </button>
+              <details className={styles.transcriptOptions}>
+                <summary aria-label="Transcript options" title="Transcript options"><MoreHorizontal className="size-4" /></summary>
+                <div className={styles.transcriptOptionsMenu}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMetadata((v) => !v)}
+                    className={cn('grid size-8 place-items-center rounded transition-colors', showMetadata ? 'bg-[#98f237]/15 text-[#b4fb60]' : 'text-white/58 hover:bg-white/5 hover:text-white')}
+                    aria-label="Toggle Video Metadata"
+                    title="Video Metadata"
+                  >
+                    <Info className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveOnly((value) => !value)}
+                    className={cn('grid size-8 place-items-center rounded transition-colors', activeOnly ? 'text-[#b4fb60]' : 'text-white/58 hover:bg-white/5 hover:text-white')}
+                    aria-label="Filter transcript to current line"
+                  >
+                    <Filter className="size-3.5" />
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -759,7 +765,7 @@ export function MotionEditWorkspace({
             </div>
           ) : null}
 
-          <div ref={transcriptRef} className="premium-scroll-hide min-h-0 flex-1 overflow-y-auto p-4">
+          <div ref={transcriptRef} className={cn('premium-scroll-hide', styles.transcriptBody)}>
             {transcriptError && !isTranscribing && visibleSegments.length === 0 ? (
               <div className="mb-4 rounded-md border border-amber-300/25 bg-amber-300/[0.07] p-3 text-xs" role="alert">
                 <div className="flex items-start justify-between gap-3">
@@ -962,7 +968,7 @@ export function MotionEditWorkspace({
             ) : null}
 
 
-            <div className="space-y-3.5 text-[17px] leading-8">
+            <div className={styles.transcriptLines}>
               {visibleSegments.map((segment) => {
                 const active = isActiveSegment(segment, currentTimeSec)
                 const isEditing = editingSegmentId === segment.id
@@ -1017,7 +1023,8 @@ export function MotionEditWorkspace({
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
+                      <button type="button" className={styles.segmentSeek} onClick={(event) => { event.stopPropagation(); onSeek(segment.start) }} aria-label={`Seek to ${formatTime(segment.start).slice(0, 5)}`}>
+                        <span className={styles.segmentTime}>{formatTime(segment.start).slice(0, 5)}</span>
                         <HighlightedTranscript
                           segment={segment}
                           active={active}
@@ -1026,10 +1033,7 @@ export function MotionEditWorkspace({
                             onToggleCutWord(segment.id, wIdx)
                           } : undefined}
                         />
-                        <span className={cn('ml-2 inline-flex translate-y-[-1px] rounded px-1.5 py-0.5 text-[10px] tabular-nums leading-none', active ? 'bg-[#98f237]/16 font-semibold text-[#b4fb60]' : 'bg-white/[0.08] text-white/38')}>
-                          {formatTime(segment.start).slice(0, 5)}
-                        </span>
-                      </div>
+                      </button>
                       <div className="flex items-center gap-1">
                         {onToggleCutSegment ? (
                           <button
@@ -1071,8 +1075,11 @@ export function MotionEditWorkspace({
           </div>
         </aside>
 
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="relative shrink-0 border-b border-white/8 bg-black/40 px-3 py-2 sm:px-5">
+        <main className={styles.bodyGrid}>
+          <header className={styles.controlsColumn}>
+            <div className={styles.layoutHeading}><Frame className="size-4" /><h2>Motion &amp; Layout</h2></div>
+            <details className={styles.extraActions}>
+              <summary><MoreHorizontal className="size-4" /> More editing actions</summary>
             <div className="flex min-h-10 flex-wrap items-center justify-between gap-2">
               <div
                 data-motion-header-details
@@ -1106,10 +1113,10 @@ export function MotionEditWorkspace({
               </div>
               <div className="flex items-center gap-1.5"><button type="button" onClick={() => onApplyPrompt?.(`Add a motion marker at ${formatTime(currentTimeSec)} in ${projectTitle}.`)} className="grid size-9 place-items-center rounded-md border border-white/10 bg-white/[0.045] text-white/72 transition-colors hover:bg-white/[0.1] hover:text-white" aria-label="Add motion marker"><Plus className="size-4" /></button><button type="button" onClick={() => onApplyPrompt?.('Prepare the current motion edit for export.')} className="inline-flex min-h-9 items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/85"><Download className="size-3.5" /> <span className="hidden sm:inline">Export</span></button></div>
             </div>
-            <div className="mt-1.5 flex gap-1 overflow-x-auto pb-0.5 lg:hidden" aria-label="Motion tools">{TOOLS.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => selectTool(id)} className={cn('inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors', activeTool === id ? 'border-[#98f237]/35 bg-[#98f237]/10 text-[#c9ff7d]' : 'border-white/10 text-white/58 hover:text-white')}><Icon className="size-3.5" />{label}</button>)}</div>
+            </details>
             <div
               data-motion-framing-controls
-              className="grid transition-[grid-template-rows,opacity] duration-150 motion-reduce:transition-none"
+              className={cn('grid transition-[grid-template-rows,opacity] duration-150 motion-reduce:transition-none', styles.framingCard)}
               style={{ gridTemplateRows: `${1 - framingCollapseProgress}fr`, opacity: 1 - framingCollapseProgress }}
               aria-hidden={framingCollapseProgress >= 1}
               inert={framingCollapseProgress >= 1}
@@ -1121,37 +1128,45 @@ export function MotionEditWorkspace({
                 }} onToggleCrop={() => setCropEnabled((value) => !value)} onToggleFit={() => onFitModeChange(fitMode === 'fill' ? 'fit' : 'fill')} onPickSource={handlePickSource} />
               </div>
             </div>
-            <details className="mt-2 max-h-[40vh] overflow-y-auto rounded-lg border border-white/10 bg-[#101214] text-xs">
-              <summary className="cursor-pointer px-3 py-2 text-white/80">Reference look{referenceStyle ? ' · Preview only' : ''}</summary>
+            <details open className={styles.referenceCard}>
+              <summary><Sparkles className="size-4" /> Reference look{referenceStyle ? ' · Preview only' : ''}</summary>
               <StyleCloneCard key={previewUrl} sourceKey={previewUrl} durationSec={hasPreviewMedia && previewKind === 'video' ? durationSec : 0} onApplyStyle={applyReference} />
               {referenceStyle && <button type="button" onClick={() => editorial.patch({ type: 'reference_style', style: null })} className="m-3 min-h-9 rounded border border-white/20 px-3 text-white/80">Remove reference look</button>}
             </details>
           </header>
 
-          <div data-motion-preview-stage className="relative min-h-[220px] flex-1 overflow-hidden bg-black/18 p-2 sm:min-h-[280px] sm:p-3 lg:min-h-0 lg:p-3">
+          <div data-motion-preview-stage className={styles.previewStage}>
             <div className="grid h-full w-full place-items-center [container-type:size]">
               <div
-                className="relative aspect-[var(--motion-preview-aspect)] w-[min(100cqw,calc(100cqh*var(--motion-preview-aspect)))] max-h-full max-w-full"
+                data-motion-preview-frame
+                className={cn('relative aspect-[var(--motion-preview-aspect)] w-[min(100cqw,calc(100cqh*var(--motion-preview-aspect)))] max-h-full max-w-full', styles.previewFrame)}
                 style={{ '--motion-preview-aspect': safeAspectRatio } as React.CSSProperties}
               >
                 <div data-theme-independent="media" className="relative h-full w-full overflow-hidden border border-white/18 bg-black shadow-[0_28px_80px_rgba(0,0,0,0.56)]">
                   {renderMedia()}
                   {effectiveCaptionsVisible && effectiveCaptionStyle && <ReferenceCaptionOverlay segment={activeSegment} timeSec={currentTimeSec} style={effectiveCaptionStyle} />}
-                  <div className="pointer-events-none absolute left-3 top-3 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded bg-black/60 px-2.5 py-1.5 text-[10px] text-white/72 backdrop-blur-sm"><Frame className="size-3 shrink-0 text-[#98f237]" /><span className="truncate">{sourceLabel ?? 'Source video'}</span></div>
-                  <button type="button" onClick={onTogglePlayback} disabled={previewKind !== 'video' || !previewUrl} className="absolute bottom-3 left-3 grid size-10 place-items-center rounded-full border border-white/12 bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/82 disabled:cursor-not-allowed disabled:opacity-35" aria-label={previewPlaying ? 'Pause preview' : 'Play preview'}>{previewPlaying ? <Pause className="size-4 fill-current" /> : <Play className="ml-0.5 size-4 fill-current" />}</button>
+                  <span className="sr-only">{sourceLabel ?? 'Source video'}</span>
+                </div>
+                <div className={styles.previewTransport}>
+                  <button type="button" onClick={onTogglePlayback} disabled={previewKind !== 'video' || !previewUrl} aria-label={previewPlaying ? 'Pause preview' : 'Play preview'}>{previewPlaying ? <Pause className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}</button>
                   {previewKind === 'video' ? (
                     <button
                       type="button"
                       onClick={() => onPreviewMutedChange(!previewMuted)}
-                      className="absolute bottom-3 right-3 inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-black/65 px-3 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b4fb60]"
                       aria-label={previewMuted ? 'Turn video sound on' : 'Mute video sound'}
                       aria-pressed={!previewMuted}
                       title={previewMuted ? 'Turn video sound on' : 'Mute video sound'}
                     >
                       {previewMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-                      <span className="text-[11px] font-medium">{previewMuted ? 'Sound off' : 'Sound on'}</span>
                     </button>
                   ) : null}
+                  <span className={styles.previewTime}>{currentTimeLabel} <span>/ {durationLabel}</span></span>
+                  <span className={styles.previewRatio}>{Math.abs(safeAspectRatio - 9 / 16) < 0.001 ? '9:16' : Math.abs(safeAspectRatio - 16 / 9) < 0.001 ? '16:9' : Math.abs(safeAspectRatio - 1) < 0.001 ? '1:1' : `${safeAspectRatio.toFixed(2)}:1`}</span>
+                  <button type="button" aria-label="Fullscreen preview" onClick={(event) => {
+                    const frame = event.currentTarget.closest('[data-motion-preview-frame]')
+                    const fullscreen = document.fullscreenElement ? document.exitFullscreen() : frame?.requestFullscreen?.()
+                    void fullscreen?.catch(() => setTranscriptActionMessage('Fullscreen is unavailable in this browser.'))
+                  }}><Maximize2 className="size-4" /></button>
                 </div>
                 {cropEnabled ? <CropFrame rect={cropRect} onChange={setCropRect} /> : null}
               </div>
@@ -1159,14 +1174,14 @@ export function MotionEditWorkspace({
           </div>
         </main>
 
-        <aside className="hidden w-[72px] shrink-0 border-l border-white/8 bg-black/28 lg:flex lg:flex-col lg:items-center lg:gap-2 lg:pt-3">{TOOLS.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => selectTool(id)} className={cn('group flex min-h-12 w-full flex-col items-center gap-1 border-l-2 px-1 py-1.5 text-[9px] font-medium transition-colors', activeTool === id ? 'border-[#98f237] text-white' : 'border-transparent text-white/46 hover:text-white/82')}><span className={cn('grid size-7 place-items-center rounded-md transition-colors', activeTool === id ? 'bg-[#98f237]/12 text-[#b4fb60]' : 'text-white/65 group-hover:bg-white/[0.06]')}><Icon className="size-3.5" /></span>{label}</button>)}<div className="mt-auto mb-3 text-[8px] uppercase tracking-[0.12em] text-white/28">{activeTool}</div></aside>
+        <aside aria-label="Motion tools" className={styles.toolRail}>{TOOLS.map(({ id, label, icon: Icon }) => <button key={id} type="button" onClick={() => selectTool(id)} aria-pressed={activeTool === id} className={cn('group flex min-h-12 w-full flex-col items-center gap-1 border-l-2 px-1 py-1.5 text-[9px] font-medium transition-colors', activeTool === id ? 'border-[#98f237] text-white' : 'border-transparent text-white/46 hover:text-white/82')}><span className={cn('grid size-7 place-items-center rounded-md transition-colors', activeTool === id ? 'bg-[#98f237]/12 text-[#b4fb60]' : 'text-white/65 group-hover:bg-white/[0.06]')}><Icon className="size-3.5" /></span>{label}</button>)}</aside>
       </div>
 
       <EditorialAudioPreview track={parentSelectedMusicTrack?.id === selectedMusicTrack?.id ? null : selectedMusicTrack} volume={soundtrackVolume} muted={soundtrackMuted} effects={audioEffects} videoRef={videoRef} playing={previewPlaying} currentTime={currentTimeSec} ducking={soundtrackDucking} voiceActive={resolvedSegments.some((segment) => !segment.isCut && Boolean(segment.text.trim()) && currentTimeSec >= segment.start && currentTimeSec < segment.end)} onError={setAudioError} />
       {audioError ? <p role="status" className="shrink-0 border-t border-amber-200/15 bg-[#15130d] px-4 py-1 text-[10px] text-amber-100">{audioError}</p> : null}
       {showTimeline ? (
         <section
-          className="absolute inset-x-0 bottom-0 z-20 flex min-h-0 flex-col border-t border-white/10 bg-[#070809]/95"
+          className={styles.timeline}
           style={{ height: timelineHeight }}
           aria-label="Video timeline"
         >
@@ -1237,7 +1252,7 @@ export function MotionEditWorkspace({
           </div>
         </section>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 z-20 h-10 border-t border-white/10 bg-[#070809]">
+        <div className={styles.collapsedTimeline}>
           {timelineResizeHandle}
           <button
             type="button"
@@ -1305,7 +1320,7 @@ function CropFrame({ rect, onChange }: { rect: CropRect; onChange: (rect: CropRe
     { id: 'bottom-left', label: 'Resize crop from bottom left', className: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize' },
     { id: 'bottom-right', label: 'Resize crop from bottom right', className: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize' },
   ]
-  return <div ref={frameRef} className="pointer-events-none absolute inset-0 z-20 touch-none" onPointerMove={(event) => updateFromPointer(event.clientX, event.clientY)} onPointerUp={endResize} onPointerCancel={endResize}>
+  return <div ref={frameRef} data-motion-crop-frame className="pointer-events-none absolute inset-0 z-20 touch-none" onPointerMove={(event) => updateFromPointer(event.clientX, event.clientY)} onPointerUp={endResize} onPointerCancel={endResize}>
     <div className="pointer-events-none absolute border-2 border-[#b4fb60] shadow-[0_0_0_1px_rgba(0,0,0,0.82),0_0_18px_rgba(180,251,96,0.28)]" style={{ left: rect.left + '%', top: rect.top + '%', width: rect.width + '%', height: rect.height + '%' }}>
       {handles.map(({ id, label, className }) => <button key={id} type="button" aria-label={label} title={label + '. Drag or use arrow keys.'} onPointerDown={(event) => startResize(event, id)} onKeyDown={(event) => nudgeHandle(event, id)} className={'pointer-events-auto absolute grid size-5 place-items-center rounded-full border-2 border-[#b4fb60] bg-[#111]/95 shadow-[0_2px_8px_rgba(0,0,0,0.8)] transition-transform hover:scale-110 focus-visible:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ' + className}><span className="size-1.5 rounded-full bg-[#b4fb60]" /></button>)}
     </div>
@@ -1375,11 +1390,13 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
       </button>
     </div>
   ) : (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-white/40 mr-1">Framing:</span>
+    <div className={styles.framingRows}>
+      <div className={styles.framingRow}>
+      <span className={styles.framingLabel}>Framing:</span>
       <button
         type="button"
         onClick={onToggleFit}
+        aria-pressed={fitMode === 'fill'}
         className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/80 hover:border-white/20 hover:bg-white/[0.07] hover:text-white transition-all shadow-sm"
       >
         <Maximize2 className="size-3.5 text-[#98f237]" />
@@ -1388,6 +1405,7 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
       <button
         type="button"
         onClick={onToggleCrop}
+        aria-pressed={cropEnabled}
         className={cn(
           'inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 py-1 text-xs font-medium transition-all shadow-sm',
           cropEnabled
@@ -1398,8 +1416,9 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
         <Crop className="size-3.5" />
         <span>{cropEnabled ? 'Crop guides on' : 'Crop guides off'}</span>
       </button>
-      <div className="h-4 w-px bg-white/10 mx-1" />
-      <span className="text-[10px] uppercase tracking-wider text-white/40">Presets:</span>
+      </div>
+      <div className={styles.framingRow}>
+      <span className={styles.framingLabel}>Presets:</span>
       <button
         type="button"
         className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:border-white/20 hover:text-white transition-all"
@@ -1431,6 +1450,7 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
         <span>1:1</span>
       </button>
       <button type="button" onClick={onResetCrop} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs text-white/70" aria-label="Reset crop"><RotateCcw className="size-3.5" /> Reset crop</button>
+      </div>
     </div>
   )
   return <div className="mt-2.5 border-t border-white/[0.08] pt-2.5">{content}</div>
