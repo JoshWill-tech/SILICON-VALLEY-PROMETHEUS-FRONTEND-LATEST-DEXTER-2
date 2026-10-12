@@ -501,6 +501,7 @@ html[data-color-mode='light'] :is(.project-hero-shade, .project-hero-glow, .proj
 }
 
 html[data-color-mode='light'] .project-tile-artwork {
+  --project-artwork-opacity: 0.30;
   mix-blend-mode: multiply;
 }
 

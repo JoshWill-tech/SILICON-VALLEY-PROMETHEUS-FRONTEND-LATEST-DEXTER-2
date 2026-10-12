@@ -133,7 +133,7 @@ function ProjectTile({
 
       <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(90deg,rgba(255,255,255,.18)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.18)_1px,transparent_1px)] [background-size:28px_28px] transition-opacity duration-500 group-hover:opacity-0 group-focus-within:opacity-0" />
-        {thumbnailStyle ? <div className="project-tile-artwork absolute inset-0 bg-cover bg-center grayscale opacity-[0.18] mix-blend-screen transition-[opacity,transform,mix-blend-mode] duration-700 group-hover:scale-105 group-hover:opacity-[0.12] group-hover:mix-blend-multiply group-focus-within:scale-105 group-focus-within:opacity-[0.12] group-focus-within:mix-blend-multiply" style={thumbnailStyle} /> : null}
+        {thumbnailStyle ? <div className="project-tile-artwork absolute inset-0 bg-cover bg-center grayscale opacity-[var(--project-artwork-opacity,0.18)] mix-blend-screen transition-[opacity,transform,mix-blend-mode] duration-700 group-hover:scale-105 group-hover:opacity-[0.12] group-hover:mix-blend-multiply group-focus-within:scale-105 group-focus-within:opacity-[0.12] group-focus-within:mix-blend-multiply" style={thumbnailStyle} /> : null}
         <span className="absolute -right-12 -top-10 size-44 rounded-full bg-[var(--project-inverse)]/10 blur-3xl transition-[transform,background-color] duration-700 group-hover:translate-x-6 group-hover:translate-y-5 group-hover:bg-[var(--project-card)]/10 group-focus-within:translate-x-6 group-focus-within:translate-y-5 group-focus-within:bg-[var(--project-card)]/10" />
         <span className="absolute left-5 top-5 font-mono text-[10px] tracking-[0.22em] text-[color:var(--light-ui-muted,rgba(255,255,255,0.7))] transition-colors duration-500 group-hover:text-[color:var(--light-ui-muted,rgba(0,0,0,0.65))] group-focus-within:text-[color:var(--light-ui-muted,rgba(0,0,0,0.65))]">PROMETHEUS / 0{index + 1}</span>
       </div>
@@ -397,8 +397,8 @@ export function ProjectsPageEditorial() {
       </section>
 
       <section aria-label="Browse projects" className="mx-auto max-w-[1540px] px-4 py-6 sm:px-7 lg:px-10 lg:py-8">
-        <div className="mb-5 flex flex-col gap-3 border-b border-[var(--project-line)]/10 pb-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:pb-0">
+        <div className="mb-5 flex flex-col gap-3 border-b border-[var(--project-line)]/10 pb-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:shrink-0 lg:pb-0">
             {filters.map((item) => {
               const active = filter === item.key
               return (
@@ -414,8 +414,8 @@ export function ProjectsPageEditorial() {
             })}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative min-w-0 flex-1 lg:w-64 lg:flex-none">
+          <div className="flex items-center gap-2 lg:ml-auto lg:flex-1 lg:justify-end">
+            <div className="relative min-w-0 flex-1 lg:min-w-40 lg:max-w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[color:var(--light-ui-muted,rgba(255,255,255,0.42))]" />
               <input
                 value={query}
