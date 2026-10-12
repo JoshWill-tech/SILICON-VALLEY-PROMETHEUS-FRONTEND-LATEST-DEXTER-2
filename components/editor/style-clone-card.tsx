@@ -57,15 +57,17 @@ export function StyleCloneCard({ className, durationSec = 0, sourceKey, onApplyS
     } finally { if (generation.current === token) setApplying(false) }
   }
   return (
-    <section className={cn('rounded-xl border border-white/10 bg-[#101214] p-3.5', className)} aria-label="Reference video look">
-      <h3 className="flex items-center gap-2 text-xs font-semibold text-white/90"><Sparkles className="size-3.5 text-[#b4fb60]" /> Reference look</h3>
-      <p className="mt-1 text-xs leading-relaxed text-white/60">Analyze a public YouTube video, then try its color treatment, captions and camera moves on your preview.</p>
-      <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
+    <section className={cn('px-3 pb-3 pt-1', className)} aria-label="Reference video look">
+      <p className="text-xs leading-relaxed text-white/60">Borrow a video’s color, captions, and camera movement for this preview.</p>
+      <form className="mt-2 flex flex-col gap-2" onSubmit={handleSubmit}>
         <label className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/40 px-2.5 py-2">
           <Link2 className="size-3.5 shrink-0 text-white/50" />
           <input type="url" value={url} onChange={event => setUrl(event.target.value)} placeholder="Public YouTube video link" disabled={isBusy} aria-label="Reference video URL" className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/45 disabled:opacity-50" />
         </label>
-        <input type="text" value={styleHint} onChange={event => setStyleHint(event.target.value)} placeholder="Optional focus, such as restrained captions" disabled={isBusy} aria-label="Reference style focus" className="rounded-lg border border-white/15 bg-black/40 px-2.5 py-2 text-xs text-white outline-none placeholder:text-white/45 disabled:opacity-50" />
+        <details className="rounded-lg border border-white/10 px-2.5 py-1.5">
+          <summary className="cursor-pointer text-xs text-white/55">Add a focus (optional)</summary>
+          <input type="text" value={styleHint} onChange={event => setStyleHint(event.target.value)} placeholder="For example, restrained captions" disabled={isBusy} aria-label="Reference style focus" className="mt-2 w-full rounded-md border border-white/15 bg-black/40 px-2.5 py-2 text-xs text-white outline-none placeholder:text-white/45 disabled:opacity-50" />
+        </details>
         <button type="submit" disabled={isBusy || !url.trim()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-white px-3 text-xs font-semibold text-black hover:bg-white/85 disabled:opacity-40">
           {state.phase === 'analyzing' ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Sparkles className="size-3.5" />}{state.phase === 'analyzing' ? 'Analyzing reference...' : 'Analyze reference'}
         </button>

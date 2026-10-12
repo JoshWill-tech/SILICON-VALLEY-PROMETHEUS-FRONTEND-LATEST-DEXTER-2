@@ -1375,62 +1375,64 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
       </button>
     </div>
   ) : (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-white/40 mr-1">Framing:</span>
+    <div className="flex flex-wrap items-center gap-1.5">
       <button
         type="button"
         onClick={onToggleFit}
-        className="inline-flex min-h-8 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/80 hover:border-white/20 hover:bg-white/[0.07] hover:text-white transition-all shadow-sm"
+        aria-pressed={fitMode === 'fill'}
+        title="Toggle fit or fill"
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-medium text-white/75 transition-colors hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
       >
-        <Maximize2 className="size-3.5 text-[#98f237]" />
-        <span>{fitMode === 'fill' ? 'Fill frame' : 'Fit frame'}</span>
+        <Maximize2 className="size-3.5 text-white/55" />
+        <span>{fitMode === 'fill' ? 'Fill' : 'Fit'}</span>
       </button>
       <button
         type="button"
         onClick={onToggleCrop}
+        aria-pressed={cropEnabled}
+        title={cropEnabled ? 'Hide crop guides' : 'Show crop guides'}
         className={cn(
-          'inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 py-1 text-xs font-medium transition-all shadow-sm',
+          'inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
           cropEnabled
-            ? 'border-[#98f237]/50 bg-[#98f237]/15 text-[#c9ff7d] shadow-[0_0_12px_rgba(152,242,55,0.18)]'
+            ? 'border-[#98f237]/40 bg-[#98f237]/10 text-[#c9ff7d]'
             : 'border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:bg-white/[0.07] hover:text-white',
         )}
       >
         <Crop className="size-3.5" />
-        <span>{cropEnabled ? 'Crop guides on' : 'Crop guides off'}</span>
+        <span>Crop</span>
       </button>
-      <div className="h-4 w-px bg-white/10 mx-1" />
-      <span className="text-[10px] uppercase tracking-wider text-white/40">Presets:</span>
+      <div className="mx-0.5 h-5 w-px bg-white/10" aria-hidden="true" />
       <button
         type="button"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:border-white/20 hover:text-white transition-all"
+        className={cn('inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors', Math.abs(aspectRatio - 16 / 9) < 0.001 ? 'border-white/30 bg-white/[0.1] text-white' : 'border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white')}
         title="16:9 Landscape"
         onClick={() => onAspectRatioChange(16 / 9)}
         aria-pressed={Math.abs(aspectRatio - 16 / 9) < 0.001}
       >
-        <Monitor className="size-3.5 text-blue-400" />
+        <Monitor className="size-3.5" />
         <span>16:9</span>
       </button>
       <button
         type="button"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:border-white/20 hover:text-white transition-all"
+        className={cn('inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors', Math.abs(aspectRatio - 9 / 16) < 0.001 ? 'border-white/30 bg-white/[0.1] text-white' : 'border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white')}
         title="9:16 Portrait"
         onClick={() => onAspectRatioChange(9 / 16)}
         aria-pressed={Math.abs(aspectRatio - 9 / 16) < 0.001}
       >
-        <Smartphone className="size-3.5 text-emerald-400" />
+        <Smartphone className="size-3.5" />
         <span>9:16</span>
       </button>
       <button
         type="button"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-white/70 hover:border-white/20 hover:text-white transition-all"
+        className={cn('inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors', Math.abs(aspectRatio - 1) < 0.001 ? 'border-white/30 bg-white/[0.1] text-white' : 'border-white/10 bg-white/[0.03] text-white/65 hover:border-white/20 hover:text-white')}
         title="1:1 Square"
         onClick={() => onAspectRatioChange(1)}
         aria-pressed={Math.abs(aspectRatio - 1) < 0.001}
       >
-        <Square className="size-3.5 text-purple-400" />
+        <Square className="size-3.5" />
         <span>1:1</span>
       </button>
-      <button type="button" onClick={onResetCrop} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs text-white/70" aria-label="Reset crop"><RotateCcw className="size-3.5" /> Reset crop</button>
+      <button type="button" onClick={onResetCrop} className="grid size-8 place-items-center rounded-md border border-white/10 text-white/55 transition-colors hover:border-white/20 hover:text-white" title="Reset crop" aria-label="Reset crop"><RotateCcw className="size-3.5" /></button>
     </div>
   )
   return <div className="mt-2.5 border-t border-white/[0.08] pt-2.5">{content}</div>
