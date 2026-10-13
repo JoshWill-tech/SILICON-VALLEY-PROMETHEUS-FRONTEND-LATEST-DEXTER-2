@@ -1987,11 +1987,22 @@ html[data-prometheus-reduce-motion='true'] *::after {
   }
 }
 
-/* Shared keyboard navigation. Heading faces remain component-specific. */
-:focus-visible {
+/* Keep keyboard focus styling on controls, but don't draw the theme-blue ring around fields. */
+:focus-visible:not(:where(input, textarea, select, [contenteditable='true'])) {
   outline: 2px solid var(--theme-accent);
   outline-offset: 4px;
 }
+
+:is(input, textarea, select, [contenteditable='true']):focus,
+:is(input, textarea, select, [contenteditable='true']):focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+:is(input, textarea, select, [contenteditable='true']):not([aria-invalid='true']):not([data-invalid='true']):focus {
+  border-color: var(--theme-border) !important;
+}
+
 input, textarea, select, button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
