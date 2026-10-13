@@ -129,6 +129,14 @@ for (const preset of app.tokens.THEME_PRESETS) {
 }
 
 const colorOnlyProperties = new Set(['color', 'color-scheme', 'background', 'background-color', 'background-image', 'border-color', 'box-shadow'])
+// Upload-only adjustments keep the light canvas clean, its controls unobscured,
+// and its action reachable on short screens. Browser checks cover these states.
+const uploadLayout = {
+  "html[data-color-mode='light'] [data-upload-header]": { 'flex-wrap': 'wrap', 'padding-inline-end': '5.5rem' },
+  "html[data-color-mode='light'] [data-upload-dropzone]": { 'min-height': '0', 'overflow-y': 'auto' },
+  "html[data-color-mode='light'] [data-upload-action]": { 'min-height': '44px', 'flex-shrink': '0' },
+  "html[data-color-mode='light'] [data-upload-dialog] [aria-label='Remove staged source']": { 'min-width': '44px', 'min-height': '44px' },
+}
 postcss.parse(readFileSync('app/light-mode.css', 'utf8')).walkRules(rule => {
   for (const selector of rule.selectors) {
     assert.ok(selector.startsWith("html[data-color-mode='light']"), 'Every new theme rule must be opt-in so dark mode remains unchanged')
@@ -141,7 +149,13 @@ postcss.parse(readFileSync('app/light-mode.css', 'utf8')).walkRules(rule => {
     const quietDecoration = ['backdrop-filter', '-webkit-backdrop-filter', 'text-shadow'].includes(declaration.prop) && declaration.value === 'none'
     const focusIndicator = ['outline-color', 'outline-width', 'outline-style', 'outline-offset'].includes(declaration.prop) && rule.selector.includes(':focus-visible')
     const projectArtworkBlend = declaration.prop === 'mix-blend-mode' && declaration.value === 'multiply' && rule.selector.endsWith('.project-tile-artwork')
-    assert.ok(declaration.prop.startsWith('--') || colorOnlyProperties.has(declaration.prop) || logoColor || loaderGlow || navigationDivider || quietDecoration || focusIndicator || projectArtworkBlend, `Light mode must not change layout, typography, or project media: ${declaration.prop}`)
+    const uploadDecoration = declaration.prop === 'display' && declaration.value === 'none' && ["html[data-color-mode='light'] [data-upload-dialog] > [aria-hidden='true']", "html[data-color-mode='light'] [data-upload-preview-ambient]"].includes(rule.selector)
+    const uploadPreviewShadow = declaration.prop === 'filter' && declaration.value === 'none' && rule.selector === "html[data-color-mode='light'] [data-upload-preview] :is(img, video)"
+    const uploadControlLayout = uploadLayout[rule.selector]?.[declaration.prop] === declaration.value
+    const shortUploadIcon = rule.selector === "html[data-color-mode='light'] [data-upload-icon]" && { width: '3rem', height: '3rem', 'flex-shrink': '0' }[declaration.prop] === declaration.value
+    const shortUploadSpacing = rule.selectors.every(selector => ["html[data-color-mode='light'] [data-upload-dropzone] > .mt-6", "html[data-color-mode='light'] [data-upload-dropzone] > [data-upload-action]"].includes(selector)) && declaration.prop === 'margin-top' && declaration.value === '1rem'
+    const compactUpload = rule.parent.type === 'atrule' && rule.parent.name === 'media' && rule.parent.params === '(max-height: 480px)' && (shortUploadIcon || shortUploadSpacing)
+    assert.ok(declaration.prop.startsWith('--') || colorOnlyProperties.has(declaration.prop) || logoColor || loaderGlow || navigationDivider || quietDecoration || focusIndicator || projectArtworkBlend || uploadDecoration || uploadPreviewShadow || uploadControlLayout || compactUpload, `Light mode must not change unrelated layout, typography, or project media: ${declaration.prop}`)
   }
 })
 

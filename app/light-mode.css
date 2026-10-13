@@ -769,3 +769,117 @@ html[data-color-mode='light'] [data-creator-library] [data-creator-index] {
   color: #fff;
   background: rgba(0, 0, 0, 0.78);
 }
+
+/* The upload canvas has its own opaque gradients. Replace those decorations
+   only in light mode, including the shading around a staged source. */
+html[data-color-mode='light'] [role='dialog']:has([data-upload-dialog]) {
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-color-mode='light'] [data-upload-dialog] {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+  box-shadow: var(--light-ui-dialog-shadow);
+}
+
+html[data-color-mode='light'] [data-upload-dialog] > [aria-hidden='true'] {
+  display: none;
+}
+
+html[data-color-mode='light'] [data-upload-header] {
+  flex-wrap: wrap;
+  padding-inline-end: 5.5rem;
+}
+
+html[data-color-mode='light'] [data-upload-dropzone] {
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--theme-background);
+  border-color: color-mix(in srgb, var(--muted-foreground) 75%, var(--theme-surface));
+}
+
+html[data-color-mode='light'] [data-upload-dropzone]:is(:hover, :focus-visible) {
+  background: var(--theme-surface);
+  border-color: var(--muted-foreground);
+  --tw-ring-color: var(--theme-accent);
+}
+
+html[data-color-mode='light'] [data-upload-icon] {
+  background: var(--theme-surface);
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  box-shadow: none;
+}
+
+html[data-color-mode='light'] [data-upload-dropzone][data-drag-over='true'] {
+  background: color-mix(in srgb, var(--theme-accent) 8%, var(--theme-surface));
+  border-color: var(--theme-accent);
+}
+
+html[data-color-mode='light'] [data-upload-dropzone][data-drag-over='true'] [data-upload-icon] {
+  color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+html[data-color-mode='light'] [data-upload-action] {
+  min-height: 44px;
+  flex-shrink: 0;
+  background: var(--theme-foreground);
+  color: var(--light-ui-on-accent);
+  border-color: var(--theme-foreground);
+}
+
+html[data-color-mode='light'] [data-upload-action]:hover {
+  background: color-mix(in srgb, var(--theme-foreground) 90%, var(--theme-surface));
+}
+
+html[data-color-mode='light'] [data-upload-dialog] [aria-label='Remove staged source'] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+html[data-color-mode='light'] [role='dialog']:has([data-upload-dialog]) [aria-label='Close source popup'] {
+  background: var(--theme-surface-elevated);
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+html[data-color-mode='light'] [role='dialog']:has([data-upload-dialog]) [aria-label='Close source popup']:hover {
+  background: var(--theme-background);
+}
+
+html[data-color-mode='light'] [data-upload-preview] {
+  background: var(--theme-background);
+}
+
+html[data-color-mode='light'] [data-upload-preview-ambient] {
+  display: none;
+}
+
+html[data-color-mode='light'] [data-upload-preview-shade] {
+  background: linear-gradient(180deg, transparent 65%, var(--theme-surface) 90%);
+}
+
+html[data-color-mode='light'] [data-upload-preview] :is(img, video) {
+  filter: none;
+}
+
+html[data-color-mode='light'] [data-upload-ready] {
+  color: var(--light-ui-success);
+}
+
+@media (max-height: 480px) {
+  html[data-color-mode='light'] [data-upload-icon] {
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+  }
+
+  html[data-color-mode='light'] [data-upload-dropzone] > .mt-6,
+  html[data-color-mode='light'] [data-upload-dropzone] > [data-upload-action] {
+    margin-top: 1rem;
+  }
+}

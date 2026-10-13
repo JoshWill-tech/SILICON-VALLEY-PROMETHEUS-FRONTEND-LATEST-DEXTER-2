@@ -67,7 +67,7 @@ export function GlassUploadModalView({
   const isVisual = pendingUpload?.kind === 'image' || pendingUpload?.kind === 'video';
 
   return (
-    <GlassUploadBackdrop className="mx-auto flex h-[calc(100svh-1rem)] w-full max-w-[1180px] flex-col sm:h-[min(860px,calc(100svh-2rem))]">
+    <GlassUploadBackdrop data-upload-dialog="" className="mx-auto flex h-[calc(100svh-1rem)] w-full max-w-[1180px] flex-col sm:h-[min(860px,calc(100svh-2rem))]">
       <input
         ref={sourceFileInputRef}
         type="file"
@@ -82,7 +82,7 @@ export function GlassUploadModalView({
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <header className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-7">
+        <header data-upload-header="" className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-7">
           <div>
             <DialogTitle className="text-[clamp(1.65rem,3.6vw,2.8rem)] font-normal leading-[0.95] tracking-normal text-white [font-family:var(--font-zt-otez),Georgia,serif]">
               Upload Source
@@ -105,6 +105,7 @@ export function GlassUploadModalView({
                 </button>
                 <button
                   type="button"
+                  data-upload-action=""
                   onClick={onApplyUploadToPrompt}
                   className="group inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-black transition-transform duration-300 hover:scale-[1.03] hover:bg-[#edffb2]"
                 >
@@ -124,6 +125,7 @@ export function GlassUploadModalView({
           {pendingUpload ? (
             <motion.section
               key="staged"
+              data-upload-preview=""
               initial={{ opacity: 0, scale: 1.015 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.985 }}
@@ -131,7 +133,7 @@ export function GlassUploadModalView({
               className="relative min-h-0 flex-1 overflow-hidden bg-[#050609]"
             >
               {isVisual && (
-                <div aria-hidden className="absolute inset-0 overflow-hidden opacity-30 blur-3xl">
+                <div data-upload-preview-ambient="" aria-hidden className="absolute inset-0 overflow-hidden opacity-30 blur-3xl">
                   {pendingUpload.kind === 'image' ? (
                     <img src={pendingUpload.previewUrl} alt="" className="h-full w-full scale-110 object-cover" />
                   ) : (
@@ -140,7 +142,7 @@ export function GlassUploadModalView({
                 </div>
               )}
 
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.06),transparent_36%),linear-gradient(180deg,rgba(5,6,9,0.18)_0%,rgba(5,6,9,0.06)_44%,rgba(5,6,9,0.86)_100%)]" />
+              <div data-upload-preview-shade="" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.06),transparent_36%),linear-gradient(180deg,rgba(5,6,9,0.18)_0%,rgba(5,6,9,0.06)_44%,rgba(5,6,9,0.86)_100%)]" />
 
               <div className="absolute inset-0 flex items-center justify-center px-4 pb-16 pt-24 sm:px-10 sm:pb-20">
                 {isVisual ? (
@@ -162,7 +164,7 @@ export function GlassUploadModalView({
                   <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] text-white/48">
                     <span className="rounded-full border border-white/12 bg-black/30 px-2.5 py-1 text-white/65">{sourcePrimaryBadge}</span>
                     <span>{sourceExtension}</span>
-                    {sourceReady && <Check className="h-3.5 w-3.5 text-[#d9ff64]" />}
+                    {sourceReady && <Check data-upload-ready="" className="h-3.5 w-3.5 text-[#d9ff64]" />}
                   </div>
                   <div className="mt-2 truncate text-sm font-medium text-white sm:text-base">{sourceDisplayName}</div>
                   <div className="mt-1 text-xs text-white/50">{sourceMetrics ? `${sourceMetrics.resolution ?? sourceDetail} · ${formatTimeProfile(pendingUpload.sourceProfile!.timeProfile)}` : sourceDetail}</div>
@@ -179,6 +181,8 @@ export function GlassUploadModalView({
               className="relative min-h-0 flex-1 p-3 pt-24 sm:p-5 sm:pt-28"
             >
               <div
+                data-upload-dropzone=""
+                data-drag-over={isSourceDragOver}
                 onDragOver={onSourceDragOver}
                 onDragLeave={onSourceDragLeave}
                 onDrop={onSourceDrop}
@@ -198,12 +202,12 @@ export function GlassUploadModalView({
                     : 'border-white/15 bg-white/[0.025] hover:border-white/30 hover:bg-white/[0.045]',
                 )}
               >
-                <div className={cn('relative flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-white transition-all duration-500', isSourceDragOver ? 'scale-110 border-[#d9ff64]/60 text-[#d9ff64] shadow-[0_0_0_16px_rgba(217,255,100,0.08)]' : 'group-hover:scale-105 group-hover:border-white/35')}>
+                <div data-upload-icon="" className={cn('relative flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-white transition-all duration-500', isSourceDragOver ? 'scale-110 border-[#d9ff64]/60 text-[#d9ff64] shadow-[0_0_0_16px_rgba(217,255,100,0.08)]' : 'group-hover:scale-105 group-hover:border-white/35')}>
                   <Upload className="h-6 w-6" />
                 </div>
                 <div className="mt-6 text-lg font-medium tracking-[-0.02em] text-white sm:text-xl">Drop video to stage it</div>
                 <div className="mt-2 max-w-sm text-xs leading-5 text-white/48 sm:text-sm">Images and video · up to 10GB · your original stays untouched</div>
-                <button type="button" onClick={(event) => { event.stopPropagation(); openSourcePicker(); }} className="mt-7 inline-flex h-10 items-center gap-2 rounded-full border border-white/18 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#edffb2]">
+                <button type="button" data-upload-action="" onClick={(event) => { event.stopPropagation(); openSourcePicker(); }} className="mt-7 inline-flex h-10 items-center gap-2 rounded-full border border-white/18 bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-black transition-colors hover:bg-[#edffb2]">
                   Choose file <ArrowUpRight className="h-3.5 w-3.5" />
                 </button>
                 <div className="pointer-events-none absolute inset-x-10 bottom-8 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
