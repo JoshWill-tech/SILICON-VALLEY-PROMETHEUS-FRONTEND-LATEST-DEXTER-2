@@ -15,6 +15,7 @@ import type { MusicCatalogTrack } from '@/lib/music-catalog'
 import { buildMusicRecommendationSet } from '@/lib/music-recommendation-core'
 import { createClient } from '@/lib/supabase/client'
 import { isSupabaseConfigured } from '@/lib/supabase/config'
+import { savePersonalMusicTrack } from '@/lib/personal-music-upload'
 import type { MusicRecommendation, MusicVideoContext } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useStableReducedMotion } from '@/hooks/use-stable-reduced-motion'
@@ -43,6 +44,7 @@ type PersonalMusicFile = {
   genre?: string
   folderName?: string
   uploadState?: 'failed' | 'uploading'
+  uploadError?: string
 }
 
 type PersonalMusicTrackRow = {
@@ -85,7 +87,7 @@ function readPersonalMusicLibrary() {
     const folders = Array.isArray(parsed.folders)
       ? parsed.folders.filter((folder): folder is string => typeof folder === 'string')
       : []
-    return { files, folders }
+    return { files: files.map((file) => file.uploadState === 'uploading' ? { ...file, uploadState: 'failed' as const, uploadError: 'Upload interrupted. Select the file again to retry.' } : file), folders }
   } catch {
     return { files: [] as PersonalMusicFile[], folders: [] as string[] }
   }
@@ -148,10 +150,6 @@ function personalMusicRecommendation(file: PersonalMusicFile): MusicRecommendati
     storageKey: file.storagePath,
     license: 'owned',
   }
-}
-
-function createMusicStoragePath(userId: string) {
-  return `${userId}/${crypto.randomUUID()}`
 }
 
 function MusicCollectionTabs({
@@ -296,7 +294,7 @@ function MyMusicShelf({
             {matchingFiles.map((file) => (
               <div key={file.id} className={cn('flex items-center justify-between gap-3 rounded-[10px] border bg-black/20 px-3 py-2.5 text-sm text-white/74', selectedTrackId === file.id ? 'border-[#4d9dff]/45 bg-[#4d9dff]/[0.07]' : 'border-white/[0.06]')}>
                 <span className="flex min-w-0 items-center gap-2 truncate"><Music className="size-3.5 shrink-0 text-[#a5b4fc]" /> <span className="truncate">{file.name}</span></span>
-                <span className={cn('shrink-0 font-mono text-[10px]', file.uploadState === 'failed' ? 'text-red-300/70' : 'text-white/35')}>
+                <span title={file.uploadError} className={cn('shrink-0 font-mono text-[10px]', file.uploadState === 'failed' ? styles.uploadFailed : 'text-white/35')}>
                   {file.uploadState === 'uploading' ? 'Uploading…' : file.uploadState === 'failed' ? 'Upload failed' : file.sizeLabel}
                 </span>
                 {file.uploadState ? null : (
@@ -310,11 +308,11 @@ function MyMusicShelf({
                     <button type="button" onClick={() => onSelectTrack(file)} disabled={!file.previewUrl} className="grid size-7 place-items-center rounded-full text-white/58 transition hover:bg-[#4d9dff]/15 hover:text-white disabled:opacity-30" aria-label={`Select ${file.title || file.name} for preview`}>
                       <Plus className="size-3.5" />
                     </button>
-                    <button type="button" onClick={() => onRemoveTrack(file)} className="grid size-7 place-items-center rounded-full text-white/38 transition hover:bg-red-400/10 hover:text-red-200" aria-label={`Remove ${file.title || file.name} from your library`} title="Remove from your music library">
-                      <X className="size-3.5" />
-                    </button>
                   </span>
                 )}
+                <button type="button" onClick={() => onRemoveTrack(file)} disabled={file.uploadState === 'uploading'} className="grid size-7 shrink-0 place-items-center rounded-full text-white/38 transition hover:bg-red-400/10 hover:text-red-200 disabled:opacity-30" aria-label={`Remove ${file.title || file.name} from your library`} title="Remove from your music library">
+                  <X className="size-3.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -610,6 +608,7 @@ export function MusicTabPanel({
           genre: file.genre,
           folderName: file.folderName,
           uploadState: file.uploadState,
+          uploadError: file.uploadError,
         })),
         folders: personalMusicFolders,
       }))
@@ -630,7 +629,7 @@ export function MusicTabPanel({
 
         const { data, error } = await supabase
           .from('user_music_tracks')
-          .select('id, original_filename, storage_path, size_bytes, title, artist, genre, folder_name')
+          .select('*')
           .order('created_at', { ascending: false })
 
         if (error) throw error
@@ -644,7 +643,7 @@ export function MusicTabPanel({
         }))
         const { data: folderRows } = await supabase.from('user_music_folders').select('name').order('name')
         if (!disposed) {
-          setPersonalMusicFiles(files)
+          setPersonalMusicFiles((current) => [...files, ...current.filter((file) => file.uploadState && !files.some((saved) => saved.id === file.id))])
           setPersonalMusicFolders(Array.from(new Set([...(folderRows ?? []).map((folder) => folder.name), ...files.map((file) => file.folderName || 'Unsorted')])).filter((folder) => folder !== 'Unsorted'))
         }
       } catch {
@@ -695,43 +694,19 @@ export function MusicTabPanel({
       if (!user) throw new Error('Sign in to save music to your library.')
 
       const results = await Promise.allSettled(nextFiles.map(async (file) => {
-        const storagePath = createMusicStoragePath(user.id)
-        const { error: storageError } = await supabase.storage
-          .from('user-music')
-          .upload(storagePath, file, { contentType: file.type || 'audio/mpeg', upsert: false })
-        if (storageError) throw storageError
-
-        const { data, error: insertError } = await supabase
-          .from('user_music_tracks')
-          .insert({
-            user_id: user.id,
-            original_filename: file.name,
-            storage_path: storagePath,
-            mime_type: file.type || null,
-            size_bytes: file.size,
-            title: file.name.replace(/\.[^.]+$/, ''),
-            folder_name: 'Unsorted',
-          })
-          .select('id, original_filename, storage_path, size_bytes, title, artist, genre, folder_name')
-          .single()
-
-        if (insertError) {
-          await supabase.storage.from('user-music').remove([storagePath])
-          throw insertError
-        }
-        const row = data as PersonalMusicTrackRow
-        const { data: signed } = await supabase.storage.from('user-music').createSignedUrl(storagePath, 3600)
-        return { optimisticId: toPersonalMusicFile(file).id, track: fromPersonalMusicTrackRow(row, signed?.signedUrl) }
+        const saved = await savePersonalMusicTrack(supabase, user.id, file)
+        return { optimisticId: toPersonalMusicFile(file).id, track: fromPersonalMusicTrackRow(saved.track as PersonalMusicTrackRow, saved.previewUrl) }
       }))
       const uploadedFiles = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
-      const failedIds = new Set(results.flatMap((result, index) => result.status === 'rejected' ? [optimisticFiles[index]!.id] : []))
+      const failures = new Map(results.flatMap((result, index) => result.status === 'rejected'
+        ? [[optimisticFiles[index]!.id, String(result.reason?.message || 'Unable to upload music')] as const] : []))
       setPersonalMusicFiles((current) => [
         ...uploadedFiles.map((result) => result.track),
         ...current
           .filter((currentFile) => !uploadedFiles.some((result) => result.optimisticId === currentFile.id))
-          .map((currentFile) => failedIds.has(currentFile.id) ? { ...currentFile, uploadState: 'failed' as const } : currentFile),
+          .map((currentFile) => failures.has(currentFile.id) ? { ...currentFile, uploadState: 'failed' as const, uploadError: failures.get(currentFile.id) } : currentFile),
       ])
-      if (failedIds.size) toast.error(`${failedIds.size} of ${nextFiles.length} tracks could not be uploaded.`)
+      if (failures.size) toast.error(`${failures.size} of ${nextFiles.length} tracks could not be uploaded. ${failures.values().next().value}`)
     } catch (error) {
       setPersonalMusicFiles((current) => current.map((currentFile) => (
         optimisticFiles.some((file) => file.id === currentFile.id)
