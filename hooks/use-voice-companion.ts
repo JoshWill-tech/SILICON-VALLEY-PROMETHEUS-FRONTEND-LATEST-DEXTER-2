@@ -26,6 +26,7 @@ import { ResponseRecovery, type ResponseStatus } from '@/lib/voice-companion/res
 import { useAutonomousStore } from '@/lib/autonomous-ui/autonomous-store'
 import { getMediaFailureMessage } from '@/lib/media/feedback'
 import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
+import { useThemePreferenceStore } from '@/lib/theme/theme-store'
 
 export type VoiceCompanionStatus =
   | 'disconnected'
@@ -205,6 +206,16 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           else if (onApplyActions) await onApplyActions([{ kind: 'set_fit_mode', mode, summary: `Fit mode: ${mode}` }])
           else return { success: false, error: 'The editor is not linked, so I cannot change the frame view.' }
           return { success: true, fitMode: mode }
+        }
+
+        case 'set_color_mode': {
+          const mode = args.mode
+          if (mode !== 'dark' && mode !== 'light') {
+            return { success: false, error: 'Choose either dark mode or light mode.' }
+          }
+          if (!isSessionActive()) return { success: false, error: 'The voice session ended before the color mode changed.' }
+          useThemePreferenceStore.getState().setColorMode(mode)
+          return { success: true, colorMode: mode }
         }
 
         case 'get_editor_state': {

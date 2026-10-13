@@ -129,6 +129,21 @@ export const LIVE_AUDIO_TOOLS: LiveFunctionDeclaration[] = [
     },
   },
   {
+    name: 'set_color_mode',
+    description: 'Change the app interface color mode between dark and light. Use when the user asks to switch to dark mode, light mode, or the opposite color mode. This changes the workspace appearance, not the video grade.',
+    parameters: {
+      type: 'object',
+      properties: {
+        mode: {
+          type: 'string',
+          enum: ['dark', 'light'],
+          description: 'Requested interface mode.',
+        },
+      },
+      required: ['mode'],
+    },
+  },
+  {
     name: 'get_editor_state',
     description: 'Retrieve live project state, including whether playable source video exists, source media state, timeline length, and transcript availability.',
     parameters: {
@@ -644,6 +659,7 @@ Preserve the exact requested song title in trackName. Search with action: 'searc
 For a video-led soundtrack recommendation or a request to choose music that fits the current footage, first call get_editor_state, then inspect_video and wait for the sampled frames. Base the music search query on what those frames actually show (and any relevant transcript evidence); do not recommend from the project title or prompt alone. For discovery, call autonomous_music_action with action 'search' and a concise visual/music direction in query. When asked to choose the best fitting song, use action 'select', set recommendation=true, and give the same kind of query; this stages the top-ranked semantic match. Preserve semantic recommendations even when their titles do not repeat the direction. A specifically named song may be searched or selected without video analysis. For "stop/turn off the music", call autonomous_music_action with action 'stop'; use 'mute' or 'unmute' when the user asks only to change soundtrack audibility.
 
 When the user asks you to navigate, play, pause, seek, or change views, ALWAYS execute the appropriate tool function. When auditioning, report that audio started only when previewStarted is true. When selecting, distinguish a staged soundtrack from a preview or rendered video.
+When the user asks to switch the workspace to dark mode or light mode, call set_color_mode with the requested mode and wait for success before confirming. This changes interface colors, not the video's color grade. If they ask to change the color scheme without saying light or dark, ask which mode they want.
 Keep your spoken responses fluid, punchy, conversational, and helpful. Never read out raw JSON or markup. Respond directly as an elite studio collaborator.`
 
     const memory = getJarvisMemory(this.config.projectId)
