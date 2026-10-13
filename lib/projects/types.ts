@@ -1,4 +1,4 @@
-export type ProjectCardStatus = 'draft' | 'rendering' | 'completed' | 'failed'
+export type ProjectCardStatus = 'draft' | 'rendering' | 'needs_review' | 'completed'
 
 export interface ProjectListItem {
   id: string

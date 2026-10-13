@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { normalizeSourceProfile } from '@/lib/media/source-profile'
-import { mapProjectRowToListItem } from '@/lib/projects/project-list'
+import { mapProjectRowToListItem, type DurableJobRecord, type ProjectExportRecord } from '@/lib/projects/project-list'
+import { ExportService } from '@/lib/exports/service'
 import type { ProjectListItem } from '@/lib/projects/types'
 import { WorkspaceService } from '@/lib/workspaces/service'
 import type { Project, ProjectStatus, SourceProfile, AnimationPlan } from '@/lib/types'
@@ -37,30 +38,44 @@ export const ProjectService = {
     }
 
     const projectIds = (projectRows ?? []).map((row) => row.id)
-    const jobsByProjectId = new Map<string, { progress?: number | null; status?: string | null }>()
+    const jobsByProjectId = new Map<string, DurableJobRecord>()
+    const exportsByProjectId = new Map<string, ProjectExportRecord>()
 
     if (projectIds.length > 0) {
       const { data: jobs, error: jobsError } = await supabase
         .from('durable_jobs')
-        .select('project_id, status, progress, updated_at')
+        .select('project_id, type, status, progress, result_metadata, created_at')
         .eq('user_id', user.id)
         .in('project_id', projectIds)
-        .order('updated_at', { ascending: false })
+        .in('type', ['render', 'export'])
+        .order('created_at', { ascending: false })
 
       if (jobsError) {
         console.error('[ProjectService] listProjectCards durable_jobs error:', jobsError.message, jobsError.details)
       } else {
         for (const job of jobs ?? []) {
           if (!job.project_id || jobsByProjectId.has(job.project_id)) continue
-          jobsByProjectId.set(job.project_id, {
-            progress: job.progress,
-            status: job.status,
+          jobsByProjectId.set(job.project_id, job)
+        }
+      }
+
+      try {
+        const exports = await ExportService.listLatestProjectExports(projectIds)
+        for (const exported of exports) {
+          exportsByProjectId.set(exported.projectId, {
+            project_id: exported.projectId,
+            status: exported.status,
+            created_at: exported.createdAt,
+            storage_path: exported.storagePath,
+            metadata: exported.metadata,
           })
         }
+      } catch (error) {
+        console.error('[ProjectService] listProjectCards exports error:', error instanceof Error ? error.message : 'Unable to load renders')
       }
     }
 
-    return (projectRows ?? []).map((row) => mapProjectRowToListItem(row, jobsByProjectId.get(row.id) ?? null))
+    return (projectRows ?? []).map((row) => mapProjectRowToListItem(row, jobsByProjectId.get(row.id) ?? null, exportsByProjectId.get(row.id) ?? null))
   },
 
   async listProjects() {

@@ -13,13 +13,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { ProjectListItem } from '@/lib/projects/types'
+import { PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 
-const statusLabels: Record<ProjectListItem['status'], string> = {
-  draft: 'In progress',
-  rendering: 'Rendering',
-  completed: 'Ready',
-  failed: 'Needs attention',
-}
+const statusLabels = PROJECT_STATUS_LABELS
 
 function formatDate(value: string) {
   const date = new Date(value)

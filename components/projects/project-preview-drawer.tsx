@@ -8,14 +8,10 @@ import { ArrowUpRight, Film, X } from 'lucide-react'
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import type { ProjectListItem } from '@/lib/projects/types'
+import { PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { cn } from '@/lib/utils'
 
-const statusLabels: Record<ProjectListItem['status'], string> = {
-  draft: 'In progress',
-  rendering: 'Rendering',
-  completed: 'Ready',
-  failed: 'Needs attention',
-}
+const statusLabels = PROJECT_STATUS_LABELS
 
 function formatDate(value: string) {
   const date = new Date(value)

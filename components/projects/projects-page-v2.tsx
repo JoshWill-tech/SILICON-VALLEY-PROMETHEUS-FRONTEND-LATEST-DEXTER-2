@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, Clapperboard, FolderOpen, Plus, Search, Globe, FileEdit, CheckCircle, XCircle } from 'lucide-react'
+import { AlertTriangle, Clapperboard, FolderOpen, Plus, Search, Globe, FileEdit, CheckCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -26,10 +26,11 @@ import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import { getProject, upsertProject } from '@/lib/mock'
 import { PrometheusShell } from '@/components/prometheus-shell'
 import { useProjectsList } from '@/hooks/use-projects-list'
-import type { ProjectListItem } from '@/lib/projects/types'
+import type { ProjectCardStatus, ProjectListItem } from '@/lib/projects/types'
+import { matchesProjectStatusFilter, PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { cn } from '@/lib/utils'
 
-type StatusFilter = 'all' | 'draft' | 'rendering' | 'completed' | 'failed'
+type StatusFilter = 'all' | ProjectCardStatus
 type SortKey = 'updated' | 'created' | 'name' | 'progress'
 
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
@@ -39,7 +40,7 @@ const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: 'progress', label: 'Progress' },
 ]
 
-const FILTER_OPTIONS: StatusFilter[] = ['all', 'draft', 'rendering', 'completed', 'failed']
+const FILTER_OPTIONS: StatusFilter[] = ['all', 'draft', 'rendering', 'completed', 'needs_review']
 
 function sortProjects(projects: ProjectListItem[], sortKey: SortKey) {
   return [...projects].sort((a, b) => {
@@ -80,7 +81,7 @@ export function ProjectsPageV2() {
         !debouncedQuery ||
         project.title.toLowerCase().includes(debouncedQuery) ||
         project.description?.toLowerCase().includes(debouncedQuery)
-      const matchesStatus = statusFilter === 'all' || project.status === statusFilter
+      const matchesStatus = matchesProjectStatusFilter(project.status, statusFilter)
       return matchesQuery && matchesStatus
     })
 
@@ -89,9 +90,9 @@ export function ProjectsPageV2() {
 
   const filterCounts = React.useMemo(() => {
     return FILTER_OPTIONS.reduce<Record<StatusFilter, number>>((acc, filter) => {
-      acc[filter] = filter === 'all' ? projects.length : projects.filter((project) => project.status === filter).length
+      acc[filter] = projects.filter((project) => matchesProjectStatusFilter(project.status, filter)).length
       return acc
-    }, { all: 0, draft: 0, rendering: 0, completed: 0, failed: 0 })
+    }, { all: 0, draft: 0, rendering: 0, completed: 0, needs_review: 0 })
   }, [projects])
 
   const subtitle =
@@ -182,10 +183,10 @@ export function ProjectsPageV2() {
                   touchOptimized
                   items={[
                     { label: 'All', icon: Globe, value: 'all' },
-                    { label: 'Draft', icon: FileEdit, value: 'draft' },
+                    { label: 'In progress', icon: FileEdit, value: 'draft' },
                     { label: 'Rendering', icon: Clapperboard, value: 'rendering' },
-                    { label: 'Completed', icon: CheckCircle, value: 'completed' },
-                    { label: 'Failed', icon: XCircle, value: 'failed' },
+                    { label: 'Ready', icon: CheckCircle, value: 'completed' },
+                    { label: 'Needs attention', icon: AlertTriangle, value: 'needs_review' },
                   ]}
                 />
               </div>
@@ -202,7 +203,7 @@ export function ProjectsPageV2() {
             </div>
 
             <div className="mt-7 flex items-center justify-between border-b border-white/10 pb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/38">
-              <span>{statusFilter === 'all' ? 'All work' : statusFilter}</span>
+              <span>{statusFilter === 'all' ? 'All work' : PROJECT_STATUS_LABELS[statusFilter]}</span>
               <span>{filteredProjects.length.toString().padStart(2, '0')} / {projects.length.toString().padStart(2, '0')}</span>
             </div>
 
@@ -279,7 +280,7 @@ export function ProjectsPageV2() {
                             ...(existing || {}),
                             id: target.id,
                             title: target.title,
-                            status: (target.status === 'completed' ? 'ready' : target.status === 'rendering' ? 'processing' : 'draft') as any,
+                            status: (target.status === 'completed' || target.status === 'needs_review' ? 'ready' : target.status === 'rendering' ? 'processing' : 'draft') as any,
                             createdAt: target.createdAt || existing?.createdAt || new Date().toISOString(),
                             updatedAt: target.updatedAt || existing?.updatedAt || new Date().toISOString(),
                             thumbnailUrl: target.thumbnailUrl ?? existing?.thumbnailUrl ?? undefined,

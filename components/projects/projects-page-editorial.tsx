@@ -25,6 +25,7 @@ import { CreateProjectModal } from '@/components/projects/create-project-modal'
 import { InlineLoadingAnimation, LoadingAnimation } from '@/components/loading-animation'
 import { useProjectsList } from '@/hooks/use-projects-list'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
+import { matchesProjectStatusFilter, PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { getProject, upsertProject } from '@/lib/mock'
 import type { ProjectCardStatus, ProjectListItem } from '@/lib/projects/types'
 import type { Project } from '@/lib/types'
@@ -48,14 +49,14 @@ const filters: Array<{ key: FilterKey; label: string }> = [
   { key: 'draft', label: 'In progress' },
   { key: 'rendering', label: 'Rendering' },
   { key: 'completed', label: 'Ready' },
-  { key: 'failed', label: 'Needs attention' },
+  { key: 'needs_review', label: 'Needs attention' },
 ]
 
 const statusCopy: Record<ProjectCardStatus, { label: string }> = {
-  draft: { label: 'In progress' },
-  rendering: { label: 'Rendering' },
-  completed: { label: 'Ready' },
-  failed: { label: 'Needs attention' },
+  draft: { label: PROJECT_STATUS_LABELS.draft },
+  rendering: { label: PROJECT_STATUS_LABELS.rendering },
+  completed: { label: PROJECT_STATUS_LABELS.completed },
+  needs_review: { label: PROJECT_STATUS_LABELS.needs_review },
 }
 
 const movesLetters = Array.from('moves')
@@ -241,7 +242,7 @@ export function ProjectsPageEditorial() {
     rememberCurrentPathForEditorReturn()
     const now = new Date().toISOString()
     const mappedStatus = (
-      project.status === 'completed' ? 'ready' :
+      project.status === 'completed' || project.status === 'needs_review' ? 'ready' :
       project.status === 'rendering' ? 'processing' :
       'draft'
     ) as Project['status']
@@ -269,7 +270,7 @@ export function ProjectsPageEditorial() {
   const visibleProjects = React.useMemo(() => {
     const cleanedQuery = query.trim().toLocaleLowerCase()
     const matching = projects.filter((project) => {
-      const matchesFilter = filter === 'all' || project.status === filter
+      const matchesFilter = matchesProjectStatusFilter(project.status, filter)
       return matchesFilter && (!cleanedQuery || projectSearchText(project).includes(cleanedQuery))
     })
     return sortProjects(matching, sortKey)
@@ -277,7 +278,7 @@ export function ProjectsPageEditorial() {
 
   const countFor = React.useCallback(
     (key: FilterKey) =>
-      key === 'all' ? projects.length : projects.filter((project) => project.status === key).length,
+      projects.filter((project) => matchesProjectStatusFilter(project.status, key)).length,
     [projects]
   )
 

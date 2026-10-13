@@ -10,6 +10,34 @@ export interface ExportOptions {
 }
 
 export const ExportService = {
+  async listLatestProjectExports(projectIds: string[]): Promise<ProjectExport[]> {
+    if (projectIds.length === 0) return []
+    const supabase = await createClient()
+    const {data: {user}} = await supabase.auth.getUser()
+    if (!user) throw new Error('Unauthorized')
+    const {data, error} = await supabase.from('project_exports').select('*')
+      .eq('user_id', user.id).in('project_id', projectIds)
+      .order('created_at', {ascending: false})
+    if (error) throw error
+
+    const latest = new Map<string, ProjectExport>()
+    for (const row of data ?? []) {
+      if (!latest.has(row.project_id)) latest.set(row.project_id, mapProjectExportFromDb(row))
+    }
+    // Keep the project list current even when the user leaves the editor while
+    // the backend is rendering. Only active renders need backend polling.
+    await Promise.all([...latest.values()].map(async (record) => {
+      if (!['pending', 'processing'].includes(record.status) || typeof record.metadata?.miniRunJobId !== 'string') return
+      try {
+        const refreshed = await ExportService.listProjectExports(record.projectId)
+        if (refreshed[0]) latest.set(record.projectId, refreshed[0])
+      } catch (error) {
+        console.error('[EXPORT_LIST_REFRESH]', error instanceof Error ? error.message : 'Unable to refresh render')
+      }
+    }))
+    return [...latest.values()]
+  },
+
   async findActiveProjectExport(projectId: string, sourceAssetId: string, editorialRevision: number): Promise<ProjectExport | null> {
     const supabase = await createClient()
     const {data: {user}} = await supabase.auth.getUser()
@@ -142,19 +170,27 @@ export const ExportService = {
         const response = await fetch(`${config.baseUrl}/api/pipeline/job/${encodeURIComponent(jobId)}`, {
           headers: {'Modal-Key': config.proxyKey, 'Modal-Secret': config.proxySecret},
           cache: 'no-store',
+          redirect: 'manual',
+          signal: AbortSignal.timeout(8_000),
         })
-        if (!response.ok) return
-        const job = await response.json() as Record<string, unknown>
+        const redirectedOutput = response.status === 303 && response.headers.get('location')
+        if (!response.ok && !redirectedOutput) return
+        const job = redirectedOutput
+          ? {status: 'completed', outputUrl: `/api/mini-run/job/${encodeURIComponent(jobId)}/output`} as Record<string, unknown>
+          : await response.json() as Record<string, unknown>
         const state = String(job.status ?? job.state ?? '').toLowerCase()
         const result = (job.returnvalue && typeof job.returnvalue === 'object' ? job.returnvalue : {}) as Record<string, unknown>
-        const nextStatus = state === 'completed' || state === 'done' ? 'completed'
+        const outputUrl = typeof result.outputUrl === 'string' ? result.outputUrl : typeof job.outputUrl === 'string' ? job.outputUrl : undefined
+        const hasOutput = [outputUrl, result.r2Key, record.storagePath, record.metadata?.outputUrl, record.metadata?.r2Key]
+          .some((value) => typeof value === 'string' && value.trim().length > 0)
+        const nextStatus = state === 'completed' || state === 'done' ? hasOutput ? 'completed' : 'processing'
           : state === 'failed' ? 'failed'
           : state === 'pending' || state === 'queued' ? 'pending' : 'processing'
         const progress = job.progressPercent
         const metadata = {
           ...record.metadata,
           ...(typeof progress === 'number' && Number.isFinite(progress) ? {progressPercent: Math.max(0, Math.min(nextStatus === 'completed' ? 100 : 99, progress))} : {}),
-          ...(typeof result.outputUrl === 'string' ? {outputUrl: result.outputUrl} : {}),
+          ...(outputUrl ? {outputUrl} : {}),
           ...(typeof result.r2Key === 'string' ? {r2Key: result.r2Key} : {}),
           ...(typeof job.failedReason === 'string' ? {backendError: job.failedReason} : {}),
         }

@@ -6,6 +6,7 @@ import { ArrowUpRight, Clock3, Copy, Film, Gauge, Link2, MoreHorizontal, Trash2 
 
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import type { ProjectListItem } from '@/lib/projects/types'
+import { PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { captureFirstVideoFrame } from '@/lib/media/capture-first-video-frame'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +40,7 @@ function badgeClass(status: ProjectListItem['status']) {
       return 'border-amber-300/18 bg-amber-300/[0.08] text-amber-200'
     case 'completed':
       return 'border-emerald-300/16 bg-emerald-300/[0.08] text-emerald-200'
-    case 'failed':
+    case 'needs_review':
       return 'border-red-300/18 bg-red-300/[0.08] text-red-200'
     default:
       return 'border-white/10 bg-white/[0.055] text-white/56'
@@ -176,7 +177,7 @@ export function ProjectCard({ project, featured = false, onEdit, onDuplicate, on
             {project.status === 'rendering' ? (
               <InlineLoadingAnimation size={12} label={`Rendering ${project.title}`} />
             ) : null}
-            <span className="capitalize">{project.status}</span>
+            <span>{PROJECT_STATUS_LABELS[project.status]}</span>
           </div>
         </div>
 
@@ -199,7 +200,7 @@ export function ProjectCard({ project, featured = false, onEdit, onDuplicate, on
           ) : null}
           <span className="hidden items-center gap-1.5 capitalize max-lg:flex">
             <span className="size-1.5 rounded-full bg-white/45" aria-hidden="true" />
-            {project.status}
+            {PROJECT_STATUS_LABELS[project.status]}
           </span>
         </div>
 

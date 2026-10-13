@@ -1,9 +1,27 @@
 import type { ProjectListItem, ProjectCardStatus } from '@/lib/projects/types'
 
-type DurableJobRecord = {
+export const PROJECT_STATUS_LABELS: Record<ProjectCardStatus, string> = {
+  draft: 'In progress',
+  rendering: 'Rendering',
+  needs_review: 'Needs attention',
+  completed: 'Ready',
+}
+
+export type DurableJobRecord = {
   progress?: number | null
   project_id?: string | null
   status?: string | null
+  type?: string | null
+  created_at?: string | null
+  result_metadata?: Record<string, unknown> | null
+}
+
+export type ProjectExportRecord = {
+  project_id?: string | null
+  status?: string | null
+  created_at?: string | null
+  storage_path?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 type ProjectRowRecord = {
@@ -22,22 +40,60 @@ type ProjectRowRecord = {
 
 export function normalizeProjectCardStatus(
   projectStatus: string | null | undefined,
-  jobStatus?: string | null,
+  latestJob?: DurableJobRecord | null,
+  latestExport?: ProjectExportRecord | null,
+  sourceAssetId?: string | null,
 ): ProjectCardStatus {
-  if (jobStatus === 'failed' || projectStatus === 'failed') return 'failed'
-  if (jobStatus === 'processing' || projectStatus === 'processing' || projectStatus === 'rendering') return 'rendering'
-  if (jobStatus === 'completed' || projectStatus === 'ready' || projectStatus === 'exported' || projectStatus === 'completed') {
-    return 'completed'
+  const render = getLatestRender(latestJob, latestExport, sourceAssetId)
+  if (!render) return 'draft'
+  if (['pending', 'queued', 'running', 'processing'].includes(render.status ?? '')) return 'rendering'
+  if (render.status !== 'completed' || !render.hasOutput) return 'draft'
+  return projectStatus === 'exported' ? 'completed' : 'needs_review'
+}
+
+// Source analysis happens automatically after upload. Only a real render can
+// advance a project to human review, regardless of legacy project flags.
+function getLatestRender(
+  latestJob?: DurableJobRecord | null,
+  latestExport?: ProjectExportRecord | null,
+  sourceAssetId?: string | null,
+) {
+  const jobMetadata = latestJob?.result_metadata ?? {}
+  const exportMetadata = latestExport?.metadata ?? {}
+  const job = latestJob && ['render', 'export'].includes(latestJob.type ?? '') && matchesSource(jobMetadata, sourceAssetId)
+    ? { status: latestJob.status, createdAt: latestJob.created_at, metadata: jobMetadata, storagePath: jobMetadata.storage_path, progress: latestJob.progress }
+    : null
+  const exported = latestExport && matchesSource(exportMetadata, sourceAssetId)
+    ? { status: latestExport.status, createdAt: latestExport.created_at, metadata: exportMetadata, storagePath: latestExport.storage_path, progress: exportMetadata.progressPercent }
+    : null
+  const render = job && (!exported || Date.parse(job.createdAt ?? '') > Date.parse(exported.createdAt ?? '')) ? job : exported
+  if (!render || render.metadata.devProof === true || render.metadata.outputKind === 'source-copy-placeholder') return null
+  return {
+    ...render,
+    hasOutput: [render.storagePath, render.metadata.outputUrl, render.metadata.output_url, render.metadata.r2Key]
+      .some((value) => typeof value === 'string' && value.trim().length > 0),
   }
-  return 'draft'
+}
+
+function matchesSource(metadata: Record<string, unknown>, sourceAssetId?: string | null) {
+  const renderedSource = metadata.sourceAssetId ?? metadata.source_asset_id
+  return !sourceAssetId || typeof renderedSource !== 'string' || renderedSource === sourceAssetId
+}
+
+export function matchesProjectStatusFilter(status: ProjectCardStatus, filter: 'all' | ProjectCardStatus) {
+  return filter === 'all' || (filter === 'draft' ? status === 'draft' || status === 'rendering' : status === filter)
 }
 
 export function mapProjectRowToListItem(
   row: ProjectRowRecord,
   latestJob?: DurableJobRecord | null,
+  latestExport?: ProjectExportRecord | null,
 ): ProjectListItem {
   const inspection = extractInspection(row.source_profile)
   const editorState = row.editor_state && typeof row.editor_state === 'object' ? row.editor_state : {}
+  const status = normalizeProjectCardStatus(row.status, latestJob, latestExport, row.source_asset_id)
+  const render = getLatestRender(latestJob, latestExport, row.source_asset_id)
+  const renderProgress = render?.progress
 
   return {
     id: row.id,
@@ -45,8 +101,8 @@ export function mapProjectRowToListItem(
     title: (row.name || row.title || 'Untitled project').trim() || 'Untitled project',
     description: extractDescription(editorState),
     thumbnailUrl: row.thumbnail_url ?? null,
-    status: normalizeProjectCardStatus(row.status, latestJob?.status),
-    progress: latestJob?.status === 'processing' ? latestJob.progress ?? 0 : latestJob?.status === 'completed' ? 100 : null,
+    status,
+    progress: status === 'rendering' ? numberOrNull(renderProgress) ?? 0 : status === 'needs_review' || status === 'completed' ? 100 : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     duration: numberOrNull(inspection.durationSec),
