@@ -64,7 +64,7 @@ const densitySchema = z.enum(['compact', 'comfortable', 'spacious'])
 const sidebarSchema = z.enum(['left', 'right', 'collapsed'])
 const exportQualitySchema = z.enum(['draft', 'standard', 'maximum'])
 const exportFormatSchema = z.enum(['mp4', 'mov', 'prores'])
-const pronounPresetSchema = z.enum(['she/her', 'he/him', 'they/them', 'any/all', 'custom'])
+const pronounPresetSchema = z.enum(['', 'she/her', 'he/him', 'they/them', 'any/all', 'custom'])
 
 const notificationPreferencesSchema = z.object({
   email: z.object({
@@ -127,7 +127,7 @@ const DEFAULT_VALUES: ProfileSettingsFormValues = {
   avatarUrl: '',
   bio: '',
   pronouns: '',
-  pronounPreset: 'they/them',
+  pronounPreset: '',
   location: '',
   theme: 'obsidian',
   fontPreference: 'inter',
@@ -167,6 +167,7 @@ const FONT_OPTIONS: Array<{ value: FontValue; label: string; stack: string }> = 
 }))
 
 const PRONOUN_OPTIONS: Array<{ value: z.infer<typeof pronounPresetSchema>; label: string }> = [
+  { value: '', label: 'Not set' },
   { value: 'she/her', label: 'She / her' },
   { value: 'he/him', label: 'He / him' },
   { value: 'they/them', label: 'They / them' },
@@ -417,6 +418,26 @@ export default function ProfileSettingsPage() {
     setThemeAndFont({ themeId: selectedTheme, fontId: selectedFont })
     setNotificationPreferences(notificationPreferences)
   }, [notificationPreferences, selectedAccent, selectedDensity, selectedFont, selectedTheme, setNotificationPreferences, setThemeAndFont, settingsReady])
+
+  React.useEffect(() => {
+    if (!settingsReady) return
+    let frame = 0
+    const focusSection = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        const heading = document.getElementById(window.location.hash.slice(1))
+        if (!heading || !heading.hasAttribute('data-profile-section')) return
+        heading.scrollIntoView({ block: 'start' })
+        heading.focus({ preventScroll: true })
+      })
+    }
+    focusSection()
+    window.addEventListener('hashchange', focusSection)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('hashchange', focusSection)
+    }
+  }, [settingsReady])
 
   React.useEffect(() => {
     if (!avatarPreview.startsWith('blob:')) return
@@ -752,6 +773,7 @@ export default function ProfileSettingsPage() {
                                         className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#38BDF8]/70 focus:ring-[#38BDF8]/20"
                       />
                       <LiquidChromeButton
+                        data-theme-independent="primary-action"
                         type="button"
                         variant="primary"
                         size="sm"
@@ -791,6 +813,7 @@ export default function ProfileSettingsPage() {
                     <FieldRow label="Pronouns" error={errors.pronouns?.message}>
                       <div className="space-y-2">
                         <SelectField
+                          label="Pronouns"
                           value={pronounPreset}
                           options={PRONOUN_OPTIONS}
                           onChange={(value) => {
@@ -828,7 +851,7 @@ export default function ProfileSettingsPage() {
             </ProfileCard>
 
             <ProfileCard>
-              <SectionTitle title="Workspace Customization" withDivider />
+              <SectionTitle id="theme" title="Workspace Customization" withDivider />
               <div className="space-y-6">
                 <PreferenceBlock label="Color mode">
                   <ColorModeSelector />
@@ -853,7 +876,7 @@ export default function ProfileSettingsPage() {
                   <AccentPicker value={selectedAccent} onChange={(accent) => updatePreference('accent', 'accent', accent)} />
                 </PreferenceBlock>
 
-                <PreferenceBlock label="Interface Density" saving={savingPreference === 'density'}>
+                <PreferenceBlock id="display" label="Interface Density" saving={savingPreference === 'density'}>
                   <SegmentedControl
                     options={DENSITY_OPTIONS}
                     value={selectedDensity}
@@ -872,7 +895,7 @@ export default function ProfileSettingsPage() {
             </ProfileCard>
 
             <ProfileCard>
-              <SectionTitle title="Notifications & Preferences" withDivider />
+              <SectionTitle id="notifications" title="Notifications & Preferences" withDivider />
               <div className="space-y-6">
                 <PreferenceBlock label="Email Notifications" saving={savingPreference === 'notifications'}>
                   <div className="space-y-3">
@@ -920,8 +943,9 @@ export default function ProfileSettingsPage() {
                 </PreferenceBlock>
 
                 <div className="grid gap-4 @xl/settings:grid-cols-2">
-                  <PreferenceBlock label="Default Export Quality" saving={savingPreference === 'export'}>
+                  <PreferenceBlock id="editor-preferences" label="Default Export Quality" saving={savingPreference === 'export'}>
                     <SelectField
+                      label="Default Export Quality"
                       value={defaultExportQuality}
                       options={EXPORT_QUALITY_OPTIONS}
                       onChange={(value) => updatePreference('export', 'defaultExportQuality', value)}
@@ -929,6 +953,7 @@ export default function ProfileSettingsPage() {
                   </PreferenceBlock>
                   <PreferenceBlock label="Default Format" saving={savingPreference === 'export'}>
                     <SelectField
+                      label="Default Format"
                       value={defaultFormat}
                       options={EXPORT_FORMAT_OPTIONS}
                       onChange={(value) => updatePreference('export', 'defaultFormat', value)}
@@ -939,7 +964,7 @@ export default function ProfileSettingsPage() {
             </ProfileCard>
 
             <ProfileCard>
-              <SectionTitle title="Security" withDivider />
+              <SectionTitle id="security" title="Security" withDivider />
               <div className="space-y-4">
                 <SecurityRow
                   icon={Lock}
@@ -1075,10 +1100,10 @@ function ProfileCard({ children, className }: { children: React.ReactNode; class
   )
 }
 
-function SectionTitle({ title, withDivider = false }: { title: string; withDivider?: boolean }) {
+function SectionTitle({ title, id, withDivider = false }: { title: string; id?: string; withDivider?: boolean }) {
   return (
     <div className={cn('mb-5', withDivider && 'border-t border-white/10 pt-5')}>
-      <h2 className="text-base font-semibold text-white">{title}</h2>
+      <h2 id={id} data-profile-section={id ? '' : undefined} tabIndex={id ? -1 : undefined} className="scroll-mt-32 text-base font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--theme-accent)]">{title}</h2>
     </div>
   )
 }
@@ -1106,17 +1131,19 @@ function FieldRow({
 
 function PreferenceBlock({
   children,
+  id,
   label,
   saving,
 }: {
   children: React.ReactNode
+  id?: string
   label: string
   saving?: boolean
 }) {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="text-sm font-medium text-white/82">{label}</div>
+        <div id={id} data-profile-section={id ? '' : undefined} tabIndex={id ? -1 : undefined} className="scroll-mt-32 text-sm font-medium text-white/82 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--theme-accent)]">{label}</div>
         {saving ? (
           <span className="inline-flex items-center gap-1.5 text-[11px] text-white/42">
             <InlineLoadingAnimation size={12} label={`Saving ${label}`} />
@@ -1297,16 +1324,20 @@ function NotificationToggle({
   label: string
   onChange: (checked: boolean) => void
 }) {
+  const labelId = React.useId()
+  const descriptionId = React.useId()
   return (
     <div className="flex w-full items-center justify-between gap-4">
       <button type="button" className="min-w-0 flex-1 pr-4 text-left" onClick={() => onChange(!checked)}>
-        <span className="block text-sm text-white/72">{label}</span>
-        {description ? <span className="mt-1 block text-xs leading-5 text-white/38">{description}</span> : null}
+        <span id={labelId} className="block text-sm text-white/72">{label}</span>
+        {description ? <span id={descriptionId} className="mt-1 block text-xs leading-5 text-white/38">{description}</span> : null}
       </button>
       <div className="flex w-14 shrink-0 justify-end">
         <button
           type="button"
           role="switch"
+          aria-labelledby={labelId}
+          aria-describedby={description ? descriptionId : undefined}
           aria-checked={checked}
           onClick={() => onChange(!checked)}
           className={cn(
@@ -1327,16 +1358,19 @@ function NotificationToggle({
 }
 
 function SelectField<T extends string>({
+  label,
   onChange,
   options,
   value,
 }: {
+  label: string
   onChange: (value: T) => void
   options: Array<{ value: T; label: string }>
   value: T
 }) {
   return (
     <select
+      aria-label={label}
       value={value}
       onChange={(event) => onChange(event.target.value as T)}
       className="h-10 w-full rounded-[14px] border border-white/16 bg-[#0a0a0d] px-3 text-sm text-white/90 outline-none transition-colors focus:border-[#38BDF8]/70 focus:ring-2 focus:ring-[#38BDF8]/20"

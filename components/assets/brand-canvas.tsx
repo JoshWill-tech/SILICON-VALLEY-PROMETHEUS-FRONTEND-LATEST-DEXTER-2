@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowUpRight, Asterisk, Check, Globe, Mic, Plus, Sparkles, Volume2, X } from 'lucide-react'
+import { ArrowUpRight, Asterisk, Globe, Mic, Plus, Volume2, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { mapSavedBrandDnaToCanvas, type BrandCanvasCard as BrandCard, type BrandDirection } from '@/lib/brand-dna/canvas-mapping'
@@ -85,12 +85,6 @@ const BRAND_DIRECTIONS: BrandDirection[] = [
 
 const DEFAULT_PROFILE_ID = 'dan-martell'
 
-const VOICES = [
-  { id: 'nyx', label: 'Nyx', tone: 'Quiet' },
-  { id: 'mira', label: 'Mira', tone: 'Clear' },
-  { id: 'sol', label: 'Sol', tone: 'Bright' },
-]
-
 function cleanEditableValue(text: string, fallback: string) {
   return text.replace(/\s+/g, ' ').trim() || fallback
 }
@@ -135,10 +129,6 @@ function EditableText({
 }
 
 function BrandVoicePanel({ onClose, reduceMotion }: { onClose: () => void; reduceMotion: boolean }) {
-  const [voice, setVoice] = React.useState('nyx')
-  const [staged, setStaged] = React.useState(false)
-  const selectedVoice = VOICES.find((item) => item.id === voice) ?? VOICES[0]
-
   return (
     <motion.aside
       role="dialog"
@@ -155,7 +145,7 @@ function BrandVoicePanel({ onClose, reduceMotion }: { onClose: () => void; reduc
           <span className="grid size-9 place-items-center rounded-full border border-[#a78bfa]/40 bg-[#7c3aed]/20 text-[#ddd6fe]"><Mic className="size-4" /></span>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">Brand voice</p>
-            <p className="mt-0.5 text-sm font-medium">{selectedVoice.label} / {selectedVoice.tone}</p>
+            <p className="mt-0.5 text-sm font-medium">Currently unavailable</p>
           </div>
         </div>
         <button type="button" onClick={onClose} className="grid size-8 place-items-center rounded-full text-white/48 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/45" aria-label="Close brand voice">
@@ -163,52 +153,8 @@ function BrandVoicePanel({ onClose, reduceMotion }: { onClose: () => void; reduc
         </button>
       </div>
 
-      <div className="mt-4 flex items-center gap-2" role="group" aria-label="Voice choices">
-        {VOICES.map((item) => {
-          const active = item.id === voice
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setVoice(item.id)}
-              className={cn(
-                'flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border px-2.5 py-2 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]/65',
-                active ? 'border-[#c4b5fd]/55 bg-[#7c3aed]/28 text-white' : 'border-white/10 bg-white/[0.035] text-white/55 hover:border-white/25 hover:text-white/84',
-              )}
-              aria-pressed={active}
-            >
-              <span className={cn('size-1.5 rounded-full', active ? 'bg-[#ddd6fe] shadow-[0_0_12px_rgba(221,214,254,0.95)]' : 'bg-white/30')} />
-              {item.label}
-            </button>
-          )
-        })}
-      </div>
-
       <div className="mt-4 flex items-center gap-3 rounded-[16px] border border-white/10 bg-black/20 p-3">
-        <div className="flex h-8 items-center gap-1" aria-hidden="true">
-          {[0.45, 0.8, 0.6, 1, 0.5].map((height, index) => (
-            <motion.span
-              key={index}
-              className="w-1 rounded-full bg-gradient-to-b from-[#ddd6fe] to-[#7c3aed]"
-              animate={reduceMotion ? undefined : { height: [`${height * 18}px`, `${Math.max(7, height * 29)}px`, `${height * 18}px`] }}
-              transition={{ duration: 0.9 + index * 0.11, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ height: `${height * 18}px` }}
-            />
-          ))}
-        </div>
-        <p className="min-w-0 flex-1 text-xs leading-5 text-white/66">Tell me what needs to feel more like your brand. I’ll stage a direction before anything changes.</p>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-[10px] uppercase tracking-[0.16em] text-white/38">Conversation wireframe</span>
-        <button
-          type="button"
-          onClick={() => setStaged(true)}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-[#c4b5fd]/38 bg-[#7c3aed]/20 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#7c3aed]/34 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c4b5fd]/65"
-        >
-          {staged ? <Check className="size-3.5" /> : <Sparkles className="size-3.5" />}
-          {staged ? 'Change staged' : 'Stage change'}
-        </button>
+        <p className="text-xs leading-5 text-white/66">Brand voice conversations are not available yet. Edit the direction cards or use Analyze URL to shape your brand profile.</p>
       </div>
     </motion.aside>
   )
@@ -420,11 +366,13 @@ export function BrandCanvas() {
       onPointerLeave={() => setPointer({ x: 0, y: 0 })}
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[780px]">
         <motion.div
-          className="absolute -left-[15%] -top-[80%] h-[126%] w-[126%] rounded-full border-[38px] border-[#f4f1ff]"
+          className="absolute -left-[15%] -top-[110%] h-[126%] w-[126%] rounded-full border-[38px] border-[#f4f1ff]"
           animate={reduceMotion ? undefined : { x: pointer.x * -18, y: pointer.y * -14 }}
           transition={{ type: 'spring', stiffness: 45, damping: 18 }}
         />
+        </div>
         <motion.div
           className="absolute -bottom-[102%] left-[28%] h-[135%] w-[135%] rounded-full border-[30px] border-[var(--brand-soft)]/65"
           animate={reduceMotion ? undefined : { x: pointer.x * 22, y: pointer.y * 14 }}
@@ -435,14 +383,14 @@ export function BrandCanvas() {
       </div>
 
       <div className="relative mx-auto min-h-[780px] max-w-[1680px] px-5 py-5 sm:min-h-[840px] sm:px-8 lg:min-h-[900px] lg:px-12 lg:py-8">
-        <header className="relative z-20 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.16em] sm:text-[11px]">
+        <header data-theme-independent="brand-masthead" className="relative z-20 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#101827]/90 p-3 text-[10px] font-semibold uppercase tracking-[0.16em] sm:text-[11px]">
           <div className="flex items-center gap-2.5">
             <span className="grid size-7 place-items-center rounded-full border border-white/75 bg-[var(--brand-soft)] text-sm text-[#251544]">P</span>
             <span>Prometheus / Brand</span>
           </div>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 rounded-full border border-white/20 bg-[#120d26]/35 px-2.5 py-2 text-[9px] text-white/75 sm:gap-2 sm:px-3.5 sm:text-[10px]">
-              <span className="hidden text-white/45 sm:inline">For</span>
+              <span className="hidden text-white/65 sm:inline">For</span>
               <select
                 value={activeProfileId}
                 onChange={(event) => selectDirection(event.target.value)}
@@ -487,8 +435,8 @@ export function BrandCanvas() {
           </div>
         </header>
 
-        <div className="relative z-10 pt-16 sm:pt-20 lg:pt-24">
-          <p className="mb-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/66 sm:text-[11px]">
+        <div data-theme-independent="brand-heading" className="relative z-10 pt-16 sm:pt-20 lg:pt-24">
+          <p className="mb-5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75 sm:text-[11px]">
             <Asterisk className="size-3.5" aria-hidden="true" />
             {activeDirection.name} · {activeDirection.subtitle}
           </p>
@@ -498,18 +446,18 @@ export function BrandCanvas() {
           </h2>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 top-[300px] sm:top-[350px]" style={{ perspective: '1500px' }}>
+        <div className="relative z-10 mt-16 grid grid-cols-[repeat(auto-fit,minmax(min(100%,16.75rem),1fr))] justify-items-center gap-12 pb-12" style={{ perspective: '1500px' }}>
           {cards.map((card, index) => (
             <motion.article
               key={card.id}
-              className="group absolute h-[250px] w-[190px] cursor-text rounded-[10px] border border-[#241448]/18 bg-[#faf9ff] p-4 text-[#120d26] shadow-[0_24px_42px_rgba(8,4,32,0.35)] sm:h-[310px] sm:w-[235px] sm:p-5 lg:h-[350px] lg:w-[268px]"
-              style={{ left: card.x, top: card.y, transformStyle: 'preserve-3d', zIndex: index + 1, '--card-accent': activeDirection.colors.accent } as React.CSSProperties}
+              className="group relative min-h-[310px] w-full max-w-[268px] cursor-text rounded-[10px] border border-[#241448]/18 bg-[#faf9ff] p-5 text-[#120d26] shadow-[0_24px_42px_rgba(8,4,32,0.35)] lg:min-h-[350px]"
+              style={{ transformStyle: 'preserve-3d', zIndex: index + 1, '--card-accent': activeDirection.colors.accent } as React.CSSProperties}
               initial={reduceMotion ? false : { opacity: 0, y: 80, rotate: card.rotation - 11 }}
               animate={{
                 opacity: 1,
-                x: reduceMotion ? 0 : pointer.x * card.depth * 38,
-                y: reduceMotion ? 0 : pointer.y * card.depth * 25,
-                rotate: editingCardId === card.id ? 0 : card.rotation + (reduceMotion ? 0 : pointer.x * card.depth * 3),
+                x: reduceMotion ? 0 : pointer.x * card.depth * 6,
+                y: reduceMotion ? 0 : pointer.y * card.depth * 4,
+                rotate: editingCardId === card.id ? 0 : Math.max(-2, Math.min(2, card.rotation)),
               }}
               transition={reduceMotion ? { duration: 0 } : { opacity: { duration: 0.65, delay: index * 0.09 }, type: 'spring', stiffness: 60, damping: 15 }}
               whileHover={reduceMotion || editingCardId === card.id ? undefined : { y: -18, rotate: 0, transition: { type: 'spring', stiffness: 260, damping: 18 } }}
@@ -552,7 +500,7 @@ export function BrandCanvas() {
 
           <motion.div
             aria-hidden="true"
-            className="absolute left-[53%] top-[7%] hidden h-[300px] w-[220px] -translate-x-1/2 rounded-[50%] border border-[var(--brand-soft)]/75 bg-[var(--brand-accent)]/14 p-4 shadow-[inset_0_0_0_10px_rgba(255,255,255,0.06)] lg:block"
+            className="pointer-events-none absolute -z-10 left-[53%] top-[7%] hidden h-[300px] w-[220px] -translate-x-1/2 rounded-[50%] border border-[var(--brand-soft)]/75 bg-[var(--brand-accent)]/14 p-4 shadow-[inset_0_0_0_10px_rgba(255,255,255,0.06)] lg:block"
             animate={reduceMotion ? undefined : { x: pointer.x * -18, y: pointer.y * -11, rotate: pointer.x * -2 }}
             transition={{ type: 'spring', stiffness: 45, damping: 18 }}
           >
@@ -562,7 +510,7 @@ export function BrandCanvas() {
           </motion.div>
         </div>
 
-        <footer className="absolute bottom-5 left-5 right-5 z-20 flex items-end justify-between sm:bottom-8 sm:left-8 sm:right-8 lg:left-12 lg:right-12">
+        <footer data-theme-independent="brand-footer" className="relative z-20 flex items-end justify-between gap-4 rounded-xl bg-[#101827]/80 p-3">
           <p className="max-w-[260px] text-[10px] font-medium leading-relaxed text-white/65 sm:text-[11px]">Direction study for {activeDirection.name}. Card content follows the selected profile; edits stay with it.</p>
           <span className="hidden items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/52 sm:inline-flex"><Volume2 className="size-3.5" /> Voice at top right</span>
         </footer>

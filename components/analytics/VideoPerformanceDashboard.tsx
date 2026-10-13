@@ -151,6 +151,9 @@ export function VideoPerformanceDashboard() {
     [accountVideos, direction, metric, validPlatform],
   )
 
+  const hasMeasuredPerformance = trackedVideos.some((video) => (video.totals?.views ?? 0) > 0)
+    || accountVideos.some((video) => video.metrics.views > 0)
+
   const carouselSlides: Slide[] = React.useMemo(() => {
     // Reflect the last 5 or 6 videos that Prometheus did and tracked for the user
     const candidateVideos = trackedVideos.length > 0 ? trackedVideos : accountVideos
@@ -281,32 +284,32 @@ export function VideoPerformanceDashboard() {
 
             <label className="block">
               <span className="mb-2 block text-[9px] uppercase tracking-[0.19em] text-[#81837A]">Rank by</span>
-              <select aria-label="Sort videos by metric" value={metric} onChange={(event) => setMetric(event.target.value as PerformanceMetric)} className="min-h-11 w-full border-0 border-b border-white/[0.16] bg-transparent px-1 text-[12px] text-[#E6E6DE] outline-none focus-visible:ring-2 focus-visible:ring-[#D7FF4F]">
+              <select aria-label="Sort videos by metric" value={metric} onChange={(event) => setMetric(event.target.value as PerformanceMetric)} className="min-h-11 w-full border-0 border-b border-white/[0.16] bg-transparent px-1 text-[12px] text-[var(--light-ui-text,#E6E6DE)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--light-ui-accent,#D7FF4F)]">
                 {metricOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
 
-            <button type="button" aria-label={`Sort ${direction === 'desc' ? 'highest to lowest' : 'lowest to highest'}`} onClick={() => setDirection((current) => current === 'desc' ? 'asc' : 'desc')} className="inline-flex min-h-11 items-center justify-center gap-2 border-b border-white/[0.16] px-1 text-[9px] uppercase tracking-[0.14em] text-[#B9BAAF] transition-colors hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D7FF4F]">
+            <button type="button" aria-label={`Sort ${direction === 'desc' ? 'highest to lowest' : 'lowest to highest'}`} onClick={() => setDirection((current) => current === 'desc' ? 'asc' : 'desc')} className="inline-flex min-h-11 items-center justify-center gap-2 border-b border-white/[0.16] px-1 text-[9px] uppercase tracking-[0.14em] text-[var(--light-ui-text,#B9BAAF)] transition-colors hover:border-white/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--light-ui-accent,#D7FF4F)]">
               {direction === 'desc' ? <ArrowDown className="size-3.5" /> : <ArrowUp className="size-3.5" />}{direction === 'desc' ? 'Highest first' : 'Lowest first'}
             </button>
           </div>
         </section>
 
-        {appraisal && appraisal.totalPostsAnalyzed > 0 ? (
+        {appraisal && appraisal.totalPostsAnalyzed > 0 && hasMeasuredPerformance ? (
           <section className="mt-8 border-y border-white/[0.1] py-5 sm:py-6" aria-label="Analysis notes">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h2 className="text-sm font-medium tracking-tight text-[#F1F0EA]">Video insights</h2>
-              <p className="text-[11px] text-[#8D8E85]">Based on {appraisal.totalPostsAnalyzed} {appraisal.totalPostsAnalyzed === 1 ? 'video' : 'videos'}</p>
+              <p className="text-[11px] text-[#8D8E85]">Calibrated analysis of {appraisal.totalPostsAnalyzed} tracked {appraisal.totalPostsAnalyzed === 1 ? 'video' : 'videos'}</p>
             </div>
 
             <dl className="mt-5 grid grid-cols-1 gap-5 border-t border-white/[0.07] pt-5 sm:grid-cols-3 sm:gap-6">
               <div className="border-b border-white/[0.07] pb-4 sm:border-0 sm:pb-0">
-                <dt className="text-[11px] text-[#8D8E85]">Average retention</dt>
+                <dt className="text-[11px] text-[#8D8E85]">Retention score</dt>
                 <dd className="mt-2 font-mono text-[28px] font-light leading-none tracking-tight text-[#F1F0EA]">{Math.round(appraisal.catalogSummary.averageRetentionScore * 100)}%</dd>
               </div>
               <div className="border-b border-white/[0.07] pb-4 sm:border-0 sm:pb-0">
                 <dt className="text-[11px] text-[#8D8E85]">Sharing score</dt>
-                <dd className="mt-2 font-mono text-[28px] font-light leading-none tracking-tight text-[#D7FF4F]">{Math.round(appraisal.catalogSummary.averageViralityScore * 100)}%</dd>
+                <dd className="mt-2 font-mono text-[28px] font-light leading-none tracking-tight text-[var(--light-ui-accent,#D7FF4F)]">{Math.round(appraisal.catalogSummary.averageViralityScore * 100)}%</dd>
                 <p className="mt-1.5 text-[10px] text-[#777970]">Shares and comments</p>
               </div>
               <div>
@@ -315,11 +318,14 @@ export function VideoPerformanceDashboard() {
               </div>
             </dl>
 
-            <p className="mt-5 text-[12px] leading-5 text-[#BFC0B7]">
-              <span className="mr-2 text-[10px] uppercase tracking-[0.12em] text-[#D7FF4F]">Next edit</span>
+            <p className="mt-3 text-[11px] text-[var(--light-ui-muted,#8D8E85)]">Scores are calibrated estimates, not measured audience retention. Per-video details show recorded performance.</p>
+            <p className="mt-5 text-[12px] leading-5 text-[var(--light-ui-muted,#BFC0B7)]">
+              <span className="mr-2 text-[10px] uppercase tracking-[0.12em] text-[var(--light-ui-accent,#D7FF4F)]">Next edit</span>
               Bring the most compelling moment closer to the start.
             </p>
           </section>
+        ) : loadState === 'ready' && !hasMeasuredPerformance ? (
+          <p className="mt-8 border-y border-white/[0.1] py-5 text-sm text-[var(--light-ui-muted,#8D8E85)]">Performance insights are unavailable until measured views are recorded. Local drafts remain in Recent tracked videos.</p>
         ) : null}
 
         <section className="mt-7" aria-label="Video performance rankings" aria-live="polite">

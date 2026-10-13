@@ -501,6 +501,7 @@ html[data-color-mode='light'] :is(.project-hero-shade, .project-hero-glow, .proj
 }
 
 html[data-color-mode='light'] .project-tile-artwork {
+  --project-artwork-opacity: 0.30;
   mix-blend-mode: multiply;
 }
 
@@ -519,6 +520,12 @@ html[data-color-mode='light'] [data-theme-independent] {
   --chrome: #e8e8e8;
   --chrome-dim: #a0a0b0;
   color: #fff;
+}
+
+/* The pricing wordmark is a dark-theme effect; it becomes a dark band when
+   legacy white utilities are remapped on pale cards. Scope the opt-out to pricing. */
+html[data-color-mode='light'] [data-pricing-decoration] {
+  color: transparent !important;
 }
 
 /* Preview controls follow the workspace theme; only the footage is independent.

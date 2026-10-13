@@ -99,6 +99,8 @@ export function PrometheusChat({
   onStartAutonomousEdit,
   onSeekToSec,
   workspaceTab = null,
+  hasSourceMedia,
+  autoFocus = false,
 }: {
   messages: PrometheusChatMessage[]
   onSend: (message: string) => void | Promise<void>
@@ -118,6 +120,8 @@ export function PrometheusChat({
   onStartAutonomousEdit?: (prompt: string) => void
   onSeekToSec?: (seconds: number) => void
   workspaceTab?: string | null
+  hasSourceMedia?: boolean
+  autoFocus?: boolean
 }) {
   const { session } = useAuth()
   const { profile } = useProfile()
@@ -132,6 +136,11 @@ export function PrometheusChat({
   const hasObservedInitialActionMessagesRef = React.useRef(false)
   const historyButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const inputRef = React.useRef<HTMLInputElement | null>(null)
+  React.useEffect(() => {
+    if (!autoFocus) return
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [autoFocus])
   const scrollViewportRef = React.useRef<HTMLDivElement | null>(null)
   const pinnedToBottomRef = React.useRef(true)
   const spokenMessageIdsRef = React.useRef(new Set<string>())
@@ -201,7 +210,7 @@ export function PrometheusChat({
   const lastMessage = renderedMessages[renderedMessages.length - 1]
   const videoContext = persistentChat.videoContext
   const isVideoContextLoading = persistentChat.isVideoContextLoading
-  const videoPresent = videoContext?.status === 'video' || Boolean(videoContext?.video)
+  const videoPresent = hasSourceMedia ?? (videoContext?.status === 'video' && Boolean(videoContext.video?.filename))
 
   const activeUtterancesRef = React.useRef<SpeechSynthesisUtterance[]>([])
 
@@ -522,9 +531,9 @@ export function PrometheusChat({
               </button>
             </div>
           ) : null}
-          {videoContext ? (
-            <div className="mb-4 flex min-w-0 items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/30">
-              {isVideoContextLoading ? (
+          {videoContext || hasSourceMedia !== undefined ? (
+            <div className="mb-4 flex min-w-0 items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/65" role="status">
+              {isVideoContextLoading && hasSourceMedia !== false ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="size-1.5 animate-pulse rounded-full bg-white/40" />
                   Retrieving video metadata
@@ -533,8 +542,8 @@ export function PrometheusChat({
                 <span className="inline-flex items-center gap-2 truncate">
                   <span className="size-1.5 shrink-0 rounded-full bg-[#7ff2d4]/80" />
                   <span className="truncate">
-                    {videoContext.video?.filename || 'Video loaded'}
-                    {videoContext.video?.durationMs
+                    {videoContext?.video?.filename || 'Source video available'}
+                    {videoContext?.video?.durationMs
                       ? ` · ${Math.floor(videoContext.video.durationMs / 60000)}:${String(Math.floor((videoContext.video.durationMs % 60000) / 1000)).padStart(2, '0')}`
                       : ''}
                   </span>

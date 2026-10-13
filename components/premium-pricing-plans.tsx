@@ -50,17 +50,19 @@ export function PremiumPricingPlans({
 }: PremiumPricingPlansProps) {
   return (
     <section
+      data-pricing-plans
       aria-label="Prometheus pricing plans"
-      className={cn('relative isolate overflow-hidden px-1 pb-2 pt-8', className)}
+      className={cn('@container/pricing relative isolate overflow-hidden px-1 pb-2 pt-8', className)}
     >
       <div
+        data-pricing-decoration
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-[8.5rem] z-0 w-[140vw] -translate-x-1/2 scale-x-105 select-none text-center text-[4.2rem] font-black leading-none text-white/[0.04] blur-[2px] sm:text-[7.5rem] md:top-[10rem] md:text-[10rem] lg:text-[12rem] xl:text-[15rem]"
       >
         PROMETHEUS
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 justify-items-center gap-5 md:grid-cols-2 md:items-stretch md:justify-items-stretch lg:grid-cols-3 lg:gap-6 xl:gap-8">
+      <div className="relative z-10 grid grid-cols-1 justify-items-center gap-5 @2xl/pricing:grid-cols-2 @2xl/pricing:items-stretch @2xl/pricing:justify-items-stretch @5xl/pricing:grid-cols-3 @5xl/pricing:gap-6">
         {PLANS.map((plan) => (
           <PricingCard
             key={plan.id}
@@ -121,9 +123,9 @@ function PricingCard({
       />
 
       <div className="relative z-10 flex flex-1 flex-col">
-        <div className="flex min-h-8 items-start justify-between gap-4">
+        <div className="flex min-h-8 flex-wrap items-start justify-between gap-3">
           {isFeatured ? (
-            <span className="inline-flex rounded-full border border-[#6366f1]/36 bg-[#6366f1]/14 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#c7d2fe] shadow-[0_0_30px_rgba(99,102,241,0.24)]">
+            <span className="inline-flex rounded-full border border-[#6366f1]/36 bg-[#6366f1]/14 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--light-ui-accent,#c7d2fe)] shadow-[0_0_30px_rgba(99,102,241,0.24)]">
               RECOMMENDED
             </span>
           ) : (
@@ -141,10 +143,12 @@ function PricingCard({
           <p className="min-h-14 text-[15px] leading-7 text-white/58">{plan.subtitle}</p>
         </div>
 
-        <div className="mt-8 flex items-end gap-1.5">
-          <span className="pb-2 text-2xl font-semibold text-white/42">$</span>
-          <span className="text-5xl font-bold leading-none text-white sm:text-6xl lg:text-5xl xl:text-6xl">
-            {priceMajor}
+        <div className="mt-8 flex flex-wrap items-end gap-1.5">
+          <span className="inline-flex items-end gap-1.5">
+            <span className="pb-2 text-2xl font-semibold text-white/42">$</span>
+            <span className="text-5xl font-bold leading-none text-white @5xl/pricing:text-6xl">
+              {priceMajor}
+            </span>
           </span>
           <span className="pb-2 pl-1 text-sm font-medium text-white/42">{plan.monthlyLabel}</span>
         </div>

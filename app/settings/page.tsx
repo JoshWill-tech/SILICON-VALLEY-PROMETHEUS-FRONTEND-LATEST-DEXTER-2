@@ -107,7 +107,7 @@ export default function SettingsPage() {
             checked={reducedMotion}
             onCheckedChange={setReducedMotion}
           />
-          <Link href="/settings/profile" className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-white/68 transition-colors hover:text-white">
+          <Link href="/settings/profile#notifications" className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-white/68 transition-colors hover:text-white">
             Notification preferences <ChevronRight className="size-4" aria-hidden="true" />
           </Link>
         </SettingsSurface>
@@ -122,8 +122,8 @@ export default function SettingsPage() {
             <p className="mt-3 text-xs text-white/48">Saved in this browser when preference cookies are enabled.</p>
           </div>
           <div className="grid gap-3 @md/settings:grid-cols-2">
-            <PreferenceLink icon={Palette} label="Theme & accent" href="/settings/profile" />
-            <PreferenceLink icon={LayoutTemplate} label="Display preferences" href="/settings/profile" />
+            <PreferenceLink icon={Palette} label="Theme & accent" href="/settings/profile#theme" />
+            <PreferenceLink icon={LayoutTemplate} label="Display preferences" href="/settings/profile#display" />
           </div>
         </SettingsSurface>
       ) : null}
@@ -132,7 +132,7 @@ export default function SettingsPage() {
         <SettingsSurface title="Workspace" subtitle="Manage the people and defaults behind your projects.">
           <div className="grid gap-3 @md/settings:grid-cols-2">
             <PreferenceLink icon={UsersRound} label="Team workspace" href="/team" />
-            <PreferenceLink icon={SlidersHorizontal} label="Editor preferences" href="/settings/profile" />
+            <PreferenceLink icon={SlidersHorizontal} label="Editor preferences" href="/settings/profile#editor-preferences" />
           </div>
         </SettingsSurface>
       ) : null}
@@ -161,7 +161,7 @@ export default function SettingsPage() {
       {activePanel === 'security' ? (
         <SettingsSurface title="Privacy & security" subtitle="Keep your account and workspace protected.">
           <div className="space-y-3">
-            <PreferenceLink icon={ShieldCheck} label="Password, sessions & API access" href="/settings/profile" />
+            <PreferenceLink icon={ShieldCheck} label="Password, sessions & API access" href="/settings/profile#security" />
             <CookieSettingsButton className="flex w-full items-center justify-between gap-3 border border-white/[0.09] bg-white/[0.025] p-4 text-left text-sm font-medium text-white/82 transition-colors hover:border-white/[0.18] hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40">
               <span className="flex items-center gap-3"><Cookie className="size-4 text-white/52" aria-hidden="true" />Cookie preferences</span>
               <ChevronRight className="size-4 text-white/42" aria-hidden="true" />
@@ -248,8 +248,8 @@ function ProfilePanel({
       </div>
 
       <div className="mt-5 grid gap-3 @md/settings:grid-cols-2">
-        <PreferenceLink icon={ShieldCheck} label="Security settings" href="/settings/profile" />
-        <PreferenceLink icon={Bell} label="Notification preferences" href="/settings/profile" />
+        <PreferenceLink icon={ShieldCheck} label="Security settings" href="/settings/profile#security" />
+        <PreferenceLink icon={Bell} label="Notification preferences" href="/settings/profile#notifications" />
       </div>
     </div>
   )

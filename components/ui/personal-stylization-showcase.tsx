@@ -36,14 +36,14 @@ export function PersonalStylizationShowcase({
 
   return (
     <section className={cn("personal-stylization-showcase", className)} aria-label="Personal stylization">
-      <div className="flex items-end justify-between gap-4 border-b border-white/[0.1] px-4 py-3 sm:px-5">
+      <div data-theme-independent="showcase-heading" className="flex items-end justify-between gap-4 border-b border-white/[0.1] px-4 py-3 sm:px-5">
         <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/42">Personal stylization</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/65">Personal stylization</p>
           <h2 className="mt-1 text-[19px] leading-none text-white/88 [font-family:var(--font-zt-otez),Georgia,serif] sm:text-[22px]">
             Shape the direction
           </h2>
         </div>
-        <p className="hidden max-w-40 text-right text-[10px] leading-4 text-white/38 sm:block">Choose the parts of the edit you want to author.</p>
+        <p className="hidden max-w-40 text-right text-[10px] leading-4 text-white/65 sm:block">Choose the parts of the edit you want to author.</p>
       </div>
 
       <div

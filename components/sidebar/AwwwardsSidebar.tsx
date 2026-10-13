@@ -239,7 +239,7 @@ export function AwwwardsSidebar({
           </Link>
           <Link href="/settings/billing" className={rowBase} aria-label="Plan and credits">
             <span className={iconTile}><CreditCard className="size-4" /></span>
-            <span className="ml-3 text-xs" style={{ opacity: expanded ? 1 : 0 }}>{account.loading ? 'Loading plan?' : account.error ? 'Plan unavailable' : `${account.plan} ? ${account.credits} credits`}</span>
+            <span className="ml-3 text-xs" style={{ opacity: expanded ? 1 : 0 }}>{account.loading ? 'Loading plan?' : account.error ? 'Plan unavailable' : `${account.plan} · ${account.credits} credits`}</span>
           </Link>
           <button type="button" className={rowBase} aria-label="Sign out" disabled={signingOut} onClick={async () => {
             setSigningOut(true);
