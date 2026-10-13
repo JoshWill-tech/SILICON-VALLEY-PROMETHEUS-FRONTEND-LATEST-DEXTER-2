@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/components/auth/auth-provider'
 import { BrandWordmark } from '@/components/brand-wordmark'
 import { buttonVariants } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface LandingHeaderProps {
   mobileNavControl?: ReactNode
@@ -19,6 +20,7 @@ export function LandingHeader({ mobileNavControl, studioSurface = false }: Landi
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 sm:min-h-16 sm:flex-nowrap sm:px-8 sm:py-3">
         <div className="flex min-h-10 shrink-0 items-center gap-2">{mobileNavControl}<BrandWordmark /></div>
         <nav aria-label="Main navigation" className="flex w-full items-center justify-between gap-2 border-t border-white/[0.07] pt-2 text-[13px] sm:w-auto sm:justify-end sm:gap-5 sm:border-0 sm:pt-0 sm:text-sm">
+          <ThemeToggle variant="icon" />
           <Link href="/pricing" className="py-2 text-white/80 hover:text-white">Pricing</Link>
           <Link href="/docs" className="py-2 text-white/80 hover:text-white">Docs</Link>
           {isLoading ? <span role="status" aria-label="Loading account" className="h-8 w-20 animate-pulse rounded-full bg-white/10" /> : session ? (
