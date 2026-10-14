@@ -142,6 +142,8 @@ import { useTextareaResize } from '@/hooks/use-textarea-resize'
 import { buildCinematicAnimationPlan } from '@/lib/cinematic/animation-planner'
 import { cn } from '@/lib/utils'
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout'
+import { safeParseApiResponse } from '@/lib/voice-companion/safe-response'
+import { sanitizeVoiceCompanionError } from '@/lib/voice-companion/error-sanitizer'
 import { SELECTED_EDITOR_MUSIC_EVENT, writeSelectedEditorMusicRecommendation, clearSelectedEditorMusicRecommendation, readSelectedEditorMusicRecommendation, type SelectedEditorMusicEventDetail } from '@/lib/editor-music-selection'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import { upsertProject } from '@/lib/mock'
@@ -8225,8 +8227,20 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         }),
         signal: AbortSignal.timeout(30_000),
       })
-      const payload = await response.json() as {export?: ProjectExport; error?: string}
-      if (!response.ok) throw new Error(payload.error || 'Unable to start the final render.')
+      let payload: {export?: ProjectExport; error?: string}
+      if (typeof safeParseApiResponse !== 'undefined') {
+        const parsed = await safeParseApiResponse<{export?: ProjectExport; error?: string}>(
+          response,
+          'Unable to start the final render.',
+        )
+        if (!parsed.ok || !parsed.data) {
+          throw new Error(parsed.error || 'Unable to start the final render.')
+        }
+        payload = parsed.data
+      } else {
+        payload = await response.json() as {export?: ProjectExport; error?: string}
+        if (!response.ok) throw new Error(payload.error || 'Unable to start the final render.')
+      }
       if (!payload.export?.id) throw new Error('The export service returned success without a tracked render job.')
       if (payload.export.status === 'failed') throw new Error(payload.export.errorMessage || 'The render service rejected the job.')
       setLatestExport(payload.export)
@@ -8235,9 +8249,14 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       toast.success('Mini-Run accepted. Follow its progress in the editor.')
       return { success: true, summary: 'VINCERE accepted the portrait Mini-Run. Its progress is shown in the editor.', renderInitiated: true }
     } catch (error) {
-      const summary = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+      let summary = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
         ? 'The render submission response timed out. Check MP4 status before retrying; the backend may already have accepted a job.'
         : error instanceof Error ? error.message : 'Unable to start the final render.'
+      if (typeof sanitizeVoiceCompanionError === 'function') {
+        summary = sanitizeVoiceCompanionError(summary)
+      } else if (/unexpected token|syntaxerror|is not valid json/i.test(summary)) {
+        summary = 'The rendering studio returned an unreadable response. I can resubmit the export for you.'
+      }
       toast.error(summary)
       return { success: false, summary }
     }
@@ -8259,13 +8278,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     await handlePrepareExport()
     try {
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {cache: 'no-store'})
-      const payload = await response.json() as {readiness?: {
+      const parsed = await safeParseApiResponse<{readiness?: {
         canSubmit: boolean; sourceReady: boolean; sourceDurationMs: number | null; sourceWidth: number | null
         sourceHeight: number | null; backendConfigured: boolean; timelineRevision: number
         blockers: string[]; liveWorkerHealthChecked: boolean
-      }; error?: string}
-      if (!response.ok || !payload.readiness) throw new Error(payload.error || 'Readiness information is unavailable.')
-      const readiness = payload.readiness
+      }; error?: string}>(response, 'Readiness information is unavailable.')
+      const readiness = parsed.data?.readiness
+      if (!parsed.ok || !readiness) {
+        throw new Error(parsed.error || 'Readiness information is unavailable.')
+      }
       const sourceFacts = [
         readiness.sourceDurationMs ? `${(readiness.sourceDurationMs / 1000).toFixed(1)} seconds` : null,
         readiness.sourceWidth && readiness.sourceHeight ? `${readiness.sourceWidth} by ${readiness.sourceHeight}` : null,

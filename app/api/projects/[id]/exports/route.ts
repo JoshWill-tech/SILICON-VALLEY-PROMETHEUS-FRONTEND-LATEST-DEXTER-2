@@ -1,8 +1,38 @@
 import {NextResponse} from 'next/server'
+import {cookies} from 'next/headers'
 import {createClient} from '@/lib/supabase/server'
 import {ExportService} from '@/lib/exports/service'
 import {dispatchMiniRunRender} from '@/lib/server/mini-run-dispatch'
 import {resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
+
+export const maxDuration = 60
+
+async function resolveUserAccessToken(sessionAccessToken?: string): Promise<string> {
+  if (sessionAccessToken && sessionAccessToken !== 'local-token') {
+    return sessionAccessToken
+  }
+  try {
+    const cookieStore = await cookies()
+    const allCookies = cookieStore.getAll()
+    const authCookies = allCookies
+      .filter((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    if (authCookies.length > 0) {
+      const combined = authCookies.map((c) => c.value).join('')
+      let decoded = combined
+      if (decoded.startsWith('base64-')) {
+        decoded = Buffer.from(decoded.slice(7), 'base64').toString('utf-8')
+      }
+      const parsed = JSON.parse(decoded) as { access_token?: string }
+      if (typeof parsed.access_token === 'string' && parsed.access_token) {
+        return parsed.access_token
+      }
+    }
+  } catch {
+    // Fall back to provided token if extraction fails
+  }
+  return sessionAccessToken || 'local-token'
+}
 
 type RouteContext = {params: Promise<{id: string}>}
 
@@ -138,7 +168,7 @@ export async function POST(request: Request, {params}: RouteContext) {
         MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
         MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
       },
-      accessToken: session?.access_token || 'local-token',
+      accessToken: await resolveUserAccessToken(session?.access_token),
     })
     const {data: updated, error: updateError} = await supabase.from('project_exports').update({
       status: dispatched.status === 'queued' ? 'pending' : 'processing',
