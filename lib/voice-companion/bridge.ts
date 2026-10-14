@@ -19,8 +19,8 @@ export interface VoiceCompanionBridgeHandlers {
   onApplyEditorialPlan?: (plan: EditorialPlan) => Promise<VoiceActionResult>
   contextProvider?: () => ChatEditorContext | null
   onApplyActions?: (drafts: EditorActionDraft[]) => Promise<void> | void
-  /** Opens export preflight; final job submission remains an explicit UI action. */
-  onStartRender?: (mode: 'preview' | 'final') => Promise<{ success: boolean; summary: string }>
+  /** Opens export preflight or submits render; returns whether render was accepted or preflight opened. */
+  onStartRender?: (mode: 'preview' | 'final') => Promise<{ success: boolean; summary: string; renderInitiated?: boolean }>
   /** Opens the export preflight without submitting a job or changing the timeline. */
   onReviewExportReadiness?: () => Promise<{ success: boolean; summary: string }>
   /** Read current sync facts on demand, independently of the source render job. */
