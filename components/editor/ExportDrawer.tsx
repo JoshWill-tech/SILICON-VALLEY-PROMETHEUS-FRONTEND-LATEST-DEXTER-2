@@ -171,9 +171,9 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             </section>
           )}
 
-          {(timelineSync.status === 'loading' || timelineSync.status === 'saving' || timelineSync.status === 'error') && (
+          {(timelineSync.status === 'loading' || timelineSync.status === 'saving' || timelineSync.status === 'error' || timelineSync.status === 'saved') && (
             <p role={timelineSync.status === 'error' ? 'alert' : 'status'} aria-live="polite" className={`text-[10px] ${timelineSync.status === 'error' ? 'text-amber-200' : 'text-white/45'}`}>
-              {timelineSync.status === 'loading' ? 'Checking timeline sync…' : timelineSync.status === 'saving' ? 'Saving editor timeline. This source export remains available.' : `Timeline sync failed: ${timelineSync.error || 'The save could not be confirmed.'}`} {timelineSync.status === 'error' && <button type="button" onClick={timelineSync.retry} className="underline">Retry</button>}
+              {timelineSync.status === 'loading' ? 'Checking editor timeline sync…' : timelineSync.status === 'saving' ? 'Saving editor settings to this project.' : timelineSync.status === 'saved' ? 'Editor timeline settings are saved.' : `Editor timeline sync failed: ${timelineSync.error || 'The save could not be confirmed.'}`} Timeline saving does not block this source-based output. {timelineSync.status === 'error' && <button type="button" onClick={timelineSync.retry} className="underline">Retry timeline sync</button>}
             </p>
           )}
           {!hasSource && <p role="alert" className="text-[10px] text-[var(--light-ui-danger,#fde68a)]">Add a source video before exporting.</p>}
@@ -187,7 +187,7 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             {hasFinishedRender && onDownloadFinished && <Button variant="outline" onClick={onDownloadFinished} className="min-h-10 border-white/15 bg-white/[0.04] px-4 text-xs text-white hover:bg-white/10"><Download className="size-3.5" /> Download MP4</Button>}
             <Button variant="outline" disabled={isRendering} onClick={() => setShowExport(false)} className="min-h-10 border-white/15 bg-transparent px-4 text-xs text-white/75 hover:bg-white/[0.06]">Cancel</Button>
             <Button disabled={isRendering || !onStartRender || !hasSource || readinessStatus !== 'ready'} onClick={() => void startRender()} className="min-h-10 bg-white px-4 text-xs font-semibold text-[#111318] shadow-none hover:bg-white/90">
-              {isRendering ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Download className="size-3.5" />}{isRendering ? 'Exporting…' : 'Export source MP4'}
+              {isRendering ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> : <Download className="size-3.5" />}{isRendering ? 'Exporting…' : 'Start source Mini-Run'}
             </Button>
           </div>
         </DialogFooter>
