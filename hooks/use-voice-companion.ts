@@ -22,7 +22,7 @@ import { performVoiceMusicMix } from '@/lib/voice-companion/music-mix'
 import { applyVoiceCaptions, ensureVoiceTranscript, performVoiceVideoEdit, type VoiceVideoEditArgs } from '@/lib/voice-companion/video-edit'
 import { performVoiceReferenceStyleAction } from '@/lib/voice-companion/reference-controls'
 import { ensureVoiceEditingAccess } from '@/lib/voice-companion/editing-access'
-import { ResponseRecovery, type ResponseStatus } from '@/lib/voice-companion/response-recovery'
+import { ResponseRecovery, type ResponseStatus, type RetainedTranscript } from '@/lib/voice-companion/response-recovery'
 import { useAutonomousStore } from '@/lib/autonomous-ui/autonomous-store'
 import { getMediaFailureMessage } from '@/lib/media/feedback'
 import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
@@ -97,21 +97,56 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
   const [error, setError] = useState<string | null>(null)
   const [userVolume, setUserVolume] = useState(0)
   const [assistantVolume, setAssistantVolume] = useState(0)
-  const [transcripts, setTranscripts] = useState<VoiceCompanionTranscriptItem[]>([])
+  const recoveryRef = useRef<ResponseRecovery>(
+    (() => {
+      let initialTranscripts: RetainedTranscript[] = []
+      try {
+        const mem = getJarvisMemory(getVoiceCompanionBridge().projectId || 'global')
+        if (Array.isArray(mem.recentConversations)) {
+          initialTranscripts = mem.recentConversations.map((turn, idx) => ({
+            id: `voice-persisted-${turn.timestamp || Date.now()}-${idx}`,
+            role: turn.role,
+            text: turn.text,
+            timestamp: turn.timestamp || Date.now(),
+            status: 'complete' as const,
+          }))
+        }
+      } catch {
+        // Fallback
+      }
+      return new ResponseRecovery(initialTranscripts)
+    })(),
+  )
+  const [transcripts, setTranscripts] = useState<VoiceCompanionTranscriptItem[]>(() => recoveryRef.current.snapshot())
   const [selectedVoice, setSelectedVoice] = useState('Puck')
   const [connectionNotice, setConnectionNotice] = useState<string | null>(null)
   const [canReplayResponse, setCanReplayResponse] = useState(false)
-  const [lastResponseText, setLastResponseText] = useState('')
-  const recoveryRef = useRef(new ResponseRecovery())
+  const [lastResponseText, setLastResponseText] = useState(() => recoveryRef.current.lastResponseText)
   const connectionGenerationRef = useRef(0)
   const inspectedMusicVideoRef = useRef<string | null>(null)
   const fetchAbortRef = useRef<AbortController | null>(null)
   const capturedAudioRef = useRef<Blob | null>(null)
   const localInterruptRef = useRef(false)
   const syncRecovery = useCallback(() => {
-    setTranscripts(recoveryRef.current.snapshot())
+    const snap = recoveryRef.current.snapshot()
+    setTranscripts(snap)
     setCanReplayResponse(recoveryRef.current.replayAudio.length > 0)
     setLastResponseText(recoveryRef.current.lastResponseText)
+
+    const turnsToPersist = snap
+      .filter((turn) => turn.text.trim().length > 0)
+      .slice(-20)
+      .map((turn) => ({
+        role: turn.role,
+        text: turn.text,
+        timestamp: turn.timestamp,
+      }))
+    if (turnsToPersist.length > 0) {
+      saveJarvisMemory(
+        { recentConversations: turnsToPersist },
+        handlersRef.current.projectId || 'global',
+      )
+    }
   }, [])
 
   const clientRef = useRef<GeminiLiveClient | null>(null)
@@ -362,7 +397,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             const access = await requireEditingAccess()
             if (!access.success) return access
           }
-          return performVoiceMusicAction({
+          const musicOutcome = await performVoiceMusicAction({
             action,
             trackId: typeof args.trackId === 'string' ? args.trackId : undefined,
             trackName: typeof args.trackName === 'string' ? args.trackName : typeof args.trackTitle === 'string' ? args.trackTitle : undefined,
@@ -374,6 +409,19 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             limit: typeof args.limit === 'number' ? args.limit : undefined,
             offset: typeof args.offset === 'number' ? args.offset : undefined,
           }, getCurrentHandlers)
+
+          if (musicOutcome.success && (musicOutcome.trackId || musicOutcome.title || args.query || args.trackName || args.trackTitle)) {
+            saveJarvisMemory({
+              lastMusicDiscussed: {
+                trackId: musicOutcome.trackId,
+                trackTitle: musicOutcome.title || (typeof args.trackName === 'string' ? args.trackName : undefined) || (typeof args.trackTitle === 'string' ? args.trackTitle : undefined),
+                query: typeof args.query === 'string' ? args.query : undefined,
+                timestamp: Date.now(),
+              },
+            }, handlersRef.current.projectId || 'global')
+          }
+
+          return musicOutcome
         }
 
         case 'soundtrack_control': {
@@ -919,6 +967,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
   const clearTranscripts = useCallback(() => {
     recoveryRef.current.clear()
     syncRecovery()
+    saveJarvisMemory({ recentConversations: [] }, handlersRef.current.projectId || 'global')
   }, [syncRecovery])
 
   const sendTextMessage = useCallback((text: string) => {

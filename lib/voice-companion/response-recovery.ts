@@ -19,6 +19,14 @@ export class ResponseRecovery {
   private audioTurnId: string | null = null
   private audioTruncated = false
 
+  constructor(initialTranscripts?: RetainedTranscript[]) {
+    if (Array.isArray(initialTranscripts)) {
+      this.transcripts = initialTranscripts
+        .filter((t) => t && typeof t.text === 'string' && t.text.trim().length > 0)
+        .map((t) => ({ ...t }))
+    }
+  }
+
   private begin(role: 'user' | 'assistant'): string {
     const existing = this.active[role]
     if (existing) return existing
