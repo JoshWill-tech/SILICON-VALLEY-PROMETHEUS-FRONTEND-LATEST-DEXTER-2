@@ -68,6 +68,7 @@ import { MobileVideoPlayer } from '@/app/editor/components/mobile-video-player'
 import { stopEditorMedia } from '@/app/editor/stores/audio-store'
 import { setEditorSourceStatus, setEditorSourceUrl } from '@/lib/editor/source-status-store'
 import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
+import { createClient } from '@/lib/supabase/client'
 import { autonomousCoordinator } from '@/lib/autonomous-ui/coordinator'
 import type { AutonomousWorkspaceTab } from '@/lib/autonomous-ui/types'
 
@@ -8217,8 +8218,23 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // Fall back gracefully if draft store is not initialized
       }
 
+      let userToken: string | undefined
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          userToken = session.access_token
+        }
+      } catch {
+        // Fall back gracefully if session cannot be retrieved directly
+      }
+
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userToken ? { 'Authorization': `Bearer ${userToken}` } : {}),
+        },
         // This worker consumes source media, independently of editor timeline sync.
         body: JSON.stringify({
           preset: 'mini-run-maul-portrait',

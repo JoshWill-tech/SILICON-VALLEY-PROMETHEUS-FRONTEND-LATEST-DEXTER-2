@@ -7,7 +7,13 @@ import {resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 
 export const maxDuration = 60
 
-async function resolveUserAccessToken(sessionAccessToken?: string): Promise<string> {
+async function resolveUserAccessToken(sessionAccessToken?: string, requestAuthorization?: string | null): Promise<string> {
+  if (requestAuthorization) {
+    const bearer = requestAuthorization.replace(/^Bearer\s+/i, '').trim()
+    if (bearer && bearer !== 'local-token') {
+      return bearer
+    }
+  }
   if (sessionAccessToken && sessionAccessToken !== 'local-token') {
     return sessionAccessToken
   }
@@ -168,7 +174,12 @@ export async function POST(request: Request, {params}: RouteContext) {
         MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
         MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
       },
-      accessToken: await resolveUserAccessToken(session?.access_token),
+      accessToken: await resolveUserAccessToken(
+        session?.access_token,
+        typeof request.headers?.get === 'function'
+          ? (request.headers.get('authorization') || request.headers.get('x-mini-run-user-token'))
+          : null,
+      ),
     })
     const {data: updated, error: updateError} = await supabase.from('project_exports').update({
       status: dispatched.status === 'queued' ? 'pending' : 'processing',
@@ -193,6 +204,9 @@ export async function POST(request: Request, {params}: RouteContext) {
       await supabase.from('project_exports').update({status: 'failed', error_message: message, failed_at: new Date().toISOString()})
         .eq('id', projectExport.id).eq('user_id', user.id)
     }
-    return NextResponse.json({error: message, code: 'RENDER_DISPATCH_FAILED'}, {status: 502})
+    const isAuthError = /401|403|unauthorized|user_authentication_required|jwt|token expired/i.test(message)
+    const status = isAuthError ? 401 : 502
+    const code = isAuthError ? 'AUTH_REQUIRED' : 'RENDER_DISPATCH_FAILED'
+    return NextResponse.json({error: message, code}, {status})
   }
 }

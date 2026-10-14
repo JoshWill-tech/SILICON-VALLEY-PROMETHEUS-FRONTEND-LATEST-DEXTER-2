@@ -22,19 +22,19 @@ export function sanitizeVoiceCompanionError(rawError: unknown): string {
     return 'The rendering studio returned an unreadable response. I can resubmit the export for you.'
   }
 
-  // 2. Gateway and timeout errors
+  // 2. Authentication or expired session (prioritized over transport status codes)
+  if (/401|403|unauthorized|user_authentication_required|jwt|token expired|auth_required/i.test(text)) {
+    return 'Your studio session needs to be refreshed before starting a new render. Please reload the workspace.'
+  }
+
+  // 3. Gateway and timeout errors
   if (/504|gateway timeout|timed? ?out|aborterror/i.test(text)) {
     return 'The cloud render pipeline took longer than usual to acknowledge the dispatch. Check the export status or let me resubmit it.'
   }
 
-  // 3. Bad gateway or cloud worker connectivity
+  // 4. Bad gateway or cloud worker connectivity
   if (/502|503|bad gateway|service unavailable|failed to fetch|econnrefused/i.test(text)) {
     return 'The cloud rendering pipeline is temporarily reconnecting. Please give it a few moments, or I can try again.'
-  }
-
-  // 4. Authentication or expired session
-  if (/401|403|unauthorized|user_authentication_required|jwt|token expired/i.test(text)) {
-    return 'Your studio session needs to be refreshed before starting a new render. Please reload the workspace.'
   }
 
   // 5. Clean up any accidental HTML tags or stack traces
