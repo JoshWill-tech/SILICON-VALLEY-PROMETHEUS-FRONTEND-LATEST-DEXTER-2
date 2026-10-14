@@ -67,6 +67,7 @@ import { TimelinePanel } from '@/components/editor/TimelinePanel'
 import { MobileVideoPlayer } from '@/app/editor/components/mobile-video-player'
 import { stopEditorMedia } from '@/app/editor/stores/audio-store'
 import { setEditorSourceStatus, setEditorSourceUrl } from '@/lib/editor/source-status-store'
+import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
 import { autonomousCoordinator } from '@/lib/autonomous-ui/coordinator'
 import type { AutonomousWorkspaceTab } from '@/lib/autonomous-ui/types'
 
@@ -8202,10 +8203,26 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       return { success: false, summary }
     }
     try {
+      let draftManifest: Record<string, unknown> | undefined
+      try {
+        if (typeof useMiniRunDraftStore !== 'undefined') {
+          const draftState = useMiniRunDraftStore.getState()
+          if (draftState?.chunks?.length > 0) {
+            draftManifest = draftState.getDraftManifest()
+          }
+        }
+      } catch {
+        // Fall back gracefully if draft store is not initialized
+      }
+
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         // This worker consumes source media, independently of editor timeline sync.
-        body: JSON.stringify({preset: 'mini-run-maul-portrait', sourceAssetId: project.sourceAssetId}),
+        body: JSON.stringify({
+          preset: 'mini-run-maul-portrait',
+          sourceAssetId: project.sourceAssetId,
+          ...(draftManifest ? { draftManifest } : {}),
+        }),
         signal: AbortSignal.timeout(30_000),
       })
       const payload = await response.json() as {export?: ProjectExport; error?: string}
@@ -8216,7 +8233,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       setActiveWorkspaceTab('Editor')
       setDeliveryOpenToken((value) => value + 1)
       toast.success('Mini-Run accepted. Follow its progress in the editor.')
-      return { success: true, summary: 'VINCERE accepted the source-based portrait Mini-Run. Its progress is shown in the editor; saved timeline layers are not included in this output yet.' }
+      return { success: true, summary: 'VINCERE accepted the portrait Mini-Run. Its progress is shown in the editor.', renderInitiated: true }
     } catch (error) {
       const summary = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
         ? 'The render submission response timed out. Check MP4 status before retrying; the backend may already have accepted a job.'
@@ -8227,14 +8244,16 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [project?.sourceAssetId, projectId])
 
   const handleVoiceStartRender = React.useCallback(async (mode: 'preview' | 'final') => {
+    if (mode === 'final') {
+      return await startProjectRender()
+    }
     await handlePrepareExport()
     return {
       success: true,
-      summary: mode === 'final'
-        ? 'Export preflight is open. No job has been submitted; choose Start source Mini-Run in the panel if this output is what you want.'
-        : 'Export preflight is open. No render has been started.',
+      summary: 'Export preflight is open. Choose Start source Mini-Run in the panel if this output is what you want.',
+      renderInitiated: false,
     }
-  }, [handlePrepareExport])
+  }, [handlePrepareExport, startProjectRender])
 
   const handleVoiceReviewExportReadiness = React.useCallback(async () => {
     await handlePrepareExport()

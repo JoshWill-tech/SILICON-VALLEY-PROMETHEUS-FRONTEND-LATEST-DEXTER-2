@@ -552,6 +552,14 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           if (!startRender) return { success: false, error: 'The editor is not linked, so I cannot start or confirm an export.' }
           const result = await startRender(mode)
           if (!result.success) return { success: false, error: result.summary, mode, renderInitiated: false }
+          if (mode === 'final' || result.renderInitiated) {
+            return {
+              success: true,
+              mode,
+              renderInitiated: true,
+              status: result.summary,
+            }
+          }
           return {
             success: true,
             mode,
