@@ -16,9 +16,9 @@ const FOOTER_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="prometheus-footer w-full border-t border-white/[0.07] bg-[#05060a] px-5 py-10 text-white sm:px-8">
-      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[1fr_auto] md:items-end">
-        <div className="max-w-md">
+    <footer className="prometheus-footer w-full border-t border-white/[0.07] bg-[#05060a] px-5 py-14 text-white sm:px-8 sm:py-16">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(17rem,0.8fr)_minmax(0,1.2fr)] lg:items-end">
+        <div className="max-w-lg">
           <BrandWordmark />
           <p className="mt-3 text-sm leading-6 text-white/50">
             Professional video editing and production workspace for filmmakers, motion designers,
@@ -31,7 +31,7 @@ export function Footer() {
 
         <nav
           aria-label="Footer navigation"
-          className="flex flex-wrap items-center gap-x-6 gap-y-3 md:justify-end"
+          className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           {FOOTER_LINKS.map((link) => (
             <Link
