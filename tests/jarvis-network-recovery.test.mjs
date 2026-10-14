@@ -189,6 +189,9 @@ function hookHarness() {
     '@/lib/voice-companion/video-edit': { performVoiceVideoEdit: async () => ({ success: true }), applyVoiceCaptions: async () => ({ success: true }), ensureVoiceTranscript: async () => ({ success: true }) },
     '@/lib/editor/mini-run-draft-store': { useMiniRunDraftStore: { getState: () => ({ staging: null, clearStaging: () => {} }) } },
     '@/lib/media/feedback': { getMediaFailureMessage: err => (err && err.message) || 'Media failure' },
+    '@/lib/voice-companion/export-status': { readVoiceExportStatus: async () => ({ success: true, summary: 'Export idle' }) },
+    '@/lib/voice-companion/error-sanitizer': { sanitizeVoiceCompanionError: (msg) => msg },
+    '@/lib/theme/theme-store': { useThemePreferenceStore: { getState: () => ({ mode: 'dark', setThemeMode: () => {} }) } },
   }
   const source = readFileSync(new URL('../hooks/use-voice-companion.ts', import.meta.url), 'utf8')
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
