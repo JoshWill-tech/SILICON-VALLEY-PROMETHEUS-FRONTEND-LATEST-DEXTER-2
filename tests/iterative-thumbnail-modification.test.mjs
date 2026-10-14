@@ -19,7 +19,8 @@ test('G1: Iterative request builders and creative direction support base thumbna
 
   assert.match(revisedPrompt, /ITERATIVE REVISION REQUEST/)
   assert.match(revisedPrompt, /Make the headline neon cyan and darken the background/)
-  assert.match(revisedPrompt, /subject pose, framing, and typography style intact/i)
+  assert.match(revisedPrompt, /selected primary reference is an explicit request/i)
+  assert.match(revisedPrompt, /let it reshape the design around the anchored source subject/i)
 
   // 2. Gemini nano-banana request builder includes base thumbnail as primary base artwork anchor
   const geminiReq = buildNanoBananaImageRequest({
@@ -30,7 +31,8 @@ test('G1: Iterative request builders and creative direction support base thumbna
     aspectRatio: '16:9',
   })
 
-  assert.equal(geminiReq.contents[0].parts[0].text.includes('iterative refinement of the existing thumbnail'), true)
+  assert.equal(geminiReq.contents[0].parts[0].text.includes('iterative refinement of existing artwork'), true)
+  assert.match(geminiReq.contents[0].parts[0].text, /do not let the old artwork's composition override the selected reference/i)
   assert.equal(geminiReq.contents[0].parts.some(p => p.text?.includes('Current base thumbnail being iteratively refined:')), true)
   assert.deepEqual(geminiReq.contents[0].parts[4], { inline_data: { mime_type: 'image/png', data: 'YmFzZXRodW1i' } })
   assert.equal(geminiReq.contents[0].parts.some(p => p.text?.includes('Video frame and principal subject:')), true)
@@ -46,8 +48,8 @@ test('G1: Iterative request builders and creative direction support base thumbna
   })
 
   assert.deepEqual(openaiReq.images[0], { image_url: baseThumbnail })
-  assert.match(openaiReq.prompt, /first attached image as the base thumbnail to edit iteratively/)
-  assert.match(openaiReq.prompt, /Do not recreate the image from scratch/)
+  assert.match(openaiReq.prompt, /first attached image as the current artwork/)
+  assert.match(openaiReq.prompt, /selected primary reference is an explicit request/i)
 
   // 4. OpenAI FormData builder uses base thumbnail as the primary image anchor
   const formData = buildOpenAIImageEditFormData({

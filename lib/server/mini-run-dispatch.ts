@@ -1,15 +1,16 @@
 import {getPresignedGetUrl} from '@/lib/r2/presigned-url'
 import {
+  miniRunUserHeaders,
   resolveMiniRunConfig,
   type MiniRunEnvironment,
 } from '@/lib/server/mini-run-proxy'
 import {buildMiniRunRenderPayload} from '@/lib/server/mini-run-render-payload'
+import type {MiniRunShotSpec} from '@/lib/api/mini-run-console'
 
 /**
  * Server-side dispatch to the Prometheus Mini-Runs long-form→short-form render
- * pipeline. This mirrors `dispatchModalSourceAnalysis`: it runs in the Next.js
- * server process (never in the browser), injects the workspace Modal proxy
- * credentials, and hands the pipeline a long-lived presigned URL for the source
+ * pipeline. It runs in the Next.js server process (never in the browser), forwards
+ * the user's Supabase access token, and hands the pipeline a long-lived presigned URL for the source
  * object so the asynchronously-executing worker can download it even after the
  * upload completes.
  */
@@ -30,6 +31,8 @@ export type MiniRunRenderDispatchRequest = {
   jobId?: string
   editorialRevision?: number
   songPolicy?: 'auto' | 'disabled'
+  shot?: Partial<MiniRunShotSpec>
+  draftManifest?: Record<string, unknown>
 }
 
 export type MiniRunRenderDispatchEnvironment = MiniRunEnvironment
@@ -41,10 +44,12 @@ export async function buildMiniRunSourceUrl(bucket: string, storagePath: string)
 export async function dispatchMiniRunRender({
   request,
   env,
+  accessToken,
   fetchImpl = fetch,
 }: {
   request: MiniRunRenderDispatchRequest
   env: MiniRunRenderDispatchEnvironment
+  accessToken: string
   fetchImpl?: typeof fetch
 }): Promise<{jobId: string; pipelineJobId: string; status: string}> {
   const config = resolveMiniRunConfig(env)
@@ -53,19 +58,16 @@ export async function dispatchMiniRunRender({
   const body = buildMiniRunRenderPayload({
     sourceUrl,
     source: {durationMs: request.durationMs, width: request.width, height: request.height},
-    shot: {songPolicy: request.songPolicy},
+    shot: {...request.shot, songPolicy: request.songPolicy ?? request.shot?.songPolicy},
     jobId: request.jobId ?? request.projectId,
+    draftManifest: request.draftManifest,
   })
   const metadata = body.metadata as Record<string, unknown>
   metadata.pipeline = 'maul'
 
   const response = await fetchImpl(`${config.baseUrl}/api/pipeline/render`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Modal-Key': config.proxyKey,
-      'Modal-Secret': config.proxySecret,
-    },
+    headers: miniRunUserHeaders(accessToken, {'Content-Type': 'application/json'}),
     body: JSON.stringify({
       ...body,
       metadata: {...metadata, editorialRevision: request.editorialRevision},

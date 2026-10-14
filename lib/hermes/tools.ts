@@ -11,14 +11,16 @@ export interface HermesToolContext {
   memoryStore: HermesMemoryStore
   driveAccessToken?: string
   getDriveToken?: () => Promise<string | null>
+  miniRunAccessToken?: string
   miniRunEnv?: MiniRunEnvironment
+  resolveMiniRunSource?: (projectId: string, sourceAssetId: string) => Promise<MiniRunRenderDispatchRequest | null>
   fetchImpl?: typeof fetch
 }
 
 const VIDEO_MIME_PREFIX = 'video/'
 
 function isMiniRunEnvComplete(env?: MiniRunEnvironment): boolean {
-  return Boolean(env?.MINI_RUN_BACKEND_URL && env.MODAL_PROXY_KEY && env.MODAL_PROXY_SECRET)
+  return Boolean(env?.MINI_RUN_AWS_API_URL || env?.MINI_RUN_BACKEND_URL)
 }
 
 export { HERMES_TOOL_DEFINITIONS } from './tool-definitions'
@@ -66,14 +68,15 @@ export function createHermesToolExecutor(ctx: HermesToolContext) {
         return { files: outcome.files, truncated: outcome.truncated, count: outcome.files.length }
       }
       case 'dispatch_mini_run': {
-        if (!ctx.miniRunEnv || !isMiniRunEnvComplete(ctx.miniRunEnv)) {
-          return { status: 'not_wired', message: 'Mini-Run render backend is not configured on this environment.', needs: ['MINI_RUN_BACKEND_URL', 'MODAL_PROXY_KEY', 'MODAL_PROXY_SECRET'] }
+        if (!ctx.miniRunEnv || !isMiniRunEnvComplete(ctx.miniRunEnv) || !ctx.miniRunAccessToken || !ctx.resolveMiniRunSource) {
+          return { status: 'not_wired', message: 'Mini-Run AWS rendering requires a configured endpoint and authenticated user session.', needs: ['MINI_RUN_AWS_API_URL', 'Supabase user access token'] }
         }
-        const request: MiniRunRenderDispatchRequest = {
-          projectId: String(args.projectId ?? ''), sourceAssetId: String(args.sourceAssetId ?? ''), bucket: String(args.bucket ?? ''), storagePath: String(args.storagePath ?? ''), mimeType: String(args.mimeType ?? 'video/mp4'),
-          durationMs: typeof args.durationMs === 'number' ? args.durationMs : undefined, width: typeof args.width === 'number' ? args.width : undefined, height: typeof args.height === 'number' ? args.height : undefined,
-        }
-        const rendered = await dispatchMiniRunRender({ request, env: ctx.miniRunEnv, fetchImpl })
+        const projectId = typeof args.projectId === 'string' ? args.projectId : ''
+        const sourceAssetId = typeof args.sourceAssetId === 'string' ? args.sourceAssetId : ''
+        if (!projectId || !sourceAssetId) return {error: 'projectId and sourceAssetId are required.'}
+        const request = await ctx.resolveMiniRunSource(projectId, sourceAssetId)
+        if (!request) return {error: 'The selected video is not owned by this signed-in Prometheus user.'}
+        const rendered = await dispatchMiniRunRender({request, env: ctx.miniRunEnv, accessToken: ctx.miniRunAccessToken, fetchImpl})
         return { status: rendered.status, jobId: rendered.jobId, pipelineJobId: rendered.pipelineJobId }
       }
       default:

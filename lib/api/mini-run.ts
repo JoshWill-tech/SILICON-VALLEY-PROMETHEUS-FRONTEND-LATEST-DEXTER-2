@@ -267,7 +267,7 @@ export function createMiniRunClient(fetchImpl: FetchLike = fetch) {
       const ret = envelope.returnvalue ?? null
       const clips = (ret?.clips ?? []).map((clip) => ({
         ...clip,
-        // Keep Modal/R2 handoff URLs on the server. The authenticated output
+        // Keep upstream/R2 handoff URLs on the server. The authenticated output
         // route resolves the clip's final media URL when the browser requests it.
         outputUrl: clip.success && safeIdentifierPattern.test(clip.jobId) && clip.jobId !== '.' && clip.jobId !== '..'
           ? `/api/mini-run/job/${encodeURIComponent(clip.jobId)}/output`

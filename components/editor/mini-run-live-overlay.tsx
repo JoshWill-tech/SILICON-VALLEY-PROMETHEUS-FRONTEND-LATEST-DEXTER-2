@@ -162,7 +162,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
           {isBaking ? (
             <>
               <Loader2 className="size-3.5 animate-spin" />
-              <span>Baking on Modal...</span>
+              <span>Rendering on AWS...</span>
             </>
           ) : (
             <>

@@ -75,7 +75,7 @@ async function run() {
     }), { headers: { 'Content-Type': 'application/json' } }),
   )
   const status = await client.getRenderStatus('render-789')
-  assert.equal(status.outputUrl, 'https://cdn.example.test/short.mp4')
+  assert.equal(status.outputUrl, '/api/mini-run/job/render-789/output')
   assert.equal(status.chunkCount, 12)
 
   // Longform batch client dispatch and status contracts
@@ -139,7 +139,7 @@ async function run() {
   assert.equal(batchStatus.succeeded, 3)
   assert.equal(batchStatus.clips?.length, 1)
   assert.equal(batchStatus.clips?.[0].viralMetadata?.viralityScore, 95)
-  assert.equal(batchStatus.clips?.[0].outputUrl, 'https://cdn.example.test/clip1.mp4')
+  assert.equal(batchStatus.clips?.[0].outputUrl, '/api/mini-run/job/batch_xyz_789_clip1/output')
 }
 
 void run()

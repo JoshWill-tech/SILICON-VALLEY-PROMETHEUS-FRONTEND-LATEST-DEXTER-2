@@ -11,6 +11,7 @@ const frame = 'data:image/jpeg;base64,ZmFtZQ=='
 const selectedReference = 'data:image/webp;base64,c2VsZWN0ZWQ='
 const extraReference = 'data:image/png;base64,YWRkaXRpb25hbA=='
 const oldArtwork = 'data:image/png;base64,b2xk'
+const existingArtwork = 'data:image/png;base64,ZXhpc3Rpbmc='
 
 test('ordinary generations start from the selected frame, while explicit iterations keep a base', () => {
   assert.equal(resolveThumbnailBaseUrl({ generatedDataUrl: oldArtwork }), undefined)
@@ -54,6 +55,41 @@ test('OpenAI-compatible requests identify primary and secondary references in pr
   const form = buildOpenAIImageEditFormData(input)
   const uploads = form.getAll('image[]')
   assert.deepEqual(uploads.map(image => image.name), ['video-frame.jpg', 'selected-primary-reference.webp', 'additional-style-reference-1.png'])
+})
+
+test('iterative refinements let the newly selected reference override the existing composition', () => {
+  const gemini = buildNanoBananaImageRequest({
+    prompt: 'Apply the selected reference to the thumbnail.',
+    frameDataUrl: frame,
+    baseThumbnailUrl: existingArtwork,
+    referenceImages: [selectedReference],
+    aspectRatio: '16:9',
+  })
+  const geminiPrompt = gemini.contents[0].parts[0].text
+  assert.match(geminiPrompt, /second is the current artwork/i)
+  assert.match(geminiPrompt, /next attached image is the selected primary thumbnail reference/i)
+  assert.match(geminiPrompt, /do not let the old artwork's composition override the selected reference/i)
+
+  const openAI = buildOpenAIImageEditRequest({
+    prompt: 'Apply the selected reference to the thumbnail.',
+    frameDataUrl: frame,
+    baseThumbnailUrl: existingArtwork,
+    referenceImages: [selectedReference],
+    aspectRatio: '16:9',
+    quality: 'fast',
+  })
+  assert.match(openAI.prompt, /first attached image as the current artwork/i)
+  assert.match(openAI.prompt, /next attached image as the selected primary thumbnail reference/i)
+  assert.match(openAI.prompt, /do not let the old artwork's composition override the selected reference/i)
+  const uploads = buildOpenAIImageEditFormData({
+    prompt: 'Apply the selected reference to the thumbnail.',
+    frameDataUrl: frame,
+    baseThumbnailUrl: existingArtwork,
+    referenceImages: [selectedReference],
+    aspectRatio: '16:9',
+    quality: 'fast',
+  }).getAll('image[]')
+  assert.deepEqual(uploads.map(image => image.name), ['base-thumbnail.png', 'video-frame.jpg', 'selected-primary-reference.webp'])
 })
 
 test('the planner transfers the reference composition while adapting the new subject and headline', () => {

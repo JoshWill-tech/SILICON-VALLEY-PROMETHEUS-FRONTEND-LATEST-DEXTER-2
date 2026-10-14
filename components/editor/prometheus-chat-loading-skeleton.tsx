@@ -23,7 +23,7 @@ export function PrometheusChatLoadingSkeleton({
         <CinematicSkeletalLoader
           variant="chat"
           label={label}
-          sublabel="Processing directive with Modal..."
+          sublabel="Preparing your Prometheus response..."
         />
       </div>
     )
@@ -81,4 +81,3 @@ function SkeletonLine({
     </motion.span>
   )
 }
-

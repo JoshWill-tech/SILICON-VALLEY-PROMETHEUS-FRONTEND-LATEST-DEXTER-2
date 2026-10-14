@@ -33,14 +33,8 @@ export const HERMES_TOOL_DEFINITIONS: HermesToolDefinition[] = [
       properties: {
         projectId: { type: 'string' },
         sourceAssetId: { type: 'string' },
-        bucket: { type: 'string' },
-        storagePath: { type: 'string' },
-        mimeType: { type: 'string' },
-        durationMs: { type: 'number' },
-        width: { type: 'number' },
-        height: { type: 'number' },
       },
-      required: ['projectId', 'sourceAssetId', 'bucket', 'storagePath', 'mimeType'],
+      required: ['projectId', 'sourceAssetId'],
     },
   },
 ]

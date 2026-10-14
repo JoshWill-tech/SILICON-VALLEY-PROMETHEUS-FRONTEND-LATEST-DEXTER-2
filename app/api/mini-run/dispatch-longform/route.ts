@@ -35,8 +35,11 @@ export async function POST(req: Request) {
     }
 
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
+    if (authError || !user || !session?.access_token) {
       return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
     }
 
@@ -78,9 +81,7 @@ export async function POST(req: Request) {
     batchJobId = `longform_${crypto.randomUUID()}`
 
     const env = {
-      MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-      MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-      MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
+      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL,
     }
     const config = resolveMiniRunConfig(env)
     const sourceUrl = await buildMiniRunSourceUrl(bucket, row.storage_path)
@@ -105,8 +106,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Modal-Key': config.proxyKey,
-        'Modal-Secret': config.proxySecret,
+        'X-Mini-Run-User-Token': session.access_token,
       },
       body: JSON.stringify(dispatchPayload),
       cache: 'no-store',

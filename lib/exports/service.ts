@@ -123,9 +123,12 @@ export const ExportService = {
 
   async getExport(exportId: string): Promise<ProjectExport> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
 
-    if (!user) throw new Error('Unauthorized')
+    if (authError || !user || !session?.access_token) throw new Error('Unauthorized')
 
     const { data, error } = await supabase
       .from('project_exports')
@@ -140,9 +143,12 @@ export const ExportService = {
 
   async listProjectExports(projectId: string): Promise<ProjectExport[]> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
 
-    if (!user) throw new Error('Unauthorized')
+    if (authError || !user || !session?.access_token) throw new Error('Unauthorized')
 
     const { data, error } = await supabase
       .from('project_exports')
@@ -160,15 +166,13 @@ export const ExportService = {
     if (active.length === 0) return records
 
     const config = resolveMiniRunConfig({
-      MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-      MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-      MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
+      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL,
     })
     await Promise.all(active.map(async (record) => {
       const jobId = record.metadata.miniRunJobId as string
       try {
         const response = await fetch(`${config.baseUrl}/api/pipeline/job/${encodeURIComponent(jobId)}`, {
-          headers: {'Modal-Key': config.proxyKey, 'Modal-Secret': config.proxySecret},
+          headers: {'X-Mini-Run-User-Token': session.access_token},
           cache: 'no-store',
           redirect: 'manual',
           signal: AbortSignal.timeout(8_000),

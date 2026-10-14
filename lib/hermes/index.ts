@@ -1,4 +1,5 @@
 import type { MiniRunEnvironment } from '@/lib/server/mini-run-proxy'
+import type { MiniRunRenderDispatchRequest } from '@/lib/server/mini-run-dispatch'
 import type { HermesAgentResult, HermesIntent, HermesRequest, HermesToolCallResult } from './types'
 import { HERMES_IDENTITY, hermesSystemPrompt } from './identity'
 import { runHermesTurn } from './gemini'
@@ -22,7 +23,9 @@ export interface HermesTurnDeps {
   apiKey: string
   memoryStore: HermesMemoryStore
   getDriveToken?: () => Promise<string | null>
+  miniRunAccessToken?: string
   miniRunEnv?: MiniRunEnvironment
+  resolveMiniRunSource?: (projectId: string, sourceAssetId: string) => Promise<MiniRunRenderDispatchRequest | null>
   fetchImpl?: typeof fetch
   userName?: string
   brand?: string
@@ -85,7 +88,9 @@ export async function handleHermesTurn(
     memoryStore: deps.memoryStore,
     driveAccessToken: request.driveAccessToken,
     getDriveToken: deps.getDriveToken,
+    miniRunAccessToken: deps.miniRunAccessToken,
     miniRunEnv: deps.miniRunEnv,
+    resolveMiniRunSource: deps.resolveMiniRunSource,
     fetchImpl: deps.fetchImpl,
   }
   const executeTool = createHermesToolExecutor(toolContext)

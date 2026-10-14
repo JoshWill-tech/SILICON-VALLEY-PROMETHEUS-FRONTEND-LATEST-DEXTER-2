@@ -12,9 +12,7 @@ export const dynamic = 'force-dynamic'
 
 function miniRunEnv(): HermesTurnDeps['miniRunEnv'] {
   return {
-    MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-    MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-    MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
+    MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
   }
 }
 
@@ -42,12 +40,17 @@ export async function POST(request: NextRequest) {
 
     // Auth: verify authenticated session user.
     let sessionUserId: string | null = null
+    let miniRunAccessToken: string | undefined
     let supabase: Awaited<ReturnType<typeof createClient>> | null = null
     try {
       supabase = await createClient()
-      const { data: { user }, error } = await supabase.auth.getUser()
+      const [{data: {user}, error}, {data: {session}}] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.auth.getSession(),
+      ])
       if (user && !error) {
         sessionUserId = user.id
+        miniRunAccessToken = session?.access_token
       }
     } catch {
       supabase = null
@@ -67,11 +70,43 @@ export async function POST(request: NextRequest) {
       ? () => getValidAccessToken(sessionUserId, 'google_drive')
       : undefined
 
+    const resolveMiniRunSource = (supabase && isAuthenticated && sessionUserId)
+      ? async (projectId: string, sourceAssetId: string) => {
+          const {data: project} = await supabase!.from('projects')
+            .select('id, source_asset_id')
+            .eq('id', projectId)
+            .eq('user_id', sessionUserId)
+            .maybeSingle()
+          if (!project || project.source_asset_id !== sourceAssetId) return null
+
+          const {data: asset} = await supabase!.from('source_assets')
+            .select('id, storage_path, storage_bucket, mime_type, duration_ms, width, height')
+            .eq('id', sourceAssetId)
+            .eq('project_id', projectId)
+            .eq('user_id', sessionUserId)
+            .maybeSingle()
+          if (!asset?.storage_path) return null
+
+          return {
+            projectId,
+            sourceAssetId,
+            bucket: asset.storage_bucket || process.env.R2_BUCKET_SOURCES || 'prometheus-sources',
+            storagePath: asset.storage_path,
+            mimeType: asset.mime_type || 'video/mp4',
+            durationMs: asset.duration_ms ?? undefined,
+            width: asset.width ?? undefined,
+            height: asset.height ?? undefined,
+          }
+        }
+      : undefined
+
     const deps: HermesTurnDeps = {
       apiKey,
       memoryStore,
       getDriveToken,
+      miniRunAccessToken,
       miniRunEnv: miniRunEnv(),
+      resolveMiniRunSource,
       userName: typeof body.userName === 'string' ? body.userName : undefined,
       brand: typeof body.brand === 'string' ? body.brand : undefined,
     }

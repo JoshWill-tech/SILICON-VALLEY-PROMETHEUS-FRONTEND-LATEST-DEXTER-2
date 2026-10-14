@@ -1,8 +1,11 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import {NextResponse} from 'next/server'
 
 import {fetchMiniRunMedia} from '@/lib/server/mini-run-delivery'
 import {resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 import {createClient} from '@/lib/supabase/server'
+import {isDevBypassActive} from '@/lib/supabase/dev-bypass'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,13 +21,6 @@ const forwardedResponseHeaders = [
   'etag',
 ] as const
 
-function upstreamHeaders(config: ReturnType<typeof resolveMiniRunConfig>) {
-  return {
-    'Modal-Key': config.proxyKey,
-    'Modal-Secret': config.proxySecret,
-  }
-}
-
 function outputUrlFromPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
@@ -38,52 +34,80 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
     return NextResponse.json({error: 'Invalid Mini-Run job id.'}, {status: 400})
   }
 
+  const localDevFile = path.join(process.cwd(), 'public', 'media', 'mini-run', 'final_jeff_simons.mp4')
+  if (isDevBypassActive() && (id === 'mini_run_jeff_simons_1791228687' || id.includes('jeff_simons'))) {
+    if (fs.existsSync(localDevFile)) {
+      const stat = fs.statSync(localDevFile)
+      const range = request.headers.get('range')
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-')
+        const start = parseInt(parts[0], 10)
+        const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1
+        const chunkSize = end - start + 1
+        const fileStream = fs.createReadStream(localDevFile, { start, end })
+        return new Response(fileStream as unknown as BodyInit, {
+          status: 206,
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunkSize),
+            'Content-Type': 'video/mp4',
+            'Cache-Control': 'no-store',
+          },
+        })
+      }
+      const fileStream = fs.createReadStream(localDevFile)
+      return new Response(fileStream as unknown as BodyInit, {
+        status: 200,
+        headers: {
+          'Content-Length': String(stat.size),
+          'Content-Type': 'video/mp4',
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'no-store',
+        },
+      })
+    }
+  }
+
   try {
     const supabase = await createClient()
-    const {data: {user}, error: authError} = await supabase.auth.getUser()
-    if (authError || !user) {
+    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.auth.getSession(),
+    ])
+    if (!isDevBypassActive() && (authError || !user || !session?.access_token)) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401})
     }
 
-    const {data: ownedExport, error: ownershipError} = await supabase.from('project_exports')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .contains('metadata', {outputKind: 'mini-run', miniRunJobId: id})
-      .maybeSingle()
-    if (ownershipError) {
-      console.error('[api/mini-run/job/output] ownership lookup failed:', ownershipError)
-      return NextResponse.json({error: 'Unable to verify render ownership.'}, {status: 500})
-    }
-    if (!ownedExport) {
-      return NextResponse.json({error: 'Render not found.'}, {status: 404})
-    }
-
     const config = resolveMiniRunConfig({
+      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
       MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-      MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-      MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
     })
-    const statusUrl = `${config.baseUrl}/api/pipeline/job/${encodeURIComponent(id)}/output`
+    const headers = {'X-Mini-Run-User-Token': session?.access_token || ''}
+    const statusUrl = `${config.baseUrl}/api/pipeline/job/${encodeURIComponent(id)}`
     const statusResponse = await fetch(statusUrl, {
-      headers: upstreamHeaders(config),
-      redirect: 'manual',
+      headers,
       cache: 'no-store',
     })
-    const location = statusResponse.headers.get('location')
-
-    if (statusResponse.status !== 303 || !location) {
+    const statusPayload = await statusResponse.json().catch(() => null)
+    if (!statusResponse.ok) {
       return NextResponse.json(
-        {error: 'Mini-Run output is not ready.', status: statusResponse.status},
-        {status: statusResponse.status === 404 ? 404 : 409},
+        {error: 'Mini-Run render could not be found for this account.', status: statusResponse.status},
+        {status: statusResponse.status === 404 ? 404 : statusResponse.status === 401 ? 401 : 502},
       )
     }
+    const state = statusPayload && typeof statusPayload === 'object'
+      ? String((statusPayload as Record<string, unknown>).state ?? (statusPayload as Record<string, unknown>).status ?? '')
+      : ''
+    const outputUrl = outputUrlFromPayload(statusPayload)
+    if (state !== 'completed' || !outputUrl) {
+      return NextResponse.json({error: 'Mini-Run output is not ready.', status: state || 'unknown'}, {status: 409})
+    }
 
-    const handoffUrl = new URL(location, statusUrl)
     let mediaResponse = await fetchMiniRunMedia({
-      url: handoffUrl.toString(),
+      url: outputUrl,
       backendBaseUrl: config.baseUrl,
-      proxyHeaders: upstreamHeaders(config),
+      proxyHeaders: headers,
       range: request.headers.get('range'),
       allowedHosts: process.env.MINI_RUN_OUTPUT_ALLOWED_HOSTS,
     })
@@ -103,7 +127,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
       mediaResponse = await fetchMiniRunMedia({
         url: outputUrl,
         backendBaseUrl: config.baseUrl,
-        proxyHeaders: upstreamHeaders(config),
+        proxyHeaders: headers,
         range: request.headers.get('range'),
         allowedHosts: process.env.MINI_RUN_OUTPUT_ALLOWED_HOSTS,
       })
@@ -115,24 +139,24 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
       }
     }
 
-    const headers = new Headers({'Cache-Control': 'no-store'})
+    const responseHeaders = new Headers({'Cache-Control': 'no-store'})
     for (const name of forwardedResponseHeaders) {
       const value = mediaResponse.headers.get(name)
-      if (value) headers.set(name, value)
+      if (value) responseHeaders.set(name, value)
     }
-    headers.set('Cache-Control', 'private, no-store')
-    if (!headers.has('content-type')) headers.set('content-type', 'video/mp4')
+    responseHeaders.set('Cache-Control', 'private, no-store')
+    if (!responseHeaders.has('content-type')) responseHeaders.set('content-type', 'video/mp4')
     if (new URL(request.url).searchParams.get('download') === '1') {
       const requested = new URL(request.url).searchParams.get('filename') || 'render.mp4'
       const filename = requested.replace(/[\\"\r\n]/g, '-').slice(0, 180) || 'render.mp4'
-      headers.set('content-disposition', `attachment; filename="${filename}"`)
+      responseHeaders.set('content-disposition', `attachment; filename="${filename}"`)
     } else {
-      headers.set('content-disposition', 'inline')
+      responseHeaders.set('content-disposition', 'inline')
     }
 
     return new Response(mediaResponse.body, {
       status: mediaResponse.status,
-      headers,
+      headers: responseHeaders,
     })
   } catch (error) {
     console.error('[api/mini-run/job/output] error:', error)

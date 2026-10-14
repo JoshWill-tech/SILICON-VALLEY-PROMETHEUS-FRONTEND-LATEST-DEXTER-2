@@ -9,8 +9,11 @@ type RouteContext = {params: Promise<{id: string}>}
 export async function GET(_request: Request, {params}: RouteContext) {
   const {id: projectId} = await params
   const supabase = await createClient()
-  const {data: {user}} = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
+  const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getSession(),
+  ])
+  if (authError || !user || !session?.access_token) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
 
   const {data: project, error: projectError} = await supabase.from('projects')
     .select('id, source_asset_id, editor_state').eq('id', projectId).eq('user_id', user.id).maybeSingle()
@@ -32,9 +35,8 @@ export async function GET(_request: Request, {params}: RouteContext) {
   let backendConfigured = true
   try {
     resolveMiniRunConfig({
+      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
       MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-      MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-      MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
     })
   } catch {
     backendConfigured = false
@@ -62,8 +64,11 @@ export async function GET(_request: Request, {params}: RouteContext) {
 export async function POST(request: Request, {params}: RouteContext) {
   const {id: projectId} = await params
   const supabase = await createClient()
-  const {data: {user}} = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
+  const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.auth.getSession(),
+  ])
+  if (authError || !user || !session?.access_token) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
 
   const body = await request.json().catch(() => ({})) as Record<string, unknown>
   const sourceAssetId = typeof body.sourceAssetId === 'string' ? body.sourceAssetId : ''
@@ -122,10 +127,10 @@ export async function POST(request: Request, {params}: RouteContext) {
         songPolicy: 'auto',
       },
       env: {
+        MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
         MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-        MODAL_PROXY_KEY: process.env.MODAL_PROXY_KEY,
-        MODAL_PROXY_SECRET: process.env.MODAL_PROXY_SECRET,
       },
+      accessToken: session.access_token,
     })
     const {data: updated, error: updateError} = await supabase.from('project_exports').update({
       status: dispatched.status === 'queued' ? 'pending' : 'processing',

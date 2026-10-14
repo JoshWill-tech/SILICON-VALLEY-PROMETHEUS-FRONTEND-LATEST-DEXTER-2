@@ -1,10 +1,52 @@
 import { createClient } from '@/lib/supabase/server'
+import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 import { normalizeSourceProfile } from '@/lib/media/source-profile'
 import { mapProjectRowToListItem, type DurableJobRecord, type ProjectExportRecord } from '@/lib/projects/project-list'
 import { ExportService } from '@/lib/exports/service'
 import type { ProjectListItem } from '@/lib/projects/types'
 import { WorkspaceService } from '@/lib/workspaces/service'
 import type { Project, ProjectStatus, SourceProfile, AnimationPlan } from '@/lib/types'
+
+const DEV_JEFF_SIMONS_PROJECT_ID = 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f'
+const DEV_JEFF_SIMONS_SOURCE_ASSET_ID = 'jeff-simons-asset-001'
+
+const DEV_FALLBACK_PROJECT_CARD: ProjectListItem = {
+  id: DEV_JEFF_SIMONS_PROJECT_ID,
+  userId: 'e261b522-9d57-4bfe-90c8-38b3720cec36',
+  title: 'Jeff Simons — Thought of the Day',
+  description: 'Talking head portrait mini-run source video',
+  thumbnailUrl: '/media/mini-run/frame_1.8s.png',
+  status: 'completed',
+  progress: 100,
+  createdAt: '2026-10-13T00:00:00.000Z',
+  updatedAt: '2026-10-13T00:00:00.000Z',
+  duration: 30,
+  width: 1080,
+  height: 1920,
+  fps: 30,
+  sourceAssetId: DEV_JEFF_SIMONS_SOURCE_ASSET_ID,
+}
+
+const DEV_FALLBACK_DB_ROW = {
+  id: DEV_JEFF_SIMONS_PROJECT_ID,
+  user_id: 'e261b522-9d57-4bfe-90c8-38b3720cec36',
+  name: 'Jeff Simons — Thought of the Day',
+  status: 'ready',
+  thumbnail_url: '/media/mini-run/frame_1.8s.png',
+  preview_kind: 'video',
+  source_asset_id: DEV_JEFF_SIMONS_SOURCE_ASSET_ID,
+  created_at: '2026-10-13T00:00:00.000Z',
+  updated_at: '2026-10-13T00:00:00.000Z',
+  source_profile: {
+    fps: 30,
+    width: 1080,
+    height: 1920,
+    durationSec: 30,
+    aspectRatio: '9:16',
+  },
+  editor_state: null,
+  animation_plan: null,
+}
 
 export interface ProjectPatch {
   title?: string
@@ -24,7 +66,12 @@ export const ProjectService = {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) throw new Error('Unauthorized')
+    if (!user) {
+      if (isDevBypassActive()) {
+        return [DEV_FALLBACK_PROJECT_CARD]
+      }
+      throw new Error('Unauthorized')
+    }
 
     const { data: projectRows, error: projectsError } = await supabase
       .from('projects')
@@ -34,6 +81,9 @@ export const ProjectService = {
 
     if (projectsError) {
       console.error('[ProjectService] listProjectCards projects error:', projectsError.message, projectsError.details)
+      if (isDevBypassActive()) {
+        return [DEV_FALLBACK_PROJECT_CARD]
+      }
       throw projectsError
     }
 
@@ -98,10 +148,19 @@ export const ProjectService = {
   },
 
   async getProject(id: string) {
+    if (isDevBypassActive() && id === DEV_JEFF_SIMONS_PROJECT_ID) {
+      return mapProjectFromDb(DEV_FALLBACK_DB_ROW)
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
-    if (!user) throw new Error('Unauthorized')
+    if (!user) {
+      if (isDevBypassActive()) {
+        return mapProjectFromDb(DEV_FALLBACK_DB_ROW)
+      }
+      throw new Error('Unauthorized')
+    }
 
     let { data, error } = await supabase
       .from('projects')

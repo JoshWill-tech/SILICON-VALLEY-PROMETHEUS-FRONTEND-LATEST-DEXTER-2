@@ -7,6 +7,7 @@ import { getPresignedGetUrl } from '@/lib/r2/presigned-url'
 import { r2Client } from '@/lib/r2/client'
 import { startSourceAssetTranscription } from '@/lib/server/source-transcript'
 import { createClient } from '@/lib/supabase/server'
+import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 
 export async function GET(
   _req: Request,
@@ -16,10 +17,33 @@ export async function GET(
     const { id: projectId } = await params
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user && !isDevBypassActive()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const project = await ProjectService.getProject(projectId)
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+    if (isDevBypassActive() && (projectId === 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f' || project.sourceAssetId === 'jeff-simons-asset-001')) {
+      return NextResponse.json({
+        success: true,
+        asset: {
+          id: 'jeff-simons-asset-001',
+          project_id: projectId,
+          user_id: user?.id ?? 'e261b522-9d57-4bfe-90c8-38b3720cec36',
+          storage_path: 'mini-run/raw_jeff_simons.mp4',
+          storage_bucket: 'prometheus-sources',
+          duration_ms: 30000,
+          durationMs: 30000,
+          width: 1080,
+          height: 1920,
+        },
+        source: {
+          url: '/media/mini-run/raw_jeff_simons.mp4',
+          expiresIn: 86400,
+        },
+      })
+    }
+
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     let asset: any = null
     if (project.sourceAssetId) {

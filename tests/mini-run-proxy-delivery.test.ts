@@ -15,7 +15,7 @@ async function run() {
   const delivered = await fetchMiniRunMedia({
     url: 'https://mini-run.example.test/api/pipeline/output',
     backendBaseUrl: 'https://mini-run.example.test',
-    proxyHeaders: {'Modal-Key': 'server-only'},
+    proxyHeaders: {'X-Mini-Run-User-Token': 'server-only'},
     range: 'bytes=0-15',
     fetchImpl: async (input, init) => {
       const url = String(input)
@@ -29,8 +29,8 @@ async function run() {
   })
   assert.equal(delivered.status, 206)
   assert.equal(requests.length, 2)
-  assert.equal(requests[0].headers.get('Modal-Key'), 'server-only')
-  assert.equal(requests[1].headers.get('Modal-Key'), null)
+  assert.equal(requests[0].headers.get('X-Mini-Run-User-Token'), 'server-only')
+  assert.equal(requests[1].headers.get('X-Mini-Run-User-Token'), null)
   assert.equal(requests[1].headers.get('Range'), 'bytes=0-15')
 
   const client = createMiniRunClient(async (input) => {
@@ -64,10 +64,9 @@ async function run() {
     request: new Request('https://prometheusstudio.tech/api/mini-run/api/pipeline/job/job_123', {method: 'GET'}),
     pathSegments: ['api', 'pipeline', 'job', 'job_123'],
     env: {
-      MINI_RUN_BACKEND_URL: 'https://mini-run.example.test',
-      MODAL_PROXY_KEY: 'test-key',
-      MODAL_PROXY_SECRET: 'test-secret',
+      MINI_RUN_AWS_API_URL: 'https://mini-run.example.test',
     },
+    accessToken: 'test-supabase-token',
     fetchImpl: async () => new Response(null, {
       status: 303,
       headers: {location: '/api/pipeline/job/job_123?attempt=complete'},

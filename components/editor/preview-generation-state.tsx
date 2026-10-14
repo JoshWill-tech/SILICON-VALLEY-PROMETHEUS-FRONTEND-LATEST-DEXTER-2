@@ -18,7 +18,7 @@ const DEFAULT_STEPS = [
   'Reading your creative brief...',
   'Mapping creative intent with Jarvis...',
   'Analyzing transcript cues...',
-  'Compiling kinetic typography on Modal...',
+  'Rendering your edit through Mini-Run...',
   'Preparing cinematic preview...'
 ]
 

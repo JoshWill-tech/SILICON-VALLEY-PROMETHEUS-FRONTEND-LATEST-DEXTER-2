@@ -1,41 +1,46 @@
 export type MiniRunEnvironment = Partial<
-  Record<'MINI_RUN_BACKEND_URL' | 'MODAL_PROXY_KEY' | 'MODAL_PROXY_SECRET', string | undefined>
+  Record<'MINI_RUN_AWS_API_URL' | 'MINI_RUN_BACKEND_URL', string | undefined>
 >
 
 export type MiniRunConfig = {
   baseUrl: string
-  proxyKey: string
-  proxySecret: string
 }
 
 const safeSegmentPattern = /^[A-Za-z0-9._~-]+$/
 
 function requiredEnvironmentValue(env: MiniRunEnvironment, name: keyof MiniRunEnvironment) {
   const value = env[name]?.trim()
-  if (!value) throw new Error(`${name} is required for the Mini-Run proxy.`)
+  if (!value) throw new Error(`${name} is required for the Mini-Run AWS API.`)
   return value
 }
 
-/**
- * Resolve the Prometheus Mini-Runs Modal app config. This is a *separate* Modal
- * app (`prometheus-mini-run-studio`) from the source-analysis/render app
- * reached via `PROMETHEUS_BACKEND_URL`, but it lives in the same workspace, so
- * it authenticates with the same workspace-level Modal proxy credentials.
- */
+/** Resolve the server-only Mini-Run API endpoint. Supports MINI_RUN_AWS_API_URL or MINI_RUN_BACKEND_URL. */
 export function resolveMiniRunConfig(env: MiniRunEnvironment): MiniRunConfig {
-  const configuredUrl = requiredEnvironmentValue(env, 'MINI_RUN_BACKEND_URL')
+  const configuredUrl = env.MINI_RUN_AWS_API_URL?.trim() || env.MINI_RUN_BACKEND_URL?.trim()
+  if (!configuredUrl) {
+    throw new Error('MINI_RUN_AWS_API_URL is required for the Mini-Run AWS API.')
+  }
   const parsedUrl = new URL(configuredUrl)
   if (parsedUrl.protocol !== 'https:') {
-    throw new Error('MINI_RUN_BACKEND_URL must use HTTPS.')
+    throw new Error('MINI_RUN_AWS_API_URL must use HTTPS.')
+  }
+  if (parsedUrl.username || parsedUrl.password) {
+    throw new Error('MINI_RUN_AWS_API_URL must not contain embedded credentials.')
   }
   parsedUrl.search = ''
   parsedUrl.hash = ''
 
-  return {
-    baseUrl: parsedUrl.toString().replace(/\/+$/, ''),
-    proxyKey: requiredEnvironmentValue(env, 'MODAL_PROXY_KEY'),
-    proxySecret: requiredEnvironmentValue(env, 'MODAL_PROXY_SECRET'),
+  return {baseUrl: parsedUrl.toString().replace(/\/+$/, '')}
+}
+
+export function miniRunUserHeaders(accessToken: string, initial?: HeadersInit) {
+  const token = accessToken.trim()
+  if (!token || /\s/.test(token)) {
+    throw new Error('A valid Supabase access token is required for Mini-Run requests.')
   }
+  const headers = new Headers(initial)
+  headers.set('X-Mini-Run-User-Token', token)
+  return headers
 }
 
 function hasSafeSegments(pathSegments: string[]) {
@@ -51,11 +56,7 @@ function hasSafeSegments(pathSegments: string[]) {
   )
 }
 
-/**
- * Allowlist for the Mini-Runs gateway routes. Only these are reachable from the
- * browser through the server proxy; everything else is rejected so the proxy
- * never becomes an open door to the Modal app.
- */
+/** Allowlist for the Mini-Run API routes exposed by the frontend proxy. */
 export function isAllowedMiniRunRequest(method: string, pathSegments: string[]) {
   if (!hasSafeSegments(pathSegments)) return false
 
@@ -72,8 +73,8 @@ export function isAllowedMiniRunRequest(method: string, pathSegments: string[]) 
   if (normalizedMethod === 'POST' && path === 'api/pipeline/longform') return true
   if (
     normalizedMethod === 'GET' &&
-    /^api\/pipeline\/job\/[A-Za-z0-9._~-]+$/.test(path) ||
-    /^api\/pipeline\/longform\/[A-Za-z0-9._~-]+$/.test(path)
+    (/^api\/pipeline\/job\/[A-Za-z0-9._~-]+$/.test(path) ||
+      /^api\/pipeline\/longform\/[A-Za-z0-9._~-]+$/.test(path))
   ) {
     return true
   }
@@ -84,10 +85,12 @@ export async function buildMiniRunRequest({
   request,
   pathSegments,
   env,
+  accessToken,
 }: {
   request: Request
   pathSegments: string[]
   env: MiniRunEnvironment
+  accessToken?: string
 }): Promise<{url: string; init: RequestInit}> {
   if (!isAllowedMiniRunRequest(request.method, pathSegments)) {
     throw new Error('This Mini-Run pipeline route is not allowed.')
@@ -95,11 +98,12 @@ export async function buildMiniRunRequest({
 
   const config = resolveMiniRunConfig(env)
   const encodedPath = pathSegments.map((segment) => encodeURIComponent(segment)).join('/')
-  const headers = new Headers({
-    'Modal-Key': config.proxyKey,
-    'Modal-Secret': config.proxySecret,
-  })
-  for (const name of ['accept', 'content-type']) {
+  const isHealthCheck = request.method.toUpperCase() === 'GET' && pathSegments.join('/') === 'health'
+  const headers = accessToken ? miniRunUserHeaders(accessToken) : new Headers()
+  if (!isHealthCheck && !headers.has('X-Mini-Run-User-Token')) {
+    throw new Error('A signed-in Mini-Run user session is required.')
+  }
+  for (const name of ['accept', 'content-type', 'range']) {
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }
@@ -131,19 +135,18 @@ export async function proxyMiniRunRequest({
   request,
   pathSegments,
   env,
+  accessToken,
   fetchImpl = fetch,
 }: {
   request: Request
   pathSegments: string[]
   env: MiniRunEnvironment
+  accessToken?: string
   fetchImpl?: typeof fetch
 }) {
-  const outbound = await buildMiniRunRequest({request, pathSegments, env})
+  const outbound = await buildMiniRunRequest({request, pathSegments, env, accessToken})
   const upstream = await fetchImpl(outbound.url, outbound.init)
 
-  // Completed Mini-Run jobs can resolve with a 303 redirect straight to the
-  // rendered MP4. Browser polling expects JSON, so preserve the output URL in
-  // the job envelope instead of forwarding the redirect as a media response.
   if (request.method.toUpperCase() === 'GET' && /^api\/pipeline\/(job|longform)\/[A-Za-z0-9._~-]+$/.test(pathSegments.join('/')) && upstream.status === 303) {
     const location = upstream.headers.get('location')
     if (location) {
@@ -152,9 +155,7 @@ export async function proxyMiniRunRequest({
         state: 'completed',
         status: 'completed',
         outputUrl: `/api/mini-run/job/${encodeURIComponent(pathSegments[pathSegments.length - 1])}/output`,
-      }, {
-        headers: {'Cache-Control': 'no-store'},
-      })
+      }, {headers: {'Cache-Control': 'no-store'}})
     }
   }
 
@@ -165,9 +166,5 @@ export async function proxyMiniRunRequest({
   }
   if (!headers.has('cache-control')) headers.set('Cache-Control', 'no-store')
 
-  return new Response(upstream.body, {
-    status: upstream.status,
-    statusText: upstream.statusText,
-    headers,
-  })
+  return new Response(upstream.body, {status: upstream.status, statusText: upstream.statusText, headers})
 }

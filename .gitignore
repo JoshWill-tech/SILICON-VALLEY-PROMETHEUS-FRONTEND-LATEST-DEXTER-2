@@ -45,3 +45,4 @@ env.local
 .vercel
 .env*
 .unlazy/
+public/media/
