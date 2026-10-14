@@ -1,6 +1,8 @@
 import type {VoiceCompanionBridgeHandlers} from './bridge'
 import type {ProjectExport} from '@/lib/types'
 import {isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath} from '@/lib/editor/render-delivery'
+import {safeParseApiResponse} from './safe-response'
+import {sanitizeVoiceCompanionError} from './error-sanitizer'
 
 /** Refresh the durable job history; a timeline save is never evidence of rendering. */
 export async function readVoiceExportStatus(getBridge: () => VoiceCompanionBridgeHandlers, fetchImpl: typeof fetch = fetch) {
@@ -11,14 +13,20 @@ export async function readVoiceExportStatus(getBridge: () => VoiceCompanionBridg
     const response = await fetchImpl(`/api/projects/${encodeURIComponent(projectId)}/exports/history`, {
       cache: 'no-store', signal: AbortSignal.timeout(12_000),
     })
-    const payload = await response.json() as {exports?: ProjectExport[]; error?: string}
-    if (!response.ok || !Array.isArray(payload.exports)) throw new Error(payload.error || 'Could not confirm render status. No progress or completion is confirmed.')
+    const parsed = await safeParseApiResponse<{exports?: ProjectExport[]; error?: string}>(
+      response,
+      'Could not confirm render status. No progress or completion is confirmed.',
+    )
     const current = getBridge()
     if (current.projectId !== projectId || current.sourceAssetId !== sourceAssetId) {
       return {success: false, error: 'The project or source changed during the status check. Check the current project again.'}
     }
+    if (!parsed.ok || !parsed.data || !Array.isArray(parsed.data.exports)) {
+      throw new Error(parsed.error || 'Could not confirm render status. No progress or completion is confirmed.')
+    }
+    const payload = parsed.data
     const timelineSync = current.getTimelineSyncState?.() ?? null
-    const record = projectRenderHistory(payload.exports, projectId, sourceAssetId)[0]
+    const record = projectRenderHistory(payload.exports as ProjectExport[], projectId, sourceAssetId)[0]
     if (!record) return {
       success: true, phase: 'not_submitted', renderInitiated: false, timelineSync,
       summary: 'No render job has been submitted for this source. Timeline sync saves editor settings; it is separate from rendering and does not block the source MP4. Open export preflight to review the available output.',
@@ -46,6 +54,6 @@ export async function readVoiceExportStatus(getBridge: () => VoiceCompanionBridg
       ...(ready ? {previewUrl: renderPreviewPath(record.id), downloadEndpoint: renderDownloadPath(record.id)} : {}),
     }
   } catch (cause) {
-    return {success: false, error: cause instanceof Error ? cause.message : 'Could not confirm render status.'}
+    return {success: false, error: sanitizeVoiceCompanionError(cause)}
   }
 }

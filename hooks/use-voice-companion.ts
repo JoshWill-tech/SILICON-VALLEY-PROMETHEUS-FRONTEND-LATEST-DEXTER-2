@@ -27,6 +27,7 @@ import { useAutonomousStore } from '@/lib/autonomous-ui/autonomous-store'
 import { getMediaFailureMessage } from '@/lib/media/feedback'
 import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
 import { useThemePreferenceStore } from '@/lib/theme/theme-store'
+import { sanitizeVoiceCompanionError } from '@/lib/voice-companion/error-sanitizer'
 
 export type VoiceCompanionStatus =
   | 'disconnected'
@@ -551,7 +552,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           const startRender = getCurrentHandlers().onStartRender
           if (!startRender) return { success: false, error: 'The editor is not linked, so I cannot start or confirm an export.' }
           const result = await startRender(mode)
-          if (!result.success) return { success: false, error: result.summary, mode, renderInitiated: false }
+          if (!result.success) return { success: false, error: sanitizeVoiceCompanionError(result.summary), mode, renderInitiated: false }
           if (mode === 'final' || result.renderInitiated) {
             return {
               success: true,
@@ -699,7 +700,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
       }
       return result
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'The editor action failed.'
+      const message = sanitizeVoiceCompanionError(err)
       if (receipt) useAutonomousStore.getState().finishAction(receipt, { status: 'failed', summary: message })
       return { success: false, error: message }
     }
