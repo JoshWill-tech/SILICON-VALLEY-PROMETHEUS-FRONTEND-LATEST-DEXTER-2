@@ -664,12 +664,23 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         case 'apply_editorial_plan':
         case 'execute_timeline_plan': {
           const prompt = String(args.prompt || 'Balanced talking-head edit')
-          const liveContext = contextProvider?.()
-          let durationSec = liveContext?.durationSec ?? handlersRef.current.timelineDurationSec ?? 0
-          if (!handlersRef.current.hasVideo && !handlersRef.current.projectId) {
-            return { success: false, error: 'There is no playable source video in this project yet.' }
+          const initialHandlers = getCurrentHandlers()
+          if (!initialHandlers.hasVideo || !initialHandlers.sourceAssetId) {
+            const mediaState = initialHandlers.sourceMediaState ?? 'missing'
+            const message = mediaState === 'loading'
+              ? 'The source video is still loading. Wait until it is ready, then I can apply the editorial pass.'
+              : mediaState === 'unavailable'
+                ? 'The linked source video is unavailable. Reattach a playable video before I apply the editorial pass.'
+                : mediaState === 'non_video'
+                  ? 'The attached source is not a video. Add a playable video before I apply the editorial pass.'
+                : 'There is no playable source video attached to this project yet. Add a video before I apply the editorial pass.'
+            return { success: false, error: message }
           }
-          const rawSegments = (Array.isArray(handlersRef.current.transcriptSegments) ? handlersRef.current.transcriptSegments : []).flatMap((item) => {
+          const initialProjectId = initialHandlers.projectId
+          const initialSourceAssetId = initialHandlers.sourceAssetId
+          const liveContext = initialHandlers.contextProvider?.() ?? contextProvider?.()
+          let durationSec = initialHandlers.videoDurationSec || liveContext?.durationSec || initialHandlers.timelineDurationSec || 0
+          const rawSegments = (Array.isArray(initialHandlers.transcriptSegments) ? initialHandlers.transcriptSegments : []).flatMap((item) => {
             if (!item || typeof item !== 'object') return []
             const segment = item as Record<string, unknown>
             const startSec = typeof segment.startMs === 'number' ? segment.startMs / 1000 : segment.start
@@ -681,11 +692,8 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           if (durationSec <= 0 && rawSegments.length > 0) {
             durationSec = Math.max(...rawSegments.map((s) => s.endSec))
           }
-          if (durationSec <= 0) {
-            durationSec = handlersRef.current.videoDurationSec || 30
-          }
-          const applyPlan = getCurrentHandlers().onApplyEditorialPlan
-          if (!applyPlan) return { success: false, error: 'The editor does not have a complete editorial-plan path connected.' }
+          if (!Number.isFinite(durationSec) || durationSec <= 0) return { success: false, error: 'The source video is ready, but its duration is not available yet. Wait for the editor to finish loading it.' }
+          if (!initialHandlers.onApplyEditorialPlan) return { success: false, error: 'The editor does not have an editorial-plan path connected.' }
           const access = await requireEditingAccess()
           if (!access.success) return access
           const plan = buildEditorialPlan(prompt, {
@@ -699,16 +707,22 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
 
           const switched = await switchVoiceWorkspace('Motion', getCurrentHandlers)
           if (!switched.success) return switched
-          const outcome = await applyPlan(plan)
+          const currentHandlers = getCurrentHandlers()
+          if (currentHandlers.projectId !== initialProjectId || currentHandlers.sourceAssetId !== initialSourceAssetId) {
+            return { success: false, error: 'The active project or source video changed before the editorial pass could be applied. No edits were made.' }
+          }
+          if (!currentHandlers.hasVideo || !currentHandlers.onApplyEditorialPlan) {
+            return { success: false, error: 'The source video or editorial timeline is no longer ready. No edits were made.' }
+          }
+          const outcome = await currentHandlers.onApplyEditorialPlan(plan)
           return {
             ...outcome,
             summary: outcome.summary,
             applied: {
               captionStyle: outcome.success ? plan.captionStyle : null,
               movementCueCount: outcome.success ? plan.zooms.length : 0,
-              lookPreset: outcome.success ? plan.lookPreset : null,
-              brollCount: outcome.success ? (plan.brollSuggestions?.length ?? 0) : 0,
             },
+            notPerformed: outcome.success ? ['cinematic look grading', 'B-roll sourcing or insertion', 'soundtrack selection', 'final rendered video'] : [],
             musicSelected: false,
           }
         }
