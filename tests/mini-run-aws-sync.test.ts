@@ -5,12 +5,23 @@ import {buildMcpOAuthChallenge, buildMcpOAuthResourceMetadata, mcpProtectedResou
 import {buildMiniRunRenderPayload} from '../lib/server/mini-run-render-payload'
 import {
   buildMiniRunRequest,
+  getMiniRunEnvironment,
   miniRunUserHeaders,
+  PRODUCTION_MINI_RUN_AWS_API_URL,
   proxyMiniRunRequest,
   resolveMiniRunConfig,
 } from '../lib/server/mini-run-proxy'
 
 async function run() {
+  assert.equal(getMiniRunEnvironment().MINI_RUN_AWS_API_URL, PRODUCTION_MINI_RUN_AWS_API_URL)
+  assert.equal(getMiniRunEnvironment().MINI_RUN_BACKEND_URL, PRODUCTION_MINI_RUN_AWS_API_URL)
+  assert.equal(
+    getMiniRunEnvironment({ MINI_RUN_AWS_API_URL: 'https://custom.lambda.test' }).MINI_RUN_AWS_API_URL,
+    'https://custom.lambda.test'
+  )
+  assert.deepEqual(resolveMiniRunConfig(getMiniRunEnvironment()), {
+    baseUrl: PRODUCTION_MINI_RUN_AWS_API_URL,
+  })
   assert.deepEqual(resolveMiniRunConfig({MINI_RUN_AWS_API_URL: 'https://mini-run.aws.example.test/?ignored=1#fragment'}), {
     baseUrl: 'https://mini-run.aws.example.test',
   })
