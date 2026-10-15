@@ -336,7 +336,7 @@ export function PrometheusAuthCharacters() {
 
       <div
         ref={blackRef}
-        className="absolute bottom-0 rounded-t-[12px] bg-[#28282c] shadow-[0_24px_58px_-38px_rgba(0,0,0,0.95)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        className="auth-character-neutral absolute bottom-0 rounded-t-[12px] bg-[#28282c] shadow-[0_24px_58px_-38px_rgba(0,0,0,0.95)] transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{
           height: 312,
           left: '45%',
@@ -423,7 +423,7 @@ export function PrometheusAuthCharacters() {
           <Pupil forceLookX={visiblePasswordSignal ? -5 : undefined} forceLookY={visiblePasswordSignal ? -4 : undefined} pointer={pointer} reduceMotion={motionReduced} />
         </div>
         <div
-          className="absolute h-[3px] w-20 rounded-full bg-[#242428] transition-all duration-200 ease-out"
+          className="auth-character-mouth absolute h-[3px] w-20 rounded-full bg-[#242428] transition-all duration-200 ease-out"
           style={{
             left: visiblePasswordSignal ? 14 : 42 + yellowPos.faceX,
             top: visiblePasswordSignal ? 90 : 90 + yellowPos.faceY,

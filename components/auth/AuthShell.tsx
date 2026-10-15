@@ -30,18 +30,18 @@ export function AuthShell({
 }: AuthShellProps) {
   return (
     <AuthInteractionProvider>
-      <main className="relative min-h-[calc(100dvh-5rem)] overflow-hidden bg-[#050505] text-white lg:grid lg:grid-cols-[minmax(0,1.03fr)_minmax(420px,0.97fr)]">
+      <main className="auth-shell relative min-h-[calc(100dvh-5rem)] overflow-hidden bg-[#050505] text-white lg:grid lg:grid-cols-[minmax(0,1.03fr)_minmax(420px,0.97fr)]">
         <div
           className={[
-            "relative hidden h-full min-h-[calc(100dvh-5rem)] flex-col overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_22%_8%,rgba(56,189,248,0.16),transparent_36%),linear-gradient(135deg,rgba(13,13,16,1)_0%,rgba(5,5,5,1)_100%)] lg:flex",
+            "auth-shell-art relative hidden h-full min-h-[calc(100dvh-5rem)] flex-col overflow-hidden border-r border-white/8 bg-[radial-gradient(circle_at_22%_8%,rgba(56,189,248,0.16),transparent_36%),linear-gradient(135deg,rgba(13,13,16,1)_0%,rgba(5,5,5,1)_100%)] lg:flex",
             compact ? 'auth-shell-art-compact p-6' : 'p-10',
           ].join(' ')}
         >
-          <div className="pointer-events-none absolute inset-0 opacity-45">
+          <div className="auth-shell-paths pointer-events-none absolute inset-0 opacity-45">
             <FloatingPaths position={1} />
             <FloatingPaths position={-1} />
           </div>
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.03)_28%,transparent_58%),linear-gradient(180deg,transparent_0%,rgba(5,5,5,0.66)_100%)]" />
+          <div className="auth-shell-shade pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.03)_28%,transparent_58%),linear-gradient(180deg,transparent_0%,rgba(5,5,5,0.66)_100%)]" />
 
           <BrandWordmark className="relative z-10" />
 
@@ -64,11 +64,11 @@ export function AuthShell({
 
         <div
           className={[
-            'pointer-events-auto relative z-[100] flex min-h-[calc(100dvh-5rem)] flex-col justify-center bg-[#050505] px-5 md:px-8',
+            'auth-shell-panel pointer-events-auto relative z-[100] flex min-h-[calc(100dvh-5rem)] flex-col justify-center bg-[#050505] px-5 md:px-8',
             compact ? 'auth-shell-panel-compact py-4' : 'py-8',
           ].join(' ')}
         >
-          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 opacity-70">
+          <div aria-hidden className="auth-shell-glow pointer-events-none absolute inset-0 -z-10 opacity-70">
             <div className="absolute right-0 top-0 h-[46rem] w-[18rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.055)_0%,rgba(255,255,255,0.015)_62%,transparent_100%)] blur-sm" />
             <div className="absolute bottom-[-20%] left-[18%] h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(56,189,248,0.12)_0%,transparent_66%)]" />
           </div>

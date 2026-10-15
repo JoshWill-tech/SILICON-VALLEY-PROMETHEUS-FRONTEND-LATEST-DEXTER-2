@@ -528,6 +528,35 @@ html[data-color-mode='light'] [data-pricing-decoration] {
   color: transparent !important;
 }
 
+/* Auth artwork has opaque dark gradients that neutral utility adapters cannot
+   recolor. Keep both panels white and the existing illustration readable. */
+html[data-color-mode='light'] .auth-shell {
+  --background: var(--theme-surface);
+}
+
+html[data-color-mode='light'] :is(.auth-shell, .auth-shell-art, .auth-shell-panel) {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+
+html[data-color-mode='light'] .auth-shell-shade,
+html[data-color-mode='light'] .auth-shell-glow > div {
+  background: none;
+}
+
+html[data-color-mode='light'] .auth-shell-paths svg {
+  color: color-mix(in srgb, var(--theme-foreground) 22%, transparent);
+}
+
+html[data-color-mode='light'] .auth-character-neutral {
+  background-color: var(--theme-surface-elevated);
+  box-shadow: none;
+}
+
+html[data-color-mode='light'] .auth-character-mouth {
+  background-color: var(--theme-foreground);
+}
+
 /* Preview controls follow the workspace theme; only the footage is independent.
    The legacy accent-cyan/void utilities have no Tailwind color mapping. */
 html[data-color-mode='light'] [data-preview-controls] .text-chrome-dim {
