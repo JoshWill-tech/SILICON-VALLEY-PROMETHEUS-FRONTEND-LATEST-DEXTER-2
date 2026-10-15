@@ -2007,3 +2007,8 @@ input, textarea, select, button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
 }
+
+[data-upload-header] {
+  flex-wrap: wrap;
+  padding-inline-end: 5.5rem;
+}

@@ -82,7 +82,7 @@ export function GlassUploadModalView({
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <header data-upload-header="" className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-4 px-5 py-5 sm:px-8 sm:py-7">
+        <header data-upload-header="" className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-start justify-between gap-4 pl-5 pr-[5.5rem] py-5 sm:pl-8 sm:pr-[5.5rem] sm:py-7">
           <div>
             <DialogTitle className="text-[clamp(1.65rem,3.6vw,2.8rem)] font-normal leading-[0.95] tracking-normal text-white [font-family:var(--font-zt-otez),Georgia,serif]">
               Upload Source
