@@ -3,9 +3,18 @@ import {cookies} from 'next/headers'
 import {createClient} from '@/lib/supabase/server'
 import {ExportService} from '@/lib/exports/service'
 import {dispatchMiniRunRender} from '@/lib/server/mini-run-dispatch'
-import {resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
+import {getMiniRunEnvironment, resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 
 export const maxDuration = 60
+
+function safeGetMiniRunEnvironment(override?: any) {
+  return typeof getMiniRunEnvironment === 'function'
+    ? getMiniRunEnvironment(override)
+    : (override || {
+        MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
+        MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
+      })
+}
 
 async function resolveUserAccessToken(sessionAccessToken?: string, requestAuthorization?: string | null): Promise<string> {
   if (requestAuthorization) {
@@ -70,10 +79,10 @@ export async function GET(_request: Request, {params}: RouteContext) {
 
   let backendConfigured = true
   try {
-    resolveMiniRunConfig({
+    resolveMiniRunConfig(safeGetMiniRunEnvironment({
       MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
       MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-    })
+    }))
   } catch {
     backendConfigured = false
   }
@@ -170,10 +179,10 @@ export async function POST(request: Request, {params}: RouteContext) {
         songPolicy: 'auto',
         draftManifest,
       },
-      env: {
+      env: safeGetMiniRunEnvironment({
         MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
         MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-      },
+      }),
       accessToken: await resolveUserAccessToken(
         session?.access_token,
         typeof request.headers?.get === 'function'

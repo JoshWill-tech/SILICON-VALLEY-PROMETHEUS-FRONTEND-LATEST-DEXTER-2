@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { ProjectExport, ProjectExportStatus } from '@/lib/types'
 import { R2Keys } from '@/lib/r2/keys'
 import { copyR2Object } from '@/lib/r2/copy-object'
-import { resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
+import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
 
 export interface ExportOptions {
   preset?: string
@@ -165,9 +165,7 @@ export const ExportService = {
     )
     if (active.length === 0) return records
 
-    const config = resolveMiniRunConfig({
-      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL,
-    })
+    const config = resolveMiniRunConfig(getMiniRunEnvironment())
     await Promise.all(active.map(async (record) => {
       const jobId = record.metadata.miniRunJobId as string
       try {
