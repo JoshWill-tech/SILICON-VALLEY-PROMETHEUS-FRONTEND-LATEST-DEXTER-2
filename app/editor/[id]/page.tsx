@@ -109,7 +109,7 @@ import type { VoiceActionResult } from '@/lib/voice-companion/music-controls'
 import { applyReferenceStyleToController } from '@/lib/voice-companion/reference-controls'
 import { getEditorialTimelineController } from '@/lib/editor/editorial-timeline-client'
 import type { AppliedReferenceStyle } from '@/lib/editor/reference-style'
-import type { EditorialPlan } from '@/lib/editor/timeline-document'
+import { buildEditorialPlan, type EditorialPlan } from '@/lib/editor/timeline-document'
 import {
   consumePendingEditorialChatOpen,
   EDITORIAL_CHAT_OPEN_EVENT,
@@ -1501,7 +1501,7 @@ function buildEditAssistantReply({
   const summary = videoContext.summary ? ` The cut reads as ${videoContext.summary}.` : ''
   const promptLine = prompt.trim().length > 0 ? ` You asked for "${prompt.trim()}".` : ''
 
-  return `The edit pass is live for ${projectTitle}.${summary} I'm using ${styleTemplate.name} so the overlay stays faithful to the style lane.${sourceLine}${promptLine} The backend stream can keep adding text while the preview renders the same treatment on the imported video.`
+  return `I’m preparing a ${styleTemplate.name} editorial pass for ${projectTitle}.${summary}${sourceLine}${promptLine} I’ll confirm whether the supported caption and movement changes were saved. A final render is a separate step.`
 }
 
 function buildFallbackEditAnimationPlan({
@@ -3810,6 +3810,8 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   automationRequest,
   clipRelayState,
   onEditRequest,
+  onClipRequest,
+  onEditorialRequest,
   initialEditorState,
   onSave,
   chatContextProvider,
@@ -3833,6 +3835,8 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   automationRequest?: ComposerAutomationRequest | null
   clipRelayState?: ClipRelayState | null
   onEditRequest?: (request: { prompt: string; styleTemplate: StyleTemplate }) => void | Promise<void>
+  onClipRequest?: (prompt?: string) => Promise<void>
+  onEditorialRequest?: (prompt: string) => Promise<VoiceActionResult>
   initialEditorState?: any
   onSave?: (editorState: any) => void
   chatContextProvider?: AIChatContextProvider
@@ -4980,7 +4984,8 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const requestAttachments = options?.attachments ?? []
       const shouldScrollToReply = options?.scrollToReply ?? true
       const shouldRecommendMusicCandidate = options?.forceMusic ?? isMusicIntent(nextValue)
-      const shouldEditRequest = !options?.forceMusic && (isEditIntent(nextValue) || Boolean(options?.revisionRequest?.frameTarget))
+      const isClipRequest = hasAny(normalizeInlineText(nextValue), ['clip', 'clips', 'cutdown', 'cut down', 'short-form', 'short form', 'reel', 'tiktok', 'viral'])
+      const shouldEditRequest = !options?.forceMusic && !isClipRequest && (isEditIntent(nextValue) || Boolean(options?.revisionRequest?.frameTarget))
       const shouldRecommendMusic = shouldEditRequest ? false : shouldRecommendMusicCandidate
       const taskBlock = classifyChatTask({
         input: nextValue,
@@ -5004,7 +5009,9 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       const loadingText = shouldRecommendMusic
         ? 'Pulling a few cues that match the current cut...'
         : shouldEditRequest
-          ? `Starting ${editStyleTemplate?.name ?? 'the edit pass'} on the imported video...`
+          ? 'Applying the supported editorial changes to the project timeline...'
+          : isClipRequest
+            ? 'Starting the clip pipeline for the current source...'
           : 'Shaping the next pass from the original direction...'
       const musicReply = shouldRecommendMusic
         ? buildMusicReply({
@@ -5013,7 +5020,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
             videoContext,
           })
         : ''
-      const editReplyFallback =
+      let editReplyFallback =
         shouldEditRequest && editStyleTemplate
           ? buildEditAssistantReply({
               projectTitle,
@@ -5163,14 +5170,17 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 
       setPendingReplies((current) => current + 1)
 
-      if (shouldEditRequest && editStyleTemplate) {
-        try {
-          void onEditRequest?.({
-            prompt: editPromptBasis,
-            styleTemplate: editStyleTemplate,
-          })
-        } catch {
-          // The edit reply can still stream even if the job staging signal fails.
+      if (isClipRequest) {
+        if (onClipRequest) void onClipRequest(nextValue)
+      } else if (shouldEditRequest) {
+        if (onEditorialRequest) {
+          void onEditorialRequest(editPromptBasis)
+            .then((result) => {
+              editReplyFallback = result.summary
+              if (result.success) toast.success(result.summary)
+              else toast.error(result.summary)
+            })
+            .catch((error) => toast.error(error instanceof Error ? error.message : 'The editorial pass could not be applied.'))
         }
       }
 
@@ -5477,6 +5487,8 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
       confirmPostingVideo,
       findActivePostingEntry,
       onEditRequest,
+      onClipRequest,
+      onEditorialRequest,
       musicPreference,
       postingProjectGroups,
       projectId,
@@ -5836,6 +5848,8 @@ type MobileEditorViewProps = {
   onApplyMotionPrompt: (prompt: string) => void
   onSelectMusicTrack: (track: MusicRecommendation) => void
   onEditRequest: (request: { prompt: string; styleTemplate: StyleTemplate }) => void
+  onClipRequest: (prompt?: string) => Promise<void>
+  onEditorialRequest: (prompt: string) => Promise<VoiceActionResult>
   onSave: (editorState: any) => Promise<void>
   onStartExport: (options?: { quality: MobileExportQuality; format: MobileExportFormat }) => void
   onDownloadLatest: () => void
@@ -5893,6 +5907,8 @@ function MobileEditorView({
   onApplyMotionPrompt,
   onSelectMusicTrack,
   onEditRequest,
+  onClipRequest,
+  onEditorialRequest,
   onSave,
   onStartExport,
   onDownloadLatest,
@@ -5998,6 +6014,8 @@ function MobileEditorView({
               automationRequest={automationRequest}
               clipRelayState={clipRelayState}
               onEditRequest={onEditRequest}
+              onClipRequest={onClipRequest}
+              onEditorialRequest={onEditorialRequest}
               initialEditorState={project?.editorState}
               onSave={onSave}
               chatContextProvider={chatContextProvider}
@@ -7871,6 +7889,21 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     return { success: false, summary: 'The editorial pass is visible locally, but saving was not confirmed. Check timeline sync before export.' }
   }, [hasPlayableVideo, projectId, project?.sourceAssetId])
 
+  const handleChatEditorialRequest = React.useCallback((prompt: string) => {
+    const transcriptSegments = (job?.artifacts.transcript ?? []).map((segment) => ({
+      startSec: segment.startMs / 1000,
+      endSec: segment.endMs / 1000,
+      text: segment.text,
+      isCut: segment.isCut === true,
+    }))
+    setActiveWorkspaceTab('Motion')
+    setBottomMode('Original')
+    return handleVoiceEditorialPlan(buildEditorialPlan(prompt, {
+      durationSec: transportDurationSec,
+      transcriptSegments,
+    }))
+  }, [handleVoiceEditorialPlan, job?.artifacts.transcript, transportDurationSec])
+
   const handleRemoveEditorMusicTrack = React.useCallback(() => {
     clearSelectedEditorMusicRecommendation(projectId)
     setSelectedEditorMusicTrackId(null)
@@ -7981,7 +8014,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     [previewKind, previewUrl],
   )
 
-  const handleGenerateViralClips = React.useCallback(async () => {
+  const handleGenerateViralClips = React.useCallback(async (requestedPrompt?: string) => {
     if (!project?.sourceAssetId) {
       setViralClipSplitPreviewActive(false)
       setPreviewFramePreset('source')
@@ -8014,7 +8047,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       id: relayId,
       userId: `user-clip-${relayId}`,
       assistantId: `assistant-clip-${relayId}`,
-      prompt: 'Clip this source into high-retention short-form variants.',
+      prompt: requestedPrompt?.trim() || 'Clip this source into high-retention short-form variants.',
       clip: initialClipBlock,
     })
 
@@ -8048,7 +8081,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
             targetPlatform: viralClipTargetPlatform,
             clipCountMin: viralClipClipPreset.min,
             clipCountMax: viralClipClipPreset.max,
-            prompt: viralClipPrompt,
+            prompt: requestedPrompt?.trim() || viralClipPrompt,
             sourceMediaRef: sourceMediaUrl ?? project.sourceAssetId,
             creatorNiche: videoContext.summary || undefined,
             metadataOverrides: {
@@ -9448,6 +9481,8 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           onOpenUploadNewProject={() => setIsNewProjectUploadOpen(true)}
           onSelectMusicTrack={handleEditorMusicTrackSelect}
           onEditRequest={handleEditRequest}
+          onClipRequest={handleGenerateViralClips}
+          onEditorialRequest={handleChatEditorialRequest}
           onSave={handleAutoSave}
           onStartExport={handlePrepareExport}
           onDownloadLatest={handleConfirmDownload}
@@ -9874,6 +9909,8 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           automationRequest={composerAutomationRequest}
           clipRelayState={clipRelayState}
           onEditRequest={handleEditRequest}
+          onClipRequest={handleGenerateViralClips}
+          onEditorialRequest={handleChatEditorialRequest}
           initialEditorState={project?.editorState}
           onSave={handleAutoSave}
           chatContextProvider={chatContextProvider}
