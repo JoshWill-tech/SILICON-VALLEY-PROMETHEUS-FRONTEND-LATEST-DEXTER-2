@@ -109,7 +109,7 @@ export async function buildMiniRunRequest({
   pathSegments: string[]
   env: MiniRunEnvironment
   accessToken?: string
-}): Promise<{url: string; init: RequestInit}> {
+}): Promise<{url: string; init: RequestInit; isShielded?: boolean}> {
   if (!isAllowedMiniRunRequest(request.method, pathSegments)) {
     throw new Error('This Mini-Run pipeline route is not allowed.')
   }
