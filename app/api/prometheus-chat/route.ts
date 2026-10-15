@@ -3,6 +3,7 @@ import 'server-only'
 import Groq from 'groq-sdk'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { unwrapWirePayload, wrapWireResponse } from '@/lib/crypto/wire-shield'
 
 import {
   classifyPrometheusChatIntent,
@@ -107,8 +108,12 @@ export async function POST(req: Request) {
     query: '',
   }
 
+  let isShielded = false
   try {
-    const body = (await req.json().catch(() => null)) as PrometheusChatRequest | null
+    const rawBody = (await req.json().catch(() => null))
+    const unwrapped = await unwrapWirePayload<PrometheusChatRequest>(rawBody)
+    const body = unwrapped.data
+    isShielded = unwrapped.isShielded
     const messages = normalizeMessages(body?.messages)
     const latestMessage = cleanInline(body?.message) || cleanInline(body?.query) || getLatestUserMessage(messages)
 
@@ -118,15 +123,16 @@ export async function POST(req: Request) {
     const intent = classifyPrometheusChatIntent(latestMessage)
     const directReply = createDirectPrometheusReply(latestMessage, intent)
     if (directReply) {
-      return NextResponse.json({
+      const respData = {
         reply: directReply,
-        model: 'prometheus-direct',
+        model: isShielded ? 'prometheus-direct' : 'prometheus-direct',
         sources: [],
         frames: [],
         toolCalls: [],
         actionDrafts: [],
         attachments: [],
-      })
+      }
+      return NextResponse.json(await wrapWireResponse(respData, isShielded))
     }
 
 
@@ -269,15 +275,17 @@ export async function POST(req: Request) {
       normalizeAssistantText(rawReply, maxChars) ||
       createExtractivePrometheusAnswer(latestMessage, knowledge, maxChars)
 
-    return NextResponse.json({
+    const respPayload = {
       reply,
-      model,
+      model: isShielded ? 'prometheus-assistant' : model,
       sources: toSourcePayload(knowledge),
       frames: toFramePayload(frameReferences, executedToolCalls),
       toolCalls: executedToolCalls,
       actionDrafts: collectActionDrafts(executedToolCalls),
       attachments: attachments.map(toPublicAttachment),
-    })
+    }
+
+    return NextResponse.json(await wrapWireResponse(respPayload, isShielded))
   } catch (error) {
     const toolUseFailed = isToolUseFailed(error)
     const fallback = buildFallbackPayload({
@@ -295,7 +303,8 @@ export async function POST(req: Request) {
     const reply = toolUseFailed ? recoveredReply || fallback.reply : fallback.reply
 
     // Provider-side tool errors must never surface as raw model failures in the editor.
-    return NextResponse.json({ ...fallback, reply }, { status: 200 })
+    const fallbackResp = { ...fallback, reply }
+    return NextResponse.json(await wrapWireResponse(fallbackResp, isShielded), { status: 200 })
   } finally {
     clearTimeout(timeoutId)
   }

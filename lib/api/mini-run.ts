@@ -1,3 +1,10 @@
+import {
+  encryptWirePayload,
+  decryptWirePayload,
+  isWireShieldEnvelope,
+  type WireShieldEnvelope,
+} from '@/lib/crypto/wire-shield'
+
 const proxyRoot = '/api/mini-run'
 const safeIdentifierPattern = /^[A-Za-z0-9._~-]+$/
 
@@ -168,15 +175,38 @@ function normalizeEnvelope(payload: MiniRunJobEnvelope): MiniRunRenderStatus {
   }
 }
 
-export function createMiniRunClient(fetchImpl: FetchLike = fetch) {
+export interface MiniRunClientOptions {
+  shielded?: boolean
+}
+
+export function createMiniRunClient(fetchImpl: FetchLike = fetch, options: MiniRunClientOptions = {}) {
+  const shouldShield = options.shielded ?? (typeof window !== 'undefined' && process.env.NODE_ENV === 'production')
+
   const jsonRequest = async <T>(path: string, init?: RequestInit) => {
+    let body = init?.body
+    if (shouldShield && body && typeof body === 'string') {
+      try {
+        const parsed = JSON.parse(body)
+        const envelope = await encryptWirePayload(parsed)
+        body = JSON.stringify(envelope)
+      } catch {
+        // passthrough
+      }
+    }
+
     const response = await fetchImpl(`${proxyRoot}${path}`, {
       ...init,
+      body,
       credentials: 'same-origin',
       cache: 'no-store',
-      headers: init?.body ? {'Content-Type': 'application/json', ...init.headers} : init?.headers,
+      headers: body ? {'Content-Type': 'application/json', ...init?.headers} : init?.headers,
     })
-    return responseJson<T>(response)
+
+    const rawResult = await responseJson<T | WireShieldEnvelope>(response)
+    if (isWireShieldEnvelope(rawResult)) {
+      return decryptWirePayload<T>(rawResult)
+    }
+    return rawResult as T
   }
 
   return {

@@ -1,3 +1,5 @@
+import { unwrapWirePayload, wrapWireResponse } from '@/lib/crypto/wire-shield'
+
 export type MiniRunEnvironment = Partial<
   Record<'MINI_RUN_AWS_API_URL' | 'MINI_RUN_BACKEND_URL', string | undefined>
 >
@@ -124,15 +126,31 @@ export async function buildMiniRunRequest({
     if (value) headers.set(name, value)
   }
 
+  let body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text()
+  let isShielded = false
+  if (body) {
+    try {
+      const parsed = JSON.parse(body)
+      const unwrapped = await unwrapWirePayload(parsed)
+      if (unwrapped.isShielded) {
+        body = JSON.stringify(unwrapped.data)
+        isShielded = true
+      }
+    } catch {
+      // Keep plain body
+    }
+  }
+
   return {
     url: `${config.baseUrl}/${encodedPath}`,
     init: {
       method: request.method.toUpperCase(),
       headers,
-      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text(),
+      body,
       cache: 'no-store',
       redirect: 'manual',
     },
+    isShielded,
   }
 }
 
@@ -166,12 +184,28 @@ export async function proxyMiniRunRequest({
   if (request.method.toUpperCase() === 'GET' && /^api\/pipeline\/(job|longform)\/[A-Za-z0-9._~-]+$/.test(pathSegments.join('/')) && upstream.status === 303) {
     const location = upstream.headers.get('location')
     if (location) {
-      return Response.json({
+      const respObj = {
         jobId: pathSegments[pathSegments.length - 1],
         state: 'completed',
         status: 'completed',
         outputUrl: `/api/mini-run/job/${encodeURIComponent(pathSegments[pathSegments.length - 1])}/output`,
-      }, {headers: {'Cache-Control': 'no-store'}})
+      }
+      const finalBody = outbound.isShielded ? await wrapWireResponse(respObj, true) : respObj
+      return Response.json(finalBody, {headers: {'Cache-Control': 'no-store'}})
+    }
+  }
+
+  const contentType = upstream.headers.get('content-type') || ''
+  if (outbound.isShielded && contentType.includes('application/json') && upstream.ok) {
+    try {
+      const upstreamJson = await upstream.json()
+      const shieldedResponse = await wrapWireResponse(upstreamJson, true)
+      return Response.json(shieldedResponse, {
+        status: upstream.status,
+        headers: { 'Cache-Control': 'no-store', 'Content-Type': 'application/json' },
+      })
+    } catch {
+      // fallback to streaming raw upstream if JSON parse fails
     }
   }
 
