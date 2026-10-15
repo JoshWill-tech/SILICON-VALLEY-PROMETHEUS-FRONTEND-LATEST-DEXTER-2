@@ -5917,6 +5917,13 @@ function MobileEditorView({
   const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
   const activeJobStep = getActiveJobStep(job)
   const isJobRunning = job?.status === 'running'
+  const isExportRendering = Boolean(
+    latestExport &&
+    (latestExport.status === 'pending' || latestExport.status === 'processing')
+  )
+  const exportProgressPercent = isExportRendering && latestExport?.metadata && typeof (latestExport.metadata as Record<string, unknown>).progressPercent === 'number'
+    ? Math.round((latestExport.metadata as Record<string, unknown>).progressPercent as number)
+    : null
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -6017,16 +6024,20 @@ function MobileEditorView({
       default:
         return (
           <div className="h-full overflow-y-auto rounded-[24px] border border-white/8 bg-[#101116] p-4">
-            {isJobRunning ? (
+            {isJobRunning || isExportRendering ? (
               <div className="rounded-[20px] border border-[#6366f1]/28 bg-[#6366f1]/12 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-white">{activeJobStep?.title ?? activeJobStep?.key ?? 'AI task running'}</div>
-                    <div className="mt-1 truncate text-xs text-white/52">{activeJobStep?.status ?? 'Processing'}</div>
+                    <div className="truncate text-sm font-medium text-white">
+                      {isExportRendering ? 'Rendering export MP4' : (activeJobStep?.title ?? activeJobStep?.key ?? 'AI task running')}
+                    </div>
+                    <div className="mt-1 truncate text-xs text-white/52">
+                      {isExportRendering ? (exportProgressPercent !== null ? `${exportProgressPercent}% complete` : 'Processing cloud render') : (activeJobStep?.status ?? 'Processing')}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <InlineLoadingAnimation size={24} label="AI task running" />
-                    <div className="text-sm text-white/72">{progressPercent}%</div>
+                    <InlineLoadingAnimation size={24} label={isExportRendering ? 'Export rendering' : 'AI task running'} />
+                    <div className="text-sm text-white/72">{isExportRendering ? (exportProgressPercent ?? 0) : progressPercent}%</div>
                   </div>
                 </div>
               </div>
@@ -6568,11 +6579,13 @@ function OriginalEditorPage() {
       }
     }
     void loadLatestExport()
+    const isActivelyRendering = latestExport?.status === 'pending' || latestExport?.status === 'processing'
+    const intervalMs = isActivelyRendering ? 2500 : 10_000
     const timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') void loadLatestExport()
-    }, 10_000)
+    }, intervalMs)
     return () => window.clearInterval(timer)
-  }, [projectId])
+  }, [projectId, latestExport?.status])
 
   React.useEffect(() => {
     writeLocalStorageJSON(selectedEditorMusicStorageKey(projectId), selectedEditorMusicTrackId)
@@ -6974,6 +6987,19 @@ function OriginalEditorPage() {
     if (!job?.steps.length) return 0
     return Math.round((job.steps.reduce((sum, step) => sum + step.progress, 0) / job.steps.length) * 100)
   }, [job])
+
+  const isExportRendering = Boolean(
+    latestExport &&
+    project?.sourceAssetId &&
+    (latestExport.status === 'pending' || latestExport.status === 'processing')
+  )
+  const exportProgressPercent = React.useMemo(() => {
+    if (!isExportRendering || !latestExport?.metadata) return null
+    const progress = (latestExport.metadata as Record<string, unknown>).progressPercent
+    return typeof progress === 'number' && Number.isFinite(progress) && progress >= 0 && progress <= 100
+      ? Math.round(progress)
+      : null
+  }, [isExportRendering, latestExport])
 
   const incomingPreviewKind = ((sourceStageVisiblePreviewUrl ? stagedPreviewKind : null) ?? stableProjectPreviewKind ?? 'video') as PreviewMediaKind
   const previewSourceKey = projectPreviewSourceKey
@@ -9476,6 +9502,8 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           activeWorkspaceTab={activeWorkspaceTab}
           isDeferredChromeReady={isDeferredChromeReady}
           isExporting={isExporting}
+          isExportRendering={isExportRendering}
+          exportProgressPercent={exportProgressPercent}
           isDownloading={isDownloading}
           latestExport={latestExport && project?.sourceAssetId && isPlayableRender(latestExport, projectId, project.sourceAssetId) ? latestExport : null}
           hasSourceAsset={hasSourceAsset}
@@ -9734,6 +9762,39 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
           </div>
         </main>
+
+        {isExportRendering ? (
+          <aside
+            aria-label="Export rendering status"
+            role="status"
+            className="fixed bottom-6 right-6 z-[120] flex items-center gap-3 rounded-2xl border border-blue-500/30 bg-[#0c1017]/95 px-4 py-3 text-white shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_24px_rgba(59,130,246,0.2)] backdrop-blur-xl transition-all duration-300"
+          >
+            <div className="flex items-center gap-3">
+              <InlineLoadingAnimation size={18} label={`Export rendering at ${exportProgressPercent ?? 0}%`} />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-white">Rendering MP4</span>
+                  <span className="text-xs font-bold tabular-nums text-blue-400">
+                    {exportProgressPercent !== null ? `${exportProgressPercent}%` : 'Processing…'}
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1 w-36 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-[width] duration-300 ease-out"
+                    style={{ width: `${exportProgressPercent ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowExport(true)}
+              className="ml-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              Details
+            </button>
+          </aside>
+        ) : null}
       </div>
       </div>
 

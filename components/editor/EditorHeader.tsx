@@ -22,6 +22,8 @@ export interface EditorHeaderProps {
   activeWorkspaceTab: HeaderNavMode
   isDeferredChromeReady: boolean
   isExporting: boolean
+  isExportRendering?: boolean
+  exportProgressPercent?: number | null
   isDownloading: boolean
   latestExport: ProjectExport | null
   hasSourceAsset: boolean
@@ -48,6 +50,8 @@ export function EditorHeader({
   activeWorkspaceTab,
   isDeferredChromeReady,
   isExporting,
+  isExportRendering = false,
+  exportProgressPercent = null,
   isDownloading,
   latestExport,
   hasSourceAsset,
@@ -162,6 +166,8 @@ export function EditorHeader({
               <CinematicExportCluster
                 onExport={onPrepareExport}
                 isExporting={isExporting}
+                isRendering={isExportRendering}
+                progressPercent={exportProgressPercent}
                 isCompleted={latestExport?.status === 'completed'}
                 onDownload={onDownload}
                 isDownloading={isDownloading}
