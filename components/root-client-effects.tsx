@@ -19,6 +19,11 @@ const JarvisTopNavFilament = dynamic(
   { ssr: false },
 )
 
+const DevToolsShield = dynamic(
+  () => import('@/components/security/DevToolsShield').then((mod) => mod.DevToolsShield),
+  { ssr: false },
+)
+
 const CinematicClickRipple = dynamic(
   () => import('@/components/ui/cinematic-click-ripple').then((mod) => mod.CinematicClickRipple),
   {
@@ -75,6 +80,7 @@ export function RootClientEffects() {
 
   return (
     <>
+      <DevToolsShield />
       <ThemeInjector />
       {enhancementsReady ? <JarvisTopNavFilament /> : null}
       {isEditorRoute ? <AgenticCursorLayer /> : null}

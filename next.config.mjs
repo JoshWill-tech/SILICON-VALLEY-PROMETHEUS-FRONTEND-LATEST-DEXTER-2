@@ -29,6 +29,7 @@ const nextConfig = {
     NEXT_PUBLIC_AUTH_PREVIEW_ORIGINS: JSON.stringify([...new Set(authPreviewOrigins)]),
   },
   poweredByHeader: false,
+  productionBrowserSourceMaps: false,
   images: {
     // Lossless-ish delivery: AVIF first, WebP fallback — no perceptual quality loss.
     formats: ['image/avif', 'image/webp'],
