@@ -3,7 +3,7 @@ import {NextResponse} from 'next/server'
 
 import {dispatchMiniRunRender} from '@/lib/server/mini-run-dispatch'
 import {buildMcpOAuthChallenge} from '@/lib/server/mcp-oauth'
-import {miniRunUserHeaders, resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
+import {getMiniRunEnvironment, miniRunUserHeaders, resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 import {getSupabaseConfig} from '@/lib/supabase/config'
 
 export const runtime = 'nodejs'
@@ -154,7 +154,7 @@ async function callTool(auth: NonNullable<Awaited<ReturnType<typeof authenticate
     if (!SAFE_JOB_ID.test(jobId) || jobId === '.' || jobId === '..') {
       return toolText({error: 'A valid jobId is required.'}, true)
     }
-    const config = resolveMiniRunConfig({MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL})
+    const config = resolveMiniRunConfig(getMiniRunEnvironment())
     const response = await fetch(`${config.baseUrl}/api/pipeline/job/${encodeURIComponent(jobId)}`, {
       headers: miniRunUserHeaders(auth.accessToken),
       cache: 'no-store',

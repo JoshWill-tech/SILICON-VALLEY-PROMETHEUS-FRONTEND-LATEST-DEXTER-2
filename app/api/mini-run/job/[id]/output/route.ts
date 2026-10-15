@@ -3,7 +3,7 @@ import path from 'node:path'
 import {NextResponse} from 'next/server'
 
 import {fetchMiniRunMedia} from '@/lib/server/mini-run-delivery'
-import {resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
+import {getMiniRunEnvironment, resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 import {createClient} from '@/lib/supabase/server'
 import {isDevBypassActive} from '@/lib/supabase/dev-bypass'
 
@@ -79,10 +79,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
       return NextResponse.json({error: 'Unauthorized'}, {status: 401})
     }
 
-    const config = resolveMiniRunConfig({
-      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
-      MINI_RUN_BACKEND_URL: process.env.MINI_RUN_BACKEND_URL,
-    })
+    const config = resolveMiniRunConfig(getMiniRunEnvironment())
     const headers = {'X-Mini-Run-User-Token': session?.access_token || ''}
     const statusUrl = `${config.baseUrl}/api/pipeline/job/${encodeURIComponent(id)}`
     const statusResponse = await fetch(statusUrl, {
