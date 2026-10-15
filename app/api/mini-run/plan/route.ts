@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { ProjectService } from '@/lib/projects/service'
 import { buildMiniRunRenderPayload } from '@/lib/server/mini-run-render-payload'
 import { buildMiniRunSourceUrl } from '@/lib/server/mini-run-dispatch'
-import { resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
+import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -87,9 +87,7 @@ export async function POST(req: Request) {
     const bucket = row.storage_bucket || process.env.R2_BUCKET_SOURCES || 'prometheus-sources'
     jobId = crypto.randomUUID()
 
-    const env = {
-      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL,
-    }
+    const env = getMiniRunEnvironment()
     const config = resolveMiniRunConfig(env)
     const sourceUrl = await buildMiniRunSourceUrl(bucket, row.storage_path)
     const bodyPayload = buildMiniRunRenderPayload({

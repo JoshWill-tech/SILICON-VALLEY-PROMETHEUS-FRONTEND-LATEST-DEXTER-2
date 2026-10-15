@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server'
 
-import {proxyMiniRunRequest} from '@/lib/server/mini-run-proxy'
+import {getMiniRunEnvironment, proxyMiniRunRequest} from '@/lib/server/mini-run-proxy'
 import {createClient} from '@/lib/supabase/server'
 import {isDevBypassActive} from '@/lib/supabase/dev-bypass'
 
@@ -46,24 +46,14 @@ async function handleMiniRun(request: Request, params: {path: string[]}) {
     }
   }
 
-  // The environment is resolved lazily by the proxy; fail fast with a clear
-  // status when the Mini-Runs app is not configured for this deployment.
-  const configuredUrl = process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL
-  if (!configuredUrl) {
-    return NextResponse.json(
-      {error: 'MINI_RUN_AWS_API_URL is not configured.', code: 'MINI_RUN_NOT_CONFIGURED'},
-      {status: 503},
-    )
-  }
+  const env = getMiniRunEnvironment()
 
   try {
     return await proxyMiniRunRequest({
       request,
       pathSegments: params.path,
       accessToken,
-      env: {
-        MINI_RUN_AWS_API_URL: configuredUrl,
-      },
+      env,
     })
   } catch (error) {
     console.error('[api/mini-run] proxy error:', error)

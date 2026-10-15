@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { ProjectService } from '@/lib/projects/service'
 import { buildMiniRunRenderPayload } from '@/lib/server/mini-run-render-payload'
 import { buildMiniRunSourceUrl } from '@/lib/server/mini-run-dispatch'
-import { resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
+import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
 import { createClient } from '@/lib/supabase/server'
 import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 
@@ -112,9 +112,7 @@ export async function POST(req: Request) {
     // the gateway re-derives its own internal id from the same value.
     jobId = isJeffSimonsDev ? 'mini_run_jeff_simons_1791228687' : crypto.randomUUID()
 
-    const env = {
-      MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL || process.env.MINI_RUN_BACKEND_URL,
-    }
+    const env = getMiniRunEnvironment()
     const config = resolveMiniRunConfig(env)
     const sourceUrl = isJeffSimonsDev
       ? 'http://localhost:3000/media/mini-run/raw_jeff_simons.mp4'
