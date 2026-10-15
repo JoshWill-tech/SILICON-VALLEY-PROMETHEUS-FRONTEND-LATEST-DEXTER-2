@@ -9,6 +9,7 @@ import {
   createContentSecurityPolicy,
   createCspNonce,
   enforceRateLimit,
+  handleDecoyHoneypot,
 } from '@/lib/server/request-security'
 
 const AUTH_PAGE_PREFIXES = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password', '/auth']
@@ -75,6 +76,9 @@ function redirectToSignup(req: NextRequest) {
 export async function proxy(request: NextRequest) {
   const rateLimitResponse = await enforceRateLimit(request)
   if (rateLimitResponse) return rateLimitResponse
+
+  const decoyResponse = handleDecoyHoneypot(request)
+  if (decoyResponse) return applySecurityHeaders(decoyResponse, createCspNonce())
 
   const nonce = createCspNonce()
   const cspHeader = createContentSecurityPolicy(nonce)

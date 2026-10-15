@@ -74,6 +74,42 @@ export function createContentSecurityPolicy(nonce: string) {
   ].join('; ')
 }
 
+const DECOY_PATHS = [
+  '/.env',
+  '/.env.local',
+  '/.env.production',
+  '/.git',
+  '/.git/config',
+  '/api/admin/llm-keys',
+  '/api/admin/config',
+  '/api/v1/internal/config',
+  '/api/debug/system',
+  '/wp-login.php',
+  '/actuator/health',
+]
+
+export function handleDecoyHoneypot(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl
+  const lower = pathname.toLowerCase()
+  if (DECOY_PATHS.some((p) => lower === p || lower.startsWith(`${p}/`))) {
+    return NextResponse.json(
+      {
+        status: 'unavailable',
+        code: 'RESOURCE_NOT_FOUND',
+        traceId: `trap-${crypto.randomUUID().slice(0, 8)}`,
+      },
+      {
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+          'X-Robots-Tag': 'noindex, nofollow',
+        },
+      }
+    )
+  }
+  return null
+}
+
 export function applySecurityHeaders(response: NextResponse, nonce: string): NextResponse {
   response.headers.set('Content-Security-Policy', createContentSecurityPolicy(nonce))
   response.headers.set('X-Frame-Options', 'DENY')
@@ -84,5 +120,10 @@ export function applySecurityHeaders(response: NextResponse, nonce: string): Nex
   response.headers.set('X-DNS-Prefetch-Control', 'off')
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin')
   response.headers.set('Cross-Origin-Resource-Policy', 'same-origin')
+  // Anti-fingerprinting: Strip backend stack identifiers
+  response.headers.delete('X-Powered-By')
+  response.headers.delete('x-powered-by')
+  response.headers.set('Server', 'protected')
   return response
 }
+

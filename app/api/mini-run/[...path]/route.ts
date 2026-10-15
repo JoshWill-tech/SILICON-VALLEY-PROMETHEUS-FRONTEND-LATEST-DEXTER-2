@@ -32,10 +32,8 @@ async function handleMiniRun(request: Request, params: {path: string[]}) {
   if (!isHealthCheck) {
     try {
       const supabase = await createClient()
-      const [{data: {user}, error}, {data: {session}}] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.auth.getSession(),
-      ])
+      const { data: { user }, error } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
 
       if (error || !user || !session?.access_token) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
