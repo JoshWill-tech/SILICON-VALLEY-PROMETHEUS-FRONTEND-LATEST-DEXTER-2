@@ -33,6 +33,8 @@ export type MiniRunRenderDispatchRequest = {
   songPolicy?: 'auto' | 'disabled'
   shot?: Partial<MiniRunShotSpec>
   draftManifest?: Record<string, unknown>
+  transcriptSegments?: unknown[]
+  words?: unknown[]
 }
 
 export type MiniRunRenderDispatchEnvironment = MiniRunEnvironment
@@ -61,6 +63,8 @@ export async function dispatchMiniRunRender({
     shot: {...request.shot, songPolicy: request.songPolicy ?? request.shot?.songPolicy},
     jobId: request.jobId ?? request.projectId,
     draftManifest: request.draftManifest,
+    transcriptSegments: request.transcriptSegments,
+    words: request.words,
   })
   const metadata = body.metadata as Record<string, unknown>
   metadata.pipeline = 'maul'

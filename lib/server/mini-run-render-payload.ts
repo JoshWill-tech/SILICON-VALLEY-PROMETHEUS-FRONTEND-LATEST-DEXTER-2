@@ -16,6 +16,8 @@ type BuildMiniRunRenderPayloadInput = {
   shot: Partial<MiniRunShotSpec>
   jobId: string
   draftManifest?: Record<string, unknown>
+  transcriptSegments?: unknown[]
+  words?: unknown[]
 }
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -34,6 +36,8 @@ export function buildMiniRunRenderPayload({
   shot,
   jobId,
   draftManifest,
+  transcriptSegments,
+  words,
 }: BuildMiniRunRenderPayloadInput): Record<string, unknown> {
   const sourceDurationMs = isFiniteNumber(source.durationMs) && source.durationMs > 0
     ? Math.round(source.durationMs)
@@ -86,6 +90,8 @@ export function buildMiniRunRenderPayload({
     maxChunkWords,
     ...(shot.songPolicy === 'disabled' ? { audio: { songPolicy: 'disabled' } } : {}),
     ...(draftManifest ? { draftManifest } : {}),
+    ...(Array.isArray(transcriptSegments) && transcriptSegments.length > 0 ? { transcriptSegments } : {}),
+    ...(Array.isArray(words) && words.length > 0 ? { words } : {}),
     jobId,
   }
 }

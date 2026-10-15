@@ -178,6 +178,9 @@ export async function POST(request: Request, {params}: RouteContext) {
         editorialRevision: currentRevision,
         songPolicy: 'auto',
         draftManifest,
+        transcriptSegments: (Array.isArray(asset.transcript_segments) && asset.transcript_segments.length > 0)
+          ? asset.transcript_segments
+          : undefined,
       },
       env: safeGetMiniRunEnvironment({
         MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
