@@ -315,6 +315,9 @@ function OriginalProjectsPage() {
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(() => new Set())
   const [deleteTarget, setDeleteTarget] = React.useState<Project | null>(null)
   const [bulkDeleteOpen, setBulkDeleteOpen] = React.useState(false)
+  const [bulkDeleteConfirmation, setBulkDeleteConfirmation] = React.useState('')
+  const [isDeletingProjects, setIsDeletingProjects] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [exportSettingsProject, setExportSettingsProject] = React.useState<Project | null>(null)
   const [actionSheetProject, setActionSheetProject] = React.useState<Project | null>(null)
   const [activityCollapsed, setActivityCollapsed] = React.useState(false)
@@ -524,11 +527,58 @@ function OriginalProjectsPage() {
     [refreshProjects],
   )
 
-  const deleteProjects = React.useCallback((ids: Set<string>) => {
-    removeProjectsLocally(ids)
-    setSelectedIds((current) => new Set(Array.from(current).filter((id) => !ids.has(id))))
-    refreshProjects()
-  }, [refreshProjects])
+  const deleteProjects = React.useCallback(async (ids: Set<string>) => {
+    const deletedIds = new Set<string>()
+    const failedTitles: string[] = []
+
+    // Keep deletion requests sequential so each project finishes before the next begins.
+    for (const id of ids) {
+      const project = projects.find((item) => item.id === id)
+      try {
+        const response = await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (!response.ok) {
+          failedTitles.push(project?.title ?? id)
+          continue
+        }
+        deletedIds.add(id)
+      } catch {
+        failedTitles.push(project?.title ?? id)
+      }
+    }
+
+    if (deletedIds.size > 0) {
+      removeProjectsLocally(deletedIds)
+      setSelectedIds((current) => new Set(Array.from(current).filter((id) => !deletedIds.has(id))))
+      refreshProjects()
+    }
+
+    return { deletedCount: deletedIds.size, failedTitles }
+  }, [projects, refreshProjects])
+
+  const confirmProjectDeletion = React.useCallback(async () => {
+    const ids = bulkDeleteOpen ? new Set(selectedIds) : deleteTarget ? new Set([deleteTarget.id]) : new Set<string>()
+    if (ids.size === 0 || (bulkDeleteOpen && bulkDeleteConfirmation.trim() !== 'DELETE')) return
+
+    setIsDeletingProjects(true)
+    setDeleteError(null)
+    try {
+      const result = await deleteProjects(ids)
+      if (result.failedTitles.length > 0) {
+        setDeleteError(
+          `${result.deletedCount > 0 ? `${result.deletedCount} deleted. ` : ''}Could not delete: ${result.failedTitles.join(', ')}. Try again after checking your connection.`,
+        )
+        toast.error(result.deletedCount > 0 ? 'Some projects could not be deleted' : 'Projects could not be deleted')
+        return
+      }
+
+      setDeleteTarget(null)
+      setBulkDeleteOpen(false)
+      setBulkDeleteConfirmation('')
+      toast.success(result.deletedCount === 1 ? 'Project deleted' : `${result.deletedCount} projects deleted`)
+    } finally {
+      setIsDeletingProjects(false)
+    }
+  }, [bulkDeleteConfirmation, bulkDeleteOpen, deleteProjects, deleteTarget, selectedIds])
 
   const hideVersion = React.useCallback(
     (project: Project, version: VersionRecord) => {
@@ -581,7 +631,7 @@ function OriginalProjectsPage() {
         event.preventDefault()
         searchInputRef.current?.focus()
       }
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !isDeletingProjects) {
         setQuery('')
         setTagFilter(null)
         setActionSheetProject(null)
@@ -597,7 +647,7 @@ function OriginalProjectsPage() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [filteredProjects])
+  }, [filteredProjects, isDeletingProjects])
 
   const hasActiveFilter = query.trim().length > 0 || statusFilter !== 'all' || Boolean(tagFilter)
   const isEmpty = !isLoading && projects.length === 0
@@ -628,12 +678,36 @@ function OriginalProjectsPage() {
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="min-w-0">
-                <SearchBar
-                  inputRef={searchInputRef}
-                  query={query}
-                  onClear={() => setQuery('')}
-                  onQueryChange={setQuery}
-                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <SearchBar
+                    inputRef={searchInputRef}
+                    query={query}
+                    onClear={() => setQuery('')}
+                    onQueryChange={setQuery}
+                  />
+                  {filteredProjects.length > 0 ? (
+                    <button
+                      type="button"
+                      aria-pressed={filteredProjects.every((project) => selectedIds.has(project.id))}
+                      onClick={() => {
+                        const allVisibleSelected = filteredProjects.every((project) => selectedIds.has(project.id))
+                        setSelectedIds((current) => {
+                          const next = new Set(current)
+                          filteredProjects.forEach((project) => {
+                            if (allVisibleSelected) next.delete(project.id)
+                            else next.add(project.id)
+                          })
+                          return next
+                        })
+                      }}
+                      className="rounded-full border border-white/10 px-3.5 py-2 text-xs font-medium text-white/65 transition-colors hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#818cf8]"
+                    >
+                      {filteredProjects.every((project) => selectedIds.has(project.id))
+                        ? 'Deselect visible'
+                        : `Select visible (${filteredProjects.length})`}
+                    </button>
+                  ) : null}
+                </div>
 
                 <div className="mt-5">
                   {isLoading ? (
@@ -717,24 +791,24 @@ function OriginalProjectsPage() {
 
       <DeleteConfirmationModal
         bulkCount={bulkDeleteOpen ? selectedIds.size : 0}
+        bulkConfirmation={bulkDeleteConfirmation}
+        deleteError={deleteError}
+        isDeleting={isDeletingProjects}
         project={deleteTarget}
+        selectedProjectTitles={selectedProjects.map((item) => item.title)}
         open={Boolean(deleteTarget) || bulkDeleteOpen}
         onClose={() => {
+          if (isDeletingProjects) return
           setDeleteTarget(null)
           setBulkDeleteOpen(false)
+          setBulkDeleteConfirmation('')
+          setDeleteError(null)
         }}
-        onConfirm={() => {
-          if (bulkDeleteOpen) {
-            deleteProjects(selectedIds)
-            setBulkDeleteOpen(false)
-            toast.success('Selected projects deleted')
-            return
-          }
-          if (!deleteTarget) return
-          deleteProjects(new Set([deleteTarget.id]))
-          setDeleteTarget(null)
-          toast.success('Project deleted')
+        onBulkConfirmationChange={(value) => {
+          setBulkDeleteConfirmation(value)
+          setDeleteError(null)
         }}
+        onConfirm={() => void confirmProjectDeletion()}
       />
 
       <ExportSettingsModal
@@ -766,7 +840,11 @@ function OriginalProjectsPage() {
         onBulkTagChange={setBulkTagValue}
         onBulkTagCommit={bulkApplyTag}
         onClear={() => setSelectedIds(new Set())}
-        onDelete={() => setBulkDeleteOpen(true)}
+        onDelete={() => {
+          setBulkDeleteConfirmation('')
+          setDeleteError(null)
+          setBulkDeleteOpen(true)
+        }}
         onExport={() => toast.success('Batch export queued')}
         selectedProjects={selectedProjects}
       />
@@ -1444,37 +1522,84 @@ function RecentActivityFeed({
 
 function DeleteConfirmationModal({
   bulkCount,
+  bulkConfirmation,
+  deleteError,
+  isDeleting,
   onClose,
+  onBulkConfirmationChange,
   onConfirm,
   open,
   project,
+  selectedProjectTitles,
 }: {
   bulkCount: number
+  bulkConfirmation: string
+  deleteError: string | null
+  isDeleting: boolean
   onClose: () => void
+  onBulkConfirmationChange: (value: string) => void
   onConfirm: () => void
   open: boolean
   project: Project | null
+  selectedProjectTitles: string[]
 }) {
-  const title = bulkCount > 0 ? `Delete ${bulkCount} selected projects?` : `Delete '${project?.title ?? 'Project'}'?`
+  const isBulkDelete = bulkCount > 0
+  const title = isBulkDelete ? `Delete ${bulkCount} selected ${bulkCount === 1 ? 'project' : 'projects'}?` : `Delete "${project?.title ?? 'Project'}"?`
+  const canDelete = !isDeleting && (!isBulkDelete || bulkConfirmation.trim() === 'DELETE')
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-[24px] border-white/10 bg-[#0a0a0d] text-white">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg rounded-[24px] border-white/10 bg-[#0a0a0d] text-white">
         <DialogHeader>
           <div className="mb-3 flex size-11 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
             <AlertTriangle className="size-5" />
           </div>
           <DialogTitle className="text-lg text-white">{title}</DialogTitle>
           <DialogDescription className="text-white/50">
-            This project and all its versions will be permanently removed. This cannot be undone.
+            {isBulkDelete
+              ? 'These projects and their versions will be permanently removed. This cannot be undone.'
+              : 'This project and its versions will be permanently removed. This cannot be undone.'}
           </DialogDescription>
         </DialogHeader>
+        {isBulkDelete ? (
+          <div className="space-y-4 px-6">
+            <div className="max-h-44 overflow-y-auto rounded-[16px] border border-white/10 bg-white/[0.03] p-3">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-white/40">
+                {bulkCount} {bulkCount === 1 ? 'project' : 'projects'} selected
+              </p>
+              <ul className="space-y-1.5 text-sm text-white/75">
+                {selectedProjectTitles.map((title, index) => (
+                  <li key={`${title}-${index}`} className="flex items-start gap-2">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-white/35" />
+                    <span className="break-words">{title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <label className="block space-y-2 text-sm text-white/70">
+              <span>Type <span className="font-semibold tracking-wide text-white">DELETE</span> to confirm</span>
+              <Input
+                autoComplete="off"
+                autoFocus
+                value={bulkConfirmation}
+                onChange={(event) => onBulkConfirmationChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && canDelete) onConfirm()
+                }}
+                placeholder="DELETE"
+                disabled={isDeleting}
+                className="h-11 rounded-[14px] border-white/14 bg-white/[0.04] text-white placeholder:text-white/30 focus-visible:ring-[#6366f1]"
+              />
+            </label>
+          </div>
+        ) : null}
+        {deleteError ? <p role="alert" className="px-6 text-sm leading-5 text-rose-300">{deleteError}</p> : null}
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isDeleting}>
+            {isDeleting ? 'Deleting…' : 'Cancel'}
           </Button>
-          <Button type="button" variant="destructive" onClick={onConfirm}>
-            Delete Project
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={!canDelete}>
+            {isDeleting ? 'Deleting…' : isBulkDelete ? `Delete ${bulkCount} ${bulkCount === 1 ? 'project' : 'projects'}` : 'Delete project'}
           </Button>
         </DialogFooter>
       </DialogContent>

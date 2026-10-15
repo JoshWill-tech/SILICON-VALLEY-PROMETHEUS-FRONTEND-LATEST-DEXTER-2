@@ -8,6 +8,7 @@ import type { ProjectExport } from '@/lib/types'
 import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import { isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath } from '@/lib/editor/render-delivery'
+import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider } from '@/components/editor/video-review-annotations'
 
 type TextTreatment = {
   fontFamily: string
@@ -76,6 +77,8 @@ export function EditorialDeliveryStudio({
   const [expanded, setExpanded] = React.useState(false)
   const [comparisonOpen, setComparisonOpen] = React.useState(false)
   const refreshSequenceRef = React.useRef(0)
+  const comparisonSourceRef = React.useRef<HTMLVideoElement>(null)
+  const comparisonRenderRef = React.useRef<HTMLVideoElement>(null)
 
   const cues = editorial.timeline?.cues ?? []
   const textCues = cues.filter((cue) => cue.type === 'text')
@@ -237,6 +240,7 @@ export function EditorialDeliveryStudio({
               if (event.target === event.currentTarget) setComparisonOpen(false)
             }}
           >
+            <VideoReviewProvider key={`${projectId}:${sourceAssetId}`} projectId={projectId} sourceAssetId={sourceAssetId} projectTitle={projectTitle}>
             <motion.section
               initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -249,6 +253,7 @@ export function EditorialDeliveryStudio({
                   <h2 className="truncate text-sm font-medium text-white/88">Compare versions</h2>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
+                  <VideoReviewDownloadButton />
                   <button type="button" onClick={() => void refresh()} aria-label="Refresh versions" title="Refresh versions" className="grid size-9 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white"><RefreshCw className="size-4" /></button>
                   <button type="button" onClick={() => setComparisonOpen(false)} aria-label="Close comparison" title="Close" className="grid size-9 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white"><X className="size-4" /></button>
                 </div>
@@ -261,12 +266,14 @@ export function EditorialDeliveryStudio({
               <p className="px-4 pt-3 text-[11px] text-white/50 sm:px-6">Source Mini-Run MP4s use the original footage with automatic music and captions; editor timeline layers are not included.</p>
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-3 sm:grid-cols-2 sm:p-5">
                 <figure className="relative flex aspect-video min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-black sm:aspect-auto">
-                  {sourceUrl ? <video key={sourceUrl} src={sourceUrl} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Original video" /> : <div className="grid h-full place-items-center text-xs text-white/40">Source video unavailable</div>}
+                  {sourceUrl ? <video key={sourceUrl} ref={comparisonSourceRef} crossOrigin="anonymous" src={sourceUrl} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Original video" /> : <div className="grid h-full place-items-center text-xs text-white/40">Source video unavailable</div>}
+                  {sourceUrl ? <VideoAnnotateButton videoRef={comparisonSourceRef} source="original" /> : null}
                   <figcaption className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/12 bg-black/65 px-2.5 py-1 text-[10px] font-medium text-white/75 backdrop-blur">Original</figcaption>
                 </figure>
 
                 <figure className="relative flex aspect-video min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[#b4fb60]/16 bg-black sm:aspect-auto">
-                  {finishedRecord ? <video key={finishedRecord.id} src={renderPreviewPath(finishedRecord.id)} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Rendered MP4" /> : <div className="grid h-full place-items-center px-6 text-center text-xs text-white/42">{pendingRecord ? 'The backend is rendering. The MP4 will appear here when its receipt is ready.' : 'No completed MP4 is available yet.'}</div>}
+                  {finishedRecord ? <video key={finishedRecord.id} ref={comparisonRenderRef} crossOrigin="anonymous" src={renderPreviewPath(finishedRecord.id)} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Rendered MP4" /> : <div className="grid h-full place-items-center px-6 text-center text-xs text-white/42">{pendingRecord ? 'The backend is rendering. The MP4 will appear here when its receipt is ready.' : 'No completed MP4 is available yet.'}</div>}
+                  {finishedRecord ? <VideoAnnotateButton videoRef={comparisonRenderRef} source="rendered" renderId={finishedRecord.id} /> : null}
                   <figcaption className="pointer-events-none absolute left-3 top-3 rounded-full border border-[#b4fb60]/22 bg-black/70 px-2.5 py-1 text-[10px] font-medium text-[#c9ff88] backdrop-blur">Rendered MP4</figcaption>
                 </figure>
               </div>
@@ -276,6 +283,7 @@ export function EditorialDeliveryStudio({
                 {finishedRecord ? <button type="button" onClick={() => void download()} disabled={isDownloading} className="ml-auto inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/12 px-3 text-[11px] text-white/70 hover:bg-white/5"><ArrowDownToLine className="size-3.5" /> Download</button> : null}
               </footer>
             </motion.section>
+            </VideoReviewProvider>
           </motion.div>,
           document.body,
         ) : null}

@@ -87,13 +87,9 @@ function getCryptoInstance(): Crypto {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
     return globalThis.crypto
   }
-  // In Node environment without global crypto, load node:crypto
-  try {
-    const nodeCrypto = require('node:crypto')
-    return nodeCrypto.webcrypto as Crypto
-  } catch {
-    throw new Error('WebCrypto API is not available in the current runtime environment.')
-  }
+  // Supported browsers and the Node runtime used by Next.js expose Web Crypto.
+  // A static Node fallback here also enters the browser graph and breaks webpack.
+  throw new Error('WebCrypto API is not available in the current runtime environment.')
 }
 
 /**
