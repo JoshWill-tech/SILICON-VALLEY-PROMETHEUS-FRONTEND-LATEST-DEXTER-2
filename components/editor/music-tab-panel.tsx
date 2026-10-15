@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { ChevronDown, Crown, FileUp, Folder, Heart, Music, Pause, Play, Plus, Search, SlidersHorizontal, Sparkles, UserRound, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { MusicLibraryPreview, MusicLibraryTrackRow } from '@/components/editor/music-library-preview'
+import { MusicFavoriteButton, MusicLibraryPreview, MusicLibraryTrackRow } from '@/components/editor/music-library-preview'
 import styles from './music-library.module.css'
 import { CinematicLogoLoader } from '@/components/loading-animation/cinematic-logo-loader'
 import { MusicPlayer } from '@/components/ui/music-player'
@@ -68,6 +68,17 @@ type CloudMusicFile = {
 }
 
 const PERSONAL_MUSIC_LIBRARY_STORAGE_KEY = 'prometheus.editor.personal-music.v1'
+const MUSIC_FAVORITES_STORAGE_KEY = 'prometheus.editor.music-favorites.v1'
+
+function readFavoriteTrackIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(MUSIC_FAVORITES_STORAGE_KEY) ?? '[]')
+    return new Set(Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
 
 function readPersonalMusicLibrary() {
   if (typeof window === 'undefined') return { files: [] as PersonalMusicFile[], folders: [] as string[] }
@@ -210,6 +221,8 @@ function MyMusicShelf({
   onFilesSelected,
   onSelectTrack,
   onPreviewTrack,
+  favoriteTrackIds,
+  onToggleFavorite,
   onRemoveTrack,
   onMoveTrack,
   selectedTrackId,
@@ -227,6 +240,8 @@ function MyMusicShelf({
   onFilesSelected: React.ChangeEventHandler<HTMLInputElement>
   onSelectTrack: (file: PersonalMusicFile) => void
   onPreviewTrack: (file: PersonalMusicFile) => void
+  favoriteTrackIds: Set<string>
+  onToggleFavorite: (trackId: string) => void
   onRemoveTrack: (file: PersonalMusicFile) => void
   onMoveTrack: (file: PersonalMusicFile, folder: string) => void
   selectedTrackId: string | null
@@ -305,6 +320,7 @@ function MyMusicShelf({
                     <button type="button" onClick={() => onPreviewTrack(file)} disabled={!file.previewUrl} className="grid size-7 place-items-center rounded-full text-white/58 transition hover:bg-white/10 hover:text-white disabled:opacity-30" aria-label={playingTrackId === file.id ? `Pause ${file.title || file.name}` : `Preview ${file.title || file.name}`}>
                       {playingTrackId === file.id ? <Pause className="size-3.5 fill-current" /> : <Play className="ml-0.5 size-3.5 fill-current" />}
                     </button>
+                    <MusicFavoriteButton title={file.title || file.name} isFavorite={favoriteTrackIds.has(file.id)} onToggle={() => onToggleFavorite(file.id)} />
                     <button type="button" onClick={() => onSelectTrack(file)} disabled={!file.previewUrl} className="grid size-7 place-items-center rounded-full text-white/58 transition hover:bg-[#4d9dff]/15 hover:text-white disabled:opacity-30" aria-label={`Select ${file.title || file.name} for preview`}>
                       <Plus className="size-3.5" />
                     </button>
@@ -569,11 +585,19 @@ export function MusicTabPanel({
   const [volume, setVolume] = React.useState(80)
   const [isShuffle, setIsShuffle] = React.useState(false)
   const [isRepeat, setIsRepeat] = React.useState(false)
-  const [favoriteTrackIds, setFavoriteTrackIds] = React.useState<Set<string>>(() => new Set(['amelie-adventures']))
+  const [favoriteTrackIds, setFavoriteTrackIds] = React.useState<Set<string>>(readFavoriteTrackIds)
 
   React.useEffect(() => {
     if (tracks.length && !userChoseMusicCollection.current) setActiveCollection('for-video')
   }, [tracks.length])
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(MUSIC_FAVORITES_STORAGE_KEY, JSON.stringify([...favoriteTrackIds]))
+    } catch {
+      // Favorites remain usable for this session when browser storage is unavailable.
+    }
+  }, [favoriteTrackIds])
 
   const toggleFavorite = React.useCallback((trackId: string) => {
     setFavoriteTrackIds((current) => {
@@ -881,8 +905,7 @@ export function MusicTabPanel({
 
   const collectionTracks = React.useMemo(() => {
     if (activeCollection === 'favorites') {
-      const favs = displayTracks.filter((track) => favoriteTrackIds.has(track.id))
-      return favs.length ? favs : displayTracks.slice(0, 4)
+      return displayTracks.filter((track) => favoriteTrackIds.has(track.id))
     }
 
     if (activeCollection === 'for-video') return forVideoTracks
@@ -1005,6 +1028,10 @@ export function MusicTabPanel({
     () => displayTracks.find((track) => track.id === playingTrackId) ?? selectedTrack,
     [displayTracks, playingTrackId, selectedTrack],
   )
+  // Keep progress and favorite updates from restarting the player's playback effect.
+  const handlePlayerPlayingChange = React.useCallback((nextPlaying: boolean) => {
+    setPlayingTrackId(nextPlaying ? currentPlayerTrack?.id ?? null : null)
+  }, [currentPlayerTrack?.id])
   // The deck is a playback surface: its spinning artwork must follow audio, not
   // merely the track last focused in the catalog.
   const selectedSong = React.useMemo(
@@ -1176,7 +1203,7 @@ export function MusicTabPanel({
           preload="metadata" isMuted={isMuted} volume={volume / 100} repeat={isRepeat}
           seekRequest={seekRequest} isPlaying={playingTrackId === selectedSong.id}
           onBufferingChange={setIsPlayerBuffering} onProgressChange={setPlayerProgress}
-          onPlayingChange={nextPlaying => setPlayingTrackId(nextPlaying ? selectedSong.id : null)}
+          onPlayingChange={handlePlayerPlayingChange}
           className="h-px w-px"
         />
       </div> : null}
@@ -1212,6 +1239,7 @@ export function MusicTabPanel({
             files={personalMusicFiles} folders={personalMusicFolders} query={searchQuery}
             onCreateFolder={createPersonalMusicFolder} onFilesSelected={handlePersonalMusicUpload}
             onSelectTrack={handlePersonalMusicSelect} onPreviewTrack={handlePersonalMusicPreview}
+            favoriteTrackIds={favoriteTrackIds} onToggleFavorite={toggleFavorite}
             onRemoveTrack={handlePersonalMusicRemove} onMoveTrack={handlePersonalMusicMove}
             selectedTrackId={localSelectedTrackId} playingTrackId={playingTrackId}
             cloudFiles={cloudMusicFiles} cloudLoading={cloudMusicLoading} cloudImportingId={cloudImportingId}
@@ -1219,18 +1247,19 @@ export function MusicTabPanel({
           />
         </div> : <div className={styles.trackList} aria-label="Music tracks">
           <div className={styles.tableHeader} aria-hidden="true">
-            <span>#</span><span>Title / Artist</span><span className={styles.genre}>Genre</span><span className={styles.mood}>Mood</span><span>Duration</span><span /><span />
+            <span>#</span><span>Title / Artist</span><span className={styles.genre}>Genre</span><span className={styles.mood}>Mood</span><span>Duration</span><span /><span /><span />
           </div>
           {catalogLoading && !visibleTracks.length ? <div className={styles.emptyList}><CinematicLogoLoader variant="inline" size={48} label="Loading music catalog" /><span>Preparing soundtrack previews.</span></div> : null}
           {visibleTracks.map((track, index) => <MusicLibraryTrackRow
             key={track.id} track={track} index={index + 1}
             isSelected={currentCardTrack?.id === track.id} isPlaying={playingTrackId === track.id}
+            isFavorite={favoriteTrackIds.has(track.id)} onToggleFavorite={() => toggleFavorite(track.id)}
             isCompared={selectedTrackIds.has(track.id)} compareMode={compareMode}
             onSelect={() => handleTrackFocus(track)}
             onPlayPause={() => handleTrackPlayPause(track)}
             onToggleCompared={() => toggleMultiSelect(track.id)}
           />)}
-          {!catalogLoading && !filteredTracks.length ? <div className={styles.emptyList}><strong>No soundtracks found</strong><span>Try a different song, artist, mood, or genre.</span></div> : null}
+          {!catalogLoading && !filteredTracks.length ? <div className={styles.emptyList}><strong>{activeCollection === 'favorites' && !favoriteTrackIds.size ? 'No favorites yet' : 'No soundtracks found'}</strong><span>{activeCollection === 'favorites' && !favoriteTrackIds.size ? 'Tap the star beside any track to save it here.' : 'Try a different song, artist, mood, or genre.'}</span></div> : null}
           {filteredTracks.length > visibleTrackCount ? <button type="button" className={styles.loadMore} onClick={() => setVisibleTrackCount(current => current + VISIBLE_TRACK_INCREMENT)}>Load more</button> : null}
         </div>}
       </div>

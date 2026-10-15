@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { Check, Heart, MoreHorizontal, Music, Pause, Play, Plus, Repeat, Shuffle, SkipBack, SkipForward, Trash2, Volume2, VolumeX } from 'lucide-react'
+import { Check, Heart, MoreHorizontal, Music, Pause, Play, Plus, Repeat, Shuffle, SkipBack, SkipForward, Star, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { FALLBACK_ALBUM_ART } from '@/lib/music-art'
 import type { MusicRecommendation } from '@/lib/types'
 import styles from './music-library.module.css'
@@ -113,15 +113,22 @@ export function MusicLibraryPreview(props: PreviewProps) {
   </aside>
 }
 
-export function MusicLibraryTrackRow({ track, index, isSelected, isPlaying, isCompared, compareMode, onSelect, onPlayPause, onToggleCompared }: {
+export function MusicFavoriteButton({ title, isFavorite, onToggle }: { title: string; isFavorite: boolean; onToggle: () => void }) {
+  const label = isFavorite ? `Remove ${title} from favorites` : `Add ${title} to favorites`
+  return <button type="button" className={`${styles.favoriteButton} ${isFavorite ? styles.favorited : ''}`} aria-label={label} title={label} aria-pressed={isFavorite} onClick={onToggle}><Star size={16} aria-hidden="true" fill={isFavorite ? 'currentColor' : 'none'} /></button>
+}
+
+export function MusicLibraryTrackRow({ track, index, isSelected, isPlaying, isFavorite, isCompared, compareMode, onSelect, onPlayPause, onToggleFavorite, onToggleCompared }: {
   track: MusicRecommendation
   index: number
   isSelected: boolean
   isPlaying: boolean
+  isFavorite: boolean
   isCompared: boolean
   compareMode: boolean
   onSelect: () => void
   onPlayPause: () => void
+  onToggleFavorite: () => void
   onToggleCompared: () => void
 }) {
   return <div className={`${styles.trackRow} ${isSelected ? styles.selectedRow : ''}`} data-track-id={track.id}>
@@ -134,6 +141,7 @@ export function MusicLibraryTrackRow({ track, index, isSelected, isPlaying, isCo
     <span className={`${styles.pill} ${styles.mood}`}>{track.mood ? track.mood.charAt(0).toUpperCase() + track.mood.slice(1) : 'Cinematic'}</span>
     <span className={styles.rowDuration}>{formatMusicTime(track.durationSec)}</span>
     <button type="button" className={styles.rowPlay} data-action="play-track" data-autonomous-target="music-play" aria-label={isPlaying ? `Pause ${track.title}` : `Play ${track.title}`} onClick={onPlayPause}>{isPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}</button>
+    <MusicFavoriteButton title={track.title} isFavorite={isFavorite} onToggle={onToggleFavorite} />
     <button type="button" className={`${styles.rowSelect} ${(compareMode ? isCompared : isSelected) ? styles.checked : ''}`} data-action="select-track" data-autonomous-target="music-select" aria-label={compareMode ? `${isCompared ? 'Deselect' : 'Compare'} ${track.title}` : `Select ${track.title} for preview`} aria-pressed={compareMode ? isCompared : isSelected} onClick={compareMode ? onToggleCompared : onSelect}>{(compareMode ? isCompared : isSelected) ? <Check size={16} /> : <Plus size={16} />}</button>
   </div>
 }

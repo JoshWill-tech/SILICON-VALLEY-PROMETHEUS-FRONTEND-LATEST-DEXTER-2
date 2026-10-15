@@ -83,7 +83,7 @@
 .addButton { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 32px; margin-top: 9px; border: 0; border-radius: 18px; background: var(--music-blue); color: #fff; font-size: 12px !important; font-weight: 500 !important; }
 .preview .previewNote { margin: 5px 0 0; text-align: center; font-size: 10px; }
 .trackList { min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--music-scrollbar) transparent; }
-.tableHeader, .trackRow { display: grid; grid-template-columns: 20px minmax(0, 1fr) 88px 82px 44px 32px 30px; align-items: center; gap: 10px; }
+.tableHeader, .trackRow { display: grid; grid-template-columns: 20px minmax(0, 1fr) 88px 82px 44px 32px 28px 30px; align-items: center; gap: 10px; }
 .tableHeader { position: sticky; top: 0; z-index: 2; padding: 3px 10px 10px; background: var(--music-surface); color: var(--music-muted); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
 .tableHeader > span:nth-child(n+3) { text-align: center; }
 .trackRow { min-height: 51px; margin-bottom: 5px; padding: 6px 8px; border: 1px solid var(--music-border); border-radius: 9px; background: var(--music-row); transition: border-color 150ms, background 150ms; }
@@ -98,6 +98,9 @@
 .pill { overflow: hidden; padding: 6px 8px; border: 1px solid var(--music-pill-border); border-radius: 18px; background: var(--music-pill); color: var(--music-muted); text-align: center; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 .rowDuration { color: var(--music-muted); font-size: 11px; text-align: center; font-variant-numeric: tabular-nums; }
 .rowPlay, .rowSelect { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--music-control-border); border-radius: 50%; background: var(--music-subtle); color: var(--music-ink); }
+.favoriteButton { display: grid; width: 28px; height: 30px; flex-shrink: 0; place-items: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--music-muted); transition: color 150ms, background 150ms; }
+.favoriteButton:hover { background: var(--music-control-hover); color: var(--music-blue); }
+.favorited, .favorited:hover { color: var(--music-blue); }
 .rowSelect { width: 28px; height: 28px; border-radius: 7px; }
 .rowPlay:hover, .rowSelect:hover { background: var(--music-control-hover); border-color: var(--music-control-hover-border); }
 .checked, .checked:hover { border-color: var(--music-blue); background: var(--music-blue); color: #fff; }
@@ -118,7 +121,7 @@
 .personalLibrary :global([class*='bg-black']), .personalLibrary :global([class*='bg-white']) { background-color: var(--music-personal); }
 .personalLibrary :global(select) { color: var(--music-ink); background: var(--music-surface); }
 @container music-library (max-width: 1100px) {
-  .tableHeader, .trackRow { grid-template-columns: 18px minmax(0, 1fr) 74px 40px 30px 28px; gap: 7px; }
+  .tableHeader, .trackRow { grid-template-columns: 18px minmax(0, 1fr) 74px 40px 30px 28px 28px; gap: 7px; }
   .mood { display: none; }
   .filters { gap: 4px; }
   .filterSelect select { max-width: 120px; }
@@ -139,7 +142,7 @@
 }
 @container music-library (max-width: 520px) {
   .filters { display: none; }
-  .tableHeader, .trackRow { grid-template-columns: minmax(0, 1fr) 36px 32px 28px; gap: 7px; }
+  .tableHeader, .trackRow { grid-template-columns: minmax(0, 1fr) 36px 32px 28px 28px; gap: 7px; }
   .rowIndex, .genre, .mood { display: none; }
   .tableHeader > span:first-child { display: none; }
   .trackIdentity { gap: 9px; }
@@ -149,8 +152,8 @@
   .compareTray { flex-wrap: wrap; justify-content: center; }
 }
 @media (pointer: coarse) {
-  .rowPlay, .rowSelect { width: 44px; height: 44px; }
-  .tableHeader, .trackRow { grid-template-columns: minmax(0, 1fr) 36px 44px 44px; }
+  .rowPlay, .rowSelect, .favoriteButton { width: 44px; height: 44px; }
+  .tableHeader, .trackRow { grid-template-columns: minmax(0, 1fr) 36px 44px 44px 44px; }
   .rowIndex, .genre, .mood { display: none; }
   .tableHeader > span:first-child { display: none; }
   .quietButton { min-width: 44px; min-height: 44px; }
@@ -159,4 +162,4 @@
   .volume > span:first-child { display: inline; }
   .tab, .addButton, .filterButton { min-height: 44px; }
 }
-@media (prefers-reduced-motion: reduce) { .trackRow { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .trackRow, .favoriteButton { transition: none; } }
