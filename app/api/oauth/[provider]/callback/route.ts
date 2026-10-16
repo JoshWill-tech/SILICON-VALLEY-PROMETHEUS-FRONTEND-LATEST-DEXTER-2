@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: any) {
   )
 
   if (error) {
-    settingsUrl.searchParams.set('error', 'oauth_failed')
+    settingsUrl.searchParams.set('error', error === 'access_denied' ? 'access_denied' : 'oauth_failed')
     settingsUrl.searchParams.set('provider', provider)
     return NextResponse.redirect(settingsUrl)
   }

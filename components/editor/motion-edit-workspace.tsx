@@ -367,6 +367,25 @@ export function MotionEditWorkspace({
   const [timelineResizing, setTimelineResizing] = React.useState(false)
 
   const effectiveDuration = durationSec > 0 ? durationSec : Math.max(60, ...resolvedSegments.map((segment) => segment.end))
+  const addManualCaption = React.useCallback((text: string) => {
+    const start = Math.max(0, currentTimeSec)
+    const end = Math.min(effectiveDuration, start + 3)
+    if (end <= start) return false
+    if (!editorial.timeline?.captionStyle) editorial.patch({ type: 'caption_style', style: captionStyle ?? 'clean_bold' })
+    setCaptionsVisible(true)
+    setCaptionsOverride(true)
+    updateEditorialCues([...editorialCues, {
+      id: `manual-caption-${crypto.randomUUID()}`,
+      type: 'text',
+      start,
+      end,
+      title: 'Manual caption',
+      text: text.trim().slice(0, 500),
+      origin: 'editor',
+      context: { source: 'manual_caption' },
+    }])
+    return true
+  }, [captionStyle, currentTimeSec, effectiveDuration, editorial.timeline?.captionStyle, editorial.patch, editorialCues, updateEditorialCues])
   const playheadPercent = Math.min(100, Math.max(0, (currentTimeSec / effectiveDuration) * 100))
   const activeSegment = resolvedSegments.find((segment) => isActiveSegment(segment, currentTimeSec))
   const safeAspectRatio = frameAspectRatio ?? (Number.isFinite(previewAspectRatio) && previewAspectRatio > 0 ? previewAspectRatio : 16 / 9)
@@ -1125,7 +1144,7 @@ export function MotionEditWorkspace({
               inert={framingCollapseProgress >= 1}
             >
               <div className="min-h-0 overflow-hidden">
-                <ToolPanel aspectRatio={safeAspectRatio} onAspectRatioChange={(ratio) => { setFrameAspectRatio(ratio); setCropRect(DEFAULT_CROP_RECT) }} onResetCrop={() => setCropRect(DEFAULT_CROP_RECT)} activeTool={activeTool} treatment={referenceStyle?.treatment ?? treatment} captionsVisible={effectiveCaptionsVisible} cropEnabled={cropEnabled} fitMode={fitMode} onTreatment={applyTreatment} onToggleCaptions={() => {
+                <ToolPanel aspectRatio={safeAspectRatio} onAspectRatioChange={(ratio) => { setFrameAspectRatio(ratio); setCropRect(DEFAULT_CROP_RECT) }} onResetCrop={() => setCropRect(DEFAULT_CROP_RECT)} activeTool={activeTool} treatment={referenceStyle?.treatment ?? treatment} captionsVisible={effectiveCaptionsVisible} captionStyle={effectiveCaptionStyle ?? 'clean_bold'} onCaptionStyleChange={(style) => editorial.patch({ type: 'caption_style', style })} onAddManualCaption={addManualCaption} cropEnabled={cropEnabled} fitMode={fitMode} onTreatment={applyTreatment} onToggleCaptions={() => {
                   if (referenceStyle) editorial.patch({ type: 'reference_style', style: { ...referenceStyle, captionStyle: effectiveCaptionsVisible ? 'none' : captionStyle ?? 'clean_bold' } })
                   else setCaptionsOverride(!effectiveCaptionsVisible)
                 }} onToggleCrop={() => setCropEnabled((value) => !value)} onToggleFit={() => onFitModeChange(fitMode === 'fill' ? 'fit' : 'fill')} onPickSource={handlePickSource} />
@@ -1147,7 +1166,7 @@ export function MotionEditWorkspace({
               >
                 <div data-theme-independent="media" className="relative h-full w-full overflow-hidden border border-white/18 bg-black shadow-[0_28px_80px_rgba(0,0,0,0.56)]">
                   {renderMedia()}
-                  {effectiveCaptionsVisible && effectiveCaptionStyle && <ReferenceCaptionOverlay segment={activeSegment} timeSec={currentTimeSec} style={effectiveCaptionStyle} />}
+                  {effectiveCaptionsVisible && effectiveCaptionStyle && <ReferenceCaptionOverlay segment={activeSegment ?? editorialCues.find(cue => cue.type === 'text' && cue.context?.source === 'manual_caption' && currentTimeSec >= cue.start && currentTimeSec < cue.end) as MotionTranscriptSegment | undefined} timeSec={currentTimeSec} style={effectiveCaptionStyle} />}
                   <span className="sr-only">{sourceLabel ?? 'Source video'}</span>
                 </div>
                 <div className={styles.previewTransport}>
@@ -1236,6 +1255,8 @@ export function MotionEditWorkspace({
               textPlacements={textPlacements}
               cutRanges={effectiveCutRanges}
               onCutRangesChange={onCutRangesChange}
+              splitPoints={editorial.timeline?.splitPoints ?? []}
+              onSplitPointsChange={(points) => editorial.patch({ type: 'split_points', points })}
               selectedMusicTrack={selectedMusicTrack}
               editorialCues={editorialCues}
               onEditorialCuesChange={updateEditorialCues}
@@ -1331,7 +1352,9 @@ function CropFrame({ rect, onChange }: { rect: CropRect; onChange: (rect: CropRe
   </div>
 }
 
-function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, treatment, captionsVisible, cropEnabled, fitMode, onTreatment, onToggleCaptions, onToggleCrop, onToggleFit, onPickSource }: { aspectRatio: number; onAspectRatioChange: (ratio: number) => void; onResetCrop: () => void; activeTool: MotionToolId; treatment: PreviewTreatment; captionsVisible: boolean; cropEnabled: boolean; fitMode: 'fill' | 'fit'; onTreatment: (value: PreviewTreatment) => void; onToggleCaptions: () => void; onToggleCrop: () => void; onToggleFit: () => void; onPickSource: () => void }) {
+function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, treatment, captionsVisible, captionStyle, onCaptionStyleChange, onAddManualCaption, cropEnabled, fitMode, onTreatment, onToggleCaptions, onToggleCrop, onToggleFit, onPickSource }: { aspectRatio: number; onAspectRatioChange: (ratio: number) => void; onResetCrop: () => void; activeTool: MotionToolId; treatment: PreviewTreatment; captionsVisible: boolean; captionStyle: EditorCaptionStyle; onCaptionStyleChange: (style: EditorCaptionStyle) => void; onAddManualCaption: (text: string) => boolean; cropEnabled: boolean; fitMode: 'fill' | 'fit'; onTreatment: (value: PreviewTreatment) => void; onToggleCaptions: () => void; onToggleCrop: () => void; onToggleFit: () => void; onPickSource: () => void }) {
+  const [manualCaptionText, setManualCaptionText] = React.useState('')
+  const [manualCaptionStatus, setManualCaptionStatus] = React.useState('')
   const content = activeTool === 'enhance' ? (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[10px] uppercase tracking-wider text-white/40 mr-1">Look & Grade:</span>
@@ -1372,6 +1395,24 @@ function ToolPanel({ aspectRatio, onAspectRatioChange, onResetCrop, activeTool, 
         <Captions className="size-3.5" />
         <span>{captionsVisible ? 'Captions On' : 'Show Captions'}</span>
       </button>
+      <label className="inline-flex min-h-8 items-center gap-2 text-xs text-white/70">
+        <span>Style</span>
+        <select aria-label="Caption style" value={captionStyle} onChange={(event) => onCaptionStyleChange(event.target.value as EditorCaptionStyle)} className="min-h-8 rounded-md border border-white/15 bg-[#171717] px-2 text-xs text-white">
+          <option value="clean_bold">Clean bold</option><option value="karaoke_pop">Karaoke pop</option><option value="typewriter">Typewriter</option><option value="lower_third">Lower third</option>
+        </select>
+      </label>
+      <form className="flex min-w-[min(100%,22rem)] flex-1 items-center gap-2" onSubmit={(event) => {
+        event.preventDefault()
+        const text = manualCaptionText.trim()
+        if (!text) return
+        const added = onAddManualCaption(text)
+        setManualCaptionStatus(added ? 'Caption added at the playhead for 3 seconds.' : 'Move the playhead before the end of the video, then try again.')
+        if (added) setManualCaptionText('')
+      }}>
+        <input aria-label="Manual caption text" maxLength={500} value={manualCaptionText} onChange={(event) => setManualCaptionText(event.target.value)} placeholder="Type a caption at the playhead" className="min-h-8 min-w-0 flex-1 rounded-md border border-white/15 bg-black/30 px-2 text-xs text-white placeholder:text-white/40" />
+        <button type="submit" disabled={!manualCaptionText.trim()} className="min-h-8 rounded-md border border-[#98f237]/35 bg-[#98f237]/10 px-3 text-xs font-medium text-[#c9ff7d] disabled:opacity-40">Add cue</button>
+      </form>
+      {manualCaptionStatus ? <p role="status" className="w-full text-[11px] text-white/60">{manualCaptionStatus}</p> : null}
     </div>
   ) : activeTool === 'media' ? (
     <div className="flex flex-wrap items-center gap-2">

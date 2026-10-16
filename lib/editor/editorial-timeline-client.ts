@@ -114,7 +114,10 @@ export class EditorialTimelineController {
 
   patch = (patch: EditorialTimelinePatch) => {
     this.queue.push(patch)
-    const timeline = this.snapshot.timeline ?? emptyEditorialTimeline(projects.get(this.projectId)?.sourceAssetId ?? null)
+    const sourceAssetId = projects.get(this.projectId)?.sourceAssetId ?? this.snapshot.timeline?.sourceAssetId ?? null
+    const timeline = this.snapshot.timeline?.sourceAssetId === sourceAssetId
+      ? this.snapshot.timeline
+      : emptyEditorialTimeline(sourceAssetId)
     this.publish({ timeline: applyEditorialTimelinePatch(timeline, patch), status: 'saving', error: null })
     if (this.initialized) void this.drain()
     else void this.refresh()

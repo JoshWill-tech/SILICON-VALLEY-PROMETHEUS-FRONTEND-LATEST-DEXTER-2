@@ -6,20 +6,25 @@ import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 
 type Edit = { splits: number[]; cuts: TimelineRange[]; cues: EditorialCue[] }
 
-export function useTimelineTools({ source, duration, title, time, cuts, cues, onCuts, onCues }: {
+export function useTimelineTools({ source, duration, title, time, cuts, cues, splits: controlledSplits, onSplits, onCuts, onCues }: {
   source: string; duration: number; title: string; time: number; cuts: TimelineRange[]; cues: EditorialCue[]
+  splits?: number[]; onSplits?: (splits: number[]) => void
   onCuts?: (cuts: TimelineRange[]) => void; onCues?: (cues: EditorialCue[]) => void
 }) {
-  const [splits, setSplits] = React.useState<number[]>([])
+  const [localSplits, setLocalSplits] = React.useState<number[]>([])
+  const splits = controlledSplits ?? localSplits
   const [selected, setSelected] = React.useState<string | null>(null)
   const [history, setHistory] = React.useState<{ past: Edit[]; future: Edit[] }>({ past: [], future: [] })
-  React.useEffect(() => { setSplits([]); setSelected(null); setHistory({ past: [], future: [] }) }, [source])
+  React.useEffect(() => { setLocalSplits([]); setSelected(null); setHistory({ past: [], future: [] }) }, [source])
   const clips = sourceClips(duration, title, splits, cuts)
   const selectedClip = clips.find(clip => clip.id === selected) ?? (selected === null ? clips.find(clip => time >= clip.start && time < clip.end) : undefined)
   const selectedCue = cues.find(cue => cue.id === selected)
   const current: Edit = { splits, cuts, cues }
   const restore = (edit: Edit) => {
-    setSplits(edit.splits)
+    if (JSON.stringify(edit.splits) !== JSON.stringify(splits)) {
+      if (onSplits) onSplits(edit.splits)
+      else setLocalSplits(edit.splits)
+    }
     if (JSON.stringify(edit.cuts) !== JSON.stringify(cuts)) onCuts?.(edit.cuts)
     if (JSON.stringify(edit.cues) !== JSON.stringify(cues)) onCues?.(edit.cues)
     setSelected(null)

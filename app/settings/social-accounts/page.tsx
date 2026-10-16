@@ -15,6 +15,7 @@ function SocialAccountsContent() {
   const errorCode = searchParams.get('error')
   const errorProvider = searchParams.get('provider') || connectedProvider
   const handledRef = React.useRef<string | null>(null)
+  const [connectingProvider, setConnectingProvider] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     const currentKey = `${connectedProvider || ''}:${errorCode || ''}:${errorProvider || ''}`
@@ -28,11 +29,16 @@ function SocialAccountsContent() {
 
     if (errorCode) {
       const providerName = errorProvider ? getProviderMetadata(errorProvider)?.name ?? errorProvider : 'provider'
-      toast.error(
-        errorCode === 'invalid_state'
-          ? 'Failed to connect account due to a security state mismatch. Please try again.'
-          : `Failed to connect ${providerName}. Please try again.`,
-      )
+      const message = errorCode === 'invalid_state'
+        ? 'The provider returned an invalid security state. No account was connected; try again.'
+        : errorCode === 'integration_unavailable'
+          ? `${providerName} is not configured for this deployment yet.`
+          : errorCode === 'access_denied'
+            ? `${providerName} authorization was canceled. No account changes were made.`
+            : errorCode === 'expired_state'
+              ? `${providerName} authorization expired before it finished. Try connecting again.`
+              : `Could not connect ${providerName}. No connected account was confirmed; try again.`
+      toast.error(message)
     }
 
     if (connectedProvider || errorCode) {
@@ -46,11 +52,22 @@ function SocialAccountsContent() {
     }
   }, [connectedProvider, errorCode, errorProvider])
 
-  const handleConnect = React.useCallback((provider: string) => {
-    window.location.href = `/api/oauth/${provider}/initiate`
-  }, [])
+  const handleConnect = React.useCallback(async (provider: string) => {
+    if (connectingProvider) return
+    setConnectingProvider(provider)
+    try {
+      const response = await fetch(`/api/oauth/${encodeURIComponent(provider)}/initiate`, { method: 'POST', cache: 'no-store' })
+      const payload = await response.json().catch(() => null) as { url?: string; error?: string } | null
+      if (!response.ok || !payload?.url) throw new Error(payload?.error || 'The authorization service did not return a provider URL.')
+      window.location.assign(payload.url)
+    } catch (error) {
+      const providerName = getProviderMetadata(provider)?.name ?? provider
+      toast.error(`Could not start ${providerName}: ${error instanceof Error ? error.message : 'connection service unavailable'}`)
+      setConnectingProvider(null)
+    }
+  }, [connectingProvider])
 
-  return <ConnectedAccountsExperience onConnect={handleConnect} />
+  return <ConnectedAccountsExperience onConnect={handleConnect} connectingProvider={connectingProvider} />
 }
 
 export default function SocialAccountsPage() {

@@ -44,10 +44,9 @@ export type GroqMessage = {
 }
 
 /**
- * Action kinds are constrained to the closed `EditorActionDraft` enum: seek,
- * preview control, fit mode, workspace tab. Everything media-mutating (trim,
- * captions, typography, renders) must go through `propose`, which is presented
- * as a plan and never fakes execution.
+ * Action kinds are constrained to the closed `EditorActionDraft` enum. Direct,
+ * whitelisted reversible/editorial actions can execute in the editor; actions
+ * requiring unavailable evidence or a render remain explicit proposals.
  */
 export const PROMETHEUS_TOOLS = [
   {
@@ -91,7 +90,7 @@ export const PROMETHEUS_TOOLS = [
     function: {
       name: 'draft_editor_actions',
       description:
-        'Draft whitelisted editor actions. For a thumbnail request, use open_thumbnail_studio and carry the user’s creative brief, exact headline when specified, and a matching referenceId when clearly requested. This opens the studio with those choices prefilled; the user reviews the frame and starts generation. Anything that mutates timeline media (trim, captions, renders) must be proposed with kind "propose".',
+        'Draft whitelisted editor actions. For captions, use request_transcription when no timed transcript exists (the editor will show the current credit quote and require confirmation before starting), then use set_caption_style. Silence removal uses cut_silence, soundtrack choice uses select_soundtrack, and splitting uses split_at_playhead. These report a blocker when evidence or credits are unavailable. Use propose only for unsupported work or work requiring a later render/export. For thumbnail requests, use open_thumbnail_studio with the user’s creative brief and exact headline when specified. Set generateNow=true only when the user directly asks to create the thumbnail now; otherwise open the studio with settings prefilled for review.',
       parameters: {
         type: 'object',
         properties: {
@@ -104,13 +103,14 @@ export const PROMETHEUS_TOOLS = [
               properties: {
                 kind: {
                   type: 'string',
-                  enum: ['seek', 'preview_control', 'soundtrack_control', 'set_fit_mode', 'switch_tab', 'open_thumbnail_studio', 'split_at_playhead', 'cut_silence', 'propose'],
+                  enum: ['seek', 'preview_control', 'soundtrack_control', 'select_soundtrack', 'request_transcription', 'set_fit_mode', 'switch_tab', 'open_thumbnail_studio', 'split_at_playhead', 'cut_silence', 'set_caption_style', 'propose'],
                   description:
-                    'seek → jump the playhead; preview_control → play/pause/mute/unmute; soundtrack_control → set_volume (0-100), set_ducking (enabled boolean), or remove the selected soundtrack; set_fit_mode → fill|fit; switch_tab → Editor|Music|Motion; open_thumbnail_studio → open the thumbnail creator with the user’s requested brief and optional reference; split_at_playhead → split clip at playhead timeSec; cut_silence → ripple-cut silent dead air pauses; propose → media-mutating change, planned only.',
+                    'seek → jump the playhead; preview_control → play/pause/mute/unmute; soundtrack_control → set_volume, set_ducking, or remove; select_soundtrack → search and save a matching catalog track; request_transcription → check credits and ask confirmation before starting timed transcription; set_fit_mode → fill|fit; switch_tab → Editor|Music|Motion; open_thumbnail_studio → open the thumbnail creator with the requested brief; split_at_playhead → split clip at timeSec; cut_silence → ripple-cut timed silent gaps when transcript evidence exists; set_caption_style → apply a supported caption style; propose → unsupported work or work requiring a later render/export.',
                 },
                 timeSec: { type: 'number', description: 'For kind "seek" or "split_at_playhead": target time in seconds.' },
                 command: { type: 'string', enum: ['play', 'pause', 'mute', 'unmute'], description: 'For kind "preview_control".' },
                 volume: { type: 'number', description: 'For soundtrack_control set_volume: level from 0 to 100 percent.' },
+                query: { type: 'string', description: 'For kind "select_soundtrack": mood or soundtrack search terms.' },
                 enabled: { type: 'boolean', description: 'For soundtrack_control set_ducking: whether music lowers under dialogue.' },
                 mode: { type: 'string', enum: ['fill', 'fit'], description: 'For kind "set_fit_mode".' },
                 tab: { type: 'string', enum: ['Editor', 'Music', 'Motion'], description: 'For kind "switch_tab".' },
@@ -121,6 +121,7 @@ export const PROMETHEUS_TOOLS = [
                 isIterative: { type: 'boolean', description: 'For kind "open_thumbnail_studio": true when iteratively refining an existing thumbnail rather than recreating from scratch.' },
                 iterationPrompt: { type: 'string', description: 'For kind "open_thumbnail_studio": specific revision prompt (e.g. "make headline neon cyan", "darken background").' },
                 minDurationSec: { type: 'number', description: 'For kind "cut_silence": minimum pause length to cut (default 0.4s).' },
+                style: { type: 'string', enum: ['clean_bold', 'karaoke_pop', 'typewriter', 'lower_third'], description: 'For kind "set_caption_style".' },
                 description: { type: 'string', description: 'For kind "propose": what the media-mutating change would do.' },
                 summary: { type: 'string', description: 'Short user-facing label for this action.' },
               },

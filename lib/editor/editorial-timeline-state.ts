@@ -61,6 +61,7 @@ export interface EditorialTimelineState {
   captionStyle: 'clean_bold' | 'karaoke_pop' | 'typewriter' | 'lower_third' | null
   effects: EditorialSoundEffect[]
   cues: EditorialCue[]
+  splitPoints: number[]
   transcript?: EditorialTranscript[]
   referenceStyle?: AppliedReferenceStyle | null
 }
@@ -72,6 +73,7 @@ export const editorialTimelinePatchSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('effects'), effects: z.array(editorialSoundEffectSchema).max(200) }),
   z.object({ type: z.literal('effect'), id: z.string().min(1), volume: gain.optional(), muted: z.boolean().optional() }),
   z.object({ type: z.literal('cues'), cues: z.array(editorialCueSchema).max(2000) }),
+  z.object({ type: z.literal('split_points'), points: z.array(time).max(2000) }),
   z.object({ type: z.literal('transcript'), segments: z.array(editorialTranscriptSchema).max(5000) }),
   z.object({ type: z.literal('reference_style'), style: appliedReferenceStyleSchema.nullable() }),
   z.object({
@@ -83,7 +85,7 @@ export const editorialTimelinePatchSchema = z.discriminatedUnion('type', [
 export type EditorialTimelinePatch = z.infer<typeof editorialTimelinePatchSchema>
 
 export function emptyEditorialTimeline(sourceAssetId: string | null): EditorialTimelineState {
-  return { version: 1, revision: 0, sourceAssetId, music: null, captionStyle: null, effects: [], cues: [] }
+  return { version: 1, revision: 0, sourceAssetId, music: null, captionStyle: null, effects: [], cues: [], splitPoints: [] }
 }
 
 /** Saved cues and transcript edits belong to one source, never its replacement. */
@@ -94,6 +96,7 @@ export function readEditorialTimeline(editorState: unknown, sourceAssetId: strin
   const music = raw.music && editorialMusicSchema.safeParse(raw.music.track)
   const effects = z.array(editorialSoundEffectSchema).max(200).safeParse(raw.effects)
   const cues = z.array(editorialCueSchema).max(2000).safeParse(raw.cues)
+  const splitPoints = z.array(time).max(2000).safeParse(raw.splitPoints)
   const transcript = z.array(editorialTranscriptSchema).max(5000).safeParse(raw.transcript)
   const referenceStyle = appliedReferenceStyleSchema.nullable().safeParse(raw.referenceStyle)
   return {
@@ -108,6 +111,7 @@ export function readEditorialTimeline(editorState: unknown, sourceAssetId: strin
     captionStyle: raw.captionStyle === 'clean_bold' || raw.captionStyle === 'karaoke_pop' || raw.captionStyle === 'typewriter' || raw.captionStyle === 'lower_third' ? raw.captionStyle : null,
     effects: effects.success ? effects.data : [],
     cues: cues.success ? cues.data : [],
+    splitPoints: splitPoints.success ? [...new Set(splitPoints.data)].sort((a, b) => a - b) : [],
     ...(transcript.success ? { transcript: transcript.data } : {}),
     ...(referenceStyle.success ? { referenceStyle: referenceStyle.data } : {}),
   }
@@ -122,6 +126,7 @@ export function applyEditorialTimelinePatch(state: EditorialTimelineState, patch
     case 'effects': return { ...next, effects: patch.effects }
     case 'effect': return { ...next, effects: state.effects.map((cue) => cue.id === patch.id ? { ...cue, ...(patch.volume !== undefined ? { volume: patch.volume } : {}), ...(patch.muted !== undefined ? { muted: patch.muted } : {}) } : cue) }
     case 'cues': return { ...next, cues: patch.cues }
+    case 'split_points': return { ...next, splitPoints: [...new Set(patch.points)].sort((a, b) => a - b) }
     case 'transcript': return { ...next, transcript: patch.segments }
     case 'reference_style': return { ...next, referenceStyle: patch.style }
     case 'editorial_plan': return { ...next, captionStyle: patch.captionStyle, cues: patch.cues }

@@ -2,6 +2,13 @@ import type { ProjectExport } from '@/lib/types'
 
 type ExportMetadata = Record<string, unknown>
 
+export type SourceUploadStatus = 'ready' | 'uploading' | 'failed'
+
+/** A local preview is not renderable until its source upload is committed. */
+export function canSubmitSourceRender(sourceAssetId: string | null | undefined, uploadStatus: SourceUploadStatus = 'ready'): boolean {
+  return Boolean(sourceAssetId) && uploadStatus === 'ready'
+}
+
 function metadataOf(record: ProjectExport): ExportMetadata {
   return record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
     ? record.metadata as ExportMetadata

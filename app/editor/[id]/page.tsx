@@ -60,7 +60,7 @@ import { EditorNewProjectUploadDialog } from '@/components/editor/editor-new-pro
 import { ThumbnailStudioModal } from '@/components/editor/ThumbnailStudioModal'
 import { MasterVideoReviewModal } from '@/components/editor/MasterVideoReviewModal'
 import { EditorialDeliveryStudio } from '@/components/editor/editorial-delivery-studio'
-import { isPlayableRender, renderPreviewPath } from '@/lib/editor/render-delivery'
+import { canSubmitSourceRender, isPlayableRender, renderPreviewPath, type SourceUploadStatus } from '@/lib/editor/render-delivery'
 import { EditorHeader } from '@/components/editor/EditorHeader'
 import { PreviewCanvas } from '@/components/editor/PreviewCanvas'
 import { TimelinePanel } from '@/components/editor/TimelinePanel'
@@ -110,6 +110,7 @@ import { applyReferenceStyleToController } from '@/lib/voice-companion/reference
 import { getEditorialTimelineController } from '@/lib/editor/editorial-timeline-client'
 import type { AppliedReferenceStyle } from '@/lib/editor/reference-style'
 import { buildEditorialPlan, type EditorialPlan } from '@/lib/editor/timeline-document'
+import { sourceClips, splitSource } from '@/lib/editor/timeline-tools'
 import {
   consumePendingEditorialChatOpen,
   EDITORIAL_CHAT_OPEN_EVENT,
@@ -5801,6 +5802,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
 type MobileEditorViewProps = {
   project: Project | null
   projectId: string
+  sourceUploadStatus: SourceUploadStatus
   projectTitle: string
   statusLabel: string
   saveStatus: 'saved' | 'saving' | 'error'
@@ -5861,6 +5863,7 @@ type MobileEditorViewProps = {
 function MobileEditorView({
   project,
   projectId,
+  sourceUploadStatus,
   projectTitle,
   statusLabel,
   saveStatus,
@@ -6029,13 +6032,13 @@ function MobileEditorView({
       case 'versions':
         return (
           <div className="h-full overflow-y-auto rounded-[24px] bg-[#101116] p-3">
-            <EditorialDeliveryStudio projectId={projectId} sourceAssetId={project?.sourceAssetId ?? null} sourceUrl={previewKind === 'video' ? previewUrl : null} projectTitle={projectTitle} currentTimeSec={currentTimeSec} durationSec={durationSec} />
+            <EditorialDeliveryStudio projectId={projectId} sourceAssetId={project?.sourceAssetId ?? null} sourceUrl={previewKind === 'video' ? previewUrl : null} projectTitle={projectTitle} currentTimeSec={currentTimeSec} durationSec={durationSec} sourceUploadStatus={sourceUploadStatus} />
           </div>
         )
       case 'export':
         return (
           <div className="h-full overflow-y-auto rounded-[24px] bg-[#101116] p-3">
-            <EditorialDeliveryStudio projectId={projectId} sourceAssetId={project?.sourceAssetId ?? null} sourceUrl={previewKind === 'video' ? previewUrl : null} projectTitle={projectTitle} currentTimeSec={currentTimeSec} durationSec={durationSec} />
+            <EditorialDeliveryStudio projectId={projectId} sourceAssetId={project?.sourceAssetId ?? null} sourceUrl={previewKind === 'video' ? previewUrl : null} projectTitle={projectTitle} currentTimeSec={currentTimeSec} durationSec={durationSec} sourceUploadStatus={sourceUploadStatus} />
           </div>
         )
       case 'status':
@@ -6236,6 +6239,8 @@ function OriginalEditorPage() {
     React.useState<EditorCaptionStyle>('clean_bold')
   const [isInlineSourceDragOver, setIsInlineSourceDragOver] = React.useState(false)
   const [isSourceUploadPending, setIsSourceUploadPending] = React.useState(false)
+  const [isSourceUploadFailed, setIsSourceUploadFailed] = React.useState(false)
+  const sourceUploadStatus = isSourceUploadPending ? 'uploading' : isSourceUploadFailed ? 'failed' : 'ready'
   const [transcriptRefreshToken, setTranscriptRefreshToken] = React.useState(0)
   const [previewFramePreset, setPreviewFramePreset] = React.useState<PreviewFramePreset>('source')
   const [bottomMode, setBottomMode] = React.useState<BottomMode>('Original')
@@ -6283,7 +6288,11 @@ function OriginalEditorPage() {
       }
 
       if (command === 'auto-cut') {
-        autonomousCoordinator.executeTranscriptCut('silences')
+        void autonomousCoordinator.executeSilenceCutWorkflow({
+          onSwitchTab: (tab) => {
+            if (tab === 'Editor' || tab === 'Music' || tab === 'Motion') setActiveWorkspaceTab(tab)
+          },
+        })
         return
       }
 
@@ -6366,6 +6375,8 @@ function OriginalEditorPage() {
   const [isSoundtrackMuted, setIsSoundtrackMuted] = React.useState(false)
   const [soundtrackDucking, setSoundtrackDucking] = React.useState(true)
   const editorial = useEditorialTimeline()
+  const patchEditorialTimeline = editorial.patch
+  const editorialTimeline = editorial.timeline
   const soundtrackAudioRef = React.useRef<HTMLAudioElement | null>(null)
   const handleSoundtrackVolumeChange = React.useCallback((volume: number) => {
     const level = Math.max(0, Math.min(1, volume))
@@ -7686,8 +7697,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
   const handleSplitClip = React.useCallback((timeSec?: number) => {
     const target = typeof timeSec === 'number' ? timeSec : previewCurrentTimeSec
-    toast.info(`Split clip at ${target.toFixed(2)}s`)
-  }, [previewCurrentTimeSec])
+    const current = editorialTimeline && editorialTimeline.sourceAssetId === project?.sourceAssetId ? editorialTimeline.splitPoints : []
+    const next = splitSource(current, sourceClips(transportDurationSec, sourceAssetLabel ?? project?.title ?? 'Source video', current, editorCutRangesRef.current), target)
+    if (next.length === current.length) {
+      toast.info('Move the playhead inside an uncut clip to split it.')
+      return
+    }
+    patchEditorialTimeline({ type: 'split_points', points: next })
+    toast.success(`Clip split at ${target.toFixed(2)}s`)
+  }, [editorialTimeline, patchEditorialTimeline, previewCurrentTimeSec, project?.sourceAssetId, project?.title, sourceAssetLabel, transportDurationSec])
 
   const videoMetadata = React.useMemo(() => {
     if (!project?.sourceAssetId) return undefined
@@ -8259,8 +8277,13 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [setShowExport])
 
   const startProjectRender = React.useCallback(async () => {
-    if (!project?.sourceAssetId) {
-      const summary = 'Upload a source video before rendering.'
+    const sourceAssetId = project?.sourceAssetId
+    if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus)) {
+      const summary = sourceUploadStatus === 'uploading'
+        ? 'Wait for the replacement source video to finish saving before rendering.'
+        : sourceUploadStatus === 'failed'
+          ? 'The replacement source was not saved. Select the video again before rendering.'
+          : 'Upload a source video before rendering.'
       toast.error(summary)
       return { success: false, summary }
     }
@@ -8297,7 +8320,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // This worker consumes source media, independently of editor timeline sync.
         body: JSON.stringify({
           preset: 'mini-run-maul-portrait',
-          sourceAssetId: project.sourceAssetId,
+          sourceAssetId,
           ...(draftManifest ? { draftManifest } : {}),
         }),
         signal: AbortSignal.timeout(30_000),
@@ -8335,7 +8358,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       toast.error(summary)
       return { success: false, summary }
     }
-  }, [project?.sourceAssetId, projectId])
+  }, [project?.sourceAssetId, projectId, sourceUploadStatus])
 
   const handleVoiceStartRender = React.useCallback(async (mode: 'preview' | 'final') => {
     if (mode === 'final') {
@@ -8902,6 +8925,25 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         if (draft.command === 'set_volume' && typeof draft.volume === 'number') handleSoundtrackVolumeChange(draft.volume)
         else if (draft.command === 'set_ducking' && typeof draft.enabled === 'boolean') handleSoundtrackDuckingChange(draft.enabled)
         else if (draft.command === 'remove') handleRemoveEditorMusicTrack()
+      } else if (draft.kind === 'select_soundtrack') {
+        setActiveWorkspaceTab('Music')
+        setBottomMode('Music')
+        try {
+          const tracks = await handleVoiceMusicSearch(draft.query, { recommendation: true })
+          const selectedTrack = tracks[0]
+          if (!selectedTrack) {
+            toast.info(`No soundtrack matched “${draft.query}”. Try another mood or search term.`)
+            continue
+          }
+          const result = await handleVoiceMusicSelect(selectedTrack.id)
+          if (result.success) toast.success(result.summary)
+          else toast.info(result.summary)
+        } catch (error) {
+          toast.info(error instanceof Error ? error.message : 'Soundtrack recommendations are unavailable right now.')
+        }
+      } else if (draft.kind === 'request_transcription') {
+        const started = await requestAssemblyAITranscription()
+        if (started) toast.info('Timed transcription started. Captions will appear when the transcript is ready.')
       } else if (draft.kind === 'seek' && typeof draft.timeSec === 'number') {
         handlePreviewSeekSeconds(Math.max(0, Math.min(transportDurationSec, draft.timeSec)))
       } else if (draft.kind === 'switch_tab') {
@@ -8915,7 +8957,10 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       } else if (draft.kind === 'set_caption_style') {
         setActiveWorkspaceTab('Motion')
         setBottomMode('Original')
-        setEditorCaptionStyle(draft.style)
+        const result = await saveVoiceCaptionStyle(getEditorialTimelineController(projectId), project?.sourceAssetId, draft.style)
+        if (result.success) setEditorCaptionStyle(draft.style)
+        if (result.success) toast.success(result.summary)
+        else toast.info(result.summary)
       } else if (draft.kind === 'cut_silence') {
         setActiveWorkspaceTab('Motion')
         setBottomMode('Original')
@@ -8939,12 +8984,17 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     handleSoundtrackVolumeChange,
     handleSoundtrackDuckingChange,
     handleRemoveEditorMusicTrack,
+    handleVoiceMusicSearch,
+    handleVoiceMusicSelect,
+    requestAssemblyAITranscription,
     handlePreviewSeekSeconds,
     transportDurationSec,
     handlePrepareExport,
     handleApplySilenceCuts,
     resolveSilenceCuts,
     handleSplitClip,
+    projectId,
+    project?.sourceAssetId,
   ])
 
   const handleToggleAgentTakeover = React.useCallback(() => {
@@ -9226,7 +9276,8 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         if (currentProject?.sourceAssetId !== input.assetId) return false
 
         const nextProject = projects.update(input.projectId, { sourceAssetId: uploadAsset.id })
-        if (nextProject) setProject(nextProject)
+        if (!nextProject) throw new Error('The saved source is no longer attached to this project.')
+        setProject(nextProject)
         return true
       } catch (error) {
         uploadedSourceAssetIdsRef.current.delete(input.assetId)
@@ -9290,6 +9341,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         } : current)
 
         pendingSourceUploadAssetIdRef.current = stagedSource.assetId
+        setIsSourceUploadFailed(false)
         setIsSourceUploadPending(true)
 
         // The local preview is ready before the project asset exists in R2.
@@ -9306,6 +9358,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           if (committed) {
             setTranscriptRefreshToken((current) => current + 1)
           } else {
+            setIsSourceUploadFailed(true)
             toast.error('The replacement source could not be saved. Please try again.')
           }
         })
@@ -9434,6 +9487,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         <MobileEditorView
           project={project}
           projectId={projectId}
+          sourceUploadStatus={sourceUploadStatus}
           projectTitle={project?.title ?? 'Untitled Project'}
           statusLabel={getMobileEditorStatus({ hasSourceAsset, job })}
           saveStatus={saveStatus}
@@ -9761,6 +9815,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
                           currentTimeSec={previewCurrentTimeSec}
                           durationSec={transportDurationSec}
                           presentation="preview"
+                          sourceUploadStatus={sourceUploadStatus}
                         />
                       )}
                     />

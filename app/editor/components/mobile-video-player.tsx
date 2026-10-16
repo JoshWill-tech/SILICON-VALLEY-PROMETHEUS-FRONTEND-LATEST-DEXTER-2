@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 import { usePlayerGestures } from '@/lib/hooks/use-gestures'
+import { VideoVolumeControl } from './video-volume-control'
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import {
   formatPlayerTime,
@@ -56,6 +57,7 @@ export function MobileVideoPlayer({ className, poster, src, onLoadedMetadata, ex
     seek,
     seekBy,
     setPlaybackRate,
+    setVolume,
     showCenterControl,
     showControls,
     showControlsNow,
@@ -64,8 +66,10 @@ export function MobileVideoPlayer({ className, poster, src, onLoadedMetadata, ex
     toggleMuted,
     togglePlayback,
     videoRef,
+    volume,
     volumeOverlayValue,
   } = useYoutubePlayer(src)
+  React.useImperativeHandle(externalVideoRef, () => videoRef.current as HTMLVideoElement, [videoRef])
   const [autoplayEnabled, setAutoplayEnabled] = React.useState(false)
   const [captionsEnabled, setCaptionsEnabled] = React.useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -235,13 +239,7 @@ export function MobileVideoPlayer({ className, poster, src, onLoadedMetadata, ex
       {src ? (
         <div className="absolute inset-0" style={{ filter: `brightness(${brightnessLevel})` }}>
           <video
-            ref={(node) => {
-              (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = node
-              if (typeof externalVideoRef === 'function') externalVideoRef(node)
-              else if (externalVideoRef && 'current' in externalVideoRef) {
-                (externalVideoRef as React.MutableRefObject<HTMLVideoElement | null>).current = node
-              }
-            }}
+            ref={videoRef}
             className="absolute inset-0 h-full w-full object-cover"
             controls={false}
             loop={autoplayEnabled}
@@ -432,17 +430,14 @@ export function MobileVideoPlayer({ className, poster, src, onLoadedMetadata, ex
                   </span>
 
                   <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleMuted()
-                        showControlsNow(false)
-                      }}
-                      className="grid size-9 place-items-center rounded-full text-white"
-                      aria-label={muted ? 'Unmute video' : 'Mute video'}
-                    >
-                      {muted ? <VolumeX className="size-5" aria-hidden="true" /> : <Volume2 className="size-5" aria-hidden="true" />}
-                    </button>
+                    <VideoVolumeControl
+                      volume={volume}
+                      muted={muted}
+                      onVolumeChange={setVolume}
+                      onToggleMute={() => { toggleMuted(); showControlsNow(false) }}
+                      onInteractionStart={pauseAutoHide}
+                      onInteractionEnd={resumeAutoHide}
+                    />
                     <button
                       type="button"
                       onClick={() => {

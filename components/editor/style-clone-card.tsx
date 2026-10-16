@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { Link2, Loader2, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { normalizeReferenceUrl, referenceAnalysisSchema, mapReferenceStyle, type ReferenceAnalysis, type AppliedReferenceStyle } from '@/lib/editor/reference-style'
+import { normalizeReferenceUrl, mapReferenceStyle, type ReferenceAnalysis, type AppliedReferenceStyle } from '@/lib/editor/reference-style'
+import { readStyleCloneResponse } from '@/lib/editor/style-clone-response'
 
 type CloneState = { phase: 'idle' } | { phase: 'analyzing' } | { phase: 'done'; analysis: ReferenceAnalysis; videoUrl: string } | { phase: 'error'; message: string }
 export interface StyleCloneCardProps {
@@ -37,9 +38,7 @@ export function StyleCloneCard({ className, durationSec = 0, sourceKey, onApplyS
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
         body: JSON.stringify({ url: videoUrl, styleHint: styleHint.trim() || undefined }), signal: AbortSignal.timeout(65000),
       })
-      const body = await res.json()
-      if (!res.ok) throw new Error(typeof body.error === 'string' ? body.error : 'Reference analysis could not finish.')
-      const analysis = referenceAnalysisSchema.parse(body.analysis)
+      const analysis = await readStyleCloneResponse(res)
       if (generation.current === token) setState({ phase: 'done', analysis, videoUrl })
     } catch (error) {
       if (generation.current === token) setState({ phase: 'error', message: error instanceof Error ? error.message : 'Reference analysis could not finish.' })

@@ -42,7 +42,8 @@ const SOCIAL_PLATFORMS = [
 type Platform = (typeof SOCIAL_PLATFORMS)[number]
 
 type ConnectedAccountsExperienceProps = {
-  onConnect: (provider: string) => void
+  onConnect: (provider: string) => void | Promise<void>
+  connectingProvider?: string | null
 }
 
 function statusCopy(status: ConnectionStatus) {
@@ -59,7 +60,7 @@ function statusTone(status: ConnectionStatus) {
   return 'bg-white/24'
 }
 
-export function ConnectedAccountsExperience({ onConnect }: ConnectedAccountsExperienceProps) {
+export function ConnectedAccountsExperience({ onConnect, connectingProvider = null }: ConnectedAccountsExperienceProps) {
   const { connections, loading, error, refresh, getStatus } = useConnectionStatus()
   const { disconnect, isDisconnecting } = useDisconnectPlatform()
   const [disconnectTarget, setDisconnectTarget] = React.useState<Platform | null>(null)
@@ -95,10 +96,12 @@ export function ConnectedAccountsExperience({ onConnect }: ConnectedAccountsExpe
           {!loading && !hasConnections ? (
             <Button
               type="button"
+              disabled={connectingProvider !== null}
               className="mt-6 min-h-11 rounded-none bg-white px-5 text-black hover:bg-white/86 focus-visible:ring-white/60"
-              onClick={() => onConnect(SOCIAL_PLATFORMS[0].id)}
+              onClick={() => void onConnect(SOCIAL_PLATFORMS[0].id)}
             >
-              Connect first channel
+              {connectingProvider === SOCIAL_PLATFORMS[0].id ? <InlineLoadingAnimation size={15} label="Opening authorization" /> : null}
+              {connectingProvider === SOCIAL_PLATFORMS[0].id ? 'Opening authorization…' : 'Connect first channel'}
               <ArrowUpRight className="size-4" aria-hidden="true" />
             </Button>
           ) : null}
@@ -194,7 +197,7 @@ export function ConnectedAccountsExperience({ onConnect }: ConnectedAccountsExpe
                     type="button"
                     size="sm"
                     variant={active ? 'ghost' : 'default'}
-                    disabled={loading || isDisconnecting === platform.id}
+                    disabled={loading || isDisconnecting === platform.id || connectingProvider !== null}
                     className={cn(
                       'min-h-11 w-full rounded-none px-5 font-medium md:w-auto',
                       active
@@ -212,7 +215,8 @@ export function ConnectedAccountsExperience({ onConnect }: ConnectedAccountsExpe
                     }}
                   >
                     {isDisconnecting === platform.id ? <InlineLoadingAnimation size={15} label={`Disconnecting ${platform.name}`} /> : null}
-                    {actionLabel}
+                    {connectingProvider === platform.id ? <InlineLoadingAnimation size={15} label={`Connecting ${platform.name}`} /> : null}
+                    {connectingProvider === platform.id ? 'Opening authorization…' : actionLabel}
                   </Button>
                 </article>
               )

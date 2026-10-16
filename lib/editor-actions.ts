@@ -25,6 +25,8 @@ export type EditorActionDraft =
   | { kind: 'seek'; timeSec: number; summary: string }
   | { kind: 'preview_control'; command: PreviewControlCommand; summary: string }
   | { kind: 'soundtrack_control'; command: SoundtrackCommand; volume?: number; enabled?: boolean; summary: string }
+  | { kind: 'select_soundtrack'; query: string; summary: string }
+  | { kind: 'request_transcription'; summary: string }
   | { kind: 'set_fit_mode'; mode: EditorFitMode; summary: string }
   | { kind: 'switch_tab'; tab: EditorWorkspaceTab; summary: string }
   | { kind: 'open_thumbnail_studio'; creativeDirection?: string; headline?: string; referenceId?: StudioReferenceId; generateNow?: boolean; isIterative?: boolean; iterationPrompt?: string; baseThumbnailUrl?: string; aspectRatio?: string; summary: string }
@@ -44,6 +46,8 @@ export const EDITOR_ACTION_KINDS: readonly EditorActionKind[] = [
   'seek',
   'preview_control',
   'soundtrack_control',
+  'select_soundtrack',
+  'request_transcription',
   'set_fit_mode',
   'switch_tab',
   'open_thumbnail_studio',
@@ -67,6 +71,7 @@ const RENDER_MODES: readonly EditorRenderMode[] = ['preview', 'final']
 /** Takeover-tier kinds: only executable when the editor enables mutations. */
 export const MUTATING_ACTION_KINDS: readonly EditorActionKind[] = [
   'split_at_playhead',
+  'select_soundtrack',
   'cut_silence',
   'set_typography',
   'set_caption_style',
@@ -136,6 +141,13 @@ export function parseEditorActionDraft(input: unknown): EditorActionDraft | null
       }
       return { kind: 'soundtrack_control', command, summary: cleanSummary(record.summary, 'Remove soundtrack') }
     }
+    case 'select_soundtrack': {
+      const query = typeof record.query === 'string' ? record.query.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
+      if (!query) return null
+      return { kind: 'select_soundtrack', query, summary: cleanSummary(record.summary, `Choose a ${query} soundtrack`) }
+    }
+    case 'request_transcription':
+      return { kind: 'request_transcription', summary: cleanSummary(record.summary, 'Request a timed transcript after reviewing its credit quote') }
     case 'set_fit_mode': {
       const mode = typeof record.mode === 'string' ? record.mode.toLowerCase().trim() : null
       if (!mode || !FIT_MODES.includes(mode as EditorFitMode)) return null
@@ -287,6 +299,7 @@ export interface EditorActionContext {
   setSoundtrackVolume?: (volume: number) => void
   setSoundtrackDucking?: (enabled: boolean) => void
   removeSoundtrack?: () => void
+  requestTranscription?: () => void
   setFitMode?: (mode: EditorFitMode) => void
   setWorkspaceTab?: (tab: EditorWorkspaceTab) => void
   openThumbnailStudio?: (draft: Extract<EditorActionDraft, { kind: 'open_thumbnail_studio' }>) => void
@@ -357,6 +370,12 @@ export function applyEditorAction(action: EditorActionDraft, ctx: EditorActionCo
       }
       return { applied: true, message: action.summary }
     }
+    case 'select_soundtrack':
+      return { applied: false, message: 'Soundtrack search is unavailable right now.' }
+    case 'request_transcription':
+      if (!ctx.requestTranscription) return { applied: false, message: 'Transcription request is unavailable right now.' }
+      ctx.requestTranscription()
+      return { applied: true, message: action.summary }
     case 'set_fit_mode': {
       if (!ctx.setFitMode) return { applied: false, message: 'Fit mode control is unavailable right now.' }
       ctx.setFitMode(action.mode)

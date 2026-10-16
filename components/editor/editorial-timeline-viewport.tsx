@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils'
 import { useTimelineTools } from '@/hooks/use-timeline-tools'
 
 export interface EditorialTimelineViewportProps extends EditorialTimelineTracksProps {
+  splitPoints?: number[]
+  onSplitPointsChange?: (points: number[]) => void
   playing: boolean
   onTogglePlayback?: () => void
   onZoomChange?: (zoom: number) => void
@@ -53,7 +55,7 @@ export function EditorialTimelineViewport({
   const [isMusicHidden, setIsMusicHidden] = React.useState(false)
 
   // Selected clip state
-  const tools = useTimelineTools({ source: props.previewUrl, duration: props.effectiveDuration, title: props.sourceLabel, time: props.currentTime, cuts: props.cutRanges ?? [], cues: props.editorialCues ?? [], onCuts: props.onCutRangesChange, onCues: props.onEditorialCuesChange })
+  const tools = useTimelineTools({ source: props.previewUrl, duration: props.effectiveDuration, title: props.sourceLabel, time: props.currentTime, splits: props.splitPoints, onSplits: props.onSplitPointsChange, cuts: props.cutRanges ?? [], cues: props.editorialCues ?? [], onCuts: props.onCutRangesChange, onCues: props.onEditorialCuesChange })
   const selectedClipId = tools.selected
   const setSelectedClipId = tools.select
 

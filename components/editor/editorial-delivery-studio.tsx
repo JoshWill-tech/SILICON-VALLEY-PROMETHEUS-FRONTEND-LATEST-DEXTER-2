@@ -7,7 +7,7 @@ import { ArrowDownToLine, Check, Columns2, Film, LoaderCircle, Plus, RefreshCw, 
 import type { ProjectExport } from '@/lib/types'
 import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
-import { isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath } from '@/lib/editor/render-delivery'
+import { canSubmitSourceRender, isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath, type SourceUploadStatus } from '@/lib/editor/render-delivery'
 import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider } from '@/components/editor/video-review-annotations'
 
 type TextTreatment = {
@@ -53,7 +53,7 @@ function renderProgress(record: ProjectExport | undefined): number | null {
 }
 
 export function EditorialDeliveryStudio({
-  projectId, sourceAssetId, sourceUrl, projectTitle, currentTimeSec, durationSec, presentation = 'studio',
+  projectId, sourceAssetId, sourceUrl, projectTitle, currentTimeSec, durationSec, presentation = 'studio', sourceUploadStatus = 'ready',
 }: {
   projectId: string
   sourceAssetId: string | null
@@ -62,6 +62,7 @@ export function EditorialDeliveryStudio({
   currentTimeSec: number
   durationSec: number
   presentation?: 'studio' | 'preview'
+  sourceUploadStatus?: SourceUploadStatus
 }) {
   const editorial = useEditorialTimeline()
   const prefersReducedMotion = useReducedMotion()
@@ -165,7 +166,7 @@ export function EditorialDeliveryStudio({
   }
 
   const startRender = async () => {
-    if (!sourceAssetId || isSubmitting || pendingRecord) return
+    if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus) || isSubmitting || pendingRecord) return
     setIsSubmitting(true)
     setError(null)
     setExpanded(true)
@@ -300,13 +301,15 @@ export function EditorialDeliveryStudio({
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => void refresh()} className="grid size-9 place-items-center rounded-lg border border-white/10 text-white/60 hover:bg-white/5 hover:text-white" aria-label="Refresh renders"><RefreshCw className="size-4" /></button>
-          <button type="button" onClick={() => void startRender()} disabled={!sourceAssetId || isSubmitting || Boolean(pendingRecord)} title={!sourceAssetId ? 'Add a source video first.' : undefined} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#b4fb60] px-3 text-xs font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-45">
+          <button type="button" onClick={() => void startRender()} disabled={!canSubmitSourceRender(sourceAssetId, sourceUploadStatus) || isSubmitting || Boolean(pendingRecord)} title={sourceUploadStatus === 'uploading' ? 'Wait for the source video to finish saving before rendering.' : sourceUploadStatus === 'failed' ? 'The source video was not saved. Select it again before rendering.' : !sourceAssetId ? 'Add a source video first.' : undefined} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#b4fb60] px-3 text-xs font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-45">
             {isSubmitting || pendingRecord ? <LoaderCircle className="size-3.5 animate-spin" /> : <Film className="size-3.5" />}
             {isSubmitting ? 'Submitting render…' : pendingRecord?.status === 'pending' ? 'Queued…' : pendingRecord ? 'Rendering…' : 'Start source Mini-Run'}
           </button>
         </div>
       </div>
       {(error || historyError || editorial.status === 'error') && <p role="alert" className="border-b border-rose-400/15 bg-rose-400/5 px-5 py-2 text-xs text-rose-200">{error ?? historyError ?? `Editor timeline sync failed: ${editorial.error || 'Unable to confirm the save.'}`}</p>}
+      {sourceUploadStatus === 'uploading' && <p role="status" className="border-b border-white/8 px-5 py-2 text-[11px] text-white/55">Saving the replacement source video. Rendering will be available when it finishes.</p>}
+      {sourceUploadStatus === 'failed' && <p role="alert" className="border-b border-rose-400/15 bg-rose-400/5 px-5 py-2 text-xs text-rose-200">The replacement source was not saved. Select the video again before rendering.</p>}
       {isSubmitting && <p role="status" aria-live="polite" className="border-b border-white/8 px-5 py-2 text-[11px] text-white/55">Submitting render…</p>}
       {latestRecord && <div role="status" aria-live="polite" className="border-b border-white/8 px-5 py-3 text-[11px] text-white/65">
         <div className="flex flex-wrap items-center justify-between gap-2">
