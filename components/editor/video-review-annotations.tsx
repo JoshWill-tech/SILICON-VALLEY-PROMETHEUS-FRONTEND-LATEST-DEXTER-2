@@ -3,9 +3,9 @@
 import * as React from 'react'
 import { get, set } from 'idb-keyval'
 import { cn } from '@/lib/utils'
-import { ArrowDownToLine, Check, Circle, CornerDownLeft, FileJson, LoaderCircle, MessageSquare, Mic, Pencil, Plus, Redo2, Square, Trash2, Type, Undo2, X } from 'lucide-react'
+import { ArrowDownToLine, Check, ChevronDown, ChevronUp, Circle, CornerDownLeft, FileJson, Grip, LoaderCircle, MessageSquare, Mic, Pencil, Plus, Redo2, Square, Trash2, Type, Undo2, X } from 'lucide-react'
 import { useReviewDictation } from '@/hooks/use-review-dictation'
-import { appendReviewNote, captureReviewFrame, clampReviewPoint, createAnnotationManifest, createReviewZip, downloadReviewFile, formatReviewTime, renderReviewScreenshot, reviewImageBytes, type ReviewEntry, type ReviewMark, type ReviewProject } from '@/lib/editor/video-review-annotations'
+import { appendReviewNote, canStoreReviewEntries, captureReviewFrame, clampReviewPoint, createAnnotationManifest, createReviewZip, downloadReviewFile, estimateReviewStorageBytes, formatReviewTime, MAX_REVIEW_STORAGE_BYTES, normalizeReviewPillPosition, renderReviewScreenshot, reviewImageBytes, type ReviewEntry, type ReviewMark, type ReviewProject } from '@/lib/editor/video-review-annotations'
 
 type ReviewContextValue = {
   ready: boolean
@@ -33,6 +33,12 @@ function useReview() {
 
 export function VideoReviewProvider({ children, ...project }: ReviewProject & { children: React.ReactNode }) {
   const [entries, setEntries] = React.useState<ReviewEntry[]>([])
+  const entriesRef = React.useRef(entries)
+  const updateEntries = React.useCallback((update: React.SetStateAction<ReviewEntry[]>) => {
+    const next = typeof update === 'function' ? update(entriesRef.current) : update
+    entriesRef.current = next
+    setEntries(next)
+  }, [])
   const [draft, setDraft] = React.useState<ReviewEntry | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [ready, setReady] = React.useState(false)
@@ -56,6 +62,7 @@ export function VideoReviewProvider({ children, ...project }: ReviewProject & { 
     void (reviewWrites.get(key) ?? Promise.resolve()).then(() => get<{ entries: ReviewEntry[]; draft: ReviewEntry | null }>(key)).then(saved => {
       if (cancelled) return
       if (saved && Array.isArray(saved.entries)) {
+        entriesRef.current = saved.entries
         setEntries(saved.entries)
         setDraft(saved.draft ?? null)
       }
@@ -95,7 +102,12 @@ export function VideoReviewProvider({ children, ...project }: ReviewProject & { 
     try {
       const snapshot = captureReviewFrame(video, source, renderId)
       const existing = entries.find(entry => entry.source === source && entry.renderId === renderId && Math.round(entry.timeSec * 1000) === Math.round(snapshot.timeSec * 1000))
-      setDraft(existing ?? snapshot)
+      const nextDraft = existing ?? snapshot
+      if (!canStoreReviewEntries(entries, MAX_REVIEW_STORAGE_BYTES, nextDraft)) {
+        setError('This project reached its 50 MiB local screenshot limit. Download the review and remove older frames before adding another.')
+        return
+      }
+      setDraft(nextDraft)
       setEditing(true)
     } catch (cause) {
       setError(cause instanceof DOMException && cause.name === 'SecurityError'
@@ -106,9 +118,15 @@ export function VideoReviewProvider({ children, ...project }: ReviewProject & { 
 
   const saveNote: ReviewContextValue['saveNote'] = async (frame, text) => {
     if (!text.trim()) return
-    const entry = appendReviewNote(entries, frame, text, crypto.randomUUID())
+    const currentEntries = entriesRef.current
+    const entry = appendReviewNote(currentEntries, frame, text, crypto.randomUUID())
     entry.annotatedImage = await renderReviewScreenshot(entry)
-    setEntries(current => [...current.filter(item => item.id !== entry.id), entry])
+    const nextEntries = [...entriesRef.current.filter(item => item.id !== entry.id), entry]
+    if (!canStoreReviewEntries(nextEntries)) {
+      const limitMiB = Math.round(MAX_REVIEW_STORAGE_BYTES / (1024 * 1024))
+      throw new Error(`This project's review screenshots reached ${limitMiB} MiB on this device. Download the review and remove older frames before saving another note.`)
+    }
+    updateEntries(nextEntries)
     setError(null)
   }
 
@@ -139,14 +157,28 @@ export function VideoReviewProvider({ children, ...project }: ReviewProject & { 
   return <ReviewContext.Provider value={{ ready, capture, saveNote, entries, draft, error, notice, exportReview,
     open: entry => {
       if (draft && draft.id !== entry.id) { setNotice('Finish or discard your current frame before opening another.'); setEditing(true); return }
+      if (!canStoreReviewEntries(entries, MAX_REVIEW_STORAGE_BYTES, entry)) {
+        setError('This project reached its 50 MiB local screenshot limit. Download the review and remove older frames before editing another.')
+        return
+      }
       setDraft(entry); setEditing(true)
     },
-    remove: id => { setEntries(current => current.filter(entry => entry.id !== id)); if (draft?.id === id) setDraft(null) },
+    remove: id => { updateEntries(current => current.filter(entry => entry.id !== id)); if (draft?.id === id) setDraft(null) },
   }}>
     {children}
     {editing && draft ? <ReviewFrameEditor key={draft.id} entry={draft} onChange={setDraft}
       onClose={() => setEditing(false)} onDiscard={() => { setDraft(null); setEditing(false); setNotice(null) }}
-      onSave={entry => { setEntries(current => [...current.filter(item => item.id !== entry.id), entry]); setDraft(null); setEditing(false); setNotice('Frame saved. Add another moment or download your review.'); setError(null) }} /> : null}
+      onSave={entry => {
+        const nextEntries = [...entriesRef.current.filter(item => item.id !== entry.id), entry]
+        if (!canStoreReviewEntries(nextEntries)) {
+          const limitMiB = Math.round(MAX_REVIEW_STORAGE_BYTES / (1024 * 1024))
+          setError(`This project's review screenshots reached ${limitMiB} MiB on this device. Download the review and remove older frames before saving.`)
+          return false
+        }
+        updateEntries(nextEntries)
+        setDraft(null); setEditing(false); setNotice('Frame saved. Add another moment or download your review.'); setError(null)
+        return true
+      }} /> : null}
   </ReviewContext.Provider>
 }
 
@@ -162,6 +194,96 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
   const input = React.useRef<HTMLInputElement>(null)
   const savingNow = React.useRef(false)
   const saveAfterVoice = React.useRef(false)
+  const pillRef = React.useRef<HTMLDivElement>(null)
+  const dragRef = React.useRef<{ pointerId: number; pointerX: number; pointerY: number; centerX: number; centerY: number } | null>(null)
+  const [collapsed, setCollapsed] = React.useState(false)
+  const [dragging, setDragging] = React.useState(false)
+  const [pillPosition, setPillPosition] = React.useState({ x: 0.5, y: 0.84 })
+  const pillPositionRef = React.useRef(pillPosition)
+  const updatePillPosition = React.useCallback((next: { x: number; y: number }) => {
+    const current = pillPositionRef.current
+    if (Math.abs(current.x - next.x) < 0.0001 && Math.abs(current.y - next.y) < 0.0001) return
+    pillPositionRef.current = next
+    setPillPosition(next)
+  }, [])
+  React.useEffect(() => {
+    const pill = pillRef.current
+    const host = pill?.parentElement
+    if (!pill || !host) return
+    const clampToHost = () => {
+      const hostRect = host.getBoundingClientRect()
+      const pillRect = pill.getBoundingClientRect()
+      const current = pillPositionRef.current
+      updatePillPosition(normalizeReviewPillPosition(current.x * hostRect.width, current.y * hostRect.height, hostRect.width, hostRect.height, pillRect.width, pillRect.height))
+    }
+    clampToHost()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(clampToHost)
+    observer.observe(host)
+    observer.observe(pill)
+    return () => observer.disconnect()
+  }, [collapsed, updatePillPosition])
+  const startPillDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const pill = pillRef.current
+    const host = pill?.parentElement
+    if (!pill || !host) return
+    const hostRect = host.getBoundingClientRect()
+    const pillRect = pill.getBoundingClientRect()
+    dragRef.current = {
+      pointerId: event.pointerId,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      centerX: pillRect.left - hostRect.left + pillRect.width / 2,
+      centerY: pillRect.top - hostRect.top + pillRect.height / 2,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setDragging(true)
+    event.preventDefault()
+  }
+  const movePillDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    const pill = pillRef.current
+    const host = pill?.parentElement
+    if (!drag || drag.pointerId !== event.pointerId || !pill || !host) return
+    const hostRect = host.getBoundingClientRect()
+    const pillRect = pill.getBoundingClientRect()
+    updatePillPosition(normalizeReviewPillPosition(
+      drag.centerX + event.clientX - drag.pointerX,
+      drag.centerY + event.clientY - drag.pointerY,
+      hostRect.width,
+      hostRect.height,
+      pillRect.width,
+      pillRect.height,
+    ))
+  }
+  const stopPillDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return
+    dragRef.current = null
+    setDragging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+  const nudgePill = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const directions: Record<string, { x: number; y: number }> = {
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 },
+    }
+    const direction = directions[event.key]
+    const pill = pillRef.current
+    const host = pill?.parentElement
+    if (!direction || !pill || !host) return
+    event.preventDefault()
+    const hostRect = host.getBoundingClientRect()
+    const pillRect = pill.getBoundingClientRect()
+    const step = event.shiftKey ? 0.05 : 0.01
+    updatePillPosition(normalizeReviewPillPosition(
+      (pillPositionRef.current.x + direction.x * step) * hostRect.width,
+      (pillPositionRef.current.y + direction.y * step) * hostRect.height,
+      hostRect.width,
+      hostRect.height,
+      pillRect.width,
+      pillRect.height,
+    ))
+  }
   const capture = () => {
     if (!frame.current) frame.current = captureReviewFrame(videoRef.current, source, renderId)
     return frame.current
@@ -195,13 +317,17 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
   const busy = saving || voice.state === 'requesting' || voice.state === 'transcribing'
   const label = source === 'original' ? 'Original' : 'Rendered'
   const iconButton = 'grid size-9 shrink-0 place-items-center rounded-full text-white/65 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[#b4fb60] disabled:opacity-35'
-  return <div className="pointer-events-none absolute inset-x-3 bottom-16 z-10 flex flex-col items-center gap-1.5">
-    <form aria-label={`${label} frame annotation`} className="pointer-events-auto flex w-full max-w-sm items-center gap-0.5 rounded-full border border-white/15 bg-[#101113]/95 p-1 pl-4 shadow-xl backdrop-blur-sm" onSubmit={event => {
+  return <div ref={pillRef} className={`pointer-events-none absolute z-10 flex flex-col items-center gap-1.5 ${collapsed ? 'w-auto max-w-[calc(100%-1rem)]' : 'w-[calc(100%-1.5rem)] max-w-sm'}`} style={{ left: `${pillPosition.x * 100}%`, top: `${pillPosition.y * 100}%`, transform: 'translate(-50%, -50%)' }}>
+    {collapsed ? <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-blue-300/45 bg-blue-600/95 p-1 text-white shadow-lg shadow-blue-950/35 backdrop-blur-sm">
+      <button type="button" aria-label={`Move ${label} frame annotation`} title="Drag to move · Use arrow keys to nudge" className={`grid size-8 touch-none cursor-grab place-items-center rounded-full text-white/75 hover:bg-white/15 active:cursor-grabbing ${dragging ? 'cursor-grabbing' : ''}`} onPointerDown={startPillDrag} onPointerMove={movePillDrag} onPointerUp={stopPillDrag} onPointerCancel={stopPillDrag} onKeyDown={nudgePill}><Grip className="size-4" /></button>
+      <button type="button" aria-label={`Expand ${label} frame annotation`} title="Expand frame note" className="grid size-8 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white" onClick={() => setCollapsed(false)}><ChevronUp className="size-4" /></button>
+    </div> : <form aria-label={`${label} frame annotation`} className="pointer-events-auto flex w-full items-center gap-0.5 rounded-full border border-white/15 bg-[#101113]/95 p-1 pl-1.5 shadow-xl backdrop-blur-sm" onSubmit={event => {
       event.preventDefault()
       if (voice.state === 'recording') { saveAfterVoice.current = true; voice.stop(); return }
       if (voice.state === 'transcribing') { saveAfterVoice.current = true; return }
       if (!busy && review.ready) void save(text)
     }}>
+      <button type="button" aria-label={`Move ${label} frame annotation`} title="Drag to move · Use arrow keys to nudge" className={`grid size-8 shrink-0 touch-none cursor-grab place-items-center rounded-full text-white/45 hover:bg-white/10 hover:text-white active:cursor-grabbing ${dragging ? 'cursor-grabbing' : ''}`} onPointerDown={startPillDrag} onPointerMove={movePillDrag} onPointerUp={stopPillDrag} onPointerCancel={stopPillDrag} onKeyDown={nudgePill}><Grip className="size-3.5" /></button>
       <input ref={input} type="text" aria-label={`${label} frame note`} value={text} maxLength={2000} disabled={!review.ready} readOnly={saving || voice.state !== 'idle'} placeholder={voice.state === 'recording' ? 'Listening… Enter to save' : voice.state === 'transcribing' ? 'Transcribing…' : 'Add a frame note…'} className="min-w-0 flex-1 bg-transparent py-1.5 text-xs text-white outline-none placeholder:text-white/45" onFocus={() => videoRef.current?.pause()} onChange={event => {
         setText(event.target.value); setStatus(null); setError(null); voice.clearError()
         if (!event.target.value) { frame.current = null; return }
@@ -214,14 +340,17 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
       }}>{voice.state === 'requesting' || voice.state === 'transcribing' ? <LoaderCircle className="size-3.5 animate-spin" /> : voice.state === 'recording' ? <Square className="size-3 fill-current" /> : <Mic className="size-3.5" />}</button>
       <button type="button" disabled={!review.ready || busy || voice.state !== 'idle'} aria-label={`Draw on ${source} frame`} title="Draw on this frame" className={iconButton} onClick={() => review.capture(videoRef.current, source, renderId)}><Pencil className="size-3.5" /></button>
       <button type="submit" disabled={!review.ready || saving || (voice.state === 'idle' && !text.trim())} aria-label={`Save ${source} frame note`} title="Save note · Enter" className={cn(iconButton, 'text-[#c9ff88]')}>{saving ? <LoaderCircle className="size-3.5 animate-spin" /> : <CornerDownLeft className="size-3.5" />}</button>
-    </form>
+      <button type="button" aria-label={`Collapse ${label} frame annotation`} title="Collapse frame note" className="grid size-8 shrink-0 place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white" onClick={() => setCollapsed(true)}><ChevronDown className="size-4" /></button>
+    </form>}
     {error || voice.error || review.error || status ? <p role={error || voice.error || review.error ? 'alert' : 'status'} className="pointer-events-auto max-w-sm rounded-full bg-black/85 px-3 py-1 text-center text-[10px] text-white/80">{error ?? voice.error ?? review.error ?? status}</p> : null}
   </div>
 }
 
 export function VideoReviewDownloadButton() {
   const review = useReview()
-  return <button type="button" onClick={() => review.exportReview('json')} disabled={!review.entries.length} aria-label="Download annotations JSON" title={`Download all annotations and screenshots · ${review.entries.length} frames`} className="relative grid size-9 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-[#b4fb60] disabled:opacity-30">
+  const savedMiB = (estimateReviewStorageBytes(review.entries) / (1024 * 1024)).toFixed(1)
+  const limitMiB = Math.round(MAX_REVIEW_STORAGE_BYTES / (1024 * 1024))
+  return <button type="button" onClick={() => review.exportReview('json')} disabled={!review.entries.length} aria-label="Download annotations JSON" title={`Download annotations and screenshots · ${review.entries.length} frames · ${savedMiB} of ${limitMiB} MiB saved locally`} className="relative grid size-9 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-[#b4fb60] disabled:opacity-30">
     <ArrowDownToLine className="size-4" />
     {review.entries.length ? <span className="absolute -right-0.5 -top-0.5 min-w-3.5 rounded-full bg-[#b4fb60] px-1 text-[9px] font-medium leading-3.5 text-black">{review.entries.length}</span> : null}
   </button>
@@ -296,13 +425,15 @@ function FrameMark({ mark, width, height, onEdit }: { mark: ReviewMark; width: n
 }
 
 function ReviewFrameEditor({ entry, onChange, onSave, onClose, onDiscard }: {
-  entry: ReviewEntry; onChange: React.Dispatch<React.SetStateAction<ReviewEntry | null>>; onSave: (entry: ReviewEntry) => void; onClose: () => void; onDiscard: () => void
+  entry: ReviewEntry; onChange: React.Dispatch<React.SetStateAction<ReviewEntry | null>>; onSave: (entry: ReviewEntry) => boolean; onClose: () => void; onDiscard: () => void
 }) {
   const [tool, setTool] = React.useState<Tool>('text')
   const [color, setColor] = React.useState(colors[0].value)
   const [marks, setMarks] = React.useState<ReviewMark[]>(entry.marks)
   const [redo, setRedo] = React.useState<ReviewMark[]>([])
   const [drawing, setDrawing] = React.useState<ReviewMark | null>(null)
+  const drawingRef = React.useRef<ReviewMark | null>(null)
+  const penPreviewRef = React.useRef<HTMLCanvasElement>(null)
   const [selectedText, setSelectedText] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -342,7 +473,8 @@ function ReviewFrameEditor({ entry, onChange, onSave, onClose, onDiscard }: {
       const context = canvas.getContext('2d')
       if (!context) throw new Error('Image export is unavailable in this browser.')
       context.drawImage(image, 0, 0)
-      onSave({ ...entry, marks: marks.filter(mark => mark.type !== 'text' || mark.text.trim()), annotatedImage: canvas.toDataURL('image/png') })
+      const saved = onSave({ ...entry, marks: marks.filter(mark => mark.type !== 'text' || mark.text.trim()), annotatedImage: canvas.toDataURL('image/png') })
+      if (!saved) setError('The local screenshot limit is 50 MiB. Download your review and remove older frames before saving.')
     } catch {
       setError('Could not save the marked-up screenshot. Your draft is kept; try again.')
     } finally {
@@ -385,17 +517,68 @@ function ReviewFrameEditor({ entry, onChange, onSave, onClose, onDiscard }: {
                 const mark: ReviewMark = { id: crypto.randomUUID(), type: 'text', color, x: Math.min(point.x, 0.52), y: Math.min(point.y, 0.7), text: '' }
                 commit([...marks, mark]); setSelectedText(mark.id)
               } else {
+                const nextDrawing: ReviewMark = tool === 'pen'
+                  ? { id: crypto.randomUUID(), type: 'pen', color, points: [point] }
+                  : { id: crypto.randomUUID(), type: tool, color, start: point, end: point }
+                drawingRef.current = nextDrawing
                 event.currentTarget.setPointerCapture(event.pointerId)
-                setDrawing(tool === 'pen' ? { id: crypto.randomUUID(), type: tool, color, points: [point] } : { id: crypto.randomUUID(), type: tool, color, start: point, end: point })
+                if (nextDrawing.type === 'pen') {
+                  const context = penPreviewRef.current?.getContext('2d')
+                  if (context) {
+                    context.strokeStyle = nextDrawing.color
+                    context.lineWidth = Math.max(entry.width, entry.height) * 0.0035
+                    context.lineCap = 'round'
+                    context.lineJoin = 'round'
+                    context.beginPath()
+                    context.moveTo(point.x * entry.width, point.y * entry.height)
+                  }
+                } else {
+                  setDrawing(nextDrawing)
+                }
               }
             }}
             onPointerMove={event => {
-              if (!drawing) return
+              const activeDrawing = drawingRef.current
+              if (!activeDrawing) return
               const point = pointOf(event)
-              setDrawing(drawing.type === 'pen' ? { ...drawing, points: [...drawing.points, point] } : drawing.type !== 'text' ? { ...drawing, end: point } : drawing)
+              if (activeDrawing.type === 'pen') {
+                const context = penPreviewRef.current?.getContext('2d')
+                if (context) {
+                  context.lineTo(point.x * entry.width, point.y * entry.height)
+                  context.stroke()
+                }
+                const last = activeDrawing.points[activeDrawing.points.length - 1]
+                const bounds = event.currentTarget.getBoundingClientRect()
+                if (Math.hypot((point.x - last.x) * bounds.width, (point.y - last.y) * bounds.height) >= 2) {
+                  activeDrawing.points.push(point)
+                }
+              } else if (activeDrawing.type === 'circle' || activeDrawing.type === 'rectangle') {
+                const nextDrawing = { ...activeDrawing, end: point }
+                drawingRef.current = nextDrawing
+                setDrawing(nextDrawing)
+              }
             }}
-            onPointerUp={event => { if (drawing) { commit([...marks, drawing]); setDrawing(null); event.currentTarget.releasePointerCapture(event.pointerId) } }}
-            onPointerCancel={() => setDrawing(null)}>
+            onPointerUp={event => {
+              const activeDrawing = drawingRef.current
+              if (!activeDrawing || (activeDrawing.type !== 'pen' && activeDrawing.type !== 'circle' && activeDrawing.type !== 'rectangle')) return
+              const point = pointOf(event)
+              const completed = activeDrawing.type === 'pen'
+                ? { ...activeDrawing, points: [...activeDrawing.points, point] }
+                : { ...activeDrawing, end: point }
+              drawingRef.current = null
+              if (activeDrawing.type === 'pen') {
+                const context = penPreviewRef.current?.getContext('2d')
+                context?.clearRect(0, 0, entry.width, entry.height)
+              }
+              commit([...marks, completed])
+              setDrawing(null)
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+            }}
+            onPointerCancel={() => {
+              drawingRef.current = null
+              setDrawing(null)
+              penPreviewRef.current?.getContext('2d')?.clearRect(0, 0, entry.width, entry.height)
+            }}>
             <image href={entry.image} width={entry.width} height={entry.height} />
             {marks.filter(mark => mark.type !== 'text' || mark.text.trim()).map(mark => <FrameMark key={mark.id} mark={mark} width={entry.width} height={entry.height} onEdit={!saving && mark.type === 'text' ? () => setSelectedText(mark.id) : undefined} />)}
             {drawing ? <FrameMark mark={drawing} width={entry.width} height={entry.height} /> : null}
@@ -404,6 +587,7 @@ function ReviewFrameEditor({ entry, onChange, onSave, onClose, onDiscard }: {
               <text x={entry.width * 0.012} y={entry.height - entry.width * 0.01} fill="#ffffff" fontFamily="Arial, sans-serif" fontSize={entry.width * 0.02}>{entry.source === 'original' ? 'Original' : 'Rendered MP4'} · {formatReviewTime(entry.timeSec)}</text>
             </g>
           </svg>
+          <canvas ref={penPreviewRef} width={entry.width} height={entry.height} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
           {edited?.type === 'text' ? <div className="absolute z-10 w-[min(16rem,90%)] rounded-lg border border-[#b4fb60]/50 bg-[#0b1018] p-2 shadow-xl" style={{ left: `${edited.x * 100}%`, top: `${edited.y * 100}%`, maxWidth: `${(1 - edited.x) * 100}%` }}>
             <textarea autoFocus aria-label="Floating annotation text" placeholder="What should change?" value={edited.text} maxLength={500} rows={3} onChange={event => commit(marks.map(mark => mark.id === edited.id && mark.type === 'text' ? { ...mark, text: event.target.value } : mark))} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); setSelectedText(null) } }} className="block w-full resize-y bg-transparent text-xs leading-relaxed text-white outline-none placeholder:text-white/45" />
             <div className="mt-1 flex items-center justify-between"><button type="button" aria-label="Delete text note" onClick={() => { commit(marks.filter(mark => mark.id !== edited.id)); setSelectedText(null) }} className="grid size-11 place-items-center text-white/60 hover:text-white"><Trash2 className="size-3.5" /></button><button type="button" onClick={() => setSelectedText(null)} className="inline-flex min-h-11 items-center gap-1 px-2 text-xs text-[#c9ff88]"><Check className="size-3.5" /> Done</button></div>

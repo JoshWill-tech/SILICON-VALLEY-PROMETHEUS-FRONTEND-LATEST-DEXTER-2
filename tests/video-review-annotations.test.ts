@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createAnnotationManifest, formatReviewTime, createReviewZip, clampReviewPoint, appendReviewNote } from '../lib/editor/video-review-annotations'
+import { canStoreReviewEntries, createAnnotationManifest, estimateReviewStorageBytes, formatReviewTime, createReviewZip, clampReviewPoint, appendReviewNote, MAX_REVIEW_STORAGE_BYTES, normalizeReviewPillPosition } from '../lib/editor/video-review-annotations'
 
 test('Enter submissions group notes by the exact frame and keep other versions separate', () => {
   const frame = { id: 'frame-1', createdAt: '2026-10-15T12:00:00Z', source: 'original' as const, renderId: null, timeSec: 1.25, width: 720, height: 1280, image: 'data:image/png;base64,a', annotatedImage: '', marks: [] }
@@ -24,6 +24,25 @@ test('review timestamps retain milliseconds and hours', () => {
 test('pointer coordinates stay inside the captured frame', () => {
   assert.deepEqual(clampReviewPoint(-10, 250, 200, 100), { x: 0, y: 1 })
   assert.deepEqual(clampReviewPoint(50, 25, 200, 100), { x: 0.25, y: 0.25 })
+})
+
+test('draggable review pill stays inside the video at desktop and mobile sizes', () => {
+  const desktop = normalizeReviewPillPosition(-20, 200, 600, 338, 384, 44)
+  assert.ok(Math.abs(desktop.x - 1 / 3) < 1e-12)
+  assert.ok(Math.abs(desktop.y - 200 / 338) < 1e-12)
+  assert.deepEqual(normalizeReviewPillPosition(500, 200, 360, 640, 336, 44), { x: 0.5111111111111111, y: 0.3125 })
+  assert.deepEqual(normalizeReviewPillPosition(50, 50, 20, 20, 100, 100), { x: 0.5, y: 0.5 })
+})
+
+test('local screenshot storage estimates base64 bytes and enforces its cap without deleting saved entries', () => {
+  const entry = { id: 'saved', image: 'data:image/png;base64,QUJDRA==', annotatedImage: 'data:image/png;base64,QUJDRA==' }
+  const encodedBytes = entry.image.length + entry.annotatedImage.length
+  assert.equal(estimateReviewStorageBytes([entry]), encodedBytes)
+  assert.equal(canStoreReviewEntries([entry], encodedBytes), true)
+  assert.equal(canStoreReviewEntries([entry], encodedBytes - 1), false)
+  assert.equal(estimateReviewStorageBytes([entry], entry), encodedBytes, 'editing a saved frame does not double-count its existing screenshot')
+  assert.equal(canStoreReviewEntries([], encodedBytes, entry), true, 'unsaved drawing drafts count toward the same limit')
+  assert.equal(MAX_REVIEW_STORAGE_BYTES, 50 * 1024 * 1024)
 })
 
 test('portable review JSON preserves exact source, timestamp, marks and screenshots without media URLs', () => {

@@ -19,6 +19,25 @@ export type ReviewEntry = {
 
 export type ReviewProject = { projectId: string; sourceAssetId: string | null; projectTitle: string }
 
+export const MAX_REVIEW_STORAGE_BYTES = 50 * 1024 * 1024
+
+function dataUrlBytes(value: string): number {
+  // Count the ASCII data URL as stored. Counting decoded PNG bytes would miss
+  // base64's roughly 33% expansion and understate the IndexedDB quota used.
+  return value.length
+}
+
+export function estimateReviewStorageBytes(entries: readonly Pick<ReviewEntry, 'id' | 'image' | 'annotatedImage'>[], draft: Pick<ReviewEntry, 'id' | 'image' | 'annotatedImage'> | null = null): number {
+  const savedBytes = entries.reduce((total, entry) => total + dataUrlBytes(entry.image) + dataUrlBytes(entry.annotatedImage), 0)
+  return draft && !entries.some(entry => entry.id === draft.id)
+    ? savedBytes + dataUrlBytes(draft.image) + dataUrlBytes(draft.annotatedImage)
+    : savedBytes
+}
+
+export function canStoreReviewEntries(entries: readonly Pick<ReviewEntry, 'id' | 'image' | 'annotatedImage'>[], limit = MAX_REVIEW_STORAGE_BYTES, draft: Pick<ReviewEntry, 'id' | 'image' | 'annotatedImage'> | null = null): boolean {
+  return estimateReviewStorageBytes(entries, draft) <= limit
+}
+
 export function appendReviewNote(entries: ReviewEntry[], frame: ReviewEntry, text: string, noteId: string): ReviewEntry {
   const existing = entries.find(entry => entry.source === frame.source && entry.renderId === frame.renderId && Math.round(entry.timeSec * 1000) === Math.round(frame.timeSec * 1000))
   const target = existing ?? frame
@@ -103,6 +122,16 @@ export function formatReviewTime(seconds: number): string {
   const minutes = Math.floor(ms / 60_000) % 60
   const rest = `${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}.${String(ms % 1000).padStart(3, '0')}`
   return `${hours ? `${String(hours).padStart(2, '0')}:` : ''}${String(minutes).padStart(2, '0')}:${rest}`
+}
+
+export function normalizeReviewPillPosition(centerX: number, centerY: number, hostWidth: number, hostHeight: number, pillWidth: number, pillHeight: number, gutter = 8): ReviewPoint {
+  const clampCenter = (center: number, host: number, pill: number) => {
+    if (host <= 0 || !Number.isFinite(center)) return 0.5
+    const min = Math.min(0.5, (pill / 2 + gutter) / host)
+    const max = Math.max(0.5, 1 - min)
+    return Math.max(min, Math.min(max, center / host))
+  }
+  return { x: clampCenter(centerX, hostWidth, pillWidth), y: clampCenter(centerY, hostHeight, pillHeight) }
 }
 
 export function clampReviewPoint(x: number, y: number, width: number, height: number): ReviewPoint {
