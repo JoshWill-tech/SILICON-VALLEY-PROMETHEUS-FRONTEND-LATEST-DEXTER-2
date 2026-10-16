@@ -367,11 +367,12 @@ export function MotionEditWorkspace({
   const [timelineResizing, setTimelineResizing] = React.useState(false)
 
   const effectiveDuration = durationSec > 0 ? durationSec : Math.max(60, ...resolvedSegments.map((segment) => segment.end))
+  const savedCaptionStyle = editorial.timeline?.captionStyle
   const addManualCaption = React.useCallback((text: string) => {
     const start = Math.max(0, currentTimeSec)
     const end = Math.min(effectiveDuration, start + 3)
     if (end <= start) return false
-    if (!editorial.timeline?.captionStyle) editorial.patch({ type: 'caption_style', style: captionStyle ?? 'clean_bold' })
+    if (!savedCaptionStyle) patchEditorial({ type: 'caption_style', style: captionStyle ?? 'clean_bold' })
     setCaptionsVisible(true)
     setCaptionsOverride(true)
     updateEditorialCues([...editorialCues, {
@@ -385,7 +386,7 @@ export function MotionEditWorkspace({
       context: { source: 'manual_caption' },
     }])
     return true
-  }, [captionStyle, currentTimeSec, effectiveDuration, editorial.timeline?.captionStyle, editorial.patch, editorialCues, updateEditorialCues])
+  }, [captionStyle, currentTimeSec, effectiveDuration, editorialCues, patchEditorial, savedCaptionStyle, updateEditorialCues])
   const playheadPercent = Math.min(100, Math.max(0, (currentTimeSec / effectiveDuration) * 100))
   const activeSegment = resolvedSegments.find((segment) => isActiveSegment(segment, currentTimeSec))
   const safeAspectRatio = frameAspectRatio ?? (Number.isFinite(previewAspectRatio) && previewAspectRatio > 0 ? previewAspectRatio : 16 / 9)

@@ -4,10 +4,10 @@ OWNS: app/editor/[id]/page.tsx, lib/editor/**, hooks/use-editorial-timeline.ts, 
 
 Scope: Resolve the frontend complaints in the October 15 functional editor report while retaining reported working behavior and existing workspace work.
 
-- [ ] G1: Splitting in both editor timelines creates a saved source-bound boundary; Motion undo and redo restore it
+- [x] G1: Splitting in both editor timelines creates a saved source-bound boundary; Motion undo and redo restore it
   CHECK: node --import tsx --test tests/editorial-split-persistence.test.ts
   EXPECT: # fail 0
-  EVIDENCE: Persistence, source replacement, valid interior splits, and invalid boundaries pass. UI-level undo/redo confirmation is still pending.
+  EVIDENCE: 3 tests pass. Persistence/replacement and split boundaries pass; a mounted Motion timeline-tools hook applies a controlled split, enables undo/redo, and restores the boundary in both directions.
 
 - [x] G2: Reference look returns a useful error on non-JSON and unsuccessful responses
   CHECK: node --import tsx --test tests/style-clone-response.test.ts
@@ -25,9 +25,9 @@ Scope: Resolve the frontend complaints in the October 15 functional editor repor
   EVIDENCE: The focused regression verifies machine-readable caption, silence-cut, soundtrack-selection, and thumbnail actions; confirms the conflicting proposal-only tool instruction is gone; and checks Auto-Cut routes to the tracked silence workflow. 2 tests pass.
 
 - [ ] G5: Clean-footage captions have the approved manual or imported path and clear automatic-transcription costs
-  CHECK: node --import tsx --test tests/editor-caption-access.test.ts
+  CHECK: node --import tsx --test tests/editor-caption-access.test.ts tests/editor-transcription-quote.test.ts
   EXPECT: # fail 0
-  EVIDENCE: A manual three-second playhead cue, four persistent styles, source-bound cue validation, and quote/balance gating are implemented; 2 local tests pass. A funded ASR response/reload scenario and final rendered caption parity remain unverified.
+  EVIDENCE: A manual three-second playhead cue, four persistent styles, and a Jarvis request_transcription action are implemented. Four local tests verify source-bound cue state, quote display, zero-credit blocking before submission, and explicit confirmation. Funded ASR response/reload and final rendered caption parity remain unverified.
 
 - [ ] G6: Configured social connections report actionable OAuth success, cancellation, and failure outcomes
   CHECK: node --import tsx --test tests/social-connect-feedback.test.ts
@@ -37,12 +37,12 @@ Scope: Resolve the frontend complaints in the October 15 functional editor repor
 - [ ] G7: Thumbnail generation and uploaded-project covers settle into success, failure, cancellation, or a safe fallback
   CHECK: node --import tsx --test tests/thumbnail-complaint-outcomes.test.ts
   EXPECT: # fail 0
-  EVIDENCE: pending
+  EVIDENCE: Current source already has a 240-second provider timeout, a 285-second client timeout, abort handling, preserved prior variants, and a project-card fallback. No new generation or durable-cover behavior was changed in this pass; success, retry, cancellation, and uploaded-cover persistence still need a controlled runtime test.
 
 - [ ] G8: The export dialog reflects supported output, authoritative cost, confirmation, and saved edits
   CHECK: node --import tsx --test tests/editorial-export-contract.test.ts
   EXPECT: # fail 0
-  EVIDENCE: pending
+  EVIDENCE: Current Mini-Run readiness reports `timelineApplied: false`, and the submission path does not reserve or charge the `export` quote. A frontend quote/confirmation would therefore misstate the billing and output contract; edited rendering and authoritative quote need the render-service contract/D2 decision.
 
 - [ ] G9: Reported working controls and cleanup behavior still pass focused regression coverage
   CHECK: node --import tsx --test tests/frontend-complaint-regressions.test.ts
