@@ -33,10 +33,24 @@ try {
   const bounds = await stage.boundingBox()
   for (const [tool, start, end] of [['Circle', [0.55, 0.18], [0.88, 0.40]], ['Rectangle', [0.52, 0.55], [0.92, 0.75]], ['Freehand', [0.12, 0.65], [0.35, 0.8]]]) {
     await editor.getByRole('button', { name: tool, exact: true }).click()
+    if (tool === 'Freehand') {
+      await stage.evaluate(svg => {
+        window.__reviewStrokeMutations = 0
+        window.__reviewStrokeObserver = new MutationObserver(records => { window.__reviewStrokeMutations += records.length })
+        window.__reviewStrokeObserver.observe(svg, { attributes: true, childList: true, subtree: true })
+      })
+    }
     await page.mouse.move(bounds.x + bounds.width * start[0], bounds.y + bounds.height * start[1])
     await page.mouse.down()
-    await page.mouse.move(bounds.x + bounds.width * end[0], bounds.y + bounds.height * end[1], { steps: 8 })
+    await page.mouse.move(bounds.x + bounds.width * end[0], bounds.y + bounds.height * end[1], { steps: tool === 'Freehand' ? 500 : 8 })
     await page.mouse.up()
+    if (tool === 'Freehand') {
+      const mutations = await stage.evaluate(svg => {
+        window.__reviewStrokeObserver.disconnect()
+        return window.__reviewStrokeMutations
+      })
+      assert.ok(mutations <= 8, `dense freehand input should not rerender the SVG per pointer event (observed ${mutations} mutations)`)
+    }
   }
   await editor.getByRole('button', { name: 'Undo annotation', exact: true }).click()
   await expect(stage.locator('polyline')).toHaveCount(0)
