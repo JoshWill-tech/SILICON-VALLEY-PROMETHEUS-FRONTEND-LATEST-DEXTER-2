@@ -281,7 +281,23 @@ export function ThumbnailWorkspace(props: Props) {
             {tab === 'create' && <>
               <div className={styles.createHeadline}>
                 <label className={styles.label} htmlFor="thumbnail-headline">Headline<small>{props.headline.length}/64</small></label>
-                <input id="thumbnail-headline" className={styles.input} value={props.headline} maxLength={64} placeholder="One clear hook. A few powerful words." onChange={event => props.onHeadline(event.target.value)} />
+                <input
+                  id="thumbnail-headline"
+                  className={styles.input}
+                  value={props.headline}
+                  maxLength={64}
+                  placeholder="One clear hook. A few powerful words."
+                  onChange={event => props.onHeadline(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      if (props.headline.trim() && !props.isGenerating && props.candidates.length > 0) {
+                        setView('artwork')
+                        props.onGenerate()
+                      }
+                    }
+                  }}
+                />
                 {props.headline.trim().split(/\s+/).length > 7 && <p className={styles.hint}>A shorter headline will be easier to read in the feed.</p>}
               </div>
               <details className={styles.createDetails}>

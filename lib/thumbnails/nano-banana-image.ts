@@ -28,8 +28,20 @@ export function buildNanoBananaImageRequest(input: {
   const baseThumbnail = input.baseThumbnailUrl ? parseImageDataUrl(input.baseThumbnailUrl) : null
 
   const instructionPreamble = baseThumbnail
-    ? `${input.prompt}\n\nThis is an iterative refinement of existing artwork. The first attached image is the video subject anchor; the second is the current artwork. The next attached image is the selected primary thumbnail reference, and later reference images are secondary. Treat the selected primary reference as an explicit request to match its visual direction: when it differs from the current artwork, carry over its macro-composition, subject-to-text relationship, visual hierarchy, palette, cinematic lighting, background, typography treatment, texture, and graphic devices. Recompose the artwork as needed around the source subject and exact headline; do not let the old artwork's composition override the selected reference. Preserve the source person's identity and recognizable features. Never copy reference faces, logos, or exact wording.`
-    : `${input.prompt}\n\nImage roles and priority: use the first attached image as the video subject anchor. The second attached image is the selected primary thumbnail style reference. Any later reference images are secondary style cues. Follow the selected reference closely: transfer its macro-composition, subject-to-text relationship, visual hierarchy, palette, lighting, background treatment, typography style, texture, and graphic devices. Rebuild those qualities around the source subject, exact requested headline, creative brief, and aspect ratio. Keep the source person's identity, expression, and recognizable features. Never copy the reference person's identity, logos, exact words, or factual claims. Create a complete thumbnail, not a flat text overlay on the source frame.`
+    ? `MANDATORY MULTIMODAL ITERATIVE REFINEMENT DIRECTIVE:
+1. Image roles and priority: The first attached image is the video subject anchor; the second is the current artwork. The next attached image is the selected primary thumbnail reference, and later reference images are secondary style cues.
+2. This is an iterative refinement of existing artwork, but the selected primary reference is an explicit request to match its visual direction: when it differs from the current artwork, carry over its macro-composition, subject-to-text relationship, visual hierarchy, palette, cinematic lighting, background, tactile props (such as a 3D brain, documents, tools, or physical objects), hand gestures (such as pointing, framing, or holding props), typography treatment, texture, and graphic devices.
+3. Recompose the artwork as needed around the source subject and exact headline; do not let the old artwork's composition override the selected reference. Preserve the source person's identity and recognizable features. Never copy reference faces, logos, or exact wording.
+
+SPECIFIC DESIGN INSTRUCTIONS:
+${input.prompt}`
+    : `MANDATORY MULTIMODAL REFERENCE DIRECTIVE:
+1. Image roles and priority: use the first attached image as the video subject anchor. The second attached image is the selected primary thumbnail style reference. Any later reference images are secondary style cues.
+2. Follow the selected reference closely: transfer its macro-composition, subject-to-text relationship, visual hierarchy, palette, lighting, background treatment, tactile props (such as a 3D brain, documents, tools, or physical objects), hand gestures (such as pointing, framing, or holding props), typography style, texture, and graphic devices.
+3. Rebuild those qualities around the source subject, exact requested headline, creative brief, and aspect ratio. Keep the source person's identity, expression, and recognizable features. Never copy the reference person's identity, logos, exact words, or factual claims. Create a complete thumbnail, not a flat text overlay on the source frame.
+
+SPECIFIC DESIGN INSTRUCTIONS:
+${input.prompt}`
 
   const parts: Array<TextPart | ImagePart> = [
     { text: instructionPreamble },

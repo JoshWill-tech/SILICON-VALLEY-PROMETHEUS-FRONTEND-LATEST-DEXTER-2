@@ -250,6 +250,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
     const recipe = VIRAL_THUMBNAIL_RECIPES.find((r) => r.id === body?.recipeId)
     const effectiveAspect = aspectRatio === '16:9' || aspectRatio === '3:2' || aspectRatio === '1:1' || aspectRatio === '2:3' || aspectRatio === '9:16' ? aspectRatio : '9:16'
 
+    const hasReference = Boolean((referenceImages && referenceImages.length > 0) || body?.studioReferenceId)
     const rulebookPrompt = buildNanoBananaPrompt({
       headline,
       highlightWord: body?.highlightWord?.trim() || undefined,
@@ -261,6 +262,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
       lightingId: body?.lightingId || recipe?.lightingStyle,
       subjectPosition: recipe?.subjectPosition,
       userCreativeDirection: userPrompt,
+      hasReferenceImage: hasReference,
     })
     synthesizedPrompt = channelDna?.refinedPrompt
       ? `${rulebookPrompt}\n\nREFERENCE ART DIRECTION: ${channelDna.refinedPrompt}`

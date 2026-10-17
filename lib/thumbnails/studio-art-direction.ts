@@ -44,16 +44,16 @@ export function buildStudioArtDirection(design: StudioDesign, headline: string, 
   const background = STUDIO_BACKGROUNDS.find((item) => item.id === design.background)!
   return [
     'FINAL STUDIO ART DIRECTION: Follow the selected visual reference as the primary composition and craft direction. Avoid generic thumbnail templates and preserve the distinct visual idea of the reference.',
+    referenceCue ? 'SELECTED THUMBNAIL REFERENCE (PRIMARY TARGET): ' + referenceCue + '. This selected image is the primary visual target, including when refining existing artwork. Closely transfer its macro-composition, subject scale and placement, subject-to-headline relationship, visual hierarchy, lighting and cinematic color grade, background, texture, tactile props (such as a 3D brain, documents, tools, or physical objects), and hand gestures (pointing, framing, or holding props). Rebuild those qualities around the selected video subject and exact user headline. The selected reference takes priority over the old artwork composition; retain the old image only as an identity and continuity anchor. Anchor the person’s face and identity to the source video frame; do not reproduce reference faces, third-party logos, or words.' : '',
     'COMPOSITION: Build one cinematic, conversion-focused image around the selected subject and exact headline. Use intentional subject scale, strong negative space, depth, and a readable feed-size hierarchy. Recompose naturally for the selected aspect ratio.',
-    'BACKGROUND: ' + background.prompt,
-    referenceCue ? 'SELECTED THUMBNAIL REFERENCE: ' + referenceCue + '. This selected image is the primary visual target, including when refining existing artwork. Closely transfer its macro-composition, subject scale and placement, subject-to-headline relationship, visual hierarchy, lighting and cinematic color grade, background, texture, and graphic treatment. Rebuild those qualities around the selected video subject and exact user headline. The selected reference takes priority over the old artwork composition; retain the old image only as an identity and continuity anchor. Do not reproduce reference people, logos, or words.' : '',
+    referenceCue ? 'BACKGROUND & ATMOSPHERE: Match the reference image’s background environment, texture, and tonal atmosphere (e.g. pale grid, paper document, dark cinematic studio, or soft daylight), harmonized with: ' + background.prompt : 'BACKGROUND: ' + background.prompt,
     'ACCENT: Use exactly ' + design.accent + ' as the dominant color accent. Do not substitute a recipe color.',
     'HEADLINE: Render only the exact supplied headline ' + JSON.stringify(headline.trim()) + '. Never add a sample slogan, signature, subtitle, fake proof card, number, logo, or extra words.',
     emphasis.trim() ? 'EMPHASIS: Highlight only the supplied word or phrase ' + JSON.stringify(emphasis.trim()) + '.' : 'EMPHASIS: Use a clean, consistent headline treatment without choosing an arbitrary highlighted word.',
     'SCALE: Headline scale ' + Math.round(design.textScale * 100) + '% of this layout’s baseline. Fit the entire headline within the available negative space.',
     'CRAFT: Preserve the anchor subject’s identity and authentic expression. If the frame has no person, preserve its main object. Clean hair and shoulder edges, convincing contact shadows, natural skin detail, controlled rim light, and crisp typography. No artificial glow halo.',
     'COMPOSITION CHECK: One clear focal subject, one headline, a deliberate reading order. Keep a 6% safe margin around all text. Headline must read at 320 pixels wide; do not cover eyes, mouth, or facial features. For portrait formats, reflow the layout vertically. Leave the lower-right corner clear for a platform duration badge.',
-  ].join('\n\n')
+  ].filter(Boolean).join('\n\n')
 }
 
 export function resolveStudioImageModel(quality: StudioQuality): string {

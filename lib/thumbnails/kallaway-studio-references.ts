@@ -1,6 +1,6 @@
 import type { StudioReferenceCategory } from './studio-references'
 
-const REFERENCE_CUE = 'Borrow the reference’s composition, subject scale, color contrast, and text hierarchy while creating original artwork for the selected video.'
+const REFERENCE_CUE = 'Replicate the reference image’s macro-composition, subject pose, hand gestures (pointing or framing), tactile props, typography placement, lighting mood, color contrast, subtle textural details, and documentary or cinematic aesthetic.'
 
 export const KALLAWAY_STUDIO_REFERENCES: Array<{
   id: string
@@ -9,7 +9,7 @@ export const KALLAWAY_STUDIO_REFERENCES: Array<{
   category: StudioReferenceCategory
   cue: string
 }> = [
-  { id: "kallaway-vmsdhy9itli", name: "The ‘Invisible’ Hook That Makes Your Videos Impossible to Skip (Subliminal Influence)", src: "/thumbnail-references/kallaway/vmsdhy9itli.webp", category: "Hooks & Storytelling", cue: REFERENCE_CUE },
+  { id: "kallaway-vmsdhy9itli", name: "The ‘Invisible’ Hook That Makes Your Videos Impossible to Skip (Subliminal Influence)", src: "/thumbnail-references/kallaway/vmsdhy9itli.webp", category: "Hooks & Storytelling", cue: "Tactile documentary collage: weathered paper documents, subtle rubber stamps, hand gesture framing evidence, high-contrast typography, and warm cinematic film tone." },
   { id: "kallaway-s-7vkwsu0gs", name: "If I only had 90 days to build a personal brand, I’d do this", src: "/thumbnail-references/kallaway/s-7vkwsu0gs.webp", category: "Creator Business", cue: REFERENCE_CUE },
   { id: "kallaway-94ezzmypzls", name: "I Reversed Engineered Social Media Algorithms", src: "/thumbnail-references/kallaway/94ezzmypzls.webp", category: "AI & Tools", cue: REFERENCE_CUE },
   { id: "kallaway-w--te9w_n_a", name: "How to Become A Master Storyteller (It'll Blow Up Your Business)", src: "/thumbnail-references/kallaway/w--te9w_n_a.webp", category: "Hooks & Storytelling", cue: REFERENCE_CUE },
@@ -17,7 +17,7 @@ export const KALLAWAY_STUDIO_REFERENCES: Array<{
   { id: "kallaway-vwlk6mbdato", name: "How to Use Claude To Grow From 0 to 100K Followers (Full Course)", src: "/thumbnail-references/kallaway/vwlk6mbdato.webp", category: "AI & Tools", cue: REFERENCE_CUE },
   { id: "kallaway-tneyzxihwno", name: "I Blew Up On Social Media in 100 Days to Prove It's Not Luck (Again)", src: "/thumbnail-references/kallaway/tneyzxihwno.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-1ilmgcxjbqy", name: "The NEW Personal Brand Strategy Dominating Social Media in 2026", src: "/thumbnail-references/kallaway/1ilmgcxjbqy.webp", category: "Creator Business", cue: REFERENCE_CUE },
-  { id: "kallaway-pniyikmysyw", name: "The Psychology of Killer Hooks", src: "/thumbnail-references/kallaway/pniyikmysyw.webp", category: "Hooks & Storytelling", cue: REFERENCE_CUE },
+  { id: "kallaway-pniyikmysyw", name: "The Psychology of Killer Hooks", src: "/thumbnail-references/kallaway/pniyikmysyw.webp", category: "Hooks & Storytelling", cue: "Psychological hook breakdown: high-contrast black-and-white or desaturated cinematic grading, creator pointing with a clear hand gesture, tactile concept motif, and bold left-aligned typography." },
   { id: "kallaway-fvsl4zkcpik", name: "Everything I Learned Growing From 0 to 2M+ Followers in 3 Years", src: "/thumbnail-references/kallaway/fvsl4zkcpik.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-wkdeldemxr0", name: "The Art of Personal Branding", src: "/thumbnail-references/kallaway/wkdeldemxr0.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-cnk9nq8jpcs", name: "5 Claude Skills To Grow Faster Than 99% of People on Social Media", src: "/thumbnail-references/kallaway/cnk9nq8jpcs.webp", category: "AI & Tools", cue: REFERENCE_CUE },
@@ -30,7 +30,7 @@ export const KALLAWAY_STUDIO_REFERENCES: Array<{
   { id: "kallaway-46t_cn0lx2e", name: "The NEW Era of Personal Brands is Here (and you’re not ready)", src: "/thumbnail-references/kallaway/46t_cn0lx2e.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-b9l9trhu5vw", name: "Copy This System, It’ll Blow Up Your Social Media", src: "/thumbnail-references/kallaway/b9l9trhu5vw.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-imzontrgvfg", name: "The NEW Way to WIN on Social Media in 2026", src: "/thumbnail-references/kallaway/imzontrgvfg.webp", category: "Platform Trends", cue: REFERENCE_CUE },
-  { id: "kallaway-kyc8r-zitve", name: "The Neuroscience of Addictive Storytelling (And How to Master It)", src: "/thumbnail-references/kallaway/kyc8r-zitve.webp", category: "Hooks & Storytelling", cue: REFERENCE_CUE },
+  { id: "kallaway-kyc8r-zitve", name: "The Neuroscience of Addictive Storytelling (And How to Master It)", src: "/thumbnail-references/kallaway/kyc8r-zitve.webp", category: "Hooks & Storytelling", cue: "Neuroscience and mind storytelling: surreal anatomical 3D brain concept, hand gesturing toward the concept, subtle technical grid lines, and high-impact editorial typography." },
   { id: "kallaway-cuvytmbozjk", name: "How to Build an Audience That's Obsessed With You (The Power of Suggestion)", src: "/thumbnail-references/kallaway/cuvytmbozjk.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-bqzd0h0gmu0", name: "How ‘Regular’ People Are Making Millions From Social Media", src: "/thumbnail-references/kallaway/bqzd0h0gmu0.webp", category: "Creator Business", cue: REFERENCE_CUE },
   { id: "kallaway-8cqidxgtgmu", name: "How Social Media Algorithms Actually Work (And How to Beat Them)", src: "/thumbnail-references/kallaway/8cqidxgtgmu.webp", category: "AI & Tools", cue: REFERENCE_CUE },
@@ -75,7 +75,7 @@ export const KALLAWAY_STUDIO_REFERENCES: Array<{
   { id: "kallaway-vit-_sjcs5i", name: "Brutally Honest Truths That Give You an Unfair Advantage on Social Media", src: "/thumbnail-references/kallaway/vit-_sjcs5i.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-bjiqj-fxfpw", name: "Social Media Has an AI Problem", src: "/thumbnail-references/kallaway/bjiqj-fxfpw.webp", category: "AI & Tools", cue: REFERENCE_CUE },
   { id: "kallaway-iqy644uooqm", name: "How to Create Irresistible Thumbnails (and blow up your content)", src: "/thumbnail-references/kallaway/iqy644uooqm.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
-  { id: "kallaway-8clpw1wgj5g", name: "How to Reprogram Your Brain to Stop Overthinking", src: "/thumbnail-references/kallaway/8clpw1wgj5g.webp", category: "Hooks & Storytelling", cue: REFERENCE_CUE },
+  { id: "kallaway-8clpw1wgj5g", name: "How to Reprogram Your Brain to Stop Overthinking", src: "/thumbnail-references/kallaway/8clpw1wgj5g.webp", category: "Hooks & Storytelling", cue: "Dramatic high-contrast composition with a tactile 3D brain concept, expressive creator with hand gesture framing the brain, bold headline with focal accent, and textured dark studio depth." },
   { id: "kallaway-u7sb-gidbqw", name: "44 Tricks To Instantly Get More Views on Social Media", src: "/thumbnail-references/kallaway/u7sb-gidbqw.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },
   { id: "kallaway-oryfj_yxz6m", name: "How to Build an Audience of Buyers (Not just empty views)", src: "/thumbnail-references/kallaway/oryfj_yxz6m.webp", category: "Creator Business", cue: REFERENCE_CUE },
   { id: "kallaway-h_yqswsxwhy", name: "Social Media Isn’t Hard. It’s Misunderstood.", src: "/thumbnail-references/kallaway/h_yqswsxwhy.webp", category: "Growth & Strategy", cue: REFERENCE_CUE },

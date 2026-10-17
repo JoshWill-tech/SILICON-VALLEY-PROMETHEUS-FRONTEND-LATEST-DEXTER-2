@@ -335,6 +335,7 @@ export function buildNanoBananaPrompt(params: {
   lightingId?: string
   userCreativeDirection?: string
   subjectPosition?: 'center' | 'left' | 'right'
+  hasReferenceImage?: boolean
 }): string {
   const bg = BACKGROUND_SNIPPETS[params.backgroundId || 'dark_isometric_grid'] || BACKGROUND_SNIPPETS.dark_isometric_grid
   const text =
@@ -354,14 +355,30 @@ export function buildNanoBananaPrompt(params: {
     ? `Emphasize the exact word "${params.highlightWord.toUpperCase()}" using the selected text treatment, without covering its letterforms.`
     : ''
 
+  const lightClause = params.hasReferenceImage
+    ? 'Strictly emulate the lighting mood, contrast ratios, and cinematic grading of the selected reference image.'
+    : light.promptFragment
+
+  const bgClause = params.hasReferenceImage
+    ? 'Faithfully recreate the background atmosphere, textural detail, and environmental style of the selected reference image (e.g. clean pale grid, document/paper collage, film grain, or studio backdrop).'
+    : bg.promptFragment
+
+  const proofClause = params.hasReferenceImage
+    ? 'Incorporate the conceptual props, physical objects (such as a 3D brain, documents, blueprints, or concept items), and UI devices from the selected reference image.'
+    : proof.promptFragment
+
+  const dirClause = params.hasReferenceImage
+    ? 'Emulate any hand gestures (pointing, holding, framing) or directional visual flow demonstrated in the selected reference image.'
+    : dir.promptFragment
+
   return [
     `Create a viral, ultra-high-resolution, conversion-optimized YouTube/Shorts cover image (${params.aspectRatio} aspect ratio).`,
     `MAIN SUBJECT: Preserve the primary visible subject from the anchor keyframe. If a person is present, keep their recognizable facial features and authentic skin texture; do not invent a new person. Place the subject ${params.subjectPosition || 'center'} with clear negative space for the headline.`,
-    `LIGHTING & DEPTH: ${light.promptFragment}`,
-    `BACKGROUND: ${bg.promptFragment}`,
+    `LIGHTING & DEPTH: ${lightClause}`,
+    `BACKGROUND: ${bgClause}`,
     `HEADLINE & TEXT: The headline reads "${params.headline.toUpperCase()}". ${text.promptFragment} ${highlightClause}`,
-    `PROOF ARTIFACT & UI: ${proof.promptFragment}`,
-    `DIRECTIONAL GUIDANCE: ${dir.promptFragment}`,
+    `PROOF ARTIFACT & UI: ${proofClause}`,
+    `DIRECTIONAL GUIDANCE: ${dirClause}`,
     `QUALITY STANDARD: Cinematic commercial quality, authentic skin texture, controlled contrast, legible typography, and a clear focal hierarchy. Use one dominant prop or proof cue at most. Avoid invented numbers, unrelated logos, clutter, muddy gradients, and cartoonish rendering.`,
     params.userCreativeDirection ? `ADDITIONAL CREATIVE NOTES: ${params.userCreativeDirection}` : '',
   ]

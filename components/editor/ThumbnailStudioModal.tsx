@@ -311,7 +311,12 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
   }
   const handleCancelGeneration = () => { generationAbortRef.current?.abort(); setIsGeneratingNano(false); setNanoSuccessMessage('Generation cancelled. Your previous versions are still available.') }
   const handleGenerateNanoBanana = async (options?: { iterationPrompt?: string; isIterative?: boolean }) => {
-    if (!activeFrame || !headline.trim() || isGeneratingNano) return
+    let effectiveHeadline = headline.trim()
+    if (!effectiveHeadline && options?.iterationPrompt) {
+      effectiveHeadline = options.iterationPrompt.trim().slice(0, 64)
+      setHeadline(effectiveHeadline)
+    }
+    if (!activeFrame || !effectiveHeadline || isGeneratingNano) return
     generationAbortRef.current?.abort()
     const controller = new AbortController()
     generationAbortRef.current = controller
@@ -334,11 +339,16 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         draftBaseThumbnailUrl: jarvisDraft?.baseThumbnailUrl,
       })
 
+      const effectiveUserPrompt = [
+        creativeDirection.trim(),
+        !generatedDataUrl && options?.iterationPrompt ? options.iterationPrompt.trim() : '',
+      ].filter(Boolean).join(' · ')
+
       const requestBody = {
         frameDataUrl: activeFrame.dataUrl,
         baseThumbnailUrl,
         iterationPrompt: effectiveIterativePrompt,
-        headline: headline.trim(),
+        headline: effectiveHeadline,
         highlightWord,
         recipeId,
         backgroundId: recipe.backgroundStyle,
@@ -348,7 +358,7 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         lightingId: recipe.lightingStyle,
         brandColor: design.accent,
         aspectRatio,
-        userPrompt: creativeDirection.trim(),
+        userPrompt: effectiveUserPrompt,
         projectTitle,
         transcriptSnippet: transcriptSnippet.slice(0, 5000),
         referenceImages,
@@ -428,7 +438,7 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         content: trimmed,
       },
     ])
-    await handleGenerateNanoBanana({ iterationPrompt: trimmed, isIterative: true })
+    await handleGenerateNanoBanana({ iterationPrompt: trimmed, isIterative: Boolean(generatedDataUrl) })
   }
   const handleRestoreVariant = (variant: ThumbnailVariant) => {
     generationAbortRef.current?.abort()

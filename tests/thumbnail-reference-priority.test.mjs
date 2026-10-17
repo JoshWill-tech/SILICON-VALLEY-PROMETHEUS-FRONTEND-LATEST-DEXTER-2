@@ -94,6 +94,6 @@ test('iterative refinements let the newly selected reference override the existi
 
 test('the planner transfers the reference composition while adapting the new subject and headline', () => {
   assert.match(THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS, /visual language and close macro-composition/i)
-  assert.match(THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS, /do not copy reference subjects, logos, or exact words/i)
+  assert.match(THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS, /do not copy reference faces, third-party logos, or exact words/i)
   assert.doesNotMatch(THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS, /not their exact layout/i)
 })
