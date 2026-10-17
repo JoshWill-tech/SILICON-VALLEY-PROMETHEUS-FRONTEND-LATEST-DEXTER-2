@@ -22,7 +22,7 @@ function run() {
 
   const characters = read(charactersPath)
   assert.match(characters, /PrometheusAuthCharacters/)
-  assert.match(characters, /isPurplePeeking/)
+  assert.doesNotMatch(characters, /isPurplePeeking/)
   assert.match(characters, /isLookingAtEachOther/)
   assert.match(characters, /forceLookX/)
   assert.match(characters, /useReducedMotion/)

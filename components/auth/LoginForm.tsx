@@ -13,6 +13,7 @@ import { writePendingVerificationEmail } from '@/lib/auth/pending-verification'
 import { emailSchema } from '@/lib/auth/validation'
 import { normalizeNextPath } from '@/lib/auth/redirect'
 import { normalizeUxError } from '@/lib/ux/errors'
+import { useAuthInteraction } from './auth-interaction'
 
 function isValidEmail(email: string) {
   return emailSchema.safeParse(email).success
@@ -20,6 +21,7 @@ function isValidEmail(email: string) {
 
 export function LoginForm() {
   const searchParams = useSearchParams()
+  const { setPasswordSignal } = useAuthInteraction()
   const [email, setEmail] = React.useState('')
   const [showPassword, setShowPassword] = React.useState(false)
   const [password, setPassword] = React.useState('')
@@ -30,6 +32,14 @@ export function LoginForm() {
 
   const [errors, setErrors] = React.useState<{ email?: string; password?: string }>({})
   const nextPath = normalizeNextPath(searchParams.get('next'))
+
+  React.useEffect(() => {
+    setPasswordSignal({ showPassword })
+  }, [setPasswordSignal, showPassword])
+
+  React.useEffect(() => {
+    return () => setPasswordSignal({ showPassword: false })
+  }, [setPasswordSignal])
 
   const validate = () => {
     const next: typeof errors = {}

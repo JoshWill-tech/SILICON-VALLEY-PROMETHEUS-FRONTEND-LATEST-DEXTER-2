@@ -127,7 +127,8 @@ function getPupilPosition(
 function usePupilPosition(ref: React.RefObject<HTMLDivElement | null>, pointer: { x: number; y: number }, maxDistance: number, reduceMotion: boolean, forceLookX?: number, forceLookY?: number) {
   const [position, setPosition] = React.useState({ x: 0, y: 0 })
   React.useEffect(() => {
-    setPosition(reduceMotion ? { x: 0, y: 0 } : getPupilPosition(ref, pointer, maxDistance, forceLookX, forceLookY))
+    const forcedLook = forceLookX !== undefined && forceLookY !== undefined
+    setPosition(reduceMotion && !forcedLook ? { x: 0, y: 0 } : getPupilPosition(ref, pointer, maxDistance, forceLookX, forceLookY))
   }, [ref, pointer, maxDistance, reduceMotion, forceLookX, forceLookY])
   return position
 }
@@ -211,13 +212,12 @@ export function PrometheusAuthCharacters() {
   const orangeRef = React.useRef<HTMLDivElement | null>(null)
   const yellowRef = React.useRef<HTMLDivElement | null>(null)
   const [isLookingAtEachOther, setIsLookingAtEachOther] = React.useState(false)
-  const [isPurplePeeking, setIsPurplePeeking] = React.useState(false)
   const purpleBlinking = useRandomBlink(!motionReduced)
   const blackBlinking = useRandomBlink(!motionReduced)
   const activePasswordField = activeField === 'password' || activeField === 'confirm'
   const typingSignal = activeField !== 'idle' || passwordLength > 0
   const hiddenPasswordSignal = passwordLength > 0 && !showPassword
-  const visiblePasswordSignal = passwordLength > 0 && showPassword
+  const visiblePasswordSignal = showPassword
 
   React.useEffect(() => {
     if (motionReduced || activeField === 'idle') {
@@ -229,36 +229,6 @@ export function PrometheusAuthCharacters() {
     const timer = window.setTimeout(() => setIsLookingAtEachOther(false), 860)
     return () => window.clearTimeout(timer)
   }, [activeField, motionReduced])
-
-  React.useEffect(() => {
-    if (motionReduced || !visiblePasswordSignal) {
-      setIsPurplePeeking(false)
-      return
-    }
-
-    let cancelled = false
-    let peekTimer: number | null = null
-    let releaseTimer: number | null = null
-
-    const schedulePeek = () => {
-      peekTimer = window.setTimeout(() => {
-        if (cancelled) return
-        setIsPurplePeeking(true)
-        releaseTimer = window.setTimeout(() => {
-          setIsPurplePeeking(false)
-          if (!cancelled) schedulePeek()
-        }, 760)
-      }, 1400 + Math.random() * 2400)
-    }
-
-    schedulePeek()
-
-    return () => {
-      cancelled = true
-      if (peekTimer !== null) window.clearTimeout(peekTimer)
-      if (releaseTimer !== null) window.clearTimeout(releaseTimer)
-    }
-  }, [motionReduced, visiblePasswordSignal])
 
   const calculatePosition = React.useCallback(
     (ref: React.RefObject<HTMLDivElement | null>): FacePosition => {
@@ -318,15 +288,15 @@ export function PrometheusAuthCharacters() {
           }}
         >
           <EyeBall
-            forceLookX={visiblePasswordSignal ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
-            forceLookY={visiblePasswordSignal ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
+            forceLookX={visiblePasswordSignal ? -4 : isLookingAtEachOther ? 3 : undefined}
+            forceLookY={visiblePasswordSignal ? -4 : isLookingAtEachOther ? 4 : undefined}
             isBlinking={purpleBlinking}
             pointer={pointer}
             reduceMotion={motionReduced}
           />
           <EyeBall
-            forceLookX={visiblePasswordSignal ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined}
-            forceLookY={visiblePasswordSignal ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined}
+            forceLookX={visiblePasswordSignal ? -4 : isLookingAtEachOther ? 3 : undefined}
+            forceLookY={visiblePasswordSignal ? -4 : isLookingAtEachOther ? 4 : undefined}
             isBlinking={purpleBlinking}
             pointer={pointer}
             reduceMotion={motionReduced}
