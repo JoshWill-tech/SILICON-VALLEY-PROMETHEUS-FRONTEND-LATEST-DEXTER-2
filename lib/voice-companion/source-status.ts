@@ -11,12 +11,19 @@ type Readiness = {
 
 /** Check durable project metadata afresh; local playback cannot prove an upload was saved. */
 export async function readVoiceSourceStatus(getBridge: () => VoiceCompanionBridgeHandlers, fetchImpl: typeof fetch = fetch) {
-  const {projectId, sourceAssetId} = getBridge()
+  const bridge = getBridge()
+  const {projectId, sourceAssetId} = bridge
   const unconfirmed = 'I could not verify whether the video is saved. Try checking again; this does not mean you need to upload it again.'
   if (!projectId) return {success: false, phase: 'unconfirmed', summary: 'Open the video project so I can check its saved source.'}
   try {
+    let authToken = bridge.accessToken
+    if (!authToken && typeof bridge.getAccessToken === 'function') {
+      try { authToken = await bridge.getAccessToken() } catch { /* Ignore token resolution failure */ }
+    }
     const response = await fetchImpl(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
-      cache: 'no-store', signal: AbortSignal.timeout(12_000),
+      cache: 'no-store',
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      signal: AbortSignal.timeout(12_000),
     })
     const parsed = await safeParseApiResponse<{readiness?: Readiness}>(response, unconfirmed)
     const current = getBridge()

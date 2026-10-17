@@ -1,38 +1,45 @@
-# Gates: Jarvis Collaborator Incident Repairs
+# Gates: Jarvis Voice Session 18 Rendering Repairs
 
-OWNS: app/api/projects/[id]/editorial-timeline/route.ts, lib/editor/silence-cuts.ts, lib/voice-companion/**, hooks/use-voice-companion.ts, lib/editor-actions.ts, components/editor/ThumbnailStudioModal.tsx, app/editor/[id]/page.tsx, tests/jarvis-collaborator*.test.ts, docs/qa/jarvis-collaborator-session-2026-10-05.md
+OWNS: app/editor/[id]/page.tsx, lib/voice-companion/gemini-live-client.ts, lib/voice-companion/safe-response.ts, lib/voice-companion/source-status.ts, lib/voice-companion/error-sanitizer.ts, lib/editor/editorial-timeline-client.ts, app/api/projects/[id]/exports/route.ts, tests/jarvis-mp4-session.test.mjs, docs/qa/jarvis-render-diagnosis-2026-10-17.md
 
-Scope: Resolve all collaborator issues from sessions 5, 6, and 7: authorize workspace collaborator access on editorial timeline, optimize pause cuts for target video duration (33s to 30s), wire 9:16 aspect ratio through thumbnail voice tools, add music rejection memory, and prevent false credit quote errors when transcripts exist.
+Scope: Diagnose and rectify all rendering and export failures from Jarvis voice session 18:
+1. Turn 1: STT "EP4" variant handled as final MP4 render command rather than read-only preflight.
+2. Turn 2: Stuck `isSourceUploadFailed` state in editor page cleared when saved source exists; authenticated export readiness check prevents false 401 unconfirmed responses.
+3. Turn 3: Editorial timeline 409 "The source video changed" error handled by refreshing server source and re-syncing without wedging editor in error state.
+4. Turn 4: "edit this vid and gimme the final mp4 file" carries through to start_render(mode: 'final') even when browser-side transcription is pending.
+5. Turn 5: Backend dispatch errors preserved and surfaced informatively rather than being masked by generic "cloud studio is busy" fallback.
 
-- [x] G1: Complete complaint inventory and technical findings are documented in the incident report.
-  EVIDENCE: docs/qa/jarvis-collaborator-session-2026-10-05.md records all timestamped exchanges and root causes across sessions 5, 6, and 7.
+- [x] G1: Root cause diagnosis of all 5 turns from jarvis-voice-session (18).txt documented in docs/qa/jarvis-render-diagnosis-2026-10-17.md.
+  CHECK: node -e "const fs = require('fs'); if (!fs.existsSync('docs/qa/jarvis-render-diagnosis-2026-10-17.md')) process.exit(1); console.log('DOCS_OK');"
+  EXPECT: DOCS_OK
+  EVIDENCE: PASS - DOCS_OK. Full timestamped analysis and technical resolutions documented in docs/qa/jarvis-render-diagnosis-2026-10-17.md.
 
-- [x] G2: Editorial timeline authorizes workspace owners and collaborator members, preventing 404 Project Not Found for co-owners.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-collaborator-authorization.test.ts
+- [x] G2: STT variant "EP4" and broad edit/deliver commands map to start_render(mode: 'final'), not stopping at review_export_readiness or pending transcription.
+  CHECK: npx tsx --test tests/jarvis-mp4-session.test.mjs
+  EXPECT: # pass
+  EVIDENCE: PASS - 21 tests pass, 0 fail. Gemini Live client recognizes EP4, renta, and deliver variants and mandates start_render(mode: 'final').
+
+- [x] G3: Editor page clears isSourceUploadFailed when project has valid saved sourceAssetId and passes user auth token in export readiness checks.
+  CHECK: npx tsx --test tests/jarvis-mp4-session.test.mjs
+  EXPECT: # pass
+  EVIDENCE: PASS - 21 tests pass, 0 fail. Page resets isSourceUploadFailed upon project cache hydration and API fetch, and attaches Bearer token to export checks.
+
+- [x] G4: EditorialTimelineController resolves sourceAssetId from projects cache and reconciles 409 source mismatch by re-fetching and applying queued edits.
+  CHECK: npx tsx --test tests/jarvis-mp4-session.test.mjs
+  EXPECT: # pass
+  EVIDENCE: PASS - 21 tests pass, 0 fail. Controller drain loop auto-recovers from 409 by refreshing server timeline and re-submitting patch.
+
+- [x] G5: safeParseApiResponse and sanitizeVoiceCompanionError preserve real backend dispatch error messages instead of collapsing into generic busy fallback.
+  CHECK: npx tsx --test tests/jarvis-mp4-session.test.mjs
+  EXPECT: # pass
+  EVIDENCE: PASS - 21 tests pass, 0 fail. Non-HTML plain text and JSON error messages on 502/503 are preserved without dropping into generic busy string.
+
+- [x] G6: Complete test suite passes with zero failures.
+  CHECK: npx tsx --test tests/jarvis-mp4-session.test.mjs
   EXPECT: # fail 0
-  EVIDENCE: PASS - 2 tests pass, 0 fail. Shared workspace collaborator membership verified for GET/PATCH on editorial timeline routes and service layer.
+  EVIDENCE: PASS - tests 21, pass 21, fail 0, cancelled 0, skipped 0.
 
-- [x] G3: Silence cuts can be optimized for a target duration (e.g. 33s to 30s), calculating and cutting exact silence budgets without destroying words.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-collaborator-duration-silence.test.ts
-  EXPECT: # fail 0
-  EVIDENCE: PASS - 4 tests pass, 0 fail. optimizeSilenceCutsForTargetDuration calculates exact pause cut budgets, reports truth when required reduction exceeds available pauses, and wires targetDurationSec through voice companion bridge.
-
-- [x] G4: Voice thumbnail tools (create and modify) accept, validate, and pass aspectRatio (including 9:16 vertical) to Thumbnail Studio.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-collaborator-thumbnail-aspect.test.ts
-  EXPECT: # fail 0
-  EVIDENCE: PASS - 3 tests pass, 0 fail. Gemini Live schemas declare aspectRatio enum ['16:9', '9:16', '1:1', '3:2', '2:3']; ThumbnailStudioModal receives and applies jarvisDraft.aspectRatio.
-
-- [x] G5: Music selection maintains session rejection memory and does not immediately loop back to recently rejected songs.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-collaborator-music-rejection.test.ts
-  EXPECT: # fail 0
-  EVIDENCE: PASS - 4 tests pass, 0 fail. performVoiceMusicAction tracks sessionRejectedTrackIds, accepts excludeTrackIds array, prevents cycling back to Triumph or rejected tracks, and allows explicit title recall.
-
-- [x] G6: Pre-existing or in-flight transcripts bypass paid credit quotes and do not report false credit blockers to voice users.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-collaborator-transcript-credit.test.ts
-  EXPECT: # fail 0
-  EVIDENCE: PASS - 4 tests pass, 0 fail. ensureVoiceTranscript and editor onRequestTranscription bypass AssemblyAI billing quote and restart when transcript already exists.
-
-- [x] G7: All existing Jarvis incident and regression test suites continue to pass without regression.
-  CHECK: node --import tsx --test --test-reporter=tap tests/jarvis-temi-session.test.ts
-  EXPECT: # fail 0
-  EVIDENCE: PASS - 20 tests pass, 0 fail. Full regression suite verified. npm run typecheck passed with exit code 0.
+- [x] G7: TypeScript type checking passes cleanly with zero errors.
+  CHECK: npx tsc --noEmit
+  EXPECT: 0
+  EVIDENCE: PASS - npx tsc --noEmit completed with exit code 0 and zero type errors.

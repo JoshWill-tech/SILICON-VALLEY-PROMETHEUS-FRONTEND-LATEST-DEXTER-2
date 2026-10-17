@@ -6578,6 +6578,9 @@ function OriginalEditorPage() {
         setProject(cachedProject)
         setProjectLoadError(null)
         setIsProjectLoading(false)
+        if (cachedProject.sourceAssetId) {
+          setIsSourceUploadFailed(false)
+        }
       }
 
       // 2. Fetch latest project state from API
@@ -6589,6 +6592,9 @@ function OriginalEditorPage() {
             setProject(apiProject)
             setProjectLoadError(null)
             setIsProjectLoading(false)
+            if (apiProject.sourceAssetId) {
+              setIsSourceUploadFailed(false)
+            }
             upsertProject(apiProject)
             return
           }
@@ -6604,6 +6610,9 @@ function OriginalEditorPage() {
           setProject(fallback)
           setProjectLoadError(null)
           setIsProjectLoading(false)
+          if (fallback.sourceAssetId) {
+            setIsSourceUploadFailed(false)
+          }
         } else {
           setProjectLoadError('This project could not be found.')
           setIsProjectLoading(false)
@@ -8423,7 +8432,29 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   const handleVoiceReviewExportReadiness = React.useCallback(async () => {
     await handlePrepareExport()
     try {
-      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {cache: 'no-store'})
+      let userToken: string | undefined
+      try {
+        const supabase = createClient()
+        let { data: { session } } = await supabase.auth.getSession()
+        const expiresAt = session?.expires_at ?? 0
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (!session || expiresAt - nowSec < 60) {
+          const refreshed = await supabase.auth.refreshSession()
+          if (refreshed?.data?.session) {
+            session = refreshed.data.session
+          }
+        }
+        if (session?.access_token) {
+          userToken = session.access_token
+        }
+      } catch {
+        // Fall back gracefully if session cannot be retrieved directly
+      }
+
+      const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
+        cache: 'no-store',
+        headers: userToken ? { Authorization: `Bearer ${userToken}` } : {},
+      })
       const parsed = await safeParseApiResponse<{readiness?: {
         canSubmit: boolean; sourceReady: boolean; sourceDurationMs: number | null; sourceWidth: number | null
         sourceHeight: number | null; backendConfigured: boolean; timelineRevision: number
@@ -8432,6 +8463,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       const readiness = parsed.data?.readiness
       if (!parsed.ok || !readiness) {
         throw new Error(parsed.error || 'Readiness information is unavailable.')
+      }
+      if (readiness.sourceReady) {
+        setIsSourceUploadFailed(false)
       }
       const sourceFacts = [
         readiness.sourceDurationMs ? `${(readiness.sourceDurationMs / 1000).toFixed(1)} seconds` : null,
@@ -9079,6 +9113,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       onApplyActions: handleApplyChatActions,
       onStartRender: handleVoiceStartRender,
       onReviewExportReadiness: handleVoiceReviewExportReadiness,
+      getAccessToken: async () => {
+        try {
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          return session?.access_token
+        } catch {
+          return undefined
+        }
+      },
       getTimelineSyncState: () => {
         const snapshot = getEditorialTimelineController(projectId).getSnapshot()
         return {status: snapshot.status, revision: snapshot.timeline?.revision ?? null, sourceAssetId: snapshot.timeline?.sourceAssetId ?? null, error: snapshot.error}

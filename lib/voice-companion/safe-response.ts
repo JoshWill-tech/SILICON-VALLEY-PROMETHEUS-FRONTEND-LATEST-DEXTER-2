@@ -38,6 +38,10 @@ export async function safeParseApiResponse<T>(
         // Fall through to non-JSON error handling
       }
     }
+
+    if (!response.ok && trimmed && !trimmed.startsWith('<') && !/<[a-z][\s\S]*>/i.test(trimmed) && trimmed.length < 500) {
+      return { ok: false, error: trimmed, status }
+    }
   } else if (typeof response.json === 'function') {
     try {
       const parsed = await response.json()

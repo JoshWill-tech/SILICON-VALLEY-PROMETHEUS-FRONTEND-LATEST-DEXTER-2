@@ -258,3 +258,116 @@ test('export panel shows distinct sync states and a retry for errors without blo
     assert.doesNotMatch(button, /\sdisabled(?:=|\s|>)/)
   }
 })
+
+test('gemini-live-client declares speech variants (EP4, renta) and mandates final render without transcription credit blockers', () => {
+  const clientSource = readFileSync('lib/voice-companion/gemini-live-client.ts', 'utf8')
+  assert.match(clientSource, /give them the final EP4 file/i)
+  assert.match(clientSource, /renta/i)
+  assert.match(clientSource, /Never halt or abort render dispatch because transcription is pending or unfunded/i)
+  assert.match(clientSource, /Mini-Run cloud rendering operates independently in the worker pipeline/i)
+})
+
+test('readVoiceSourceStatus forwards user Bearer token to authorize project exports checks', async () => {
+  const {readVoiceSourceStatus} = require('../lib/voice-companion/source-status.ts')
+  let capturedHeaders = null
+  const authBridge = {
+    ...bridge,
+    accessToken: 'test-jwt-token',
+  }
+  const testFetch = async (_url, options) => {
+    capturedHeaders = options?.headers
+    return {
+      ok: true,
+      json: async () => ({
+        readiness: {
+          sourceAssetId: 'source-1',
+          sourceCheckStatus: 'ready',
+          sourceReady: true,
+        },
+      }),
+    }
+  }
+  const result = await readVoiceSourceStatus(() => authBridge, testFetch)
+  assert.equal(result.success, true)
+  assert.equal(result.phase, 'ready')
+  assert.equal(capturedHeaders?.Authorization, 'Bearer test-jwt-token')
+})
+
+test('safeParseApiResponse preserves specific backend error messages on 502/503 status', async () => {
+  const {safeParseApiResponse} = require('../lib/voice-companion/safe-response.ts')
+  // JSON error payload with status 502
+  const jsonResponse = {
+    ok: false,
+    status: 502,
+    text: async () => JSON.stringify({error: 'Worker queue full at worker-pool-3'}),
+  }
+  const parsedJson = await safeParseApiResponse(jsonResponse, 'Fallback')
+  assert.equal(parsedJson.ok, false)
+  assert.equal(parsedJson.error, 'Worker queue full at worker-pool-3')
+
+  // Plain text non-HTML error payload with status 503
+  const textResponse = {
+    ok: false,
+    status: 503,
+    text: async () => 'Mini-Run worker dispatch failed: connection refused',
+  }
+  const parsedText = await safeParseApiResponse(textResponse, 'Fallback')
+  assert.equal(parsedText.ok, false)
+  assert.equal(parsedText.error, 'Mini-Run worker dispatch failed: connection refused')
+})
+
+test('EditorialTimelineController automatically recovers from 409 source video changed mismatch', async () => {
+  const {EditorialTimelineController} = require('../lib/editor/editorial-timeline-client.ts')
+  const controller = new EditorialTimelineController('proj-409-test')
+  controller.snapshot = {
+    timeline: {sourceAssetId: 'old-source', revision: 1, cuts: [], music: null, captionStyle: 'clean_bold'},
+    status: 'saved',
+    error: null,
+  }
+  controller.initialized = true
+
+  let patchAttempts = 0
+  let getCalls = 0
+  globalThis.fetch = async (url, options) => {
+    if (options?.method === 'PATCH') {
+      patchAttempts++
+      const body = JSON.parse(options.body)
+      if (body.sourceAssetId === 'old-source') {
+        return {
+          ok: false,
+          status: 409,
+          json: async () => ({error: 'The source video changed. Reload the timeline before editing.'}),
+        }
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          timeline: {sourceAssetId: 'new-source', revision: 2, cuts: [], music: null, captionStyle: 'karaoke_pop'},
+        }),
+      }
+    }
+    if (url.includes('/editorial-timeline')) {
+      getCalls++
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          timeline: {sourceAssetId: 'new-source', revision: 1, cuts: [], music: null, captionStyle: 'clean_bold'},
+        }),
+      }
+    }
+    return {ok: true, status: 200, json: async () => ({})}
+  }
+
+  controller.patch({type: 'caption_style', style: 'karaoke_pop'})
+  // Allow async drain loop to process
+  await new Promise((r) => setTimeout(r, 80))
+
+  assert.equal(patchAttempts, 2, 'Should attempt initial patch with old-source, then re-patch with new-source')
+  assert.equal(getCalls, 1, 'Should fetch current timeline on 409')
+  assert.equal(controller.snapshot.status, 'saved')
+  assert.equal(controller.snapshot.timeline.sourceAssetId, 'new-source')
+  assert.equal(controller.snapshot.timeline.captionStyle, 'karaoke_pop')
+})
+

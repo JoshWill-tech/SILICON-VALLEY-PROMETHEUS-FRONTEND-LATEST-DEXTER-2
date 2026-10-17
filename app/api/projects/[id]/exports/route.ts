@@ -51,14 +51,13 @@ async function resolveUserAccessToken(sessionAccessToken?: string, requestAuthor
 
 type RouteContext = {params: Promise<{id: string}>}
 
-export async function GET(_request: Request, {params}: RouteContext) {
+export async function GET(request: Request, {params}: RouteContext) {
   const {id: projectId} = await params
   const supabase = await createClient()
-  const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+  const [{data: {user}, error: authError}] = await Promise.all([
     supabase.auth.getUser(),
-    supabase.auth.getSession(),
   ])
-  if (authError || !user || !session?.access_token) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
+  if (authError || !user) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
 
   const {data: project, error: projectError} = await supabase.from('projects')
     .select('id, source_asset_id, editor_state').eq('id', projectId).eq('user_id', user.id).maybeSingle()

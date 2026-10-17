@@ -163,12 +163,33 @@ export class EditorialTimelineController {
     try {
       while (this.queue.length) {
         const patch = this.queue[0]!
-        const sourceAssetId = this.snapshot.timeline?.sourceAssetId ?? null
-        const response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, {
+        let sourceAssetId = projects.get(this.projectId)?.sourceAssetId ?? this.snapshot.timeline?.sourceAssetId ?? null
+        let response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(12000),
         })
-        const data = await response.json()
+        let data = await response.json()
+        if (response.status === 409 && typeof data.error === 'string' && data.error.includes('source video changed')) {
+          // Re-fetch timeline from server to synchronize current sourceAssetId
+          try {
+            const refreshRes = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, { cache: 'no-store', signal: AbortSignal.timeout(12000) })
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json()
+              const serverSource = refreshData.timeline?.sourceAssetId ?? null
+              sourceAssetId = serverSource
+              if (projects.get(this.projectId)) {
+                projects.update(this.projectId, { sourceAssetId: serverSource })
+              }
+              response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(12000),
+              })
+              data = await response.json()
+            }
+          } catch {
+            // Fall through to standard error handling
+          }
+        }
         if (!response.ok) throw new Error(data.error || 'Unable to save the timeline.')
         this.queue.shift()
         let timeline = readEditorialTimeline({ editorialTimeline: data.timeline }, data.timeline.sourceAssetId)

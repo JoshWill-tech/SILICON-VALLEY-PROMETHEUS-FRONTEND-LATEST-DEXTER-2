@@ -84,6 +84,9 @@ export interface VoiceCompanionBridgeHandlers {
   activeThumbnailUrl?: string
   activeThumbnailHeadline?: string
   onModifyThumbnail?: (args: { changes: string; headline?: string; referenceId?: string }) => Promise<VoiceActionResult> | VoiceActionResult
+  /** Optional auth token or resolver for authenticated status checks */
+  accessToken?: string
+  getAccessToken?: () => Promise<string | undefined> | string | undefined
 }
 
 let currentHandlers: VoiceCompanionBridgeHandlers = {}
