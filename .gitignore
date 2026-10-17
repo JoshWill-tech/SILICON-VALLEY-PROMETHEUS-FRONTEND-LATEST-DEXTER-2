@@ -40,6 +40,7 @@ env.local
 
 # Local render proofs / generated test media
 .tmp/
+tmp/
 .env.local.backup
 
 .vercel

@@ -18,7 +18,7 @@ import {
 import { buildStudioArtDirection, parseStudioDesign, resolveStudioImageModel, resolveStudioImageSize, type StudioDesign } from '@/lib/thumbnails/studio-art-direction'
 import { getStudioReference, STUDIO_REFERENCES } from '@/lib/thumbnails/studio-references'
 import { compactGeneratedThumbnail } from '@/lib/thumbnails/thumbnail-output'
-import { THUMBNAIL_PROVIDER_TIMEOUT_MS } from '@/lib/thumbnails/thumbnail-runtime'
+import { runWithThumbnailSignal, THUMBNAIL_PIPELINE_TIMEOUT_MS, THUMBNAIL_PLANNER_TIMEOUT_MS, THUMBNAIL_PROVIDER_TIMEOUT_MS } from '@/lib/thumbnails/thumbnail-runtime'
 import { applyThumbnailCreativeDirection, applyThumbnailIterationDirection } from '@/lib/thumbnails/creative-direction'
 import { buildThumbnailPromptPlannerText, extractPlannedArtDirection, THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS } from '@/lib/thumbnails/retention-prompt'
 
@@ -91,8 +91,11 @@ export async function POST(
 ) {
   const startedAt = Date.now()
   const requestId = request.headers.get('x-vercel-id') || request.headers.get('x-request-id') || 'unavailable'
+  const pipelineSignal = AbortSignal.any([request.signal, AbortSignal.timeout(THUMBNAIL_PIPELINE_TIMEOUT_MS)])
+  let imageSignal = pipelineSignal
   let stage = 'authentication'
   try {
+    return await runWithThumbnailSignal(pipelineSignal, async () => {
     const contentLength = Number(request.headers.get('content-length'))
     if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
       return NextResponse.json({ error: 'Thumbnail request is too large. Remove a style reference or use a smaller source image.' }, { status: 413 })
@@ -151,6 +154,7 @@ export async function POST(
 
     // 1. Channel Style-Lock Analysis via Gemini Multimodal Vision
     if (geminiApiKey && lockChannelStyle && !studioDesign && (referenceImages.length > 0 || frameDataUrl)) {
+      stage = 'style planning'
       try {
         const genAI = new GoogleGenerativeAI(geminiApiKey)
         const visionModel = genAI.getGenerativeModel({
@@ -228,7 +232,8 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
           }
         })
 
-        const analysisResult = await visionModel.generateContent(parts as never)
+        const planningSignal = AbortSignal.any([pipelineSignal, AbortSignal.timeout(THUMBNAIL_PLANNER_TIMEOUT_MS)])
+        const analysisResult = await runWithThumbnailSignal(planningSignal, () => visionModel.generateContent(parts as never, { signal: planningSignal }))
         const analysisText = analysisResult.response?.text()
         if (analysisText) {
           channelDna = JSON.parse(analysisText) as ChannelStyleDna
@@ -237,7 +242,8 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
           }
         }
       } catch (err) {
-        console.warn('[Nano Banana Style-Lock Analysis]', err)
+        pipelineSignal.throwIfAborted()
+        console.warn('[Nano Banana Style-Lock Analysis]', { requestId, result: 'unavailable; using structured art direction', errorType: err instanceof Error ? err.name : 'unknown' })
       }
     }
 
@@ -278,6 +284,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
       ].filter(Boolean).join('\n')
 
       if (geminiApiKey) {
+        stage = 'creative planning'
         try {
           const source = parseImageDataUrl(frameDataUrl)
           const plannerParts: Array<Record<string, unknown>> = [{
@@ -304,11 +311,13 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
             generationConfig: { responseMimeType: 'application/json', temperature: 0.35 },
             systemInstruction: THUMBNAIL_PROMPT_PLANNER_INSTRUCTIONS,
           })
-          const planned = await planner.generateContent(plannerParts as never)
+          const planningSignal = AbortSignal.any([pipelineSignal, AbortSignal.timeout(THUMBNAIL_PLANNER_TIMEOUT_MS)])
+          const planned = await runWithThumbnailSignal(planningSignal, () => planner.generateContent(plannerParts as never, { signal: planningSignal }))
           const artDirection = extractPlannedArtDirection(planned.response?.text() ?? '')
           if (artDirection) synthesizedPrompt += '\n\nRETENTION-AWARE CREATIVE CONCEPT: ' + artDirection
           else console.warn('[Thumbnail Prompt Planner]', { requestId, result: 'empty-or-invalid-json' })
         } catch {
+          pipelineSignal.throwIfAborted()
           console.warn('[Thumbnail Prompt Planner]', { requestId, result: 'unavailable; using structured art direction' })
         }
       }
@@ -317,6 +326,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
     if (iterationPrompt) {
       synthesizedPrompt = applyThumbnailIterationDirection(synthesizedPrompt, iterationPrompt)
     }
+    pipelineSignal.throwIfAborted()
     const imageModel = useOpenAICompatibleImageApi
       ? process.env.THUMBNAIL_IMAGE_MODEL?.trim() || DEFAULT_THUMBNAIL_IMAGE_MODEL
       : studioDesign ? resolveStudioImageModel(studioDesign.quality) : 'gemini-2.5-flash-image'
@@ -345,19 +355,23 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
     const endpoint = useOpenAICompatibleImageApi
       ? resolveOpenAIImageEditEndpoint(process.env.THUMBNAIL_IMAGE_API_BASE_URL)
       : 'https://generativelanguage.googleapis.com/v1/models/' + imageModel + ':generateContent'
-    const imageResponse = await fetch(endpoint, {
+    imageSignal = AbortSignal.any([pipelineSignal, AbortSignal.timeout(THUMBNAIL_PROVIDER_TIMEOUT_MS)])
+    const imageResponse = await runWithThumbnailSignal(imageSignal, () => fetch(endpoint, {
       method: 'POST',
       headers: useOpenAICompatibleImageApi
         ? { Authorization: `Bearer ${imageApiKey}` }
         : { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey! },
       body: imageBody,
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(THUMBNAIL_PROVIDER_TIMEOUT_MS)]),
-    })
+      signal: imageSignal,
+    }))
     const responseContentType = imageResponse.headers.get('content-type') || ''
     console.info('[Thumbnail Stage]', { requestId, provider, stage: 'image generation finished', status: imageResponse.status, contentType: responseContentType, durationMs: Date.now() - providerStartedAt })
-    const imageResult = responseContentType.includes('json')
+    const imageResult = await runWithThumbnailSignal(imageSignal, async () => responseContentType.includes('json')
       ? await imageResponse.json().catch(() => null)
-      : await imageResponse.text().catch(() => '')
+      : await imageResponse.text().catch(() => ''))
+    // Body reads can abort after response headers arrived. Do not turn that
+    // timeout into "no image", or start compaction after cancellation.
+    imageSignal.throwIfAborted()
     if (!imageResponse.ok) {
       const providerMessage = typeof imageResult === 'string'
         ? imageResult
@@ -366,7 +380,10 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
           : ''
       console.error('[Thumbnail Image Provider Error]', { requestId, provider, status: imageResponse.status, contentType: responseContentType })
       const htmlGateway = !responseContentType.includes('json')
-      const error = imageResponse.status === 401 || imageResponse.status === 403
+      const noImageQuota = !useOpenAICompatibleImageApi && imageResponse.status === 429 && /\blimit:\s*0\b/i.test(providerMessage)
+      const error = noImageQuota
+        ? 'The configured Gemini project has no image-generation quota. Enable billing and image-generation access for that project, or configure a dedicated image provider. Your current versions are safe.'
+        : imageResponse.status === 401 || imageResponse.status === 403
         ? useOpenAICompatibleImageApi
           ? 'The configured image group rejected its server credential. Check the dedicated image-generation key in the deployment environment.'
           : 'Google rejected the configured Gemini API credential. Check the server key and image-generation access.'
@@ -375,7 +392,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
         : htmlGateway
             ? `The image provider returned an HTML gateway error (HTTP ${imageResponse.status}). Request reference: ${requestId}. Check the matching function and provider logs.`
             : `${provider} failed (HTTP ${imageResponse.status}). ${providerMessage.slice(0, 220) || 'Retry in a moment.'} Request reference: ${requestId}.`
-      return NextResponse.json({ error }, { status: 502 })
+      return NextResponse.json({ error }, { status: noImageQuota ? 503 : imageResponse.status === 429 ? 429 : 502 })
     }
 
     const generatedDataUrl = useOpenAICompatibleImageApi
@@ -396,10 +413,11 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
       styleDna: channelDna,
       projectId,
     })
+    })
   } catch (error) {
     console.error('[Nano Banana Route Error]', { requestId, stage, durationMs: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) })
     if (request.signal.aborted) return NextResponse.json({ error: 'Thumbnail generation cancelled.' }, { status: 499 })
-    if (error instanceof Error && error.name === 'TimeoutError') return NextResponse.json({ error: 'The image model did not finish within four minutes. Your current versions are safe. Retry, or choose Fast quality for a quicker render.' }, { status: 504 })
+    if (pipelineSignal.aborted || imageSignal.aborted || (error instanceof Error && error.name === 'TimeoutError')) return NextResponse.json({ error: 'Thumbnail generation did not finish within the time limit. Your current versions are safe. Retry, or choose Fast quality for a quicker render.' }, { status: 504 })
     return NextResponse.json(
       {
         error: 'Failed to process Nano Banana generation request',

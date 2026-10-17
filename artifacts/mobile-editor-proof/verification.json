@@ -1,0 +1,158 @@
+{
+  "results": [
+    "Phone: saved rendered note, exported render-bound JSON with captured PNG, recovered after reload, and updated the same frame with an additional drawn-frame note.",
+    {
+      "device": "small-phone",
+      "viewport": "320x568",
+      "geometry": {
+        "pageWidth": 320,
+        "scrollWidth": 320,
+        "left": 26,
+        "right": 294,
+        "fontSize": "16px",
+        "sizes": [
+          {
+            "label": "Move Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Dictate rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Draw on rendered frame",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Save rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Collapse Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          }
+        ]
+      }
+    },
+    {
+      "device": "phone-landscape",
+      "viewport": "844x390",
+      "geometry": {
+        "pageWidth": 844,
+        "scrollWidth": 844,
+        "left": 230,
+        "right": 614,
+        "fontSize": "16px",
+        "sizes": [
+          {
+            "label": "Move Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Dictate rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Draw on rendered frame",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Save rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Collapse Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          }
+        ]
+      }
+    },
+    {
+      "device": "phone-desktop-mode",
+      "viewport": "980x740",
+      "geometry": {
+        "pageWidth": 980,
+        "scrollWidth": 980,
+        "left": 298,
+        "right": 682,
+        "fontSize": "16px",
+        "sizes": [
+          {
+            "label": "Move Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Dictate rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Draw on rendered frame",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Save rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Collapse Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          }
+        ]
+      }
+    },
+    {
+      "device": "wide-touch",
+      "viewport": "1280x800",
+      "geometry": {
+        "pageWidth": 1280,
+        "scrollWidth": 1280,
+        "left": 133.5,
+        "right": 517.5,
+        "fontSize": "16px",
+        "sizes": [
+          {
+            "label": "Move Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Dictate rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Draw on rendered frame",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Save rendered frame note",
+            "width": 44,
+            "height": 44
+          },
+          {
+            "label": "Collapse Rendered frame annotation",
+            "width": 44,
+            "height": 44
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

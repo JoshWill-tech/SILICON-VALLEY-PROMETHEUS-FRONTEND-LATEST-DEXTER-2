@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowUpRight, Clock3, Copy, Film, Gauge, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { ArrowUpRight, Clock3, Copy, Download, Film, Gauge, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import type { ProjectListItem } from '@/lib/projects/types'
@@ -58,7 +59,37 @@ export function ProjectCard({ project, featured = false, onEdit, onDuplicate, on
     project.width && project.height ? `${project.width}x${project.height}` : null
   const lastEdited = formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })
 
+  const handleDownload = React.useCallback(async () => {
+    try {
+      toast.info('Fetching export download link...')
+      const res = await fetch(`/api/projects/${encodeURIComponent(project.id)}/exports/latest`)
+      const data = await res.json()
+      if (!res.ok || !data.export?.id) {
+        toast.info('No export found for this project yet. Open in editor to render.')
+        return
+      }
+      const dlRes = await fetch(`/api/exports/${encodeURIComponent(data.export.id)}/download-url`)
+      const dlData = await dlRes.json()
+      if (!dlRes.ok) {
+        toast.error(dlData.error || 'Failed to get download URL')
+        return
+      }
+      const downloadUrl = dlData.download?.url || dlData.downloadUrl
+      const filename = dlData.download?.filename || `${project.title.toLowerCase().replace(/[^a-z0-9]/gi, '-') || 'export'}.mp4`
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('Finished MP4 download started.')
+    } catch {
+      toast.error('Could not download file. Open project in editor.')
+    }
+  }, [project.id, project.title])
+
   const actions = [
+    { label: 'Download export', icon: Download, onClick: handleDownload },
     { label: 'Duplicate project', icon: Copy, onClick: () => onDuplicate(project.id) },
     { label: 'Share project', icon: Link2, onClick: () => onShare(project.id) },
     { label: 'Delete project', icon: Trash2, onClick: () => onDelete(project.id), danger: true },

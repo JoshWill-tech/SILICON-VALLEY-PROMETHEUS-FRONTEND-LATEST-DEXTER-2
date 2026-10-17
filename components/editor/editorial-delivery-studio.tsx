@@ -8,7 +8,8 @@ import type { ProjectExport } from '@/lib/types'
 import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import { canSubmitSourceRender, isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath, type SourceUploadStatus } from '@/lib/editor/render-delivery'
-import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider } from '@/components/editor/video-review-annotations'
+import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider, VideoReviewToolbar } from '@/components/editor/video-review-annotations'
+import mobileWorkspaceStyles from '@/components/editor/mobile-editor-workspace.module.css'
 
 type TextTreatment = {
   fontFamily: string
@@ -246,7 +247,7 @@ export function EditorialDeliveryStudio({
               initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="flex h-[min(92dvh,60rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#090a0b] shadow-[0_36px_100px_rgba(0,0,0,0.68)]"
+              className={`flex h-[min(92dvh,60rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#090a0b] shadow-[0_36px_100px_rgba(0,0,0,0.68)] ${mobileWorkspaceStyles.delivery}`}
             >
               <header className="flex shrink-0 items-center justify-between gap-3 border-b border-white/8 px-4 py-3 sm:px-6">
                 <div className="flex min-w-0 items-center gap-3">
@@ -293,14 +294,17 @@ export function EditorialDeliveryStudio({
   }
 
   return (
-    <section aria-label="Final render studio" className="w-full overflow-hidden rounded-[1.35rem] border border-white/12 bg-[#0a0e0c] shadow-[0_20px_70px_rgba(0,0,0,.35)]">
+    <VideoReviewProvider key={`${projectId}:${sourceAssetId}`} projectId={projectId} sourceAssetId={sourceAssetId} projectTitle={projectTitle}>
+    <section aria-label="Final render studio" className={`w-full overflow-hidden rounded-[1.35rem] border border-white/12 bg-[#0a0e0c] shadow-[0_20px_70px_rgba(0,0,0,.35)] ${mobileWorkspaceStyles.delivery}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[radial-gradient(circle_at_15%_0%,rgba(157,246,90,.13),transparent_35%)] px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#9df65a]/20 bg-[#9df65a]/10 text-[#b4fb60]"><Film className="size-4" /></span>
           <div><h2 className="text-sm font-semibold text-white">MP4 exports</h2><p className="text-[11px] text-white/45">Source Mini-Run: portrait MP4, up to 30 seconds, automatic music and captions. Editor timeline layers are not included.</p></div>
         </div>
         <div className="flex items-center gap-2">
+          <VideoReviewDownloadButton />
           <button type="button" onClick={() => void refresh()} className="grid size-9 place-items-center rounded-lg border border-white/10 text-white/60 hover:bg-white/5 hover:text-white" aria-label="Refresh renders"><RefreshCw className="size-4" /></button>
+          <button type="button" onClick={() => setComparisonOpen(true)} disabled={!sourceUrl} aria-label="Compare original and rendered video" title="Compare versions side-by-side" className="grid size-9 place-items-center rounded-lg border border-white/10 text-white/60 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"><Columns2 className="size-4" /></button>
           <button type="button" onClick={() => void startRender()} disabled={!canSubmitSourceRender(sourceAssetId, sourceUploadStatus) || isSubmitting || Boolean(pendingRecord)} title={sourceUploadStatus === 'uploading' ? 'Wait for the source video to finish saving before rendering.' : sourceUploadStatus === 'failed' ? 'The source video was not saved. Select it again before rendering.' : !sourceAssetId ? 'Add a source video first.' : undefined} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-[#b4fb60] px-3 text-xs font-semibold text-black transition disabled:cursor-not-allowed disabled:opacity-45">
             {isSubmitting || pendingRecord ? <LoaderCircle className="size-3.5 animate-spin" /> : <Film className="size-3.5" />}
             {isSubmitting ? 'Submitting render…' : pendingRecord?.status === 'pending' ? 'Queued…' : pendingRecord ? 'Rendering…' : 'Start source Mini-Run'}
@@ -335,14 +339,22 @@ export function EditorialDeliveryStudio({
           <p className="mt-1 text-[10px] text-white/40">{pendingProgress === null ? 'The renderer has not reported a percentage yet.' : `${pendingProgress}% complete`}</p>
         </div>}
       </div>}
-      <div className="grid gap-3 p-3 sm:p-4 lg:grid-cols-2">
+      <div className="border-b border-white/8 px-4 py-3 sm:px-5"><h3 className="text-sm font-medium text-white/90">Feedback & corrections</h3><p className="mt-1 text-xs leading-5 text-white/65">Pause either video, add a frame note, or draw a correction. Notes stay on this device; download your review to share them.</p></div>
+      <VideoReviewToolbar />
+      <div data-delivery-players data-render-ready={Boolean(finishedRecord)} className="grid gap-3 p-3 sm:p-4 lg:grid-cols-2">
         <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
           <div className="flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-[.14em] text-white/55"><span>01 / Original footage</span><span>Source</span></div>
-          {sourceUrl ? <video key={sourceUrl} src={sourceUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-black object-contain" aria-label="Original footage" /> : <div className="grid aspect-video place-items-center text-xs text-white/35">Upload a source video to begin</div>}
+          <div className="relative aspect-video w-full overflow-hidden bg-black">
+            {sourceUrl ? <video key={sourceUrl} ref={comparisonSourceRef} crossOrigin="anonymous" src={sourceUrl} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Original footage" /> : <div className="grid h-full place-items-center text-xs text-white/35">Upload a source video to begin</div>}
+            {sourceUrl ? <VideoAnnotateButton key={sourceUrl} videoRef={comparisonSourceRef} source="original" /> : null}
+          </div>
         </div>
         <div className="overflow-hidden rounded-xl border border-[#9df65a]/20 bg-black">
           <div className="flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-[.14em] text-[#b4fb60]"><span>02 / Rendered MP4</span><span>{finishedRecord ? 'MP4 ready' : pendingRecord?.status === 'pending' ? 'Queued' : pendingRecord ? 'Rendering' : 'Awaiting render'}</span></div>
-          {finishedRecord ? <video key={finishedRecord.id} src={renderPreviewPath(finishedRecord.id)} controls playsInline preload="metadata" className="aspect-video w-full bg-black object-contain" aria-label="Finished MP4" /> : <div className="grid aspect-video place-items-center bg-[radial-gradient(circle_at_50%_40%,rgba(157,246,90,.08),transparent_55%)] px-8 text-center text-xs leading-5 text-white/40">{pendingRecord ? 'The backend is rendering this version. It will appear here when the MP4 is stored.' : 'Your completed render will play here beside the original.'}</div>}
+          <div className="relative aspect-video w-full overflow-hidden bg-black">
+            {finishedRecord ? <video key={finishedRecord.id} ref={comparisonRenderRef} crossOrigin="anonymous" src={renderPreviewPath(finishedRecord.id)} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Finished MP4" /> : <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_40%,rgba(157,246,90,.08),transparent_55%)] px-8 text-center text-xs leading-5 text-white/40">{pendingRecord ? 'The backend is rendering this version. It will appear here when the MP4 is stored.' : 'Your completed render will play here beside the original.'}</div>}
+            {finishedRecord ? <VideoAnnotateButton key={finishedRecord.id} videoRef={comparisonRenderRef} source="rendered" renderId={finishedRecord.id} /> : null}
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-white/8 px-4 py-3 sm:px-5">
@@ -392,5 +404,6 @@ export function EditorialDeliveryStudio({
         </div>}
       </div>
     </section>
+    </VideoReviewProvider>
   )
 }

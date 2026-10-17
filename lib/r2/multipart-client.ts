@@ -63,6 +63,7 @@ export type StoredMultipartSession = {
   updatedAt: number
   uploadId: string
   uploadedParts: UploadedPart[]
+  status?: 'uploading' | 'verified'
 }
 
 export type UploadProjectSourceMultipartOptions = {
@@ -73,6 +74,8 @@ export type UploadProjectSourceMultipartOptions = {
   partSize?: number
   projectId: string
   resumable?: boolean
+  /** Keep the verified checkpoint until the caller commits the asset metadata. */
+  retainCompletedSession?: boolean
   signal?: AbortSignal
 }
 
@@ -89,6 +92,8 @@ export class MultipartUploadError extends Error {
   partNumber?: number
   responseBody?: string
   status?: number
+  code?: string
+  retryable?: boolean
 
   constructor(
     message: string,
@@ -97,6 +102,8 @@ export class MultipartUploadError extends Error {
       partNumber?: number
       responseBody?: string
       status?: number
+      code?: string
+      retryable?: boolean
     } = {},
   ) {
     super(message)
@@ -105,6 +112,8 @@ export class MultipartUploadError extends Error {
     this.partNumber = options.partNumber
     this.responseBody = options.responseBody
     this.status = options.status
+    this.code = options.code
+    this.retryable = options.retryable
   }
 }
 
@@ -135,6 +144,8 @@ async function readJsonResponse<T>(response: Response, fallbackMessage: string):
     throw new MultipartUploadError(message, {
       responseBody: text,
       status: response.status,
+      code: typeof data?.code === 'string' ? data.code : undefined,
+      retryable: typeof data?.retryable === 'boolean' ? data.retryable : undefined,
     })
   }
 
@@ -371,6 +382,7 @@ export async function uploadProjectSourceMultipart({
   partSize: customPartSize,
   projectId,
   resumable = true,
+  retainCompletedSession = false,
   signal,
 }: UploadProjectSourceMultipartOptions): Promise<UploadProjectSourceMultipartResult> {
   if (file.size > R2_MULTIPART_CLIENT_MAX_BYTES) {
@@ -384,8 +396,8 @@ export async function uploadProjectSourceMultipart({
     storedSession = await getResumableSessionForFile(file, projectId)
   }
 
-  const partSize = customPartSize || storedSession?.partSize || R2_MULTIPART_CLIENT_PART_SIZE
-  const totalParts = Math.ceil(file.size / partSize)
+  let partSize = customPartSize || storedSession?.partSize || R2_MULTIPART_CLIENT_PART_SIZE
+  let totalParts = Math.ceil(file.size / partSize)
 
   const baseProgress = {
     bytesUploaded: 0,
@@ -408,7 +420,9 @@ export async function uploadProjectSourceMultipart({
   let completedBytes = 0
   let isResumed = false
 
-  if (storedSession && storedSession.uploadId && storedSession.sessionId && storedSession.uploadedParts.length > 0) {
+  // Even a zero-part upload owns an active quota reservation. Reuse it when
+  // retrying the first part instead of reserving the same file again.
+  if (storedSession && storedSession.uploadId && storedSession.sessionId) {
     asset = {
       bucket: storedSession.bucket,
       id: storedSession.assetId || stableAssetId,
@@ -418,6 +432,10 @@ export async function uploadProjectSourceMultipart({
       sizeBytes: file.size,
       storageProvider: 'r2',
       uploadSessionId: storedSession.sessionId,
+    }
+    if (storedSession.status === 'verified') {
+      onProgress?.({ ...baseProgress, bytesUploaded: file.size, percentage: 100, phase: 'done', isResumed: true })
+      return { asset, bucket: asset.bucket, key: asset.objectKey }
     }
     upload = {
       sessionId: storedSession.sessionId,
@@ -466,6 +484,13 @@ export async function uploadProjectSourceMultipart({
 
     asset = initiate.asset
     upload = initiate.upload
+    // The reservation defines the actual chunk contract. A deployment can
+    // change it independently of an already-open browser tab.
+    if (Number.isSafeInteger(upload.partSize) && upload.partSize >= 5 * 1024 * 1024) {
+      partSize = upload.partSize
+      totalParts = Math.ceil(file.size / partSize)
+      baseProgress.totalParts = totalParts
+    }
 
     if (upload.status === 'verified' || upload.status === 'committed') {
       onProgress?.({ ...baseProgress, bytesUploaded: file.size, percentage: 100, phase: 'done' })
@@ -593,7 +618,7 @@ export async function uploadProjectSourceMultipart({
             uploadedBytesBeforeFailure: completedBytes + lastPartProgressBytes,
           })
 
-          if (attempt >= R2_MULTIPART_MAX_RETRIES) {
+          if (attempt >= R2_MULTIPART_MAX_RETRIES || (error instanceof MultipartUploadError && error.retryable === false)) {
             throw error
           }
 
@@ -638,14 +663,21 @@ export async function uploadProjectSourceMultipart({
         )
       } catch (error) {
         completionError = error
+        if (error instanceof MultipartUploadError && error.retryable === false) break
         if (attempt < 2) await wait(getRetryDelayMs(attempt), signal)
       }
     }
     if (!completed) throw completionError
 
-    // Completed successfully: remove from IndexedDB resumable cache
+    // Replacement may still need to retry its metadata commit after the bytes
+    // are verified. Keep that checkpoint until its caller confirms the commit.
     if (resumable) {
-      await del(fingerprint).catch(() => undefined)
+      if (retainCompletedSession && storedSession) {
+        storedSession = { ...storedSession, status: 'verified', updatedAt: Date.now() }
+        await set(fingerprint, storedSession).catch(() => undefined)
+      } else {
+        await del(fingerprint).catch(() => undefined)
+      }
     }
 
     onProgress?.({

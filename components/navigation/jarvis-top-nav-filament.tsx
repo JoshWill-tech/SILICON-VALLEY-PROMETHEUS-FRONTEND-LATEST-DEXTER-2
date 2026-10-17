@@ -206,14 +206,16 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
             className="h-full w-full overflow-visible drop-shadow-[0_1px_6px_rgba(0,240,255,0.45)]"
           >
             <defs>
-              <linearGradient id="jarvisLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              {/* A flat path has a zero-height bounding box. Explicit SVG units
+                  keep its gradient and glow visible when idle or motion is reduced. */}
+              <linearGradient id="jarvisLineGrad" gradientUnits="userSpaceOnUse" x1="0" y1="16" x2="200" y2="16">
                 <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.2" />
                 <stop offset="25%" stopColor="#00f0ff" stopOpacity="0.9" />
                 <stop offset="50%" stopColor="#38bdf8" stopOpacity="1" />
                 <stop offset="75%" stopColor="#60a5fa" stopOpacity="0.9" />
                 <stop offset="100%" stopColor="#818cf8" stopOpacity="0.2" />
               </linearGradient>
-              <filter id="jarvisNeonGlow" x="-20%" y="-40%" width="140%" height="180%">
+              <filter id="jarvisNeonGlow" filterUnits="userSpaceOnUse" x="-12" y="-16" width="224" height="64">
                 <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />
                 <feMerge>
                   <feMergeNode in="coloredBlur" />

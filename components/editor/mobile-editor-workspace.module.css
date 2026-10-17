@@ -1,0 +1,185 @@
+.workspace {
+  background: #070709;
+  isolation: isolate;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.workspace > :first-child {
+  opacity: 0.25;
+}
+
+.workspace > div > header {
+  padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+}
+
+.workspace > div > header button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.main {
+  min-width: 0;
+}
+
+.screening {
+  padding: 0.6rem 1rem 0.75rem;
+  background: linear-gradient(180deg, #09090b, #030304);
+}
+
+.screeningLabel {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  color: #b7b7c1;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.screening > div:last-child {
+  max-height: 25dvh;
+  margin-inline: auto;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 12px;
+  box-shadow: 0 14px 35px rgb(0 0 0 / 0.4);
+}
+
+.navigation {
+  gap: 8px;
+  padding: 0.5rem 0.75rem;
+  scrollbar-width: none;
+  background: #08080a;
+}
+
+.navigation::-webkit-scrollbar {
+  display: none;
+}
+
+.navigation button {
+  flex: 1 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding-inline: 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: #b7b7c1;
+}
+
+.navigation button[aria-pressed='true'] {
+  border-color: rgb(255 255 255 / 0.2);
+  background: #232328;
+  color: #fff;
+  box-shadow: inset 0 1px rgb(255 255 255 / 0.08);
+}
+
+.workspace button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -3px;
+}
+
+.panel {
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.panel > div {
+  min-width: 0;
+}
+
+/* Motion's standalone tab uses all available space instead of its default
+   collapsed inspector sheet, which leaves most of a phone screen empty. */
+.workspace[data-mobile-workspace='motion'] [data-motion-property-canvas] {
+  position: relative;
+  inset: auto;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  align-self: stretch;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 16px;
+}
+
+.workspace[data-mobile-workspace='motion'] [data-motion-sheet-handle] {
+  display: none;
+}
+
+.workspace[data-mobile-workspace='motion'] .panel button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.workspace[data-mobile-workspace='motion'] .panel textarea {
+  min-width: 0;
+  font-size: 16px;
+}
+
+.workspace[data-mobile-workspace='motion'] .panel input[type='range'] {
+  min-height: 44px;
+}
+
+/* Apply touch sizing in phone desktop mode as well as narrow layouts. */
+@media (max-width: 1024px), (pointer: coarse) {
+  .delivery [data-delivery-players][data-render-ready='true'] > :last-child {
+    order: -1;
+  }
+
+  .delivery button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .delivery input:not([type='range']),
+  .delivery textarea,
+  .delivery select {
+    font-size: 16px;
+  }
+
+  .delivery form[aria-label*='frame annotation'],
+  .delivery [data-review-placement='below'] form {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 18px;
+  }
+
+  .delivery form[aria-label*='frame annotation'] input,
+  .delivery [data-review-placement='below'] input {
+    flex-basis: 100%;
+    order: 1;
+    padding-inline: 8px;
+  }
+
+  .delivery form[aria-label*='frame annotation'] button,
+  .delivery [data-review-placement='below'] button {
+    order: 2;
+  }
+}
+
+.workspace[data-mobile-workspace='chat'] .panel > div {
+  border-color: rgb(255 255 255 / 0.09);
+  border-radius: 16px;
+  background: #09090c;
+}
+
+/* Let the instruction area grow when the software keyboard reduces the viewport. */
+@media (max-height: 650px) {
+  .workspace[data-mobile-workspace='chat'] .screening {
+    display: none;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 550px) {
+  .workspace > div > header {
+    padding-block: 0.35rem;
+  }
+
+  .screening {
+    display: none;
+  }
+
+  .navigation {
+    padding-block: 0.25rem;
+  }
+}

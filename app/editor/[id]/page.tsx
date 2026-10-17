@@ -50,6 +50,7 @@ import { MusicTabPanel } from '@/components/editor/music-tab-panel'
 import { MotionPropertyCanvas } from '@/components/editor/motion-property-canvas'
 import { MotionEditWorkspace } from '@/components/editor/motion-edit-workspace'
 import motionWorkspaceStyles from '@/components/editor/motion-edit-workspace.module.css'
+import mobileWorkspaceStyles from '@/components/editor/mobile-editor-workspace.module.css'
 import { IterationModal } from '@/components/editor/IterationModal'
 import { ContinueBanner } from '@/components/editor/ContinueBanner'
 import gsap from 'gsap'
@@ -158,7 +159,7 @@ import { analyzeMusicIntent } from '@/lib/music-intent'
 import { queuePreviewRevisionRequest } from '@/lib/editorial-frame/mock-preview-api'
 import { getSessionSourcePreview, setSessionSourcePreview } from '@/lib/source-preview-session'
 import { createSourceAssetObjectUrl, getStoredSourceAssetFile } from '@/lib/source-asset-store'
-import { uploadProjectSourceMultipart } from '@/lib/r2/multipart-client'
+import { clearResumableSessionForFile, MultipartUploadError, uploadProjectSourceMultipart } from '@/lib/r2/multipart-client'
 import { STYLE_TEMPLATES, type StyleTemplate } from '@/lib/styles/style-templates'
 import { toast } from 'sonner'
 import {
@@ -5834,6 +5835,7 @@ type MobileEditorViewProps = {
   automationRequest: ComposerAutomationRequest | null
   workspaceTab: HeaderNavMode
   deliveryOpenToken: number
+  onWorkspaceTabChange?: (tab: HeaderNavMode) => void
   onBack: () => void
   onOpenUploadNewProject: () => void
   onTogglePlayback: () => void
@@ -5895,6 +5897,7 @@ function MobileEditorView({
   automationRequest,
   workspaceTab,
   deliveryOpenToken,
+  onWorkspaceTabChange,
   onBack,
   onTogglePlayback,
   onSeekPreview,
@@ -5922,13 +5925,16 @@ function MobileEditorView({
 }: MobileEditorViewProps) {
   const [activeTab, setActiveTab] = React.useState<MobileEditorTabKey>(() => {
     if (workspaceTab === 'Music') return 'music'
-    if (workspaceTab === 'Motion' || workspaceTab === 'Editor') return 'motion'
-    return hasPreviewMedia ? 'motion' : 'status'
+    if (workspaceTab === 'Motion') return 'motion'
+    if (workspaceTab === 'Export') return 'export'
+    return 'chat'
   })
 
   React.useEffect(() => {
     if (workspaceTab === 'Music') setActiveTab('music')
-    else if (workspaceTab === 'Motion' || workspaceTab === 'Editor') setActiveTab('motion')
+    else if (workspaceTab === 'Motion') setActiveTab('motion')
+    else if (workspaceTab === 'Export') setActiveTab('export')
+    else setActiveTab('chat')
   }, [workspaceTab])
   React.useEffect(() => {
     if (deliveryOpenToken > 0) setActiveTab('export')
@@ -6087,7 +6093,7 @@ function MobileEditorView({
   }
 
   return (
-    <div className="relative h-[100dvh] overflow-hidden bg-[#07070a] text-white">
+    <div className={cn('relative h-[100dvh] overflow-hidden bg-[#07070a] text-white', mobileWorkspaceStyles.workspace)} data-mobile-workspace={activeTab}>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(84,69,126,0.22)_0%,rgba(84,69,126,0.08)_26%,rgba(7,7,10,0)_58%),linear-gradient(180deg,rgba(16,14,24,0.78)_0%,rgba(7,7,10,1)_44%)]"
@@ -6128,8 +6134,30 @@ function MobileEditorView({
           </div>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col">
-          <section className="shrink-0 py-3">
+        <main className={cn('flex min-h-0 flex-1 flex-col', mobileWorkspaceStyles.main)}>
+          {activeTab !== 'motion' && activeTab !== 'export' && activeTab !== 'versions' ? (
+          <section className={cn('shrink-0 py-3', mobileWorkspaceStyles.screening)} aria-label="Source screening">
+            <div className={mobileWorkspaceStyles.screeningLabel}>
+              <div className="flex items-center gap-2">
+                <span>Source preview</span>
+                {latestExport && <span className="rounded bg-[#b4fb60]/15 px-1.5 py-0.5 text-[9px] font-semibold text-[#b4fb60]">MP4 Ready</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {hasPreviewMedia ? (
+                  <EditorialDeliveryStudio
+                    projectId={projectId}
+                    sourceAssetId={project?.sourceAssetId ?? null}
+                    sourceUrl={previewKind === 'video' ? previewUrl : null}
+                    projectTitle={projectTitle}
+                    currentTimeSec={currentTimeSec}
+                    durationSec={durationSec}
+                    presentation="preview"
+                    sourceUploadStatus={sourceUploadStatus}
+                  />
+                ) : null}
+                <span>{durationLabel}</span>
+              </div>
+            </div>
             <div className="relative aspect-video max-h-[40vh] w-full overflow-hidden bg-black">
               {hasPreviewMedia && previewKind === 'video' ? (
                 <MobileVideoPlayer
@@ -6161,19 +6189,26 @@ function MobileEditorView({
               )}
             </div>
           </section>
+          ) : null}
 
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-white/8 px-4 py-2">
+          <nav aria-label="Editor workspaces" className={cn('flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-white/8 px-4 py-2', mobileWorkspaceStyles.navigation)}>
             {[
+              { key: 'chat', label: 'Editorial' },
               { key: 'motion', label: 'Motion' },
               { key: 'music', label: 'Music' },
-              { key: 'chat', label: 'Chat' },
-              { key: 'status', label: 'Status' },
               { key: 'export', label: 'Export' },
+              { key: 'status', label: 'Status' },
             ].map((tab) => (
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as MobileEditorTabKey)}
+                onClick={() => {
+                  setActiveTab(tab.key as MobileEditorTabKey)
+                  const workspace = tab.key === 'chat' ? 'Editor' : tab.key === 'motion' ? 'Motion' : tab.key === 'music' ? 'Music' : tab.key === 'export' ? 'Export' : null
+                  if (workspace) onWorkspaceTabChange?.(workspace)
+                }}
+                aria-pressed={activeTab === tab.key}
+                aria-controls="mobile-workspace-panel"
                 className={cn(
                   'rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors',
                   activeTab === tab.key
@@ -6184,9 +6219,9 @@ function MobileEditorView({
                 {tab.label}
               </button>
             ))}
-          </div>
+          </nav>
 
-          <div className="min-h-0 flex-1 p-3">
+          <div id="mobile-workspace-panel" role="region" aria-label={`${activeTab === 'chat' ? 'Editorial' : activeTab} workspace`} className={cn('min-h-0 flex-1 p-3', mobileWorkspaceStyles.panel)}>
             {renderTabContent()}
           </div>
         </main>
@@ -6741,10 +6776,15 @@ function OriginalEditorPage() {
           if (announcedEditorialReadinessRef.current !== readiness.analysisJobId) {
             announcedEditorialReadinessRef.current = readiness.analysisJobId
             if (readiness.silenceCuts.length > 0) {
-              setActiveWorkspaceTab('Motion')
-              setBottomMode('Original')
               toast.info(`Source assessment found ${readiness.silenceCuts.length} cut-ready pause${readiness.silenceCuts.length === 1 ? '' : 's'}.`, {
                 description: 'Review the highlighted timeline ranges in Motion before applying them.',
+                action: {
+                  label: 'Review in Motion',
+                  onClick: () => {
+                    setActiveWorkspaceTab('Motion')
+                    setBottomMode('Original')
+                  },
+                },
               })
             } else {
               toast.info('Source assessment is ready.', {
@@ -8303,7 +8343,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       let userToken: string | undefined
       try {
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        let { data: { session } } = await supabase.auth.getSession()
+        const expiresAt = session?.expires_at ?? 0
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (!session || expiresAt - nowSec < 60) {
+          const refreshed = await supabase.auth.refreshSession()
+          if (refreshed?.data?.session) {
+            session = refreshed.data.session
+          }
+        }
         if (session?.access_token) {
           userToken = session.access_token
         }
@@ -9236,14 +9284,19 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       try {
         // Mirror of the studio upload flow (components/video-upload-interface.tsx):
         // push the re-picked source to R2 so the project keeps a durable cloud copy
-        // that survives hard navigation. Best-effort; failures never reach the UI.
+        // that survives hard navigation. Preserve failures for the save UI.
         const multipartResult = await uploadProjectSourceMultipart({
           assetId: input.assetId,
           file: input.file,
           projectId: input.projectId,
+          retainCompletedSession: true,
         })
 
         const uploadAsset = multipartResult.asset
+
+        // Selection ownership belongs to the active pick, not the optional
+        // localStorage project cache (API-loaded projects need no cache row).
+        if (pendingSourceUploadAssetIdRef.current !== input.assetId) return false
 
         // Register the uploaded asset metadata (same request body as the studio flow).
         const assetRegisterRes = await fetch(`/api/projects/${input.projectId}/assets`, {
@@ -9268,21 +9321,26 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
         if (!assetRegisterRes.ok) {
           const errorData = await assetRegisterRes.json().catch(() => ({}))
-          throw new Error(errorData.error || `HTTP ${assetRegisterRes.status} from asset registration`)
+          throw new MultipartUploadError(errorData.error || `HTTP ${assetRegisterRes.status} from asset registration`, {
+            status: assetRegisterRes.status,
+            code: errorData.code,
+            retryable: errorData.retryable,
+          })
         }
 
         // A newer pick may have replaced this source while uploading; newest pick wins.
-        const currentProject = projects.get(input.projectId)
-        if (currentProject?.sourceAssetId !== input.assetId) return false
+        if (pendingSourceUploadAssetIdRef.current !== input.assetId) return false
 
         const nextProject = projects.update(input.projectId, { sourceAssetId: uploadAsset.id })
-        if (!nextProject) throw new Error('The saved source is no longer attached to this project.')
-        setProject(nextProject)
+        setProject((current) => current?.id === input.projectId
+          ? { ...current, ...nextProject, sourceAssetId: uploadAsset.id }
+          : current)
+        await clearResumableSessionForFile(input.file, input.projectId)
         return true
       } catch (error) {
         uploadedSourceAssetIdsRef.current.delete(input.assetId)
-        console.warn('[editor] Background source upload to R2 failed:', error)
-        return false
+        console.warn('[editor] Source replacement save failed:', error)
+        throw error
       }
     },
     [],
@@ -9359,8 +9417,17 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
             setTranscriptRefreshToken((current) => current + 1)
           } else {
             setIsSourceUploadFailed(true)
-            toast.error('The replacement source could not be saved. Please try again.')
+            toast.error('The replacement source save was not confirmed. Please select the video again to resume.')
           }
+        }).catch((error: unknown) => {
+          if (pendingSourceUploadAssetIdRef.current !== stagedSource.assetId) return
+          pendingSourceUploadAssetIdRef.current = null
+          setIsSourceUploadPending(false)
+          setIsSourceUploadFailed(true)
+          toast.error('The replacement source could not be saved.', {
+            description: error instanceof Error ? error.message : 'The upload was interrupted. Select the same video to resume.',
+            duration: 12000,
+          })
         })
 
         setPreviewPlaying(false)
@@ -9519,6 +9586,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           automationRequest={composerAutomationRequest}
           workspaceTab={activeWorkspaceTab}
           deliveryOpenToken={deliveryOpenToken}
+          onWorkspaceTabChange={setActiveWorkspaceTab}
           onTogglePlayback={togglePreviewPlayback}
           onSeekPreview={handlePreviewSeekSeconds}
           onVideoLoadedMetadata={handlePreviewMetadataLoaded}

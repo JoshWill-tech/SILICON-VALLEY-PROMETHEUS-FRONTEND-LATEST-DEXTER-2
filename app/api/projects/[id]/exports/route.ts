@@ -88,11 +88,14 @@ export async function GET(_request: Request, {params}: RouteContext) {
   }
 
   const blockers = [
-    ...(!sourceReady ? ['A stored source video is not available for this project.'] : []),
+    ...(assetError ? ['The saved source video could not be checked. Try checking again.']
+      : !sourceReady ? ['A stored source video is not available for this project.'] : []),
     ...(!backendConfigured ? ['Mini-Run server configuration is unavailable.'] : []),
   ]
   return NextResponse.json({readiness: {
     canSubmit: blockers.length === 0,
+    sourceAssetId: sourceAssetId || null,
+    sourceCheckStatus: assetError ? 'unconfirmed' : sourceReady ? 'ready' : 'missing',
     sourceReady,
     sourceDurationMs: asset?.duration_ms ?? null,
     sourceWidth: asset?.width ?? null,
@@ -217,8 +220,10 @@ export async function POST(request: Request, {params}: RouteContext) {
         .eq('id', projectExport.id).eq('user_id', user.id)
     }
     const isAuthError = /401|403|unauthorized|user_authentication_required|jwt|token expired/i.test(message)
-    const status = isAuthError ? 401 : 502
-    const code = isAuthError ? 'AUTH_REQUIRED' : 'RENDER_DISPATCH_FAILED'
+    const isNotFoundError = /not found|unavailable|source.*missing|source.*path/i.test(message)
+    const isValidationError = /invalid|required|bad request/i.test(message)
+    const status = isAuthError ? 401 : isNotFoundError ? 404 : isValidationError ? 400 : 502
+    const code = isAuthError ? 'AUTH_REQUIRED' : isNotFoundError ? 'RESOURCE_NOT_FOUND' : isValidationError ? 'VALIDATION_ERROR' : 'RENDER_DISPATCH_FAILED'
     return NextResponse.json({error: message, code}, {status})
   }
 }

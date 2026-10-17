@@ -34,6 +34,18 @@ export function sanitizeVoiceCompanionError(rawError: unknown): string {
 
   // 4. Bad gateway or cloud worker connectivity
   if (/502|503|bad gateway|service unavailable|failed to fetch|econnrefused/i.test(text)) {
+    const stripped = text
+      .replace(/HTTP\s*(?:502|503)\.?:?/gi, '')
+      .replace(/\b(?:502|503)\b/g, '')
+      .replace(/at\s+[\w$./\\-]+\s+\([^)]*\)/gi, '')
+      .replace(/^[E|e]rror:\s*/, '')
+      .trim()
+    const isGeneric = !stripped ||
+      stripped.length <= 15 ||
+      /^(?:Mini-Run render returned|Bad Gateway|Service Unavailable|failed to fetch|econnrefused)[\s.]*$/i.test(stripped)
+    if (!isGeneric) {
+      return stripped
+    }
     return 'The cloud rendering pipeline is temporarily reconnecting. Please give it a few moments, or I can try again.'
   }
 

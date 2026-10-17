@@ -11,6 +11,7 @@
     "dev:webpack": "next dev --webpack",
     "lint": "eslint .",
     "typecheck": "node scripts/verify-typecheck.mjs",
+    "test:source-upload": "node --import tsx --test --test-reporter=tap tests/source-replacement-upload.test.ts tests/multipart-upload-runtime.test.ts",
     "music:sync:drive": "node scripts/sync-google-drive-music-catalog.mjs",
     "render:proof": "tsx scripts/render-proof-smoke-test.ts",
     "upload:render-proof": "tsx scripts/upload-render-proof-to-r2.ts",

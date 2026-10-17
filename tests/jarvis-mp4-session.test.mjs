@@ -12,15 +12,16 @@ const {readVoiceExportStatus} = require('../lib/voice-companion/export-status.ts
 const page = readFileSync('app/editor/[id]/page.tsx', 'utf8')
 
 // Execute the actual editor callback with isolated browser/network dependencies.
-function editorSubmit(snapshot, payload = {export: {id: 'export-1', status: 'pending'}}, ok = true) {
+function editorSubmit(snapshot, payload = {export: {id: 'export-1', status: 'pending'}}, ok = true, sourceUploadStatus = 'ready') {
   const source = page.slice(page.indexOf('  const startProjectRender ='), page.indexOf('  const handleVoiceStartRender ='))
   const js = ts.transpile(source, {target: ts.ScriptTarget.ES2022})
   const requests = []
-  const callback = new Function('React', 'project', 'projectId', 'getEditorialTimelineController', 'fetch', 'toast', 'setLatestExport', 'setActiveWorkspaceTab', 'setDeliveryOpenToken', `${js}; return startProjectRender;`)(
+  const callback = new Function('React', 'project', 'projectId', 'getEditorialTimelineController', 'fetch', 'toast', 'setLatestExport', 'setActiveWorkspaceTab', 'setDeliveryOpenToken', 'sourceUploadStatus', 'canSubmitSourceRender', `${js}; return startProjectRender;`)(
     {useCallback: (fn) => fn}, {sourceAssetId: 'source-1'}, 'project-1',
     () => ({getSnapshot: () => snapshot}),
     async (url, options) => {requests.push({url, body: JSON.parse(options.body)}); if (payload instanceof Error) throw payload; return {ok, json: async () => payload}},
     {error() {}, success() {}}, () => {}, () => {}, () => {},
+    sourceUploadStatus, require('../lib/editor/render-delivery.ts').canSubmitSourceRender,
   )
   return {callback, requests}
 }
@@ -53,6 +54,14 @@ test('editor submission reports rejected and missing receipts as failures', asyn
   }
 })
 
+test('editor submission blocks pending and failed source uploads without sending a render request', async () => {
+  for (const status of ['uploading', 'failed']) {
+    const {callback, requests} = editorSubmit({status: 'saved'}, undefined, true, status)
+    assert.equal((await callback()).success, false)
+    assert.equal(requests.length, 0)
+  }
+})
+
 test('a submission timeout does not falsely claim the backend rejected the job', async () => {
   const {callback} = editorSubmit({status: 'saved'}, new DOMException('Timed out', 'TimeoutError'))
   const result = await callback()
@@ -64,9 +73,9 @@ function loadModule(path, mocks) {
   const js = ts.transpileModule(readFileSync(path, 'utf8'), {compilerOptions: {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
   }}).outputText
-  const module = {exports: {}}
-  new Function('require', 'module', 'exports', js)((id) => id in mocks ? mocks[id] : require(id), module, module.exports)
-  return module.exports
+  const loadedModule = {exports: {}}
+  new Function('require', 'module', 'exports', js)((id) => id in mocks ? mocks[id] : require(id), loadedModule, loadedModule.exports)
+  return loadedModule.exports
 }
 
 function exportRoute({user = {id: 'user-1'}, projectSource = 'source-1'} = {}) {
@@ -204,6 +213,11 @@ test('voice executor exposes current sync and refreshes job history through the 
 test('delivery studio displays completed source MP4 and enables export despite a sync error', () => {
   let stateIndex = 0
   const {EditorialDeliveryStudio} = loadModule('components/editor/editorial-delivery-studio.tsx', {
+    '@/components/editor/mobile-editor-workspace.module.css': {},
+    '@/components/editor/video-review-annotations': {
+      VideoReviewProvider: ({children}) => React.createElement(React.Fragment, null, children),
+      VideoReviewToolbar: () => null, VideoAnnotateButton: () => null, VideoReviewDownloadButton: () => null,
+    },
     react: {...React, useState: (initial) => [stateIndex++ === 0 ? [{...receipt, status: 'completed'}] : initial, () => {}]},
     'framer-motion': {useReducedMotion: () => true, motion: new Proxy({}, {get: (_target, key) => key})},
     '@/hooks/use-editorial-timeline': {useEditorialTimeline: () => ({status: 'error', error: 'Timeline request failed', timeline: null})},

@@ -200,6 +200,15 @@ export const ExportService = {
         if (nextStatus === 'completed') {
           update.mime_type = 'video/mp4'
           update.completed_at = new Date().toISOString()
+          const resolvedStoragePath = typeof result.r2Key === 'string' && result.r2Key
+            ? result.r2Key
+            : typeof (job as any).r2Key === 'string' && (job as any).r2Key
+              ? (job as any).r2Key
+              : record.storagePath
+          if (resolvedStoragePath) {
+            update.storage_path = resolvedStoragePath
+            update.storage_bucket = record.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+          }
         }
         if (nextStatus === 'failed') {
           update.error_message = typeof job.failedReason === 'string' ? job.failedReason : 'Mini-Run render failed.'
@@ -210,6 +219,7 @@ export const ExportService = {
         if (!updateError) Object.assign(record, {
           status: nextStatus,
           metadata,
+          ...(update.storage_path ? {storagePath: update.storage_path as string, storageBucket: update.storage_bucket as string} : {}),
           ...(typeof update.error_message === 'string' ? {errorMessage: update.error_message} : {}),
         })
       } catch (error) {

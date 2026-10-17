@@ -29,7 +29,7 @@ export async function readVoiceExportStatus(getBridge: () => VoiceCompanionBridg
     const record = projectRenderHistory(payload.exports as ProjectExport[], projectId, sourceAssetId)[0]
     if (!record) return {
       success: true, phase: 'not_submitted', renderInitiated: false, timelineSync,
-      summary: 'No render job has been submitted for this source. Timeline sync saves editor settings; it is separate from rendering and does not block the source MP4. Open export preflight to review the available output.',
+      summary: 'No MP4 export has started for this video. Saving editor settings is separate from creating the MP4. An export request can start the supported video output directly.',
     }
     const metadata = record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
       ? record.metadata as Record<string, unknown> : {}

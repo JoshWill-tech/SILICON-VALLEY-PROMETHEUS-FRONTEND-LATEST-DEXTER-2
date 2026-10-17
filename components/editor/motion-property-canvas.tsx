@@ -255,6 +255,7 @@ export function MotionPropertyCanvas({
 
   return (
     <motion.div
+      data-motion-property-canvas
       drag={isCompact ? 'y' : false}
       dragControls={dragControls}
       dragListener={false}
@@ -277,6 +278,7 @@ export function MotionPropertyCanvas({
     >
       <div className="shrink-0 border-b border-white/8 px-4 pb-3 pt-3">
         <button
+          data-motion-sheet-handle
           type="button"
           onPointerDown={(event) => {
             if (isCompact) dragControls.start(event)

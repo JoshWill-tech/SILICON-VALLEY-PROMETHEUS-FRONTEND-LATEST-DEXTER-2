@@ -40,7 +40,8 @@ assert.doesNotMatch(hudSource, /isVisionActive|toggleVision/, 'HUD must not expo
 
 // 6. Check Top Nav Kinetic Filament & Global App Mounting
 const layoutSource = readFileSync('app/layout.tsx', 'utf8')
-assert.match(layoutSource, /JarvisTopNavFilament/, 'app/layout.tsx must mount JarvisTopNavFilament')
+const effectsSource = readFileSync('components/root-client-effects.tsx', 'utf8')
+assert.ok(layoutSource.includes('JarvisTopNavFilament') || effectsSource.includes('JarvisTopNavFilament'), 'app/layout.tsx or components/root-client-effects.tsx must mount JarvisTopNavFilament')
 
 const filamentSource = readFileSync('components/navigation/jarvis-top-nav-filament.tsx', 'utf8')
 assert.match(filamentSource, /jarvisLineGrad/, 'Filament must have cyan/blue gradient definition')

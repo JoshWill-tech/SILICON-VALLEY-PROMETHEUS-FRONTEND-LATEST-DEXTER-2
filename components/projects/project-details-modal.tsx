@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUpRight, CalendarDays, Clock3, Copy, Film, Gauge, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, Clock3, Copy, Download, Film, Gauge, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import {
@@ -58,6 +59,36 @@ export function ProjectDetailsModal({
     onClose()
     router.push(`/editor/${project.id}`)
   }
+
+  const handleDownload = React.useCallback(async () => {
+    if (!project) return
+    try {
+      toast.info('Fetching export download link...')
+      const res = await fetch(`/api/projects/${encodeURIComponent(project.id)}/exports/latest`)
+      const data = await res.json()
+      if (!res.ok || !data.export?.id) {
+        toast.info('No export found for this project yet. Open in editor to render.')
+        return
+      }
+      const dlRes = await fetch(`/api/exports/${encodeURIComponent(data.export.id)}/download-url`)
+      const dlData = await dlRes.json()
+      if (!dlRes.ok) {
+        toast.error(dlData.error || 'Failed to get download URL')
+        return
+      }
+      const downloadUrl = dlData.download?.url || dlData.downloadUrl
+      const filename = dlData.download?.filename || `${project.title.toLowerCase().replace(/[^a-z0-9]/gi, '-') || 'export'}.mp4`
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('Finished MP4 download started.')
+    } catch {
+      toast.error('Could not download file. Open project in editor.')
+    }
+  }, [project])
 
   return (
     <Dialog open onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -131,6 +162,14 @@ export function ProjectDetailsModal({
 
         <div className="flex items-center justify-between gap-2 border-t border-white/10 p-4">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="inline-flex min-h-10 items-center gap-2 border border-white/25 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 transition-colors duration-300 hover:bg-white hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Download className="size-3.5" />
+              Download
+            </button>
             <button
               type="button"
               onClick={() => onDuplicate(project)}

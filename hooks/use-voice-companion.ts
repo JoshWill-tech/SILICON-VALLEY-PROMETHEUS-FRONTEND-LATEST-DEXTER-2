@@ -15,6 +15,7 @@ import { getJarvisMemory, saveJarvisMemory } from '@/lib/voice-companion/memory'
 import { detectFillerWords } from '@/lib/voice-companion/filler-words'
 import { buildEditorialPlan } from '@/lib/editor/timeline-document'
 import { readVoiceExportStatus } from '@/lib/voice-companion/export-status'
+import { readVoiceSourceStatus } from '@/lib/voice-companion/source-status'
 import { searchTranscriptText } from '@/lib/voice-companion/transcript-search'
 import { inspectVoiceVideo, switchVoiceWorkspace } from '@/lib/voice-companion/session-controls'
 import { performVoiceMusicAction, type VoiceMusicActionArgs } from '@/lib/voice-companion/music-controls'
@@ -260,6 +261,8 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           const hasVideo = bridge.hasVideo ?? false
           return {
             success: true,
+            projectId: bridge.projectId ?? null,
+            sourceAssetId: bridge.sourceAssetId ?? null,
             playheadSec: liveContext?.playheadSec ?? 0,
             durationSec: liveContext?.durationSec ?? bridge.timelineDurationSec ?? 0,
             timelineDurationSec: liveContext?.durationSec ?? bridge.timelineDurationSec ?? 0,
@@ -585,6 +588,9 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         case 'get_export_status':
           return await readVoiceExportStatus(getCurrentHandlers)
 
+        case 'get_source_status':
+          return await readVoiceSourceStatus(getCurrentHandlers)
+
         case 'review_export_readiness': {
           const review = getCurrentHandlers().onReviewExportReadiness
           if (!review) return { success: false, error: 'The export readiness panel is not connected to this editor.' }
@@ -593,15 +599,23 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
 
         case 'start_render':
         case 'export_video': {
-          const mode = args.mode === 'final' ? 'final' : 'preview'
+          const mode = args.mode === 'preview' ? 'preview' : 'final'
           if (!handlersRef.current.hasVideo && !handlersRef.current.projectId) {
             return { success: false, error: 'There is no playable source video to render.' }
+          }
+          if (handlersRef.current.sourceMediaState === 'loading') {
+            return {
+              success: false,
+              error: 'The source video is still uploading to secure cloud storage. Please allow the upload to finish before starting a render.',
+              mode,
+              renderInitiated: false,
+            }
           }
           const startRender = getCurrentHandlers().onStartRender
           if (!startRender) return { success: false, error: 'The editor is not linked, so I cannot start or confirm an export.' }
           const result = await startRender(mode)
           if (!result.success) return { success: false, error: sanitizeVoiceCompanionError(result.summary), mode, renderInitiated: false }
-          if (mode === 'final' || result.renderInitiated) {
+          if (result.renderInitiated === true) {
             return {
               success: true,
               mode,
@@ -745,7 +759,8 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
       reference_video_style: args.apply ? 'Applying reference look' : 'Analyzing reference',
       apply_editorial_plan: 'Applying caption plan', set_caption_style: 'Restyling captions',
       switch_workspace_tab: 'Opening workspace', review_export_readiness: 'Checking export readiness',
-      start_render: 'Opening export preflight',
+      start_render: args.mode === 'preview' ? 'Opening export review' : 'Starting MP4 export',
+      get_source_status: 'Checking saved video',
       get_export_status: 'Checking MP4 status',
     }
     const label = labels[name]

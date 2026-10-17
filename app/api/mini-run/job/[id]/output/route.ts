@@ -86,19 +86,47 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
       headers,
       cache: 'no-store',
     })
+    let outputUrl: string | null = null
     const statusPayload = await statusResponse.json().catch(() => null)
-    if (!statusResponse.ok) {
+    if (statusResponse.ok) {
+      const state = statusPayload && typeof statusPayload === 'object'
+        ? String((statusPayload as Record<string, unknown>).state ?? (statusPayload as Record<string, unknown>).status ?? '')
+        : ''
+      outputUrl = outputUrlFromPayload(statusPayload)
+      if (state !== 'completed' || !outputUrl) {
+        return NextResponse.json({error: 'Mini-Run output is not ready.', status: state || 'unknown'}, {status: 409})
+      }
+    } else if (user) {
+      // Upstream lambda may have aged out the job, check persistent Supabase project_exports
+      const { data: dbExport } = await supabase
+        .from('project_exports')
+        .select('*')
+        .eq('user_id', user.id)
+        .contains('metadata', { miniRunJobId: id })
+        .eq('status', 'completed')
+        .maybeSingle()
+
+      const storageKey = dbExport?.storage_path || dbExport?.metadata?.r2Key
+      if (storageKey) {
+        const bucket = dbExport?.storage_bucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+        try {
+          const { getPresignedGetUrl } = await import('@/lib/r2/presigned-url')
+          outputUrl = await getPresignedGetUrl(bucket, storageKey, undefined, 86400)
+        } catch {
+          // ignore
+        }
+      }
+      if (!outputUrl) {
+        return NextResponse.json(
+          {error: 'Mini-Run render could not be found for this account.', status: statusResponse.status},
+          {status: statusResponse.status === 404 ? 404 : statusResponse.status === 401 ? 401 : 502},
+        )
+      }
+    } else {
       return NextResponse.json(
         {error: 'Mini-Run render could not be found for this account.', status: statusResponse.status},
         {status: statusResponse.status === 404 ? 404 : statusResponse.status === 401 ? 401 : 502},
       )
-    }
-    const state = statusPayload && typeof statusPayload === 'object'
-      ? String((statusPayload as Record<string, unknown>).state ?? (statusPayload as Record<string, unknown>).status ?? '')
-      : ''
-    const outputUrl = outputUrlFromPayload(statusPayload)
-    if (state !== 'completed' || !outputUrl) {
-      return NextResponse.json({error: 'Mini-Run output is not ready.', status: state || 'unknown'}, {status: 409})
     }
 
     let mediaResponse = await fetchMiniRunMedia({
@@ -108,6 +136,39 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
       range: request.headers.get('range'),
       allowedHosts: process.env.MINI_RUN_OUTPUT_ALLOWED_HOSTS,
     })
+
+    if (!mediaResponse.ok && user) {
+      // If the upstream presigned URL has expired (e.g. 403), check for durable R2 storage
+      const { data: dbExport } = await supabase
+        .from('project_exports')
+        .select('*')
+        .eq('user_id', user.id)
+        .contains('metadata', { miniRunJobId: id })
+        .eq('status', 'completed')
+        .maybeSingle()
+
+      const storageKey = dbExport?.storage_path || dbExport?.metadata?.r2Key
+      if (storageKey) {
+        const bucket = dbExport?.storage_bucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+        try {
+          const { getPresignedGetUrl } = await import('@/lib/r2/presigned-url')
+          const freshUrl = await getPresignedGetUrl(bucket, storageKey, undefined, 86400)
+          const fallbackMedia = await fetchMiniRunMedia({
+            url: freshUrl,
+            backendBaseUrl: config.baseUrl,
+            proxyHeaders: {},
+            range: request.headers.get('range'),
+            allowedHosts: process.env.MINI_RUN_OUTPUT_ALLOWED_HOSTS,
+          })
+          if (fallbackMedia.ok && fallbackMedia.body) {
+            mediaResponse = fallbackMedia
+          }
+        } catch {
+          // retain original mediaResponse
+        }
+      }
+    }
+
     if (!mediaResponse.ok || !mediaResponse.body) {
       return NextResponse.json(
         {error: `Mini-Run output handoff returned HTTP ${mediaResponse.status}.`},

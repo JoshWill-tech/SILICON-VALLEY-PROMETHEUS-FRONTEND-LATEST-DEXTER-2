@@ -1,0 +1,43 @@
+name: Source upload regression
+
+on:
+  pull_request:
+    paths:
+      - 'app/editor/**'
+      - 'lib/r2/**'
+      - 'lib/storage-limits.ts'
+      - 'supabase/migrations/**'
+      - 'tests/source-replacement-upload.test.ts'
+      - 'tests/multipart-upload-runtime.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/source-upload-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/editor/**'
+      - 'lib/r2/**'
+      - 'lib/storage-limits.ts'
+      - 'supabase/migrations/**'
+      - 'tests/source-replacement-upload.test.ts'
+      - 'tests/multipart-upload-runtime.test.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/source-upload-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:source-upload

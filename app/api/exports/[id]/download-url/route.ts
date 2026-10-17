@@ -22,37 +22,42 @@ export async function GET(
       )
     }
 
+    const project = await ExportService.getExportProject(exportId)
+    const title = sanitizeFilename(project?.title || 'export')
+    const filename = `${title}-${exportId.slice(0, 8)}.mp4`
+
+    // Prefer durable presigned R2 URL when storagePath or r2Key is known
+    const storageKey = projectExport.storagePath || (typeof projectExport.metadata?.r2Key === 'string' ? projectExport.metadata.r2Key : null)
+    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+
+    if (storageKey) {
+      try {
+        const downloadUrl = await getPresignedGetUrl(
+          bucket,
+          storageKey,
+          filename,
+          86400, // 24 hours
+        )
+        return NextResponse.json({
+          downloadUrl,
+          download: {
+            url: downloadUrl,
+            filename,
+          },
+        })
+      } catch (presignError) {
+        console.warn('[EXPORT_DOWNLOAD_URL_GET] Presign failed, falling back to proxy:', presignError)
+      }
+    }
+
     if (projectExport.metadata?.outputKind === 'mini-run' && miniRunJobId) {
-      const project = await ExportService.getExportProject(exportId)
-      const title = sanitizeFilename(project?.title || 'export')
-      const filename = `${title}-${exportId.slice(0, 8)}.mp4`
       const downloadUrl = `/api/mini-run/job/${encodeURIComponent(miniRunJobId)}/output?download=1&filename=${encodeURIComponent(filename)}`
       return NextResponse.json({downloadUrl, download: {url: downloadUrl, filename}})
     }
 
-    // 2. Generate presigned GET URL for the final MP4
-    const project = await ExportService.getExportProject(exportId)
-    const sanitizedTitle = (project?.title || 'export').replace(/[^a-z0-9]/gi, '-').toLowerCase()
-    const filename = `${sanitizedTitle}-${exportId.slice(0, 8)}.mp4`
-
-    if (!projectExport.storagePath) {
+    if (!storageKey) {
       return NextResponse.json({ error: 'Export output path not found' }, { status: 404 })
     }
-
-    const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
-    const downloadUrl = await getPresignedGetUrl(
-      bucket, 
-      projectExport.storagePath,
-      filename
-    )
-
-    return NextResponse.json({ 
-      downloadUrl,
-      download: {
-        url: downloadUrl,
-        filename
-      }
-    })
   } catch (error: any) {
     console.error('[EXPORT_DOWNLOAD_URL_GET]', error)
 

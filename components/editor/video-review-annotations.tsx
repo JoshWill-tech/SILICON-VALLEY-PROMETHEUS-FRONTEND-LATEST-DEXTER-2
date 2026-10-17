@@ -182,8 +182,10 @@ export function VideoReviewProvider({ children, ...project }: ReviewProject & { 
   </ReviewContext.Provider>
 }
 
-export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
-  videoRef: React.RefObject<HTMLVideoElement | null>; source: ReviewEntry['source']; renderId?: string | null
+// Inline placement keeps correction inputs outside the picture and native player
+// controls. Floating remains the default for existing comparison consumers.
+export function VideoAnnotateButton({ videoRef, source, renderId = null, placement = 'floating' }: {
+  videoRef: React.RefObject<HTMLVideoElement | null>; source: ReviewEntry['source']; renderId?: string | null; placement?: 'floating' | 'below'
 }) {
   const review = useReview()
   const [text, setText] = React.useState('')
@@ -207,6 +209,7 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
     setPillPosition(next)
   }, [])
   React.useEffect(() => {
+    if (placement === 'below') return
     const pill = pillRef.current
     const host = pill?.parentElement
     if (!pill || !host) return
@@ -222,7 +225,7 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
     observer.observe(host)
     observer.observe(pill)
     return () => observer.disconnect()
-  }, [collapsed, updatePillPosition])
+  }, [collapsed, placement, updatePillPosition])
   const startPillDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return
     const pill = pillRef.current
@@ -316,12 +319,12 @@ export function VideoAnnotateButton({ videoRef, source, renderId = null }: {
   })
   const busy = saving || voice.state === 'requesting' || voice.state === 'transcribing'
   const label = source === 'original' ? 'Original' : 'Rendered'
-  const iconButton = 'grid size-9 shrink-0 place-items-center rounded-full text-white/65 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[#b4fb60] disabled:opacity-35'
-  return <div ref={pillRef} className={`pointer-events-none absolute z-10 flex flex-col items-center gap-1.5 ${collapsed ? 'w-auto max-w-[calc(100%-1rem)]' : 'w-[calc(100%-1.5rem)] max-w-sm'}`} style={{ left: `${pillPosition.x * 100}%`, top: `${pillPosition.y * 100}%`, transform: 'translate(-50%, -50%)' }}>
+  const iconButton = cn('grid size-9 shrink-0 place-items-center rounded-full text-white/65 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[#b4fb60] disabled:opacity-35', placement === 'below' && 'size-11')
+  return <div ref={pillRef} data-review-placement={placement} className={placement === 'below' ? 'relative flex w-full flex-col items-center gap-1.5 border-t border-white/10 p-2' : `pointer-events-none absolute z-10 flex flex-col items-center gap-1.5 ${collapsed ? 'w-auto max-w-[calc(100%-1rem)]' : 'w-[calc(100%-1.5rem)] max-w-sm'}`} style={placement === 'below' ? undefined : { left: `${pillPosition.x * 100}%`, top: `${pillPosition.y * 100}%`, transform: 'translate(-50%, -50%)' }}>
     {collapsed ? <div className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-blue-300/45 bg-blue-600/95 p-1 text-white shadow-lg shadow-blue-950/35 backdrop-blur-sm">
       <button type="button" aria-label={`Move ${label} frame annotation`} title="Drag to move · Use arrow keys to nudge" className={`grid size-8 touch-none cursor-grab place-items-center rounded-full text-white/75 hover:bg-white/15 active:cursor-grabbing ${dragging ? 'cursor-grabbing' : ''}`} onPointerDown={startPillDrag} onPointerMove={movePillDrag} onPointerUp={stopPillDrag} onPointerCancel={stopPillDrag} onKeyDown={nudgePill}><Grip className="size-4" /></button>
       <button type="button" aria-label={`Expand ${label} frame annotation`} title="Expand frame note" className="grid size-8 place-items-center rounded-full hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white" onClick={() => setCollapsed(false)}><ChevronUp className="size-4" /></button>
-    </div> : <form aria-label={`${label} frame annotation`} className="pointer-events-auto flex w-full items-center gap-0.5 rounded-full border border-white/15 bg-[#101113]/95 p-1 pl-1.5 shadow-xl backdrop-blur-sm" onSubmit={event => {
+    </div> : <form aria-label={`${label} frame annotation`} className={cn('pointer-events-auto flex w-full items-center gap-0.5 rounded-full border border-white/15 bg-[#101113]/95 p-1 pl-1.5 shadow-xl backdrop-blur-sm', placement === 'below' && 'rounded-xl shadow-none [&>input]:min-h-11 [&>input]:text-base')} onSubmit={event => {
       event.preventDefault()
       if (voice.state === 'recording') { saveAfterVoice.current = true; voice.stop(); return }
       if (voice.state === 'transcribing') { saveAfterVoice.current = true; return }
