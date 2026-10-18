@@ -218,9 +218,10 @@ export async function POST(request: Request, {params}: RouteContext) {
       await supabase.from('project_exports').update({status: 'failed', error_message: message, failed_at: new Date().toISOString()})
         .eq('id', projectExport.id).eq('user_id', user.id)
     }
-    const isAuthError = /401|403|unauthorized|user_authentication_required|jwt|token expired/i.test(message)
+    const isAuthError = /401|403|unauthorized|user_authentication_required|jwt|session token expired/i.test(message)
     const isNotFoundError = /not found|unavailable|source.*missing|source.*path/i.test(message)
-    const isValidationError = /invalid|required|bad request/i.test(message)
+    const isDispatcherOrUpstream = /Remotion dispatcher|UnrecognizedClientException|security token|cloud pipeline|worker/i.test(message)
+    const isValidationError = !isDispatcherOrUpstream && /invalid (?:input|payload|parameter|body|json|job|request|source|revision)|bad request/i.test(message)
     const status = isAuthError ? 401 : isNotFoundError ? 404 : isValidationError ? 400 : 502
     const code = isAuthError ? 'AUTH_REQUIRED' : isNotFoundError ? 'RESOURCE_NOT_FOUND' : isValidationError ? 'VALIDATION_ERROR' : 'RENDER_DISPATCH_FAILED'
     return NextResponse.json({error: message, code}, {status})
