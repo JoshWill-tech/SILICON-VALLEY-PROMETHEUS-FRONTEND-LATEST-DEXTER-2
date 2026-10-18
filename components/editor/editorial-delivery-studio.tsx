@@ -8,6 +8,7 @@ import type { ProjectExport } from '@/lib/types'
 import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import { canSubmitSourceRender, isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath, type SourceUploadStatus } from '@/lib/editor/render-delivery'
+import { downloadMedia } from '@/lib/editor/browser-download'
 import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider, VideoReviewToolbar } from '@/components/editor/video-review-annotations'
 import mobileWorkspaceStyles from '@/components/editor/mobile-editor-workspace.module.css'
 
@@ -203,12 +204,8 @@ export function EditorialDeliveryStudio({
       if (!response.ok) throw new Error(payload.error || 'Could not prepare the download.')
       const url = payload.download?.url ?? payload.downloadUrl
       if (!url) throw new Error('The finished MP4 has no download URL.')
-      const link = document.createElement('a')
-      link.href = url
-      link.download = payload.download?.filename ?? `${projectTitle.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.mp4`
-      document.body.append(link)
-      link.click()
-      link.remove()
+      const filename = payload.download?.filename ?? `${projectTitle.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.mp4`
+      await downloadMedia(url, filename)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not download the MP4.')
     } finally {

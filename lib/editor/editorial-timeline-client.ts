@@ -129,7 +129,7 @@ export class EditorialTimelineController {
     if (this.refreshing || this.busy || (this.initialized && this.queue.length)) return
     this.refreshing = true
     try {
-      const response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, { cache: 'no-store', signal: AbortSignal.timeout(12000) })
+      const response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, { cache: 'no-store', signal: AbortSignal.timeout(20000) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Unable to sync the timeline.')
       let timeline = readEditorialTimeline({ editorialTimeline: data.timeline }, data.timeline.sourceAssetId)
@@ -150,7 +150,13 @@ export class EditorialTimelineController {
         this.publish({ timeline, status: this.queue.length ? 'saving' : 'saved', error: null })
       }
     } catch (error) {
-      this.publish({ ...this.snapshot, status: 'error', error: error instanceof Error ? error.message : 'Unable to sync the timeline.' })
+      if (this.initialized && !this.queue.length) {
+        // A transient refresh failure (such as a timeout during background polling) when local state
+        // is already clean and initialized must not latch the controller into an error state.
+        console.warn('Background editorial timeline refresh skipped due to transient network issue:', error)
+      } else {
+        this.publish({ ...this.snapshot, status: 'error', error: error instanceof Error ? error.message : 'Unable to sync the timeline.' })
+      }
     } finally {
       this.refreshing = false
       if (this.initialized && this.queue.length && this.snapshot.status !== 'error') void this.drain()
@@ -166,13 +172,13 @@ export class EditorialTimelineController {
         let sourceAssetId = projects.get(this.projectId)?.sourceAssetId ?? this.snapshot.timeline?.sourceAssetId ?? null
         let response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(20000),
         })
         let data = await response.json()
         if (response.status === 409 && typeof data.error === 'string' && data.error.includes('source video changed')) {
           // Re-fetch timeline from server to synchronize current sourceAssetId
           try {
-            const refreshRes = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, { cache: 'no-store', signal: AbortSignal.timeout(12000) })
+            const refreshRes = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, { cache: 'no-store', signal: AbortSignal.timeout(20000) })
             if (refreshRes.ok) {
               const refreshData = await refreshRes.json()
               const serverSource = refreshData.timeline?.sourceAssetId ?? null
@@ -182,7 +188,7 @@ export class EditorialTimelineController {
               }
               response = await fetch(`/api/projects/${encodeURIComponent(this.projectId)}/editorial-timeline`, {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(12000),
+                body: JSON.stringify({ sourceAssetId, patch }), signal: AbortSignal.timeout(20000),
               })
               data = await response.json()
             }

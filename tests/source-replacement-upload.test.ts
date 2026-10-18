@@ -57,6 +57,19 @@ test('replacement preserves the registration failure instead of returning an une
   await assert.rejects(upload(input), /Storage quota exceeded/)
 })
 
+test('uploadSourceAssetToCloud returns true for already committed asset and prevents false failed status', async () => {
+  const alreadyUploaded = { current: new Set([assetId]) }
+  const fn = new Function('projects', 'setProject', 'uploadedSourceAssetIdsRef', 'pendingSourceUploadAssetIdRef', 'uploadProjectSourceMultipart', 'fetch', 'console', 'MultipartUploadError', 'clearResumableSessionForFile', `${executable}; return callback;`)
+  const testUpload = fn({ get: () => null, update: () => null }, () => {}, alreadyUploaded, { current: assetId },
+    async () => assert.fail('Should not re-upload an already committed asset'),
+    async () => assert.fail('Should not re-register'),
+    { warn() {} },
+    MultipartUploadError, async () => {},
+  )
+  const result = await testUpload(input)
+  assert.equal(result, true, 'already uploaded asset must return true so it does not trigger a false failed status')
+})
+
 test('the latest database storage limits match every frontend tier', () => {
   let definition = ''
   for (const name of readdirSync('supabase/migrations').filter(name => name.endsWith('.sql')).sort()) {

@@ -9,6 +9,7 @@ import { InlineLoadingAnimation } from '@/components/loading-animation'
 import type { ProjectListItem } from '@/lib/projects/types'
 import { PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { captureFirstVideoFrame } from '@/lib/media/capture-first-video-frame'
+import { downloadMedia } from '@/lib/editor/browser-download'
 import { cn } from '@/lib/utils'
 
 export interface ProjectCardProps {
@@ -76,15 +77,10 @@ export function ProjectCard({ project, featured = false, onEdit, onDuplicate, on
       }
       const downloadUrl = dlData.download?.url || dlData.downloadUrl
       const filename = dlData.download?.filename || `${project.title.toLowerCase().replace(/[^a-z0-9]/gi, '-') || 'export'}.mp4`
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      await downloadMedia(downloadUrl, filename)
       toast.success('Finished MP4 download started.')
-    } catch {
-      toast.error('Could not download file. Open project in editor.')
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not download file. Open project in editor.')
     }
   }, [project.id, project.title])
 

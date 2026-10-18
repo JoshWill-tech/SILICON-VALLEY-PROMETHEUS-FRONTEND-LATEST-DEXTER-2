@@ -98,6 +98,7 @@ import { findTranscriptSilenceCuts, optimizeSilenceCutsForTargetDuration } from 
 import { buildEditorialReadiness, type EditorialReadiness } from '@/lib/editor/editorial-readiness'
 import { buildEditorialCleanupRun, isAutonomousEditRequest, type EditorialCleanupRun } from '@/lib/editor/editorial-run'
 import { clearPendingEditorNavigation, getRememberedEditorReturnPath } from '@/lib/editor-navigation'
+import { downloadMedia } from '@/lib/editor/browser-download'
 import { useFrameTargeting } from '@/hooks/use-frame-targeting'
 import { parseFrameReference } from '@/lib/editorial-frame/parse-frame-reference'
 import { registerVoiceCompanionBridge, unregisterVoiceCompanionBridge } from '@/lib/voice-companion/bridge'
@@ -6275,6 +6276,7 @@ function OriginalEditorPage() {
   const [isInlineSourceDragOver, setIsInlineSourceDragOver] = React.useState(false)
   const [isSourceUploadPending, setIsSourceUploadPending] = React.useState(false)
   const [isSourceUploadFailed, setIsSourceUploadFailed] = React.useState(false)
+  const [isSourceRecovering, setIsSourceRecovering] = React.useState(false)
   const sourceUploadStatus = isSourceUploadPending ? 'uploading' : isSourceUploadFailed ? 'failed' : 'ready'
   const [transcriptRefreshToken, setTranscriptRefreshToken] = React.useState(0)
   const [previewFramePreset, setPreviewFramePreset] = React.useState<PreviewFramePreset>('source')
@@ -6831,71 +6833,101 @@ function OriginalEditorPage() {
     let nextObjectUrl: string | null = null
 
     setPersistedPreviewUrl(null)
+    if (project?.sourceAssetId) {
+      setIsSourceRecovering(true)
+    }
 
     const recoverPersistedSource = async () => {
-      // 1. Try local IndexedDB asset store with sourceAssetId or projectId
-      const candidateKeys = [project?.sourceAssetId, projectId].filter(Boolean) as string[]
-      for (const assetKey of candidateKeys) {
-        try {
-          const localUrl = await createSourceAssetObjectUrl(assetKey)
-          if (!active) {
-            if (localUrl) URL.revokeObjectURL(localUrl)
-            return
-          }
-
-          if (localUrl) {
-            nextObjectUrl = localUrl
-            debugEditorPreview('restored-local-preview-url', {
-              projectId,
-              assetKey,
-              localUrl,
-            })
-            setPersistedPreviewUrl(localUrl)
-            setIsPreviewMediaReady(true)
-            return
-          }
-        } catch (localErr) {
-          console.warn('[editor] Local asset recovery error:', localErr)
-        }
-      }
-
-      // 2. Query cloud asset service for the project
       try {
-        const res = await fetch(`/api/projects/${projectId}/assets`)
-        if (res.ok) {
-          const data = await res.json()
-          const cloudUrl = data.source?.url
-
-          if (!active) return
-
-          if (cloudUrl) {
-            debugEditorPreview('restored-cloud-preview-url', {
-              projectId,
-              sourceAssetId: project?.sourceAssetId ?? data.asset?.id,
-              cloudUrl,
-            })
-            setPersistedPreviewUrl(cloudUrl)
-            setIsPreviewMediaReady(true)
-            if (data.asset?.id && !project?.sourceAssetId) {
-              setProject((curr) => curr ? { ...curr, sourceAssetId: data.asset.id } : curr)
+        // 1. Try local IndexedDB asset store with sourceAssetId or projectId
+        const candidateKeys = [project?.sourceAssetId, projectId].filter(Boolean) as string[]
+        for (const assetKey of candidateKeys) {
+          try {
+            const localUrl = await createSourceAssetObjectUrl(assetKey)
+            if (!active) {
+              if (localUrl) URL.revokeObjectURL(localUrl)
+              return
             }
-            return
+
+            if (localUrl) {
+              nextObjectUrl = localUrl
+              debugEditorPreview('restored-local-preview-url', {
+                projectId,
+                assetKey,
+                localUrl,
+              })
+              setPersistedPreviewUrl(localUrl)
+              setIsPreviewMediaReady(true)
+              return
+            }
+          } catch (localErr) {
+            console.warn('[editor] Local asset recovery error:', localErr)
           }
         }
-      } catch (cloudErr) {
-        console.warn('[editor] Cloud asset recovery error:', cloudErr)
-      }
 
-      // 3. Fallback to thumbnailUrl if present
-      if (active && project?.thumbnailUrl) {
-        setPersistedPreviewUrl(project.thumbnailUrl)
-        setIsPreviewMediaReady(true)
-        return
-      }
+        // 2. Query cloud asset service for the project with fresh user authorization
+        try {
+          let userToken: string | undefined
+          try {
+            const supabase = createClient()
+            let { data: { session } } = await supabase.auth.getSession()
+            const expiresAt = session?.expires_at ?? 0
+            const nowSec = Math.floor(Date.now() / 1000)
+            if (!session || expiresAt - nowSec < 60) {
+              const refreshed = await supabase.auth.refreshSession()
+              if (refreshed?.data?.session) {
+                session = refreshed.data.session
+              }
+            }
+            if (session?.access_token) {
+              userToken = session.access_token
+            }
+          } catch {
+            // Fall back gracefully if session cannot be retrieved directly
+          }
 
-      // A project with no source stays empty. Looking up the latest local asset
-      // here made one project's media appear in another project, then vanish
-      // whenever the project store synchronized its real empty state.
+          const res = await fetch(`/api/projects/${projectId}/assets`, {
+            headers: userToken ? { Authorization: `Bearer ${userToken}` } : {},
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const cloudUrl = data.source?.url
+
+            if (!active) return
+
+            if (cloudUrl) {
+              debugEditorPreview('restored-cloud-preview-url', {
+                projectId,
+                sourceAssetId: project?.sourceAssetId ?? data.asset?.id,
+                cloudUrl,
+              })
+              setPersistedPreviewUrl(cloudUrl)
+              setIsPreviewMediaReady(true)
+              if (data.asset?.id && !project?.sourceAssetId) {
+                setProject((curr) => curr ? { ...curr, sourceAssetId: data.asset.id } : curr)
+              }
+              return
+            }
+          }
+        } catch (cloudErr) {
+          console.warn('[editor] Cloud asset recovery error:', cloudErr)
+        }
+
+        // 3. Fallback to thumbnailUrl if present
+        if (active && project?.thumbnailUrl) {
+          setPersistedPreviewUrl(project.thumbnailUrl)
+          setIsPreviewMediaReady(true)
+          return
+        }
+
+        // A project with no source stays empty. Looking up the latest local asset
+        // here made one project's media appear in another project, then vanish
+        // whenever the project store synchronized its real empty state.
+      } finally {
+        if (active) {
+          setIsSourceRecovering(false)
+        }
+      }
     }
 
     void recoverPersistedSource()
@@ -8327,10 +8359,36 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
   const startProjectRender = React.useCallback(async () => {
     const sourceAssetId = project?.sourceAssetId
-    if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus)) {
-      const summary = sourceUploadStatus === 'uploading'
+    let effectiveUploadStatus: SourceUploadStatus = sourceUploadStatus
+    if (effectiveUploadStatus === 'failed' && sourceAssetId) {
+      try {
+        let userToken: string | undefined
+        try {
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          userToken = session?.access_token
+        } catch {
+          // Fall back gracefully
+        }
+        const checkRes = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
+          cache: 'no-store',
+          headers: userToken ? { Authorization: `Bearer ${userToken}` } : {},
+        })
+        if (checkRes.ok) {
+          const checkData = await checkRes.json().catch(() => ({}))
+          if (checkData?.readiness?.sourceReady && checkData?.readiness?.sourceAssetId === sourceAssetId) {
+            setIsSourceUploadFailed(false)
+            effectiveUploadStatus = 'ready'
+          }
+        }
+      } catch {
+        // Fall through to guard check below
+      }
+    }
+    if (!canSubmitSourceRender(sourceAssetId, effectiveUploadStatus)) {
+      const summary = effectiveUploadStatus === 'uploading'
         ? 'Wait for the replacement source video to finish saving before rendering.'
-        : sourceUploadStatus === 'failed'
+        : effectiveUploadStatus === 'failed'
           ? 'The replacement source was not saved. Select the video again before rendering.'
           : 'Upload a source video before rendering.'
       toast.error(summary)
@@ -8380,7 +8438,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           sourceAssetId,
           ...(draftManifest ? { draftManifest } : {}),
         }),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(60_000),
       })
       let payload: {export?: ProjectExport; error?: string}
       if (typeof safeParseApiResponse !== 'undefined') {
@@ -8507,13 +8565,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       const downloadUrl = data.download?.url || data.downloadUrl
       const filename = data.download?.filename || latestExport.storagePath?.split('/').pop() || `export-${latestExport.id.slice(0, 8)}.mp4`
 
-      // Create a temporary link to trigger the download
-      const link = document.createElement('a')
-      link.href = downloadUrl
-      link.setAttribute('download', filename)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      await downloadMedia(downloadUrl, filename)
 
       toast.success('Finished MP4 download started.')
     } catch (err: any) {
@@ -9170,7 +9222,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       timelineDurationSec: transportDurationSec,
       sourceMediaState: hasPlayableVideo
         ? 'ready'
-        : isSourceStageActivelyLoading
+        : (isSourceStageActivelyLoading || isSourceRecovering)
           ? 'loading'
           : previewUrl
             ? 'non_video'
@@ -9321,7 +9373,8 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       projectId: string
       sourceProfile: Project['sourceProfile'] | null
     }) => {
-      if (!input.projectId || uploadedSourceAssetIdsRef.current.has(input.assetId)) return false
+      if (!input.projectId) return false
+      if (uploadedSourceAssetIdsRef.current.has(input.assetId)) return true
       uploadedSourceAssetIdsRef.current.add(input.assetId)
 
       try {
@@ -9441,6 +9494,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           transcriptText: '',
         } : current)
 
+        uploadedSourceAssetIdsRef.current.delete(stagedSource.assetId)
         pendingSourceUploadAssetIdRef.current = stagedSource.assetId
         setIsSourceUploadFailed(false)
         setIsSourceUploadPending(true)

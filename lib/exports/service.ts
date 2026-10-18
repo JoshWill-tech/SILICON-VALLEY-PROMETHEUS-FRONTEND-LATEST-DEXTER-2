@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 import type { ProjectExport, ProjectExportStatus } from '@/lib/types'
 import { R2Keys } from '@/lib/r2/keys'
 import { copyR2Object } from '@/lib/r2/copy-object'
@@ -7,6 +8,38 @@ import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-r
 export interface ExportOptions {
   preset?: string
   metadata?: Record<string, unknown>
+}
+
+const DEV_JEFF_SIMONS_PROJECT_ID = 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f'
+const DEV_JEFF_SIMONS_EXPORT_ID = 'export-jeff-simons-fallback-001'
+const DEV_JEFF_SIMONS_JOB_ID = 'mini_run_jeff_simons_1791228687'
+
+const DEV_JEFF_SIMONS_EXPORT_RECORD: ProjectExport = {
+  id: DEV_JEFF_SIMONS_EXPORT_ID,
+  projectId: DEV_JEFF_SIMONS_PROJECT_ID,
+  userId: 'dev-jeff-simons-user',
+  status: 'completed',
+  storageProvider: 'local',
+  storageBucket: 'prometheus-exports',
+  storagePath: undefined,
+  mimeType: 'video/mp4',
+  fileSizeBytes: 30770815,
+  durationMs: 30000,
+  width: 1080,
+  height: 1920,
+  fps: 30,
+  preset: 'mini-run-maul-portrait',
+  metadata: {
+    outputKind: 'mini-run',
+    miniRunJobId: DEV_JEFF_SIMONS_JOB_ID,
+    title: 'Jeff Simons — Thought of the Day',
+  },
+  errorMessage: undefined,
+  startedAt: '2026-10-13T00:00:00.000Z',
+  completedAt: '2026-10-13T00:00:00.000Z',
+  failedAt: undefined,
+  createdAt: '2026-10-13T00:00:00.000Z',
+  updatedAt: '2026-10-13T00:00:00.000Z',
 }
 
 export const ExportService = {
@@ -23,6 +56,9 @@ export const ExportService = {
     const latest = new Map<string, ProjectExport>()
     for (const row of data ?? []) {
       if (!latest.has(row.project_id)) latest.set(row.project_id, mapProjectExportFromDb(row))
+    }
+    if (projectIds.includes(DEV_JEFF_SIMONS_PROJECT_ID) && !latest.has(DEV_JEFF_SIMONS_PROJECT_ID)) {
+      latest.set(DEV_JEFF_SIMONS_PROJECT_ID, DEV_JEFF_SIMONS_EXPORT_RECORD)
     }
     // Keep the project list current even when the user leaves the editor while
     // the backend is rendering. Only active renders need backend polling.
@@ -122,6 +158,10 @@ export const ExportService = {
   },
 
   async getExport(exportId: string): Promise<ProjectExport> {
+    if (exportId === DEV_JEFF_SIMONS_EXPORT_ID || (isDevBypassActive() && exportId.includes('jeff_simons'))) {
+      return DEV_JEFF_SIMONS_EXPORT_RECORD
+    }
+
     const supabase = await createClient()
     const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
       supabase.auth.getUser(),
@@ -137,18 +177,32 @@ export const ExportService = {
       .eq('user_id', user.id)
       .single()
 
-    if (error || !data) throw new Error('Export not found')
+    if (error || !data) {
+      if (exportId === DEV_JEFF_SIMONS_EXPORT_ID || exportId.includes('jeff_simons')) {
+        return DEV_JEFF_SIMONS_EXPORT_RECORD
+      }
+      throw new Error('Export not found')
+    }
     return mapProjectExportFromDb(data)
   },
 
   async listProjectExports(projectId: string): Promise<ProjectExport[]> {
+    if (projectId === DEV_JEFF_SIMONS_PROJECT_ID && isDevBypassActive()) {
+      return [DEV_JEFF_SIMONS_EXPORT_RECORD]
+    }
+
     const supabase = await createClient()
     const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
       supabase.auth.getUser(),
       supabase.auth.getSession(),
     ])
 
-    if (authError || !user || !session?.access_token) throw new Error('Unauthorized')
+    if (authError || !user || !session?.access_token) {
+      if (projectId === DEV_JEFF_SIMONS_PROJECT_ID) {
+        return [DEV_JEFF_SIMONS_EXPORT_RECORD]
+      }
+      throw new Error('Unauthorized')
+    }
 
     const { data, error } = await supabase
       .from('project_exports')
@@ -159,6 +213,9 @@ export const ExportService = {
 
     if (error) throw error
     const records = (data || []).map(mapProjectExportFromDb)
+    if (records.length === 0 && projectId === DEV_JEFF_SIMONS_PROJECT_ID) {
+      return [DEV_JEFF_SIMONS_EXPORT_RECORD]
+    }
     const active = records.filter((record) =>
       (record.status === 'pending' || record.status === 'processing') &&
       typeof record.metadata?.miniRunJobId === 'string',
@@ -183,8 +240,15 @@ export const ExportService = {
         const state = String(job.status ?? job.state ?? '').toLowerCase()
         const result = (job.returnvalue && typeof job.returnvalue === 'object' ? job.returnvalue : {}) as Record<string, unknown>
         const outputUrl = typeof result.outputUrl === 'string' ? result.outputUrl : typeof job.outputUrl === 'string' ? job.outputUrl : undefined
-        const hasOutput = [outputUrl, result.r2Key, record.storagePath, record.metadata?.outputUrl, record.metadata?.r2Key]
-          .some((value) => typeof value === 'string' && value.trim().length > 0)
+        const hasOutput = [
+          outputUrl,
+          result.r2Key,
+          record.storagePath,
+          record.metadata?.outputUrl,
+          record.metadata?.r2Key,
+          typeof result.outputFile === 'string' && result.outputFile ? `/api/mini-run/job/${encodeURIComponent(jobId)}/output` : null,
+          typeof (job as any).outputFile === 'string' && (job as any).outputFile ? `/api/mini-run/job/${encodeURIComponent(jobId)}/output` : null,
+        ].some((value) => typeof value === 'string' && value.trim().length > 0)
         const nextStatus = state === 'completed' || state === 'done' ? hasOutput ? 'completed' : 'processing'
           : state === 'failed' ? 'failed'
           : state === 'pending' || state === 'queued' ? 'pending' : 'processing'
@@ -230,6 +294,10 @@ export const ExportService = {
   },
 
   async getExportProject(exportId: string): Promise<{ id: string; title: string } | null> {
+    if (exportId === DEV_JEFF_SIMONS_EXPORT_ID || (isDevBypassActive() && exportId.includes('jeff_simons'))) {
+      return { id: DEV_JEFF_SIMONS_PROJECT_ID, title: 'Jeff Simons — Thought of the Day' }
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

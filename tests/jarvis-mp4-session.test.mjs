@@ -371,3 +371,54 @@ test('EditorialTimelineController automatically recovers from 409 source video c
   assert.equal(controller.snapshot.timeline.captionStyle, 'karaoke_pop')
 })
 
+test('editor submission sets 60-second dispatch timeout matching backend maxDuration', () => {
+  const source = page.slice(page.indexOf('  const startProjectRender ='), page.indexOf('  const handleVoiceStartRender ='))
+  assert.match(source, /signal:\s*AbortSignal\.timeout\(60_000\)/)
+})
+
+test('gemini-live-client strictly forbids citing timeline sync for render delays or export blockers', () => {
+  const clientSource = readFileSync('lib/voice-companion/gemini-live-client.ts', 'utf8')
+  assert.match(clientSource, /NEVER blame, cite, or ask the creator about ["']timeline sync["']/i)
+  assert.match(clientSource, /Timeline sync is an internal editor auto-save that does not block or execute the video renderer/i)
+})
+
+test('EditorialTimelineController ignores transient refresh timeout when state is initialized and queue is empty', async () => {
+  const {EditorialTimelineController} = require('../lib/editor/editorial-timeline-client.ts')
+  const controller = new EditorialTimelineController('proj-transient-test')
+
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      timeline: {sourceAssetId: 'source-1', revision: 1, cuts: [], music: null, captionStyle: 'clean_bold'},
+    }),
+  })
+
+  await controller.refresh()
+  assert.equal(controller.snapshot.status, 'saved')
+  assert.equal(controller.snapshot.error, null)
+
+  // Simulate a transient timeout during a background refresh
+  global.fetch = async () => {
+    throw new Error('The operation timed out')
+  }
+
+  await controller.refresh()
+  // Status should remain saved because it was already initialized and queue is empty
+  assert.equal(controller.snapshot.status, 'saved')
+  assert.equal(controller.snapshot.error, null)
+})
+
+test('EditorialTimelineController marks error on initial load failure or when dirty queue exists', async () => {
+  const {EditorialTimelineController} = require('../lib/editor/editorial-timeline-client.ts')
+  const controller = new EditorialTimelineController('proj-uninitialized-error-test')
+
+  global.fetch = async () => {
+    throw new Error('Initial load network timeout')
+  }
+
+  await controller.refresh()
+  assert.equal(controller.snapshot.status, 'error')
+  assert.equal(controller.snapshot.error, 'Initial load network timeout')
+})
+

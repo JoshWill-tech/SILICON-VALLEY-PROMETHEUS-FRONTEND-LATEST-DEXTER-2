@@ -39,6 +39,10 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
     if (fs.existsSync(localDevFile)) {
       const stat = fs.statSync(localDevFile)
       const range = request.headers.get('range')
+      const isDownload = new URL(request.url).searchParams.get('download') === '1'
+      const requested = new URL(request.url).searchParams.get('filename') || 'final_jeff_simons.mp4'
+      const filename = requested.replace(/[\\"\r\n]/g, '-').slice(0, 180) || 'final_jeff_simons.mp4'
+      const disposition = isDownload ? `attachment; filename="${filename}"` : 'inline'
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-')
         const start = parseInt(parts[0], 10)
@@ -52,6 +56,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
             'Accept-Ranges': 'bytes',
             'Content-Length': String(chunkSize),
             'Content-Type': 'video/mp4',
+            'Content-Disposition': disposition,
             'Cache-Control': 'no-store',
           },
         })
@@ -63,6 +68,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
           'Content-Length': String(stat.size),
           'Content-Type': 'video/mp4',
           'Accept-Ranges': 'bytes',
+          'Content-Disposition': disposition,
           'Cache-Control': 'no-store',
         },
       })
@@ -93,7 +99,22 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
         ? String((statusPayload as Record<string, unknown>).state ?? (statusPayload as Record<string, unknown>).status ?? '')
         : ''
       outputUrl = outputUrlFromPayload(statusPayload)
-      if (state !== 'completed' || !outputUrl) {
+      if (!outputUrl) {
+        try {
+          const directOutputUrl = `${config.baseUrl}/api/pipeline/job/${encodeURIComponent(id)}/output`
+          const directResponse = await fetch(directOutputUrl, {
+            headers,
+            redirect: 'manual',
+            cache: 'no-store',
+          })
+          if (directResponse.status === 303 && directResponse.headers.get('location')) {
+            outputUrl = directResponse.headers.get('location')
+          }
+        } catch {
+          // keep outputUrl null
+        }
+      }
+      if ((state !== 'completed' && state !== 'done') && !outputUrl) {
         return NextResponse.json({error: 'Mini-Run output is not ready.', status: state || 'unknown'}, {status: 409})
       }
     } else if (user) {
@@ -127,6 +148,10 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
         {error: 'Mini-Run render could not be found for this account.', status: statusResponse.status},
         {status: statusResponse.status === 404 ? 404 : statusResponse.status === 401 ? 401 : 502},
       )
+    }
+
+    if (!outputUrl) {
+      return NextResponse.json({error: 'Mini-Run output is not ready.'}, {status: 409})
     }
 
     let mediaResponse = await fetchMiniRunMedia({
