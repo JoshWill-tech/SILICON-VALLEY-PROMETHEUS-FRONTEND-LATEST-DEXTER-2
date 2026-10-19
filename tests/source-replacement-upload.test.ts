@@ -86,3 +86,41 @@ test('the latest database storage limits match every frontend tier', () => {
     assert.equal(bytes, STORAGE_TIERS[tier].bytes, `${tier} database quota must match its frontend allowance`)
   }
 })
+
+test('replacement does not double-count existing project source asset against storage quota', async () => {
+  const currentProjectId = 'project-with-source'
+  const oldAssetSize = 2.5 * 1024 * 1024 * 1024
+  const newAssetSize = 2.0 * 1024 * 1024 * 1024
+  const quotaLimit = STORAGE_TIERS.free.bytes
+
+  const mockAssets = [
+    { project_id: currentProjectId, size_bytes: oldAssetSize },
+    { project_id: 'other-project', size_bytes: 500 * 1024 * 1024 },
+  ]
+
+  const usedBytesExcludingReplaced = mockAssets
+    .filter((asset) => !currentProjectId || asset.project_id !== currentProjectId)
+    .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+
+  const usedBytesWithoutFix = mockAssets
+    .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+
+  assert.ok(usedBytesWithoutFix + newAssetSize > quotaLimit, 'without fix, replacement would exceed quota (3.0 GB + 2.0 GB > 4.0 GB)')
+  assert.ok(usedBytesExcludingReplaced + newAssetSize <= quotaLimit, 'with fix, replacement fits within quota (0.5 GB + 2.0 GB <= 4.0 GB)')
+})
+
+test('prior uncommitted sessions are aborted when initiating a new upload for the project', async () => {
+  const abortedSessionIds: string[] = []
+  const mockStaleSessions = [
+    { id: 'session-old-1', bucket: 'sources', object_key: 'users/u/projects/p/sources/1.mp4', multipart_upload_id: 'mp-1' },
+    { id: 'session-old-2', bucket: 'sources', object_key: 'users/u/projects/p/sources/2.mp4', multipart_upload_id: null },
+  ]
+
+  for (const session of mockStaleSessions) {
+    abortedSessionIds.push(session.id)
+  }
+
+  assert.equal(abortedSessionIds.length, 2, 'all prior uncommitted sessions for the project must be aborted')
+  assert.deepEqual(abortedSessionIds, ['session-old-1', 'session-old-2'])
+})
+

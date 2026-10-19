@@ -2,29 +2,29 @@
 
 OWNS: GATES.md
 
-Scope: Verify and prove that all frontend changes, bug fixes, regression tests, and QA documentation are committed to branch main and fully pushed to both remote repositories (origin: joshwilsonwill-boop/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER and upstream: JoshWill-tech/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER-2).
+Scope: Verify and prove that all source replacement quota fixes, database migrations, regression tests, and QA documentation are committed to branch main and fully pushed to both remote repositories (origin: joshwilsonwill-boop/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER and upstream: JoshWill-tech/SILICON-VALLEY-PROMETHEUS-FRONTEND-LATEST-DEXTER-2).
 
-- [x] G1: Working directory is clean and up to date on branch main with zero uncommitted changes.
+- [ ] G1: Working directory is clean and up to date on branch main with zero uncommitted changes.
   CHECK: node -e "const cp=require('child_process'); const out=cp.execSync('git status --porcelain').toString().trim(); if(!out) console.log('WORKING_TREE_CLEAN'); else console.log(out);"
   EXPECT: WORKING_TREE_CLEAN
-  EVIDENCE: Passed (Working tree verified clean on branch main).
+  EVIDENCE: pending
 
-- [x] G2: Remote repository 'origin' (joshwilsonwill-boop) main branch is in exact lockstep with local HEAD.
+- [ ] G2: Remote repository 'origin' (joshwilsonwill-boop) main branch is in exact lockstep with local HEAD.
   CHECK: node -e "const cp=require('child_process'); const h=cp.execSync('git rev-parse HEAD').toString().trim(); const r=cp.execSync('git ls-remote origin main').toString().split('\t')[0].trim(); if(h===r) console.log('ORIGIN_SYNC_MATCH'); else process.exit(1);"
   EXPECT: ORIGIN_SYNC_MATCH
-  EVIDENCE: Passed (origin/main verified identical to local HEAD).
+  EVIDENCE: pending
 
-- [x] G3: Remote repository 'upstream' (JoshWill-tech) main branch is in exact lockstep with local HEAD.
+- [ ] G3: Remote repository 'upstream' (JoshWill-tech) main branch is in exact lockstep with local HEAD.
   CHECK: node -e "const cp=require('child_process'); const h=cp.execSync('git rev-parse HEAD').toString().trim(); const r=cp.execSync('git ls-remote upstream main').toString().split('\t')[0].trim(); if(h===r) console.log('UPSTREAM_SYNC_MATCH'); else process.exit(1);"
   EXPECT: UPSTREAM_SYNC_MATCH
-  EVIDENCE: Passed (upstream/main verified identical to local HEAD).
+  EVIDENCE: pending
 
-- [x] G4: Voice companion, export, and timeline sync regression test suite passes with 100% success.
-  CHECK: node --import tsx --test tests/jarvis-mp4-session.test.mjs
-  EXPECT: pass 25
-  EVIDENCE: Passed (All 25 tests passed including 60s render dispatch, prompt negative instructions, and timeline resilience).
+- [ ] G4: Full source upload and replacement test suite passes with 100% success.
+  CHECK: npm run test:source-upload
+  EXPECT: pass 17
+  EVIDENCE: pending
 
-- [x] G5: Full project TypeScript compilation check passes without diagnostics.
+- [ ] G5: Full project TypeScript compilation check passes without diagnostics.
   CHECK: node scripts/verify-typecheck.mjs
   EXPECT: typecheck passed
-  EVIDENCE: Passed (`typecheck passed` with zero TypeScript compiler errors).
+  EVIDENCE: pending

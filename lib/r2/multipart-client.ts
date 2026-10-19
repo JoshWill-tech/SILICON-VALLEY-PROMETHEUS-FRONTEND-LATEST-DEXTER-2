@@ -721,6 +721,8 @@ export async function uploadProjectSourceMultipart({
       if (resumable) {
         await del(fingerprint).catch(() => undefined)
       }
+    } else if (resumable && error instanceof MultipartUploadError && error.code === 'STORAGE_QUOTA_EXCEEDED') {
+      await del(fingerprint).catch(() => undefined)
     }
 
     throw error

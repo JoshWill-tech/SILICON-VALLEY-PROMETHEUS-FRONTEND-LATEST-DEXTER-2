@@ -9521,8 +9521,12 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           pendingSourceUploadAssetIdRef.current = null
           setIsSourceUploadPending(false)
           setIsSourceUploadFailed(true)
+          const isQuota = (error instanceof MultipartUploadError && error.code === 'STORAGE_QUOTA_EXCEEDED')
+            || (error instanceof Error && error.message.includes('Storage quota exceeded'))
           toast.error('The replacement source could not be saved.', {
-            description: error instanceof Error ? error.message : 'The upload was interrupted. Select the same video to resume.',
+            description: isQuota
+              ? 'Storage quota exceeded. Free up storage in your workspace or upgrade your plan to upload larger files.'
+              : (error instanceof Error ? error.message : 'The upload was interrupted. Select the same video to resume.'),
             duration: 12000,
           })
         })

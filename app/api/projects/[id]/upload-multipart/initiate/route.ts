@@ -64,7 +64,39 @@ export async function POST(
     }
 
     const supabase = await createClient()
-    const { data: reserved, error: reserveError } = await supabase.rpc('maul_reserve_source_upload', {
+
+    // Auto-abort any prior uncommitted sessions for this project and user
+    // so interrupted, failed, or superseded upload attempts do not leak upload reservations.
+    try {
+      const { data: staleSessions } = await supabase
+        .from('source_upload_sessions')
+        .select('id, bucket, object_key, multipart_upload_id')
+        .eq('project_id', context.projectId)
+        .eq('user_id', context.userId)
+        .in('status', ['reserved', 'uploading'])
+        .neq('asset_id', context.assetId)
+
+      if (staleSessions && staleSessions.length > 0) {
+        for (const stale of staleSessions) {
+          try {
+            await supabase.rpc('maul_abort_source_upload', { p_session_id: stale.id })
+          } catch {
+            // best-effort cleanup
+          }
+          if (stale.multipart_upload_id && stale.bucket && stale.object_key) {
+            await r2Client.send(new AbortMultipartUploadCommand({
+              Bucket: stale.bucket,
+              Key: stale.object_key,
+              UploadId: stale.multipart_upload_id,
+            })).catch(() => undefined)
+          }
+        }
+      }
+    } catch (cleanupErr) {
+      console.warn('[api/projects/[id]/upload-multipart/initiate] Stale session cleanup warning:', cleanupErr)
+    }
+
+    let { data: reserved, error: reserveError } = await supabase.rpc('maul_reserve_source_upload', {
       p_project_id: context.projectId,
       p_asset_id: context.assetId,
       p_client_request_id: context.assetId,
@@ -75,6 +107,58 @@ export async function POST(
       p_object_key: context.key,
       p_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     })
+
+    if (reserveError && reserveError.message?.includes('STORAGE_QUOTA_EXCEEDED')) {
+      // If quota was exceeded, clear any orphaned uncommitted sessions across the user's workspace
+      // older than 1 hour and attempt reservation once more.
+      try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+        const { data: abandonedSessions } = await supabase
+          .from('source_upload_sessions')
+          .select('id, bucket, object_key, multipart_upload_id')
+          .eq('user_id', context.userId)
+          .in('status', ['reserved', 'uploading'])
+          .lt('created_at', oneHourAgo)
+
+        if (abandonedSessions && abandonedSessions.length > 0) {
+          for (const abandoned of abandonedSessions) {
+            try {
+              await supabase.rpc('maul_abort_source_upload', { p_session_id: abandoned.id })
+            } catch {
+              // best-effort cleanup
+            }
+            if (abandoned.multipart_upload_id && abandoned.bucket && abandoned.object_key) {
+              await r2Client.send(new AbortMultipartUploadCommand({
+                Bucket: abandoned.bucket,
+                Key: abandoned.object_key,
+                UploadId: abandoned.multipart_upload_id,
+              })).catch(() => undefined)
+            }
+          }
+
+          const retryResult = await supabase.rpc('maul_reserve_source_upload', {
+            p_project_id: context.projectId,
+            p_asset_id: context.assetId,
+            p_client_request_id: context.assetId,
+            p_filename: context.filename,
+            p_mime_type: context.contentType,
+            p_size_bytes: context.sizeBytes,
+            p_bucket: context.bucket,
+            p_object_key: context.key,
+            p_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          })
+          if (!retryResult.error && retryResult.data) {
+            reserved = retryResult.data
+            reserveError = null
+          } else if (retryResult.error) {
+            reserveError = retryResult.error
+          }
+        }
+      } catch (recoverErr) {
+        console.warn('[api/projects/[id]/upload-multipart/initiate] Quota recovery warning:', recoverErr)
+      }
+    }
+
     if (reserveError) {
       return sourceControlPlaneErrorResponse(reserveError, 'UPLOAD_RESERVATION_FAILED', 'Failed to reserve source upload.')
     }

@@ -88,7 +88,7 @@ export function validateProjectSourceUploadInput(input: {
   return null
 }
 
-async function getUserStorageQuota(userId: string) {
+async function getUserStorageQuota(userId: string, currentProjectId?: string) {
   const supabase = await createClient()
 
   const { data: subscription, error: subscriptionError } = await supabase
@@ -108,14 +108,18 @@ async function getUserStorageQuota(userId: string) {
 
   const { data: assets, error: assetsError } = await supabase
     .from('source_assets')
-    .select('size_bytes')
+    .select('size_bytes, project_id')
     .eq('user_id', userId)
 
   if (assetsError) {
     throw assetsError
   }
 
-  const usedBytes = (assets ?? []).reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+  // When replacing a project's source, do not count the project's existing
+  // source asset against the upload limit because it will be superseded.
+  const usedBytes = (assets ?? [])
+    .filter((asset) => !currentProjectId || asset.project_id !== currentProjectId)
+    .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
 
   return {
     tier,
@@ -156,7 +160,7 @@ export async function requireProjectSourceUploadContext(
     return { error: 'Project not found', status: 404 }
   }
 
-  const quota = await getUserStorageQuota(user.id)
+  const quota = await getUserStorageQuota(user.id, projectId)
   if (quota.usedBytes + sizeBytes > quota.limitBytes) {
     return {
       error: `Storage limit exceeded. Your ${quota.tier} plan includes ${formatStorage(quota.limitBytes)}. You are using ${formatStorage(quota.usedBytes)}, and this upload is ${formatStorage(sizeBytes)}.`,
