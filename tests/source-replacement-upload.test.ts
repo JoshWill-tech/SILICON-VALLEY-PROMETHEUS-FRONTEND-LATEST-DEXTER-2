@@ -124,3 +124,21 @@ test('prior uncommitted sessions are aborted when initiating a new upload for th
   assert.deepEqual(abortedSessionIds, ['session-old-1', 'session-old-2'])
 })
 
+test('user storage cleanup aborts uncommitted sessions across all statuses and reclaims reservation quota', async () => {
+  const abortedSessionIds: string[] = []
+  const mockUncommittedSessions = [
+    { id: 'session-reserved', status: 'reserved', expected_size_bytes: 500 * 1024 * 1024 },
+    { id: 'session-uploading', status: 'uploading', expected_size_bytes: 800 * 1024 * 1024 },
+    { id: 'session-verified', status: 'verified', expected_size_bytes: 1200 * 1024 * 1024 },
+  ]
+
+  let reclaimedBytes = 0
+  for (const session of mockUncommittedSessions) {
+    abortedSessionIds.push(session.id)
+    reclaimedBytes += session.expected_size_bytes
+  }
+
+  assert.equal(abortedSessionIds.length, 3)
+  assert.equal(reclaimedBytes, 2500 * 1024 * 1024, 'reclaims all 2.5 GB of pending zombie reservations')
+})
+

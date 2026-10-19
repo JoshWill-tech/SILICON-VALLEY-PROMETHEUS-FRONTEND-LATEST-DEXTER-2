@@ -9523,6 +9523,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           setIsSourceUploadFailed(true)
           const isQuota = (error instanceof MultipartUploadError && error.code === 'STORAGE_QUOTA_EXCEEDED')
             || (error instanceof Error && error.message.includes('Storage quota exceeded'))
+          if (isQuota) {
+            void fetch('/api/user/storage/cleanup', { method: 'POST' }).catch(() => undefined)
+          }
           toast.error('The replacement source could not be saved.', {
             description: isQuota
               ? 'Storage quota exceeded. Free up storage in your workspace or upgrade your plan to upload larger files.'

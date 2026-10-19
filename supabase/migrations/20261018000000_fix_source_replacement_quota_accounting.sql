@@ -33,6 +33,8 @@ begin
 end;
 $$;
 
+drop function if exists public.maul_reserve_source_upload(uuid, uuid, uuid, text, text, bigint, text, text, timestamptz);
+
 create or replace function public.maul_reserve_source_upload(
   p_project_id uuid,
   p_asset_id uuid,

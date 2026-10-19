@@ -73,7 +73,7 @@ export async function POST(
         .select('id, bucket, object_key, multipart_upload_id')
         .eq('project_id', context.projectId)
         .eq('user_id', context.userId)
-        .in('status', ['reserved', 'uploading'])
+        .in('status', ['reserved', 'uploading', 'verified'])
         .neq('asset_id', context.assetId)
 
       if (staleSessions && staleSessions.length > 0) {
@@ -110,15 +110,14 @@ export async function POST(
 
     if (reserveError && reserveError.message?.includes('STORAGE_QUOTA_EXCEEDED')) {
       // If quota was exceeded, clear any orphaned uncommitted sessions across the user's workspace
-      // older than 1 hour and attempt reservation once more.
+      // immediately and attempt reservation once more.
       try {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
         const { data: abandonedSessions } = await supabase
           .from('source_upload_sessions')
           .select('id, bucket, object_key, multipart_upload_id')
           .eq('user_id', context.userId)
-          .in('status', ['reserved', 'uploading'])
-          .lt('created_at', oneHourAgo)
+          .in('status', ['reserved', 'uploading', 'verified'])
+          .neq('asset_id', context.assetId)
 
         if (abandonedSessions && abandonedSessions.length > 0) {
           for (const abandoned of abandonedSessions) {
