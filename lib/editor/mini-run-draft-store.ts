@@ -80,6 +80,7 @@ export type MiniRunDraftState = {
   toggleWordCut: (chunkIndex: number, wordIndex: number, forceCut?: boolean) => void
   updateChunkTiming: (chunkIndex: number, startMs: number, endMs: number) => void
   updateChunkTypography: (chunkIndex: number, styling: Partial<DraftTypography>) => void
+  setGlobalTypography: (styling: Partial<DraftTypography>) => void
   cutPhrase: (phrase: string) => boolean
   replacePhrase: (targetPhrase: string, replacementPhrase: string) => boolean
   getDraftManifest: () => Record<string, unknown>
@@ -259,6 +260,17 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       },
     }
 
+    set({ chunks, isDirty: true })
+  },
+
+  setGlobalTypography: (styling: Partial<DraftTypography>) => {
+    const chunks = get().chunks.map((chunk) => ({
+      ...chunk,
+      typography: {
+        ...(chunk.typography || {}),
+        ...styling,
+      },
+    }))
     set({ chunks, isDirty: true })
   },
 

@@ -99,6 +99,13 @@ async function run() {
   assert.equal(replaced, true)
   assert.ok(useMiniRunDraftStore.getState().chunks[0].text.includes('World'))
 
+  // 3d2. Test setGlobalTypography (instant font preset change across all chunks)
+  useMiniRunDraftStore.getState().setGlobalTypography({ fontFamily: 'Playfair Display', textColor: '#FACC15' })
+  const afterFontChange = useMiniRunDraftStore.getState()
+  assert.equal(afterFontChange.chunks[0].typography?.fontFamily, 'Playfair Display')
+  assert.equal(afterFontChange.chunks[0].typography?.textColor, '#FACC15')
+  assert.equal(afterFontChange.isDirty, true)
+
   // 3e. Test getDraftManifest serialization
   const exported = useMiniRunDraftStore.getState().getDraftManifest()
   assert.equal(exported.job_id, 'plan-job-abc')
