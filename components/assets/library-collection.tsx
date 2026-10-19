@@ -6,11 +6,35 @@ import { ArrowUpRight, LibraryBig } from 'lucide-react'
 import Image from 'next/image'
 
 import { LIBRARY_CREATOR_CARDS } from '@/components/assets/cinematic-library'
+import { LiquidGlassSearch } from '@/components/assets/liquid-glass-search'
 
 const CREATOR_IMAGE_POSITIONS = ['62% 24%', '50% 16%', '50% 18%', '50% 18%', '50% 18%', '50% 18%', '50% 16%']
 
 export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string) => void }) {
   const reduceMotion = useReducedMotion() ?? false
+  const [searchQuery, setSearchQuery] = React.useState('')
+
+  const visibleCreators = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return LIBRARY_CREATOR_CARDS.map((creator, index) => ({ creator, index }))
+    }
+    const q = searchQuery.toLowerCase().trim()
+    return LIBRARY_CREATOR_CARDS.map((creator, index) => ({ creator, index })).filter(
+      ({ creator }) =>
+        creator.name.toLowerCase().includes(q) || creator.designation.toLowerCase().includes(q),
+    )
+  }, [searchQuery])
+
+  const handleSearchSubmit = (submittedQuery?: string) => {
+    const q = (submittedQuery ?? searchQuery).toLowerCase().trim()
+    if (!q) return
+    const match = LIBRARY_CREATOR_CARDS.findIndex(
+      (c) => c.name.toLowerCase().includes(q) || c.designation.toLowerCase().includes(q),
+    )
+    if (match !== -1) {
+      onSelect(`uploads_${match}`)
+    }
+  }
 
   return (
     <section data-creator-library className="relative min-h-full snap-start snap-normal overflow-hidden bg-black text-white" aria-labelledby="creator-library-title">
@@ -44,53 +68,76 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
           </div>
         </header>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
-          {LIBRARY_CREATOR_CARDS.map((creator, index) => (
-            <motion.button
-              data-creator-card
-              key={creator.id}
-              type="button"
-              onClick={() => onSelect(`uploads_${index}`)}
-              className="group relative aspect-[3/4] min-w-0 overflow-hidden rounded-[4px] border border-white/10 bg-[#030503] text-left shadow-[0_20px_45px_-30px_rgba(0,0,0,1)] outline-none transition-colors hover:border-[#55ff9b]/55 focus-visible:border-[#55ff9b] focus-visible:ring-2 focus-visible:ring-[#55ff9b]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              initial={false}
-              animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0 }
-                  : { duration: 0.55, delay: index * 0.045, ease: [0.22, 1, 0.36, 1] }
-              }
-              whileHover={reduceMotion ? undefined : { y: -4 }}
-              aria-label={`Open ${creator.name} archive`}
-            >
-              <Image
-                src={index === 0 ? '/library/alex-hormozi/hero.jpg' : creator.image}
-                alt=""
-                fill
-                loading="eager"
-                sizes="(max-width: 639px) 50vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, (max-width: 1279px) 20vw, 190px"
-                className={`absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.035] ${index === 0 ? 'grayscale-[0.82] brightness-[0.7] contrast-125 group-hover:grayscale-[0.64] group-hover:brightness-[0.78]' : 'grayscale-[0.22] group-hover:grayscale-0'}`}
-                style={{ objectPosition: CREATOR_IMAGE_POSITIONS[index] ?? '50% 18%' }}
-              />
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_24%,rgba(0,0,0,0.2)_48%,rgba(0,0,0,0.96)_100%)]" />
-              {index === 0 ? (
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_12%,rgba(0,0,0,0.36)_100%)]" />
-              ) : null}
-              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(72,255,151,0.12),transparent_32%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-              <div className="absolute inset-x-0 top-0 flex items-center justify-between p-2.5">
-                <span data-creator-index className="font-mono text-[9px] tracking-[0.18em] text-white/52">{String(index + 1).padStart(2, '0')}</span>
-                <span data-creator-action className="grid size-7 place-items-center border border-white/15 bg-black/45 text-white/66 backdrop-blur-sm transition-colors group-hover:border-[#55ff9b]/45 group-hover:text-[#63ffa4]">
-                  <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                </span>
-              </div>
-
-              <div data-creator-caption className="absolute inset-x-0 bottom-0 p-3">
-                <div data-creator-designation className="truncate text-[9px] uppercase tracking-[0.2em] text-[#63ffa4]/72">{creator.designation}</div>
-                <div data-creator-name className="mt-1.5 text-sm font-semibold leading-tight text-white sm:text-[15px]">{creator.name}</div>
-              </div>
-            </motion.button>
-          ))}
+        {/* Liquid Glass Search Bar with liquidGL shader effect */}
+        <div className="my-6 flex w-full justify-center sm:my-8">
+          <LiquidGlassSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onSubmit={handleSearchSubmit}
+          />
         </div>
+
+        {visibleCreators.length === 0 ? (
+          <div className="my-12 flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center backdrop-blur-md">
+            <p className="text-sm text-white/60">No creators found matching &ldquo;{searchQuery}&rdquo;</p>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="mt-3 rounded-full border border-[#55ff9b]/30 bg-[#55ff9b]/10 px-4 py-1.5 text-xs font-medium text-[#63ffa4] transition hover:bg-[#55ff9b]/20"
+            >
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+            {visibleCreators.map(({ creator, index }) => (
+              <motion.button
+                data-creator-card
+                key={creator.id}
+                type="button"
+                onClick={() => onSelect(`uploads_${index}`)}
+                className="group relative aspect-[3/4] min-w-0 overflow-hidden rounded-[4px] border border-white/10 bg-[#030503] text-left shadow-[0_20px_45px_-30px_rgba(0,0,0,1)] outline-none transition-colors hover:border-[#55ff9b]/55 focus-visible:border-[#55ff9b] focus-visible:ring-2 focus-visible:ring-[#55ff9b]/55 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                initial={false}
+                animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { duration: 0.55, delay: index * 0.045, ease: [0.22, 1, 0.36, 1] }
+                }
+                whileHover={reduceMotion ? undefined : { y: -4 }}
+                aria-label={`Open ${creator.name} archive`}
+              >
+                <Image
+                  src={index === 0 ? '/library/alex-hormozi/hero.jpg' : creator.image}
+                  alt=""
+                  fill
+                  loading="eager"
+                  sizes="(max-width: 639px) 50vw, (max-width: 767px) 33vw, (max-width: 1023px) 25vw, (max-width: 1279px) 20vw, 190px"
+                  className={`absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.035] ${index === 0 ? 'grayscale-[0.82] brightness-[0.7] contrast-125 group-hover:grayscale-[0.64] group-hover:brightness-[0.78]' : 'grayscale-[0.22] group-hover:grayscale-0'}`}
+                  style={{ objectPosition: CREATOR_IMAGE_POSITIONS[index] ?? '50% 18%' }}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_24%,rgba(0,0,0,0.2)_48%,rgba(0,0,0,0.96)_100%)]" />
+                {index === 0 ? (
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_12%,rgba(0,0,0,0.36)_100%)]" />
+                ) : null}
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(72,255,151,0.12),transparent_32%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between p-2.5">
+                  <span data-creator-index className="font-mono text-[9px] tracking-[0.18em] text-white/52">{String(index + 1).padStart(2, '0')}</span>
+                  <span data-creator-action className="grid size-7 place-items-center border border-white/15 bg-black/45 text-white/66 backdrop-blur-sm transition-colors group-hover:border-[#55ff9b]/45 group-hover:text-[#63ffa4]">
+                    <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                  </span>
+                </div>
+
+                <div data-creator-caption className="absolute inset-x-0 bottom-0 p-3">
+                  <div data-creator-designation className="truncate text-[9px] uppercase tracking-[0.2em] text-[#63ffa4]/72">{creator.designation}</div>
+                  <div data-creator-name className="mt-1.5 text-sm font-semibold leading-tight text-white sm:text-[15px]">{creator.name}</div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        )}
+
 
         <div className="mt-auto flex items-center gap-3 pt-7 text-[9px] uppercase tracking-[0.22em] text-white/32">
           <span className="h-px w-8 bg-[#55ff9b]/35" />

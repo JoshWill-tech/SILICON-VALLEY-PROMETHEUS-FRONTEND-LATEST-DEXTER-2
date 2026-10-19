@@ -46,4 +46,5 @@ tmp/
 .vercel
 .env*
 .unlazy/
-public/media/
+public/media/*
+!public/media/search-bubble.mp4

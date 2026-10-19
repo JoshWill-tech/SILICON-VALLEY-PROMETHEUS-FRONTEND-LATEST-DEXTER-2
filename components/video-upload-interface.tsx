@@ -1243,14 +1243,14 @@ const PromptComposer = React.memo(function PromptComposer({
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: -4, scale: 0.96 }}
                                     transition={{ type: "spring", stiffness: 420, damping: 28, mass: 0.72 }}
-                                    className="flex items-center gap-2 rounded-lg border border-[#9ff6e3]/25 bg-[#9ff6e3]/[0.07] px-3 py-1.5 text-xs text-[#d8fff4]"
+                                    className="flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/80"
                                 >
-                                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#9ff6e3]/85" />
+                                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-white/70" />
                                     <span className="truncate">Edit direction: {action.label}</span>
                                     <button
                                         type="button"
                                         onClick={() => onRemoveEditAction(action.id)}
-                                        className="shrink-0 text-[#9ff6e3]/55 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35"
+                                        className="shrink-0 text-white/40 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                                         aria-label={`Remove ${action.label} edit direction`}
                                     >
                                         <XIcon className="h-3 w-3" />
@@ -1391,9 +1391,9 @@ function StudioCinematicMarqueeRails({
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                    "relative shrink-0 rounded-[9px] border px-3.5 py-2 text-xs font-medium tracking-normal shadow-none transition-[border-color,background-color,color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ff6e3]/35 focus-visible:ring-offset-4 focus-visible:ring-offset-black",
+                    "relative shrink-0 rounded-[9px] border px-3.5 py-2 text-xs font-medium tracking-normal shadow-none transition-[border-color,background-color,color,transform] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-4 focus-visible:ring-offset-black",
                     selected
-                        ? "border-[#9ff6e3]/48 bg-[#9ff6e3]/[0.055] text-[#d8fff4]"
+                        ? "border-white/30 bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                         : "border-white/[0.11] bg-white/[0.012] text-white/48 hover:border-white/[0.24] hover:bg-white/[0.032] hover:text-white/82",
                 )}
             >

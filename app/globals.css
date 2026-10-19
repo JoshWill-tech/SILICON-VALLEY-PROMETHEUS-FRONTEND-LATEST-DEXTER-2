@@ -2012,3 +2012,19 @@ input, textarea, select, button { font-family: inherit; }
   flex-wrap: wrap;
   padding-inline-end: 5.5rem;
 }
+
+/* liquidGL lens content layering and animations */
+.glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes liquidGlassBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+

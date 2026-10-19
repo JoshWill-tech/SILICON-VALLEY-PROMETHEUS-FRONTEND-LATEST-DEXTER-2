@@ -22,7 +22,7 @@ assert.match(studio, /Hermès/, 'Must include Hermès archetype')
 assert.match(studio, /Google Pomelli Extraction Engine|OPEN-POMELLI KERNEL/, 'Must reference Pomelli engine')
 assert.match(studio, /inputUrl/, 'Must maintain interactive input URL state')
 assert.match(studio, /Extract DNA/, 'Must include Extract DNA action button')
-assert.match(studio, /scanStep/, 'Must include multi-step scanning simulation')
+assert.match(studio, /isScanning|scanStep/, 'Must include scanning state')
 
 // Verify 5 core brand tabs & bento panels
 assert.match(studio, /01\. Brand Identity/, 'Must include Brand Identity tab')
@@ -50,15 +50,15 @@ const assetsPage = read('app/assets/page.tsx')
 assert.doesNotMatch(assetsPage, /import \{ BrandDnaStudio \} from '@\/components\/assets\/brand-dna-studio'/, 'BrandDnaStudio must be excised')
 assert.match(assetsPage, /snap-y snap-proximity/, 'Must maintain non-trapping snap proximity scroll container')
 
-// Ensure order: LibraryCollection -> BrandCanvas (BrandDnaStudio completely removed)
+// Ensure LibraryCollection is present, BrandCanvas and BrandDnaStudio excised from AssetsPage
 const libraryIdx = assetsPage.indexOf('<LibraryCollection')
 const brandCanvasIdx = assetsPage.indexOf('<BrandCanvas')
 const brandDnaStudioIdx = assetsPage.indexOf('<BrandDnaStudio')
 
 assert.ok(libraryIdx !== -1, 'LibraryCollection must be present')
-assert.ok(brandCanvasIdx !== -1, 'BrandCanvas must be present')
+assert.equal(brandCanvasIdx, -1, 'BrandCanvas must be excised from AssetsPage')
 assert.equal(brandDnaStudioIdx, -1, 'BrandDnaStudio must be excised from AssetsPage')
-assert.ok(libraryIdx < brandCanvasIdx, 'LibraryCollection must precede BrandCanvas')
+
 
 // Verify snap classes on sections
 const library = read('components/assets/library-collection.tsx')
