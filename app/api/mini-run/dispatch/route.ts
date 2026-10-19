@@ -59,12 +59,6 @@ export async function POST(req: Request) {
     if (!project) {
       return NextResponse.json({ error: 'Project not found.', code: 'PROJECT_NOT_FOUND' }, { status: 404 })
     }
-    if (project.sourceAssetId !== sourceAssetId) {
-      return NextResponse.json(
-        { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
-        { status: 400 },
-      )
-    }
 
     const isJeffSimonsDev =
       isDevBypassActive() &&
@@ -81,19 +75,61 @@ export async function POST(req: Request) {
         height: 1920,
       }
     } else {
-      const { data: asset, error: assetError } = await supabase
-        .from('source_assets')
-        .select('*')
-        .eq('id', sourceAssetId)
-        .eq('project_id', projectId)
-        .eq('user_id', user.id)
-        .single()
+      let targetAssetId = sourceAssetId || project.sourceAssetId
+      let { data: asset, error: assetError } = targetAssetId
+        ? await supabase
+            .from('source_assets')
+            .select('*')
+            .eq('id', targetAssetId)
+            .eq('project_id', projectId)
+            .eq('user_id', user.id)
+            .maybeSingle()
+        : { data: null, error: null }
+
+      if (!asset && project.sourceAssetId && project.sourceAssetId !== targetAssetId) {
+        const { data: fallbackAsset } = await supabase
+          .from('source_assets')
+          .select('*')
+          .eq('id', project.sourceAssetId)
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (fallbackAsset) {
+          asset = fallbackAsset
+          targetAssetId = fallbackAsset.id
+          assetError = null
+        }
+      }
+
+      if (!asset) {
+        const { data: latestAsset } = await supabase
+          .from('source_assets')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (latestAsset) {
+          asset = latestAsset
+          targetAssetId = latestAsset.id
+          assetError = null
+        }
+      }
 
       if (assetError || !asset) {
         return NextResponse.json(
-          { error: 'Source asset record not found.', code: 'SOURCE_ASSET_NOT_FOUND' },
-          { status: 404 },
+          { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
+          { status: 400 },
         )
+      }
+
+      if (targetAssetId && project.sourceAssetId !== targetAssetId) {
+        void supabase
+          .from('projects')
+          .update({ source_asset_id: targetAssetId })
+          .eq('id', projectId)
+          .eq('user_id', user.id)
       }
 
       row = asset as SourceAssetRow

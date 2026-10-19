@@ -149,15 +149,15 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
   }, [videoRef])
 
   const handleLoadDraftPlan = async () => {
-    if (!projectId || !sourceAssetId) {
-      toast.error('Project ID and Source Asset ID are required.')
+    if (!projectId) {
+      toast.error('Project ID is required.')
       return
     }
 
     try {
       setIsPlanning(true)
       toast.info('Synthesizing zero-lag editable draft (3-5s)...')
-      const result = await planMiniRunFromProject({ projectId, sourceAssetId })
+      const result = await planMiniRunFromProject({ projectId, sourceAssetId: sourceAssetId || '' })
       useMiniRunDraftStore.getState().setPlan(result.manifest, (result.source?.url as string) || undefined)
       toast.success('Live preview active! Click any word to edit or cut, or switch font profiles.')
     } catch (err) {
@@ -170,7 +170,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
 
   // If there are no planned chunks loaded, display an unobtrusive trigger button
   if (chunks.length === 0) {
-    if (!projectId || !sourceAssetId) return null
+    if (!projectId) return null
     return (
       <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-end p-3">
         <button
@@ -209,8 +209,8 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
   }
 
   const handleBakeFinal = async () => {
-    if (!projectId || !sourceAssetId) {
-      toast.error('Project ID and Source Asset ID are required to bake final video.')
+    if (!projectId) {
+      toast.error('Project ID is required to bake final video.')
       return
     }
 
@@ -222,7 +222,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
       toast.info('Dispatching deterministic cloud render with your draft manifest...')
       const result = await dispatchMiniRunFromProject({
         projectId,
-        sourceAssetId,
+        sourceAssetId: sourceAssetId || '',
         draftManifest,
       })
 

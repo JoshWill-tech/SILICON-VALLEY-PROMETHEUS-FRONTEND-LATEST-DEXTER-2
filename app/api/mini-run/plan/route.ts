@@ -5,6 +5,7 @@ import { buildMiniRunRenderPayload } from '@/lib/server/mini-run-render-payload'
 import { buildMiniRunSourceUrl } from '@/lib/server/mini-run-dispatch'
 import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
 import { createClient } from '@/lib/supabase/server'
+import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 
 /**
  * Rapid Mini-Run plan synthesis route (Phase 1).
@@ -34,9 +35,9 @@ export async function POST(req: Request) {
     const sourceAssetId = typeof body.sourceAssetId === 'string' ? body.sourceAssetId.trim() : ''
     const shot = (body.shot && typeof body.shot === 'object' ? body.shot : {}) as Record<string, unknown>
 
-    if (!projectId || !sourceAssetId) {
+    if (!projectId) {
       return NextResponse.json(
-        { error: 'projectId and sourceAssetId are required.', code: 'PLAN_INPUT_REQUIRED' },
+        { error: 'projectId is required.', code: 'PLAN_INPUT_REQUIRED' },
         { status: 400 },
       )
     }
@@ -54,29 +55,81 @@ export async function POST(req: Request) {
     if (!project) {
       return NextResponse.json({ error: 'Project not found.', code: 'PROJECT_NOT_FOUND' }, { status: 404 })
     }
-    if (project.sourceAssetId !== sourceAssetId) {
-      return NextResponse.json(
-        { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
-        { status: 400 },
-      )
+
+    const isJeffSimonsDev =
+      isDevBypassActive() &&
+      (sourceAssetId === 'jeff-simons-asset-001' || projectId === 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f')
+
+    let row: SourceAssetRow
+    if (isJeffSimonsDev) {
+      row = {
+        id: 'jeff-simons-asset-001',
+        storage_path: 'mini-run/raw_jeff_simons.mp4',
+        storage_bucket: 'prometheus-sources',
+        duration_ms: 30000,
+        width: 1080,
+        height: 1920,
+      }
+    } else {
+      let targetAssetId = sourceAssetId || project.sourceAssetId
+      let { data: asset, error: assetError } = targetAssetId
+        ? await supabase
+            .from('source_assets')
+            .select('*')
+            .eq('id', targetAssetId)
+            .eq('project_id', projectId)
+            .eq('user_id', user.id)
+            .maybeSingle()
+        : { data: null, error: null }
+
+      if (!asset && project.sourceAssetId && project.sourceAssetId !== targetAssetId) {
+        const { data: fallbackAsset } = await supabase
+          .from('source_assets')
+          .select('*')
+          .eq('id', project.sourceAssetId)
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (fallbackAsset) {
+          asset = fallbackAsset
+          targetAssetId = fallbackAsset.id
+          assetError = null
+        }
+      }
+
+      if (!asset) {
+        const { data: latestAsset } = await supabase
+          .from('source_assets')
+          .select('*')
+          .eq('project_id', projectId)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (latestAsset) {
+          asset = latestAsset
+          targetAssetId = latestAsset.id
+          assetError = null
+        }
+      }
+
+      if (assetError || !asset) {
+        return NextResponse.json(
+          { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
+          { status: 400 },
+        )
+      }
+
+      if (targetAssetId && project.sourceAssetId !== targetAssetId) {
+        void supabase
+          .from('projects')
+          .update({ source_asset_id: targetAssetId })
+          .eq('id', projectId)
+          .eq('user_id', user.id)
+      }
+
+      row = asset as SourceAssetRow
     }
-
-    const { data: asset, error: assetError } = await supabase
-      .from('source_assets')
-      .select('*')
-      .eq('id', sourceAssetId)
-      .eq('project_id', projectId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (assetError || !asset) {
-      return NextResponse.json(
-        { error: 'Source asset record not found.', code: 'SOURCE_ASSET_NOT_FOUND' },
-        { status: 404 },
-      )
-    }
-
-    const row = asset as SourceAssetRow
     if (!row.storage_path) {
       return NextResponse.json(
         { error: 'Source asset has no storage path.', code: 'SOURCE_PATH_MISSING' },
