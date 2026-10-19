@@ -12,6 +12,7 @@ import { PROPOSE_NOT_APPLIED_MESSAGE, type EditorActionDraft } from '@/lib/edito
 import { getChatGreeting } from '@/lib/user/display-name'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/hooks/use-voice-input'
+import { registerVoiceCompanionBridge } from '@/lib/voice-companion/bridge'
 
 import { AIChatHistoryButton } from './ai-chat-history-button'
 import { ConversationExportButton } from './conversation-export-button'
@@ -366,6 +367,24 @@ export function PrometheusChat({
     }
     void voice.start()
   }, [persistentChat, stopSpokenReply, usesPersistentChat, voice])
+
+  // Synchronize chat voice activity (listening/speaking) with the global top nav filament
+  React.useEffect(() => {
+    const isRecording = voice.state === 'recording'
+    const isSpeaking = Boolean(speakingMessageId)
+    registerVoiceCompanionBridge({
+      chatVoiceState: {
+        isRecording,
+        isSpeaking,
+        getLevel: isRecording ? voice.getLevel : undefined,
+      },
+    })
+    return () => {
+      registerVoiceCompanionBridge({
+        chatVoiceState: undefined,
+      })
+    }
+  }, [voice.state, voice.getLevel, speakingMessageId])
 
   // Stream-provided suggestions from the latest assistant turn override the
   // deterministic workspace-tab chips; older turns never leak forward.

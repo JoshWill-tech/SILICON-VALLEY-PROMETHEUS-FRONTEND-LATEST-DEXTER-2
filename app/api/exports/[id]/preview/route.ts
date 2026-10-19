@@ -2,6 +2,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { NextRequest, NextResponse } from 'next/server'
 import { ExportService } from '@/lib/exports/service'
 import { r2Client } from '@/lib/r2/client'
+import { getPresignedGetUrl } from '@/lib/r2/presigned-url'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +27,16 @@ export async function GET(
     }
 
     const bucket = projectExport.storageBucket || process.env.R2_BUCKET_EXPORTS || 'prometheus-exports'
+
+    // Redirect directly to Cloudflare R2 presigned URL to stream video at 0 Vercel Fast Origin Transfer bandwidth cost
+    if (projectExport.storagePath) {
+      try {
+        const presignedUrl = await getPresignedGetUrl(bucket, projectExport.storagePath, undefined, 3600)
+        return NextResponse.redirect(presignedUrl, 307)
+      } catch (presignError) {
+        console.warn('[EXPORT_PREVIEW_GET] Direct R2 presign redirect failed, falling back to server stream:', presignError)
+      }
+    }
     const requestedRange = request.headers.get('range')
     if (requestedRange && !/^bytes=\d*-\d*$/.test(requestedRange)) {
       return new NextResponse(null, { status: 416 })

@@ -82,7 +82,7 @@ async function paintedPixels(svg) {
   return painted
 }
 
-for (const [status, reduced] of [['disconnected', false], ['listening', true], ['speaking', true]]) {
+for (const [status, reduced] of [['disconnected', true], ['listening', true], ['speaking', true]]) {
   test(`Jarvis remains visible when ${status}, reduced motion=${reduced}`, async () => {
     const view = await fixture(status, reduced)
     try {
@@ -100,9 +100,9 @@ for (const [status, reduced] of [['disconnected', false], ['listening', true], [
   })
 }
 
-for (const status of ['listening', 'speaking', 'connecting', 'interrupted']) {
+for (const status of ['disconnected', 'listening', 'speaking', 'connecting', 'interrupted']) {
   test(`Jarvis paints and animates while ${status}`, async () => {
-    const view = await fixture(status)
+    const view = await fixture(status, false)
     try {
       view.tick(40)
       const first = view.svg().querySelector('path').getAttribute('d')

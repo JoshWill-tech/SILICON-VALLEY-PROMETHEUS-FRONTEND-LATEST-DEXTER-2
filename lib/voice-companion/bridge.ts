@@ -87,6 +87,12 @@ export interface VoiceCompanionBridgeHandlers {
   /** Optional auth token or resolver for authenticated status checks */
   accessToken?: string
   getAccessToken?: () => Promise<string | undefined> | string | undefined
+  /** Live chat voice state for top nav filament audio responsiveness */
+  chatVoiceState?: {
+    isRecording?: boolean
+    isSpeaking?: boolean
+    getLevel?: () => number | null
+  }
 }
 
 let currentHandlers: VoiceCompanionBridgeHandlers = {}

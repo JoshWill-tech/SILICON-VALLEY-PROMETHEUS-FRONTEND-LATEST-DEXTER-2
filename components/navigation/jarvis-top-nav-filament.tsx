@@ -40,21 +40,24 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
 
   // Track latest reactive values in refs for zero-react-render RAF animation loop
   const companionRef = useRef(companion)
+  const bridgeRef = useRef(bridge)
   const isHoveredRef = useRef(isHovered)
   useEffect(() => {
     companionRef.current = companion
+    bridgeRef.current = bridge
     isHoveredRef.current = isHovered
   })
 
-  const isActive = companion.status !== 'disconnected' && companion.status !== 'error'
+  const isChatRecording = Boolean(bridge.chatVoiceState?.isRecording)
+  const isChatSpeaking = Boolean(bridge.chatVoiceState?.isSpeaking)
+  const isActive = (companion.status !== 'disconnected' && companion.status !== 'error') || isChatRecording || isChatSpeaking
   const isTakeoverEnabled = Boolean(bridge.isTakeoverEnabled)
-  const isSpeaking = companion.status === 'speaking'
-  const isListening = companion.status === 'listening'
+  const isSpeaking = companion.status === 'speaking' || isChatSpeaking
+  const isListening = companion.status === 'listening' || isChatRecording
   const isInterrupted = companion.status === 'interrupted'
-  const shouldAnimateFilament = !prefersReducedMotion && (isActive || isHovered)
+  const shouldAnimateFilament = !prefersReducedMotion
 
-  // Keep the idle filament static; only schedule frames while the companion
-  // is active or the user is hovering over it.
+  // Preserves living kinetic sine wave motion; respects OS reduced motion setting
   useEffect(() => {
     if (!shouldAnimateFilament) {
       pathRef.current?.setAttribute('d', 'M 0 16 L 200 16')
@@ -74,9 +77,15 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
 
       if (shouldDraw && pathRef.current) {
         const comp = companionRef.current
-        const userVol = comp.getUserVolume()
-        const asstVol = comp.getAssistantVolume()
-        const status = comp.status
+        const br = bridgeRef.current
+        const chatState = br.chatVoiceState
+        const chatVol = chatState?.getLevel ? (chatState.getLevel() ?? 0) : 0
+        const isChatRec = Boolean(chatState?.isRecording)
+        const isChatSpk = Boolean(chatState?.isSpeaking)
+
+        const userVol = isChatRec ? chatVol : comp.getUserVolume()
+        const asstVol = isChatSpk ? 0.35 : comp.getAssistantVolume()
+        const status = isChatSpk ? 'speaking' : isChatRec ? 'listening' : comp.status
         const hovered = isHoveredRef.current
 
         const width = 200
