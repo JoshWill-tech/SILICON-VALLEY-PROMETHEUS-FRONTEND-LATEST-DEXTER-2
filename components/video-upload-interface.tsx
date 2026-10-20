@@ -34,6 +34,7 @@ import {
     ImageIcon, // Added import for ImageIcon
     Check,
     Link as LinkIcon,
+    Youtube,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as React from "react";
@@ -68,6 +69,11 @@ import { persistSourceAsset } from "@/lib/source-asset-store";
 import type { SourceProfile } from "@/lib/types";
 import { toast } from "sonner";
 import { normalizeUxError } from "@/lib/ux/errors";
+import {
+    extractYouTubeVideoId,
+    getYouTubeThumbnailUrl,
+    isYouTubeUrl,
+} from "@/lib/media/youtube-clip-service";
 import {
     R2_MULTIPART_CLIENT_MAX_BYTES,
     uploadProjectSourceMultipart,
@@ -1526,6 +1532,12 @@ export function VideoUploadInterface() {
         [activeStyleId]
     );
     const sourceUrlValue = sourceUrl.trim();
+    const youtubeVideoId = React.useMemo(() => extractYouTubeVideoId(sourceUrlValue), [sourceUrlValue]);
+    const youtubeThumbnailUrl = React.useMemo(
+        () => (youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null),
+        [youtubeVideoId]
+    );
+    const isYouTube = Boolean(youtubeVideoId);
     const pendingSourceProfile = pendingUpload?.sourceProfile ?? null;
     const pendingSourceMetrics = pendingSourceProfile ? formatSourceProfileMetric(pendingSourceProfile) : null;
     const sourceReady = addSourceMode === "upload" ? !!pendingUpload : sourceUrlValue.length > 0;
@@ -1533,9 +1545,11 @@ export function VideoUploadInterface() {
         ?? (sourceUrlValue.length > 0 ? sourceUrlValue.replace(/^https?:\/\//, "") : "Drop a clip to stage it here");
     const sourcePrimaryBadge = pendingUpload?.kind
         ? pendingUpload.kind.toUpperCase()
-        : addSourceMode === "link"
-            ? "URL"
-            : "VIDEO";
+        : isYouTube
+            ? "YOUTUBE"
+            : addSourceMode === "link"
+                ? "URL"
+                : "VIDEO";
     const sourceDetail = pendingUpload
         ? pendingUpload.inspectionState === "inspecting"
             ? "Inspecting file locally"
@@ -1966,6 +1980,35 @@ export function VideoUploadInterface() {
                 project.sourceAssetId = uploadAsset.id;
             }
 
+            // If YouTube or URL source was provided or armed, attach SupoClip clipping metadata
+            const isYouTubeTarget = Boolean(
+                youtubeVideoId ||
+                sourceUrlValue.includes("youtube.com") ||
+                sourceUrlValue.includes("youtu.be") ||
+                attachments.some((a) => a.startsWith("YouTube:"))
+            );
+            if (isYouTubeTarget || (addSourceMode === "link" && sourceUrlValue.length > 0)) {
+                const targetYtId = youtubeVideoId ?? (sourceUrlValue ? extractYouTubeVideoId(sourceUrlValue) : null);
+                const targetThumb = targetYtId ? getYouTubeThumbnailUrl(targetYtId) : null;
+                if (targetThumb) {
+                    project.thumbnailUrl = targetThumb;
+                }
+                project.editorState = {
+                    ...(project.editorState || {}),
+                    isUrlClipping: true,
+                    sourceUrl: sourceUrlValue,
+                    youtubeVideoId: targetYtId,
+                };
+                if (typeof window !== "undefined") {
+                    window.sessionStorage.setItem(`prometheus.url-clipping.${project.id}`, JSON.stringify({
+                        isUrlClipping: true,
+                        sourceUrl: sourceUrlValue,
+                        youtubeVideoId: targetYtId,
+                        thumbnailUrl: targetThumb,
+                    }));
+                }
+            }
+
             // Sync the REAL project from the API back to MOCK storage so the editor can see it
             currentStage = 'SYNC_MOCK';
             upsertProject(project);
@@ -1993,7 +2036,9 @@ export function VideoUploadInterface() {
                 },
             });
             persistStartProcessing(nextJob);
-            const editorRoute = `/editor/${project.id}`;
+            const editorRoute = isYouTubeTarget
+                ? `/editor/${project.id}?clipping=true`
+                : `/editor/${project.id}`;
             rememberCurrentPathForEditorReturn();
             markPendingEditorNavigation(editorRoute);
             if (launchNavigationTimerRef.current !== null) {
@@ -2222,11 +2267,27 @@ export function VideoUploadInterface() {
             ? raw
             : `https://${raw}`;
 
-        try {
-            const parsed = new URL(normalized);
-            addSourceChip(`Link: ${parsed.hostname.replace(/^www\./, "")}`);
-        } catch {
-            addSourceChip("Link imported");
+        const ytId = extractYouTubeVideoId(normalized);
+        if (ytId) {
+            addSourceChip(`YouTube: ${ytId}`);
+            if (typeof window !== "undefined") {
+                window.sessionStorage.setItem("prometheus.url-clipping.pending", JSON.stringify({
+                    isUrlClipping: true,
+                    sourceUrl: normalized,
+                    youtubeVideoId: ytId,
+                    thumbnailUrl: getYouTubeThumbnailUrl(ytId),
+                }));
+            }
+            toast.success("YouTube URL Armed", {
+                description: "Ready to clip into high-retention shorts in the editor chamber.",
+            });
+        } else {
+            try {
+                const parsed = new URL(normalized);
+                addSourceChip(`Link: ${parsed.hostname.replace(/^www\./, "")}`);
+            } catch {
+                addSourceChip("Link imported");
+            }
         }
 
         closeSourceModal();
@@ -2654,18 +2715,33 @@ export function VideoUploadInterface() {
                                                         <div className="rounded-full border border-[#d5d0c6] bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-[#6f6961]">
                                                             URL Source
                                                         </div>
-                                                        <Input
-                                                            value={sourceUrl}
-                                                            onChange={(e) => setSourceUrl(e.target.value)}
-                                                            onKeyDown={(event) => {
-                                                                if (event.key === "Enter" && sourceUrlValue) {
-                                                                    event.preventDefault();
-                                                                    importSourceLink();
-                                                                }
-                                                            }}
-                                                            placeholder="Paste a source link"
-                                                            className="mt-4 h-12 rounded-[20px] border-[#c7c2b8] bg-white text-[#25222a] placeholder:text-[#7a756d]"
-                                                        />
+                                                        <div className="mt-4 flex items-center gap-2">
+                                                            {youtubeThumbnailUrl ? (
+                                                                <div className="relative size-11 shrink-0 overflow-hidden rounded-xl border border-white/20 shadow-md">
+                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                    <img src={youtubeThumbnailUrl} alt="YouTube Thumb" className="h-full w-full object-cover" />
+                                                                    <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                                                        <Youtube className="size-4 text-[#ff0033] fill-current" />
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[#c7c2b8] bg-white text-[#79736a]">
+                                                                    <LinkIcon className="size-4" />
+                                                                </span>
+                                                            )}
+                                                            <Input
+                                                                value={sourceUrl}
+                                                                onChange={(e) => setSourceUrl(e.target.value)}
+                                                                onKeyDown={(event) => {
+                                                                    if (event.key === "Enter" && sourceUrlValue) {
+                                                                        event.preventDefault();
+                                                                        importSourceLink();
+                                                                    }
+                                                                }}
+                                                                placeholder="Paste a YouTube link or video URL..."
+                                                                className="h-11 flex-1 rounded-[18px] border-[#c7c2b8] bg-white text-xs text-[#25222a] placeholder:text-[#7a756d]"
+                                                            />
+                                                        </div>
                                                         <p className="mt-3 text-sm leading-6 text-[#6d675f]">
                                                             Drop in a live reference URL and attach it from the right-side command node.
                                                         </p>
@@ -2694,22 +2770,82 @@ export function VideoUploadInterface() {
                                                     </div>
 
                                                     <div className="mt-4 overflow-hidden rounded-[30px] border border-[#3f3a42]/14 bg-[radial-gradient(circle_at_top,rgba(236,255,73,0.14)_0%,rgba(236,255,73,0)_34%),linear-gradient(180deg,#26222c_0%,#191720_100%)]">
-                                                        <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f5f2eb] sm:min-h-[430px]">
-                                                            <div className="rounded-full border border-white/14 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(236,255,73,0.08)]">
-                                                                <LinkIcon className="h-8 w-8" />
-                                                            </div>
-                                                            <div className="mt-6 text-[28px] leading-tight">
-                                                                Remote source will resolve into this central board
-                                                            </div>
-                                                            <div className="mt-3 max-w-md text-sm leading-6 text-white/62">
-                                                                The lane stays device-like and cinematic while the link payload is staged.
-                                                            </div>
-                                                            {sourceUrlValue && (
-                                                                <div className="mt-6 max-w-lg rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs text-white/74">
-                                                                    {sourceUrlValue}
+                                                        {youtubeThumbnailUrl ? (
+                                                            <div className="relative flex min-h-[360px] w-full flex-col items-center justify-center overflow-hidden p-6 text-center sm:min-h-[430px]">
+                                                                <div className="absolute inset-0 overflow-hidden">
+                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                    <img
+                                                                        src={youtubeThumbnailUrl}
+                                                                        alt="YouTube preview background"
+                                                                        className="h-full w-full object-cover opacity-50 blur-xs scale-105"
+                                                                    />
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/30" />
                                                                 </div>
-                                                            )}
-                                                        </div>
+
+                                                                <div className="relative z-10 flex max-w-md flex-col items-center">
+                                                                    <div className="relative aspect-video w-full max-w-[340px] overflow-hidden rounded-2xl border border-white/20 shadow-2xl">
+                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                        <img
+                                                                            src={youtubeThumbnailUrl}
+                                                                            alt="YouTube Video Preview"
+                                                                            className="h-full w-full object-cover"
+                                                                        />
+                                                                        <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                                                                            <span className="flex size-12 items-center justify-center rounded-full bg-[#ff0033] text-white shadow-lg">
+                                                                                <Youtube className="size-6 fill-current" />
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="absolute bottom-2 right-2 rounded-md bg-black/80 px-2 py-0.5 text-[10px] font-mono font-medium text-white">
+                                                                            HD 1080p
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="mt-4 flex items-center gap-2">
+                                                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ff0033] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+                                                                            <Youtube className="size-3 fill-current" /> YouTube Video
+                                                                        </span>
+                                                                        <span className="rounded-full border border-[#ecff49]/30 bg-[#ecff49]/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#ecff49]">
+                                                                            SupoClip Armed
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div className="mt-2 text-lg font-semibold text-white">
+                                                                        YouTube Video Staged
+                                                                    </div>
+                                                                    <div className="mt-1 line-clamp-1 max-w-sm font-mono text-xs text-white/70">
+                                                                        {sourceUrlValue}
+                                                                    </div>
+
+                                                                    <div className="mt-4 flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-9 rounded-full bg-[#ecff49] px-5 text-xs font-semibold text-black hover:bg-[#d8ea38] shadow-lg"
+                                                                            onClick={importSourceLink}
+                                                                        >
+                                                                            <Sparkles className="size-3.5 mr-1.5" />
+                                                                            Arm for Short-Form AI Clipping
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 py-12 text-center text-[#f5f2eb] sm:min-h-[430px]">
+                                                                <div className="rounded-full border border-white/14 bg-white/[0.06] p-4 shadow-[0_0_0_16px_rgba(236,255,73,0.08)]">
+                                                                    <LinkIcon className="h-8 w-8" />
+                                                                </div>
+                                                                <div className="mt-6 text-[28px] leading-tight">
+                                                                    Remote source will resolve into this central board
+                                                                </div>
+                                                                <div className="mt-3 max-w-md text-sm leading-6 text-white/62">
+                                                                    The lane stays device-like and cinematic while the link payload is staged.
+                                                                </div>
+                                                                {sourceUrlValue && (
+                                                                    <div className="mt-6 max-w-lg rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-xs text-white/74">
+                                                                        {sourceUrlValue}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </motion.article>
 

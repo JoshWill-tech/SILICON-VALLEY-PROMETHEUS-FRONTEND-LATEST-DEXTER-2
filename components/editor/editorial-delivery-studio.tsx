@@ -3,13 +3,16 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowDownToLine, Check, Columns2, Film, LoaderCircle, Plus, RefreshCw, Type, X } from 'lucide-react'
+import { ArrowDownToLine, Check, Columns2, Film, LoaderCircle, Plus, RefreshCw, Type, X, Sparkles, Wand2, SlidersHorizontal } from 'lucide-react'
 import type { ProjectExport } from '@/lib/types'
 import type { EditorialCue } from '@/lib/editor/editorial-timeline-state'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import { canSubmitSourceRender, isPlayableRender, projectRenderHistory, renderDownloadPath, renderPreviewPath, type SourceUploadStatus } from '@/lib/editor/render-delivery'
 import { downloadMedia } from '@/lib/editor/browser-download'
 import { VideoAnnotateButton, VideoReviewDownloadButton, VideoReviewProvider, VideoReviewToolbar } from '@/components/editor/video-review-annotations'
+import { registerVoiceCompanionBridge } from '@/lib/voice-companion/bridge'
+import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
+import { miniRun } from '@/lib/api/mini-run'
 import mobileWorkspaceStyles from '@/components/editor/mobile-editor-workspace.module.css'
 
 type TextTreatment = {
@@ -82,6 +85,30 @@ export function EditorialDeliveryStudio({
   const refreshSequenceRef = React.useRef(0)
   const comparisonSourceRef = React.useRef<HTMLVideoElement>(null)
   const comparisonRenderRef = React.useRef<HTMLVideoElement>(null)
+
+  const [creativeBias, setCreativeBias] = React.useState<'balanced' | 'broll' | 'vox' | 'kinetic' | 'custom'>('balanced')
+  const [customPrompt, setCustomPrompt] = React.useState('')
+  const [aiInstruction, setAiInstruction] = React.useState('')
+  const [isApplyingAi, setIsApplyingAi] = React.useState(false)
+  const [aiDiffSummary, setAiDiffSummary] = React.useState<{ summary: string; changes: any[]; modelUsed?: string } | null>(null)
+  const [aiError, setAiError] = React.useState<string | null>(null)
+  const draftState = useMiniRunDraftStore()
+
+  const effectivePrompt = React.useMemo(() => {
+    switch (creativeBias) {
+      case 'broll':
+        return 'Bias heavily towards cinematic B-roll cutaways, visual overlays, and context-relevant stock footage.'
+      case 'vox':
+        return 'Vox explainer animation style with elevated motion graphics density, visual charts, and kinetic text animations.'
+      case 'kinetic':
+        return 'Fast-paced kinetic typography with rapid jump zooms, punchy transitions, and dynamic sound effects.'
+      case 'custom':
+        return customPrompt.trim()
+      case 'balanced':
+      default:
+        return customPrompt.trim() ? customPrompt.trim() : undefined
+    }
+  }, [creativeBias, customPrompt])
 
   const cues = editorial.timeline?.cues ?? []
   const textCues = cues.filter((cue) => cue.type === 'text')
@@ -167,15 +194,60 @@ export function EditorialDeliveryStudio({
     })
   }
 
-  const startRender = async () => {
+  const handleApplyAiModification = React.useCallback(async (instructionToUse?: string) => {
+    const text = (instructionToUse ?? aiInstruction).trim()
+    if (!text || isApplyingAi) return { success: false, summary: 'No instruction provided.' }
+    setIsApplyingAi(true)
+    setAiError(null)
+    try {
+      const currentManifest = useMiniRunDraftStore.getState().getDraftManifest()
+      const res = await miniRun.editManifest({
+        manifest: currentManifest,
+        instruction: text,
+      })
+      if (!res.ok || !res.manifest) {
+        throw new Error(res.error || 'Failed to modify manifest with AI.')
+      }
+      useMiniRunDraftStore.getState().updateFullManifest(res.manifest)
+      setAiDiffSummary({
+        summary: res.diff?.summary || 'Modifications applied successfully.',
+        changes: res.diff?.changes || [],
+        modelUsed: res.modelUsed,
+      })
+      setAiInstruction('')
+      return {
+        success: true,
+        summary: res.diff?.summary || 'Manifest updated.',
+        diff: res.diff,
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'AI edit failed.'
+      setAiError(msg)
+      return { success: false, summary: msg }
+    } finally {
+      setIsApplyingAi(false)
+    }
+  }, [aiInstruction, isApplyingAi])
+
+  const startRender = async (promptOverride?: string) => {
     if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus) || isSubmitting || pendingRecord) return
     setIsSubmitting(true)
     setError(null)
     setExpanded(true)
     try {
+      const draftStore = useMiniRunDraftStore.getState()
+      const promptToDispatch = promptOverride ?? effectivePrompt
+      const draftManifest = draftStore.isDirty ? draftStore.getDraftManifest() : undefined
+
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({preset: 'mini-run-maul-portrait', sourceAssetId}),
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          preset: 'mini-run-maul-portrait',
+          sourceAssetId,
+          prompt: promptToDispatch,
+          draftManifest,
+        }),
         signal: AbortSignal.timeout(30_000),
       })
       const payload = await response.json() as {export?: ProjectExport; error?: string}
@@ -193,6 +265,46 @@ export function EditorialDeliveryStudio({
       setIsSubmitting(false)
     }
   }
+
+  React.useEffect(() => {
+    registerVoiceCompanionBridge({
+      projectId,
+      sourceAssetId,
+      onStartRender: async (mode: 'preview' | 'final', prompt?: string) => {
+        if (mode === 'preview') {
+          setComparisonOpen(true)
+          return { success: true, summary: 'Export review opened.' }
+        }
+        await startRender(prompt)
+        return { success: true, summary: 'Mini-Run render dispatched.', renderInitiated: true }
+      },
+      onModifyManifest: async (instruction: string) => {
+        return await handleApplyAiModification(instruction)
+      },
+    })
+  }, [projectId, sourceAssetId, handleApplyAiModification, effectivePrompt])
+
+  React.useEffect(() => {
+    if (!finishedRecord) return
+    const meta = finishedRecord.metadata as Record<string, unknown> | undefined
+    const miniRunJobId = typeof meta?.miniRunJobId === 'string' ? meta.miniRunJobId : null
+    if (!miniRunJobId) return
+
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await miniRun.getManifest(miniRunJobId)
+        if (!cancelled && res.ok && res.manifest) {
+          useMiniRunDraftStore.getState().setPlan(res.manifest, sourceUrl || undefined)
+        }
+      } catch {
+        // Silently skip if manifest endpoint is not available yet
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [finishedRecord?.id, sourceUrl])
 
   const download = async () => {
     if (!finishedRecord || isDownloading) return
@@ -336,6 +448,153 @@ export function EditorialDeliveryStudio({
           <p className="mt-1 text-[10px] text-white/40">{pendingProgress === null ? 'The renderer has not reported a percentage yet.' : `${pendingProgress}% complete`}</p>
         </div>}
       </div>}
+
+      {/* Creative Bias / Editorial Directives */}
+      <div className="border-b border-white/8 bg-white/[0.02] px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-4 text-[#b4fb60]" />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/80">Creative Editorial Bias</h3>
+          </div>
+          <span className="text-[11px] text-white/40">Biases autonomous editorial pacing and graphics</span>
+        </div>
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {[
+            { id: 'balanced', label: 'Balanced (Standard)' },
+            { id: 'broll', label: 'More B-Roll Cutaways' },
+            { id: 'vox', label: 'Vox & Motion Graphics' },
+            { id: 'kinetic', label: 'Fast & Kinetic Pacing' },
+            { id: 'custom', label: 'Custom Directive' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setCreativeBias(item.id as any)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                creativeBias === item.id
+                  ? 'border-[#9df65a]/60 bg-[#9df65a]/15 text-[#c9ff88] shadow-[0_0_12px_rgba(180,251,96,0.2)]'
+                  : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        {creativeBias === 'custom' && (
+          <div className="mt-2.5">
+            <input
+              type="text"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="e.g. Bias heavily towards high-tech neon aesthetics, bold sans typography, and upbeat electronic soundtrack..."
+              className="w-full rounded-lg border border-white/15 bg-[#151a17] px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-[#b4fb60]/60"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* AI Revision & Modular Tweak Studio */}
+      <div className="border-b border-white/8 bg-[radial-gradient(circle_at_0%_0%,rgba(180,251,96,0.06),transparent_40%)] px-4 py-3 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-[#b4fb60]" />
+            <h3 className="text-sm font-semibold text-white/90">AI Revision & Modular Tweak Studio</h3>
+            {draftState.isDirty && (
+              <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                Modified Manifest
+              </span>
+            )}
+          </div>
+          {draftState.isDirty && (
+            <button
+              type="button"
+              onClick={() => void startRender()}
+              disabled={isSubmitting || Boolean(pendingRecord)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#b4fb60]/50 bg-[#b4fb60]/20 px-3 py-1.5 text-xs font-semibold text-[#c9ff88] hover:bg-[#b4fb60]/30 transition disabled:opacity-50"
+            >
+              {isSubmitting ? <LoaderCircle className="size-3 animate-spin" /> : <Film className="size-3" />}
+              Re-render to AWS Lambda with Modifications
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-white/55">
+          Ask high-tier AI (Gemini 2.5 / 3.8) to modify edit components (change song, SFX, typography, animations, phrasing, or B-roll queries).
+        </p>
+
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            value={aiInstruction}
+            onChange={(e) => setAiInstruction(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleApplyAiModification()
+            }}
+            placeholder="e.g. 'Change background song to upbeat electronic', 'Make headline typography bold neon yellow', 'Add whoosh sound effect at 3s'..."
+            disabled={isApplyingAi}
+            className="flex-1 rounded-lg border border-white/15 bg-[#121614] px-3 py-2 text-xs text-white placeholder-white/35 outline-none focus:border-[#b4fb60]/60"
+          />
+          <button
+            type="button"
+            onClick={() => void handleApplyAiModification()}
+            disabled={isApplyingAi || !aiInstruction.trim()}
+            className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[#b4fb60] px-3.5 text-xs font-semibold text-black transition hover:bg-[#c9ff88] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {isApplyingAi ? <LoaderCircle className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
+            {isApplyingAi ? 'Modifying…' : 'Apply AI Edit'}
+          </button>
+        </div>
+
+        {/* Quick prompt suggestions */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-white/40">
+          <span>Quick tweaks:</span>
+          {[
+            'Change song to upbeat synthwave',
+            'Make text bold yellow 3D',
+            'Add whoosh SFX at 2s',
+            'Bias to Vox explainer animations',
+          ].map((promptText) => (
+            <button
+              key={promptText}
+              type="button"
+              onClick={() => void handleApplyAiModification(promptText)}
+              disabled={isApplyingAi}
+              className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-white/60 hover:border-white/20 hover:text-white transition"
+            >
+              {promptText}
+            </button>
+          ))}
+        </div>
+
+        {aiError && (
+          <p role="alert" className="mt-2 rounded-md border border-rose-400/20 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-200">
+            {aiError}
+          </p>
+        )}
+
+        {aiDiffSummary && (
+          <div className="mt-3 rounded-lg border border-[#b4fb60]/20 bg-[#b4fb60]/5 p-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-[#c9ff88]">{aiDiffSummary.summary}</span>
+              {aiDiffSummary.modelUsed && (
+                <span className="text-[10px] text-white/40">Model: {aiDiffSummary.modelUsed}</span>
+              )}
+            </div>
+            {aiDiffSummary.changes.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {aiDiffSummary.changes.map((c, i) => (
+                  <span
+                    key={i}
+                    className="rounded bg-black/40 px-2 py-0.5 text-[10px] text-white/70 border border-white/10"
+                  >
+                    {c.field || 'change'}: {String(c.after ?? c.instruction ?? 'updated')}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="border-b border-white/8 px-4 py-3 sm:px-5"><h3 className="text-sm font-medium text-white/90">Feedback & corrections</h3><p className="mt-1 text-xs leading-5 text-white/65">Pause either video, add a frame note, or draw a correction. Notes stay on this device; download your review to share them.</p></div>
       <VideoReviewToolbar />
       <div data-delivery-players data-render-ready={Boolean(finishedRecord)} className="grid gap-3 p-3 sm:p-4 lg:grid-cols-2">

@@ -48,11 +48,15 @@ declare global {
   }
 }
 
-const SEARCH_PROMPTS = [
-  'Ask Duk...',
-  'Ask Duk to remix this beat...',
-  'Ask Duk for liquid glass tips...',
-  'Ask Duk what’s new...',
+export const DEFAULT_BRAND_PROMPTS = [
+  '@yourbrand',
+  'https://yourbrand.com',
+  'youtube.com/@yourbrand',
+  '@nike',
+  'https://acme.co',
+  'instagram.com/@yourbrand',
+  '@studio.design',
+  'https://brandwebsite.com',
 ]
 
 export interface LiquidGlassSearchProps {
@@ -61,6 +65,7 @@ export interface LiquidGlassSearchProps {
   onSubmit?: (val: string) => void
   className?: string
   autoFocus?: boolean
+  prompts?: string[]
 }
 
 export function LiquidGlassSearch({
@@ -69,10 +74,15 @@ export function LiquidGlassSearch({
   onSubmit,
   className,
   autoFocus = false,
+  prompts,
 }: LiquidGlassSearchProps) {
+  const activePrompts = React.useMemo(
+    () => (prompts && prompts.length > 0 ? prompts : DEFAULT_BRAND_PROMPTS),
+    [prompts],
+  )
   const [internalValue, setInternalValue] = React.useState('')
   const [isFocused, setIsFocused] = React.useState(false)
-  const [placeholder, setPlaceholder] = React.useState(SEARCH_PROMPTS[0])
+  const [placeholder, setPlaceholder] = React.useState(activePrompts[0])
   const [isTypingAnimation, setIsTypingAnimation] = React.useState(true)
 
   const isControlled = value !== undefined
@@ -93,19 +103,19 @@ export function LiquidGlassSearch({
       return
     }
 
-    let promptIdx = 2 // Start with "Ask Duk for liquid glass tips..." or cycle through
+    let promptIdx = 0
     let charIdx = 0
     let deleting = false
     let timeoutId: NodeJS.Timeout
 
     const tick = () => {
-      const current = SEARCH_PROMPTS[promptIdx]
+      const current = activePrompts[promptIdx]
       if (deleting) {
         charIdx--
         setPlaceholder(current.slice(0, Math.max(0, charIdx)))
         if (charIdx <= 0) {
           deleting = false
-          promptIdx = (promptIdx + 1) % SEARCH_PROMPTS.length
+          promptIdx = (promptIdx + 1) % activePrompts.length
           timeoutId = setTimeout(tick, 400)
           return
         }
@@ -126,7 +136,7 @@ export function LiquidGlassSearch({
     timeoutId = setTimeout(tick, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [query, isFocused])
+  }, [query, isFocused, activePrompts])
 
   // Initialize liquidGL shader on target=".glass"
   React.useEffect(() => {
@@ -249,8 +259,8 @@ export function LiquidGlassSearch({
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={isFocused && !query ? 'Type...' : placeholder}
-              aria-label="Ask Duk for liquid glass tips"
+              placeholder={isFocused && !query ? 'Enter brand URL, @handle, or YouTube...' : placeholder}
+              aria-label="Enter brand URL, website URL, YouTube link, or Instagram handle"
               autoComplete="off"
               spellCheck="false"
               className={cn(

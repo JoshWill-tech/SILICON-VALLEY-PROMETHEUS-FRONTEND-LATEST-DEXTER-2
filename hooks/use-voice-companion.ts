@@ -27,6 +27,7 @@ import { ResponseRecovery, type ResponseStatus, type RetainedTranscript } from '
 import { useAutonomousStore } from '@/lib/autonomous-ui/autonomous-store'
 import { getMediaFailureMessage } from '@/lib/media/feedback'
 import { useMiniRunDraftStore } from '@/lib/editor/mini-run-draft-store'
+import { miniRun } from '@/lib/api/mini-run'
 import { useThemePreferenceStore } from '@/lib/theme/theme-store'
 import { sanitizeVoiceCompanionError } from '@/lib/voice-companion/error-sanitizer'
 
@@ -600,6 +601,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         case 'start_render':
         case 'export_video': {
           const mode = args.mode === 'preview' ? 'preview' : 'final'
+          const prompt = typeof args.prompt === 'string' && args.prompt.trim() ? args.prompt.trim() : undefined
           if (!handlersRef.current.hasVideo && !handlersRef.current.projectId) {
             return { success: false, error: 'There is no playable source video to render.' }
           }
@@ -613,7 +615,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           }
           const startRender = getCurrentHandlers().onStartRender
           if (!startRender) return { success: false, error: 'The editor is not linked, so I cannot start or confirm an export.' }
-          const result = await startRender(mode)
+          const result = await startRender(mode, prompt)
           if (!result.success) return { success: false, error: sanitizeVoiceCompanionError(result.summary), mode, renderInitiated: false }
           if (result.renderInitiated === true) {
             return {
@@ -628,6 +630,48 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             mode,
             renderInitiated: false,
             status: result.summary,
+          }
+        }
+
+        case 'modify_manifest': {
+          const instruction = typeof args.instruction === 'string' ? args.instruction.trim() : ''
+          if (!instruction) {
+            return { success: false, error: 'Please specify an edit instruction.' }
+          }
+          const onModify = getCurrentHandlers().onModifyManifest
+          if (onModify) {
+            const outcome = await onModify(instruction)
+            return {
+              success: outcome.success,
+              summary: outcome.summary,
+              diff: outcome.diff,
+            }
+          }
+          const draftStore = useMiniRunDraftStore.getState()
+          const currentManifest = draftStore.getDraftManifest()
+          try {
+            const outcome = await miniRun.editManifest({
+              manifest: currentManifest,
+              instruction,
+            })
+            if (outcome.ok && outcome.manifest) {
+              draftStore.updateFullManifest(outcome.manifest)
+              return {
+                success: true,
+                summary: outcome.diff?.summary || 'Edit modifications applied to manifest.',
+                changesCount: outcome.diff?.changes?.length || 0,
+                modelUsed: outcome.modelUsed,
+              }
+            }
+            return {
+              success: false,
+              error: outcome.error || 'Failed to modify manifest with AI.',
+            }
+          } catch (editErr) {
+            return {
+              success: false,
+              error: editErr instanceof Error ? editErr.message : 'Manifest edit failed.',
+            }
           }
         }
 
@@ -760,6 +804,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
       apply_editorial_plan: 'Applying caption plan', set_caption_style: 'Restyling captions',
       switch_workspace_tab: 'Opening workspace', review_export_readiness: 'Checking export readiness',
       start_render: args.mode === 'preview' ? 'Opening export review' : 'Starting MP4 export',
+      modify_manifest: 'Modifying edit components with AI',
       get_source_status: 'Checking saved video',
       get_export_status: 'Checking MP4 status',
     }

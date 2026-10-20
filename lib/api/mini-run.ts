@@ -18,6 +18,7 @@ export type MiniRunRenderSource =
 
 export type MiniRunRenderRequest = {
   source: MiniRunRenderSource
+  prompt?: string
   metadata?: {
     pipeline?: 'maul' | 'joseph'
     durationMs?: number
@@ -50,6 +51,8 @@ export type MiniRunRenderStatus = {
   outputPath?: string
   chunkCount?: number
   progressPercent?: number
+  manifest?: Record<string, unknown> | null
+  inputProps?: Record<string, unknown> | null
   error?: string
   failedReason?: string | null
 }
@@ -139,8 +142,10 @@ type MiniRunJobEnvelope = {
   outputPath?: string
   chunkCount?: number
   progressPercent?: number
-  returnvalue?: MiniRunRenderStatus | null
-  response?: MiniRunRenderStatus | null
+  manifest?: Record<string, unknown> | null
+  inputProps?: Record<string, unknown> | null
+  returnvalue?: (MiniRunRenderStatus & { manifest?: Record<string, unknown>; inputProps?: Record<string, unknown> }) | null
+  response?: (MiniRunRenderStatus & { manifest?: Record<string, unknown>; inputProps?: Record<string, unknown> }) | null
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -159,7 +164,8 @@ function identifier(value: string, label: string) {
 }
 
 function normalizeEnvelope(payload: MiniRunJobEnvelope): MiniRunRenderStatus {
-  const inner: Partial<MiniRunRenderStatus> = payload.returnvalue ?? payload.response ?? {}
+  const inner: Partial<MiniRunRenderStatus> & { manifest?: Record<string, unknown>; inputProps?: Record<string, unknown> } =
+    payload.returnvalue ?? payload.response ?? {}
   return {
     jobId: payload.jobId ?? '',
     state: payload.state ?? payload.status ?? inner.state ?? inner.status ?? 'unknown',
@@ -170,6 +176,8 @@ function normalizeEnvelope(payload: MiniRunJobEnvelope): MiniRunRenderStatus {
     outputPath: payload.outputPath ?? inner.outputPath,
     chunkCount: payload.chunkCount ?? inner.chunkCount,
     progressPercent: payload.progressPercent ?? inner.progressPercent,
+    manifest: payload.manifest ?? inner.manifest ?? payload.inputProps ?? inner.inputProps ?? null,
+    inputProps: payload.inputProps ?? inner.inputProps ?? payload.manifest ?? inner.manifest ?? null,
     failedReason: payload.failedReason ?? inner.failedReason ?? null,
     error: payload.failedReason ?? inner.error ?? (payload.ok === false ? 'Mini-Run job failed.' : undefined),
   }
@@ -320,6 +328,33 @@ export function createMiniRunClient(fetchImpl: FetchLike = fetch, options: MiniR
       }
     },
 
+    editManifest: async (params: {
+      manifest: Record<string, unknown>
+      instruction: string
+      model?: string
+      preserveAudioTiming?: boolean
+    }) => {
+      return jsonRequest<{
+        ok: boolean
+        manifest: Record<string, unknown>
+        diff: { changes: Array<Record<string, unknown>>; summary: string }
+        modelUsed?: string
+        error?: string
+      }>('/api/pipeline/manifest/edit', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      })
+    },
+
+    getManifest: async (jobId: string) => {
+      return jsonRequest<{
+        ok: boolean
+        jobId: string
+        manifest: Record<string, unknown>
+        inputProps?: Record<string, unknown>
+        error?: string
+      }>(`/api/pipeline/job/${identifier(jobId, 'job ID')}/manifest`)
+    },
   }
 }
 

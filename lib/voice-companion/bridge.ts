@@ -20,7 +20,9 @@ export interface VoiceCompanionBridgeHandlers {
   contextProvider?: () => ChatEditorContext | null
   onApplyActions?: (drafts: EditorActionDraft[]) => Promise<void> | void
   /** Opens export preflight or submits render; returns whether render was accepted or preflight opened. */
-  onStartRender?: (mode: 'preview' | 'final') => Promise<{ success: boolean; summary: string; renderInitiated?: boolean }>
+  onStartRender?: (mode: 'preview' | 'final', prompt?: string) => Promise<{ success: boolean; summary: string; renderInitiated?: boolean }>
+  /** Autonomous AI manifest modification */
+  onModifyManifest?: (instruction: string) => Promise<{ success: boolean; summary: string; diff?: unknown }>
   /** Opens the export preflight without submitting a job or changing the timeline. */
   onReviewExportReadiness?: () => Promise<{ success: boolean; summary: string }>
   /** Read current sync facts on demand, independently of the source render job. */

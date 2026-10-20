@@ -103,16 +103,18 @@ export const PROMETHEUS_TOOLS = [
               properties: {
                 kind: {
                   type: 'string',
-                  enum: ['seek', 'preview_control', 'soundtrack_control', 'select_soundtrack', 'request_transcription', 'set_fit_mode', 'switch_tab', 'open_thumbnail_studio', 'split_at_playhead', 'cut_silence', 'set_caption_style', 'propose'],
+                  enum: ['seek', 'preview_control', 'soundtrack_control', 'select_soundtrack', 'request_transcription', 'set_fit_mode', 'switch_tab', 'open_thumbnail_studio', 'split_at_playhead', 'cut_silence', 'set_caption_style', 'modify_manifest', 'start_render', 'propose'],
                   description:
-                    'seek → jump the playhead; preview_control → play/pause/mute/unmute; soundtrack_control → set_volume, set_ducking, or remove; select_soundtrack → search and save a matching catalog track; request_transcription → check credits and ask confirmation before starting timed transcription; set_fit_mode → fill|fit; switch_tab → Editor|Music|Motion; open_thumbnail_studio → open the thumbnail creator with the requested brief; split_at_playhead → split clip at timeSec; cut_silence → ripple-cut timed silent gaps when transcript evidence exists; set_caption_style → apply a supported caption style; propose → unsupported work or work requiring a later render/export.',
+                    'seek → jump the playhead; preview_control → play/pause/mute/unmute; soundtrack_control → set_volume, set_ducking, or remove; select_soundtrack → search and save a matching catalog track; request_transcription → check credits and ask confirmation before starting timed transcription; set_fit_mode → fill|fit; switch_tab → Editor|Music|Motion; open_thumbnail_studio → open the thumbnail creator with the requested brief; split_at_playhead → split clip at timeSec; cut_silence → ripple-cut timed silent gaps when transcript evidence exists; set_caption_style → apply a supported caption style; modify_manifest → apply AI modifications to song, typography, sound effects, animations, or phrasing; start_render → render to MP4; propose → unsupported work or work requiring a later render/export.',
                 },
                 timeSec: { type: 'number', description: 'For kind "seek" or "split_at_playhead": target time in seconds.' },
                 command: { type: 'string', enum: ['play', 'pause', 'mute', 'unmute'], description: 'For kind "preview_control".' },
                 volume: { type: 'number', description: 'For soundtrack_control set_volume: level from 0 to 100 percent.' },
                 query: { type: 'string', description: 'For kind "select_soundtrack": mood or soundtrack search terms.' },
                 enabled: { type: 'boolean', description: 'For soundtrack_control set_ducking: whether music lowers under dialogue.' },
-                mode: { type: 'string', enum: ['fill', 'fit'], description: 'For kind "set_fit_mode".' },
+                mode: { type: 'string', enum: ['fill', 'fit', 'preview', 'final'], description: 'For kind "set_fit_mode" (fill|fit) or "start_render" (preview|final).' },
+                instruction: { type: 'string', description: 'For kind "modify_manifest": natural language edit instruction (e.g. "change song to upbeat synthwave", "make typography bold yellow 3D", "add whoosh sfx at 2s", "bias to Vox explainer animations").' },
+                prompt: { type: 'string', description: 'For kind "start_render": creative bias or styling directive for autonomous render.' },
                 tab: { type: 'string', enum: ['Editor', 'Music', 'Motion'], description: 'For kind "switch_tab".' },
                 creativeDirection: { type: 'string', description: 'For kind "open_thumbnail_studio": the user’s thumbnail brief, up to 500 characters.' },
                 headline: { type: 'string', description: 'For kind "open_thumbnail_studio": preserve the exact headline only when the user specified one.' },

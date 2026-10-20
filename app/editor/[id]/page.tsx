@@ -98,6 +98,12 @@ import { findTranscriptSilenceCuts, optimizeSilenceCutsForTargetDuration } from 
 import { buildEditorialReadiness, type EditorialReadiness } from '@/lib/editor/editorial-readiness'
 import { buildEditorialCleanupRun, isAutonomousEditRequest, type EditorialCleanupRun } from '@/lib/editor/editorial-run'
 import { clearPendingEditorNavigation, getRememberedEditorReturnPath } from '@/lib/editor-navigation'
+import { SupoClipMatrixView } from '@/components/clipping/supoclip-matrix-view'
+import {
+  generateSupoClipVariants,
+  extractYouTubeVideoId,
+  type WallClip,
+} from '@/lib/media/youtube-clip-service'
 import { downloadMedia } from '@/lib/editor/browser-download'
 import { useFrameTargeting } from '@/hooks/use-frame-targeting'
 import { parseFrameReference } from '@/lib/editorial-frame/parse-frame-reference'
@@ -8928,6 +8934,75 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     }
   }, [previewCurrentTimeSec, transportDurationSec, activeWorkspaceTab, fitMode, isPreviewMuted, project, job])
 
+  // SupoClip URL Clipping Chamber states
+  const [isUrlClippingActive, setIsUrlClippingActive] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    const searchParamsClipping = new URLSearchParams(window.location.search).get('clipping') === 'true'
+    const pendingSession =
+      window.sessionStorage.getItem(`prometheus.url-clipping.${projectId}`) ||
+      window.sessionStorage.getItem('prometheus.url-clipping.pending')
+    return searchParamsClipping || Boolean(pendingSession)
+  })
+
+  const [urlClippingState, setUrlClippingState] = React.useState<{
+    sourceUrl?: string | null
+    youtubeVideoId?: string | null
+    thumbnailUrl?: string | null
+  }>(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const stored =
+        window.sessionStorage.getItem(`prometheus.url-clipping.${projectId}`) ||
+        window.sessionStorage.getItem('prometheus.url-clipping.pending')
+      if (stored) return JSON.parse(stored)
+    } catch {
+      // ignore
+    }
+    return {}
+  })
+
+  const [activeSupoClipId, setActiveSupoClipId] = React.useState<string | null>(null)
+
+  // Sync state if project has URL clipping state
+  React.useEffect(() => {
+    if (project?.editorState?.isUrlClipping) {
+      setIsUrlClippingActive(true)
+      setUrlClippingState((prev) => ({
+        sourceUrl: project.editorState.sourceUrl ?? prev.sourceUrl,
+        youtubeVideoId: project.editorState.youtubeVideoId ?? prev.youtubeVideoId,
+        thumbnailUrl: project.thumbnailUrl ?? prev.thumbnailUrl,
+      }))
+    }
+  }, [project])
+
+  const resolvedClippingVideoId =
+    urlClippingState.youtubeVideoId ||
+    (urlClippingState.sourceUrl ? extractYouTubeVideoId(urlClippingState.sourceUrl) : null) ||
+    (project?.editorState?.sourceUrl ? extractYouTubeVideoId(project.editorState.sourceUrl) : null) ||
+    'dQw4w9WgXcQ'
+
+  const supoClipList = React.useMemo<WallClip[]>(() => {
+    return generateSupoClipVariants(
+      resolvedClippingVideoId,
+      project?.title || 'YouTube Source',
+      transportDurationSec || 320
+    )
+  }, [resolvedClippingVideoId, project?.title, transportDurationSec])
+
+  const handleSelectSupoClip = React.useCallback(
+    (clip: WallClip) => {
+      setActiveSupoClipId(clip.id)
+      const parts = clip.start_time.split(':').map(Number)
+      const seekSec = (parts[0] || 0) * 60 + (parts[1] || 0)
+      if (Number.isFinite(seekSec)) {
+        handlePreviewSeekSeconds(seekSec)
+      }
+      setFitMode('fill')
+      setPreviewFramePreset('9:16')
+    },
+    [handlePreviewSeekSeconds, setFitMode, setPreviewFramePreset]
+  )
+
   const captureChatFrameThumbs = React.useCallback(() => {
     const video = previewVideoRef.current
     if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
@@ -9921,77 +9996,107 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
                 {activeWorkspaceTab === 'Editor' && (
                   <>
-                    <div className="flex min-h-0 w-full justify-center">
-                    <PreviewCanvas
-                      projectId={projectId}
-                      project={project}
-                      job={job}
-                      activeWorkspaceTab={activeWorkspaceTab}
-                      hasSourceAsset={hasSourceAsset}
-                      hasPreviewMedia={hasPreviewMedia}
-                      clipModeActive={clipModeActive}
-                      sourceAssetLabel={sourceAssetLabel}
-                      previewOverlayPlan={previewOverlayPlan}
-                      previewCurrentTimeSec={previewCurrentTimeSec}
-                      transportCurrentTime={transportCurrentTime}
-                      transportTime={transportTime}
-                      showViralClipSplitPreview={showViralClipSplitPreview}
-                      viralClipSplitAnimationKey={viralClipSplitAnimationKey}
-                      previewUrl={previewUrl}
-                      previewKind={previewKind}
-                      previewPlaying={previewPlaying}
-                      shouldUseLegacySessionPreviewSurface={shouldUseLegacySessionPreviewSurface}
-                      previewFrameTransformStyle={previewFrameTransformStyle}
-                      fitMode={fitMode}
-                      currentSplitPreviewAssets={currentSplitPreviewAssets}
-                      isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered}
-                      isPreviewMuted={isPreviewMuted}
-                      isPreviewMediaReady={isPreviewMediaReady}
-                      isSourceStageActivelyLoading={isSourceStageActivelyLoading}
-                      isPreviewBriefGenerating={isPreviewBriefGenerating}
-                      showPreviewFeedback={showPreviewFeedback}
-                      showInlinePreviewStatus={showInlinePreviewStatus}
-                      sourceStageError={sourceStageError}
-                      inlinePreviewStatusLabel={inlinePreviewStatusLabel}
-                      isInlinePreviewStatusExpanded={isInlinePreviewStatusExpanded}
-                      isInlineSourceDragOver={isInlineSourceDragOver}
-                      visiblePreviewAspectRatio={visiblePreviewAspectRatio}
-                      previewFrameWidth={previewFrameWidth}
-                      sourceFileInputRef={sourceFileInputRef}
-                      previewVideoRef={previewVideoRef}
-                      onInlineSourceFileInputChange={handleInlineSourceFileInputChange}
-                      onRestoreLandscape={handleRestoreLandscapePreview}
-                      onPreviewImageLoaded={handlePreviewImageLoaded}
-                      onPreviewMetadataLoaded={handlePreviewMetadataLoaded}
-                      onPreviewVideoReady={handlePreviewVideoReady}
-                      onPreviewTimeUpdate={handlePreviewTimeUpdate}
-                      onPreviewEnded={handlePreviewEnded}
-                      onPreviewVideoPlay={handlePreviewVideoPlay}
-                      onPreviewVideoPause={handlePreviewVideoPause}
-                      onPreviewVideoError={handlePreviewVideoError}
-                      onTogglePreviewPlayback={togglePreviewPlayback}
-                      onSeekPreview={handlePreviewSeekSeconds}
-                      onSetIsPreviewBriefGenerating={setIsPreviewBriefGenerating}
-                      onSetShowPreviewFeedback={setShowPreviewFeedback}
-                      onSetInlinePreviewStatusHovered={setInlinePreviewStatusHovered}
-                      onPickSource={openInlineSourcePicker}
-                      onInlineSourceDragOver={handleInlineSourceDragOver}
-                      onInlineSourceDragLeave={handleInlineSourceDragLeave}
-                      onInlineSourceDrop={handleInlineSourceDrop}
-                      comparisonControl={(
-                        <EditorialDeliveryStudio
+                    <div className={cn(
+                      'flex min-h-0 w-full justify-center transition-all duration-300',
+                      isUrlClippingActive && 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_480px] gap-4 px-2'
+                    )}>
+                      <div className="flex min-h-0 w-full justify-center items-center">
+                        <PreviewCanvas
                           projectId={projectId}
-                          sourceAssetId={project?.sourceAssetId ?? null}
-                          sourceUrl={previewKind === 'video' ? previewUrl : null}
-                          projectTitle={project?.title ?? 'Untitled Project'}
-                          currentTimeSec={previewCurrentTimeSec}
-                          durationSec={transportDurationSec}
-                          presentation="preview"
-                          sourceUploadStatus={sourceUploadStatus}
+                          project={project}
+                          job={job}
+                          activeWorkspaceTab={activeWorkspaceTab}
+                          hasSourceAsset={hasSourceAsset}
+                          hasPreviewMedia={hasPreviewMedia}
+                          clipModeActive={clipModeActive}
+                          sourceAssetLabel={sourceAssetLabel}
+                          previewOverlayPlan={previewOverlayPlan}
+                          previewCurrentTimeSec={previewCurrentTimeSec}
+                          transportCurrentTime={transportCurrentTime}
+                          transportTime={transportTime}
+                          showViralClipSplitPreview={showViralClipSplitPreview}
+                          viralClipSplitAnimationKey={viralClipSplitAnimationKey}
+                          previewUrl={previewUrl}
+                          previewKind={previewKind}
+                          previewPlaying={previewPlaying}
+                          shouldUseLegacySessionPreviewSurface={shouldUseLegacySessionPreviewSurface}
+                          previewFrameTransformStyle={previewFrameTransformStyle}
+                          fitMode={fitMode}
+                          currentSplitPreviewAssets={currentSplitPreviewAssets}
+                          isLockedViralClipTriggerHovered={isLockedViralClipTriggerHovered}
+                          isPreviewMuted={isPreviewMuted}
+                          isPreviewMediaReady={isPreviewMediaReady}
+                          isSourceStageActivelyLoading={isSourceStageActivelyLoading}
+                          isPreviewBriefGenerating={isPreviewBriefGenerating}
+                          showPreviewFeedback={showPreviewFeedback}
+                          showInlinePreviewStatus={showInlinePreviewStatus}
+                          sourceStageError={sourceStageError}
+                          inlinePreviewStatusLabel={inlinePreviewStatusLabel}
+                          isInlinePreviewStatusExpanded={isInlinePreviewStatusExpanded}
+                          isInlineSourceDragOver={isInlineSourceDragOver}
+                          visiblePreviewAspectRatio={visiblePreviewAspectRatio}
+                          previewFrameWidth={previewFrameWidth}
+                          sourceFileInputRef={sourceFileInputRef}
+                          previewVideoRef={previewVideoRef}
+                          onInlineSourceFileInputChange={handleInlineSourceFileInputChange}
+                          onRestoreLandscape={handleRestoreLandscapePreview}
+                          onPreviewImageLoaded={handlePreviewImageLoaded}
+                          onPreviewMetadataLoaded={handlePreviewMetadataLoaded}
+                          onPreviewVideoReady={handlePreviewVideoReady}
+                          onPreviewTimeUpdate={handlePreviewTimeUpdate}
+                          onPreviewEnded={handlePreviewEnded}
+                          onPreviewVideoPlay={handlePreviewVideoPlay}
+                          onPreviewVideoPause={handlePreviewVideoPause}
+                          onPreviewVideoError={handlePreviewVideoError}
+                          onTogglePreviewPlayback={togglePreviewPlayback}
+                          onSeekPreview={handlePreviewSeekSeconds}
+                          onSetIsPreviewBriefGenerating={setIsPreviewBriefGenerating}
+                          onSetShowPreviewFeedback={setShowPreviewFeedback}
+                          onSetInlinePreviewStatusHovered={setInlinePreviewStatusHovered}
+                          onPickSource={openInlineSourcePicker}
+                          onInlineSourceDragOver={handleInlineSourceDragOver}
+                          onInlineSourceDragLeave={handleInlineSourceDragLeave}
+                          onInlineSourceDrop={handleInlineSourceDrop}
+                          comparisonControl={(
+                            <EditorialDeliveryStudio
+                              projectId={projectId}
+                              sourceAssetId={project?.sourceAssetId ?? null}
+                              sourceUrl={previewKind === 'video' ? previewUrl : null}
+                              projectTitle={project?.title ?? 'Untitled Project'}
+                              currentTimeSec={previewCurrentTimeSec}
+                              durationSec={transportDurationSec}
+                              presentation="preview"
+                              sourceUploadStatus={sourceUploadStatus}
+                            />
+                          )}
                         />
+                      </div>
+
+                      {isUrlClippingActive && (
+                        <div className="min-h-0 h-full max-h-[calc(100vh-280px)]">
+                          <SupoClipMatrixView
+                            videoId={resolvedClippingVideoId}
+                            sourceUrl={urlClippingState.sourceUrl}
+                            clips={supoClipList}
+                            activeClipId={activeSupoClipId}
+                            isProcessing={false}
+                            onSelectClip={handleSelectSupoClip}
+                            onClose={() => setIsUrlClippingActive(false)}
+                          />
+                        </div>
                       )}
-                    />
                     </div>
+
+                    {!isUrlClippingActive && (urlClippingState.youtubeVideoId || project?.editorState?.isUrlClipping) && (
+                      <button
+                        type="button"
+                        onClick={() => setIsUrlClippingActive(true)}
+                        className="fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full border border-[#ecff49]/30 bg-black/85 px-4 py-2 text-xs font-semibold text-[#ecff49] shadow-2xl backdrop-blur-md transition-all hover:scale-105 hover:bg-black"
+                      >
+                        <Sparkles className="size-3.5" />
+                        SupoClip Matrix
+                      </button>
+                    )}
 
                     <TimelinePanel
                       activeWorkspaceTab={activeWorkspaceTab}

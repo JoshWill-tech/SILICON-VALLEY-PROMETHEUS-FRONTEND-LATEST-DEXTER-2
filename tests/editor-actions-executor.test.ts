@@ -136,6 +136,41 @@ function run() {
   assert.equal(studioDrafts[1].applied, true)
   assert.equal(openedThumbnailBrief, 'cinematic reveal')
   assert.equal(masterReviewOpened, true)
+
+  // --- Executor: modify_manifest and start_render with prompt
+  let manifestInstruction = ''
+  let renderMode = ''
+  let renderPrompt = ''
+  const mutateCtx: EditorActionContext = {
+    allowMutations: true,
+    modifyManifest: (instruction) => { manifestInstruction = instruction },
+    startRender: (mode, prompt) => {
+      renderMode = mode
+      renderPrompt = prompt ?? ''
+    },
+  }
+  const manifestDraft = parseEditorActionDraft({
+    kind: 'modify_manifest',
+    instruction: 'Change background song to upbeat synthwave',
+  })
+  assert.ok(manifestDraft && manifestDraft.kind === 'modify_manifest')
+  assert.equal(manifestDraft.instruction, 'Change background song to upbeat synthwave')
+
+  const renderDraft = parseEditorActionDraft({
+    kind: 'start_render',
+    mode: 'final',
+    prompt: 'Bias towards Vox animations and high motion graphics',
+  })
+  assert.ok(renderDraft && renderDraft.kind === 'start_render')
+  assert.equal(renderDraft.prompt, 'Bias towards Vox animations and high motion graphics')
+
+  const mutateDrafts = applyEditorActionDrafts([manifestDraft, renderDraft], mutateCtx)
+  assert.equal(mutateDrafts.length, 2)
+  assert.equal(mutateDrafts[0].applied, true)
+  assert.equal(mutateDrafts[1].applied, true)
+  assert.equal(manifestInstruction, 'Change background song to upbeat synthwave')
+  assert.equal(renderMode, 'final')
+  assert.equal(renderPrompt, 'Bias towards Vox animations and high motion graphics')
 }
 
 run()

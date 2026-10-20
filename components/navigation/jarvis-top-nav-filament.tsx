@@ -196,13 +196,13 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
           className={cn(
             'pointer-events-none absolute -top-8 h-16 w-64 rounded-full blur-2xl transition-all duration-700',
             isSpeaking
-              ? 'bg-cyan-400/35 scale-125'
+              ? 'bg-sky-400/30 scale-125'
               : isListening
               ? 'bg-blue-500/25 scale-110'
               : isInterrupted
               ? 'bg-amber-400/30'
               : isHovered
-              ? 'bg-cyan-500/20 scale-105'
+              ? 'bg-sky-500/20 scale-105'
               : 'bg-blue-600/10'
           )}
         />
@@ -212,17 +212,17 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
           <svg
             ref={svgRef}
             viewBox="0 0 200 32"
-            className="h-full w-full overflow-visible drop-shadow-[0_1px_6px_rgba(0,240,255,0.45)]"
+            className="h-full w-full overflow-visible drop-shadow-[0_1px_6px_rgba(56,189,248,0.45)]"
           >
             <defs>
               {/* A flat path has a zero-height bounding box. Explicit SVG units
                   keep its gradient and glow visible when idle or motion is reduced. */}
               <linearGradient id="jarvisLineGrad" gradientUnits="userSpaceOnUse" x1="0" y1="16" x2="200" y2="16">
-                <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.2" />
-                <stop offset="25%" stopColor="#00f0ff" stopOpacity="0.9" />
-                <stop offset="50%" stopColor="#38bdf8" stopOpacity="1" />
-                <stop offset="75%" stopColor="#60a5fa" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#818cf8" stopOpacity="0.2" />
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
+                <stop offset="25%" stopColor="#38bdf8" stopOpacity="0.95" />
+                <stop offset="50%" stopColor="#60a5fa" stopOpacity="1" />
+                <stop offset="75%" stopColor="#818cf8" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#818cf8" stopOpacity="0.25" />
               </linearGradient>
               <filter id="jarvisNeonGlow" filterUnits="userSpaceOnUse" x="-12" y="-16" width="224" height="64">
                 <feGaussianBlur stdDeviation="1.8" result="coloredBlur" />

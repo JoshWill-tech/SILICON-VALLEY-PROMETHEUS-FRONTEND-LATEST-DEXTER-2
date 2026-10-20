@@ -10,7 +10,7 @@ export default function HeroPage() {
   return (
     <MobileNavDrawer>
       {({ hamburger }) => (
-        <PrometheusShell header={<LandingHeader mobileNavControl={hamburger} />}>
+        <PrometheusShell header={<LandingHeader mobileNavControl={hamburger} studioSurface />}>
           <UploadErrorBoundary>
             <div>
               <VideoUploadInterface />

@@ -2,37 +2,208 @@
 
 import * as React from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowUpRight, LibraryBig } from 'lucide-react'
+import { ArrowUpRight, Check, LibraryBig, Sparkles, X } from 'lucide-react'
 import Image from 'next/image'
+import { toast } from 'sonner'
 
 import { LIBRARY_CREATOR_CARDS } from '@/components/assets/cinematic-library'
 import { LiquidGlassSearch } from '@/components/assets/liquid-glass-search'
+import { BRAND_DNA_STORAGE_KEY } from '@/components/assets/brand-dna-studio'
+import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
+import { saveJarvisMemory } from '@/lib/voice-companion/memory'
+
+export const ACTIVE_BRAND_STORAGE_KEY = 'prometheus.active-brand.v1'
+
+export type ActiveBrandRecord = {
+  brandName: string
+  rawInput: string
+  type: string
+  url: string
+  appliedAt: string
+}
+
+function parseBrandInput(raw: string): ActiveBrandRecord | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  // Starts with @ (Instagram or YouTube handle)
+  if (trimmed.startsWith('@')) {
+    const cleanHandle = trimmed.slice(1).trim()
+    const brandName = cleanHandle.charAt(0).toUpperCase() + cleanHandle.slice(1)
+    return {
+      brandName,
+      rawInput: trimmed,
+      type: 'Instagram / Social Handle',
+      url: `https://instagram.com/${cleanHandle}`,
+      appliedAt: new Date().toISOString(),
+    }
+  }
+
+  // YouTube URL or channel
+  if (/youtube\.com|youtu\.be/i.test(trimmed)) {
+    const handleMatch = trimmed.match(/@([a-zA-Z0-9_.-]+)/)
+    const channelName = handleMatch
+      ? handleMatch[1]
+      : trimmed.replace(/^(https?:\/\/)?(www\.)?youtube\.com\/(c\/|channel\/|user\/)?/i, '')
+    const brandName = (channelName.startsWith('@') ? channelName.slice(1) : channelName) || 'YouTube Brand'
+    return {
+      brandName: brandName.charAt(0).toUpperCase() + brandName.slice(1),
+      rawInput: trimmed,
+      type: 'YouTube Channel',
+      url: trimmed.startsWith('http') ? trimmed : `https://${trimmed}`,
+      appliedAt: new Date().toISOString(),
+    }
+  }
+
+  // Instagram URL
+  if (/instagram\.com/i.test(trimmed)) {
+    const handleMatch = trimmed.match(/instagram\.com\/([a-zA-Z0-9_.-]+)/i)
+    const handle = handleMatch ? handleMatch[1] : trimmed
+    return {
+      brandName: handle.charAt(0).toUpperCase() + handle.slice(1),
+      rawInput: trimmed,
+      type: 'Instagram Brand',
+      url: trimmed.startsWith('http') ? trimmed : `https://${trimmed}`,
+      appliedAt: new Date().toISOString(),
+    }
+  }
+
+  // Web URL or domain name (e.g. yourbrand.com, acme.co)
+  if (/^(https?:\/\/|[a-zA-Z0-9-]+\.[a-zA-Z]{2,})/i.test(trimmed)) {
+    const url = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, '')
+      const name = hostname.split('.')[0] || hostname
+      return {
+        brandName: name.charAt(0).toUpperCase() + name.slice(1),
+        rawInput: trimmed,
+        type: 'Brand Website URL',
+        url,
+        appliedAt: new Date().toISOString(),
+      }
+    } catch {
+      return {
+        brandName: trimmed.replace(/^(https?:\/\/)?(www\.)?/, '').split('.')[0] || trimmed,
+        rawInput: trimmed,
+        type: 'Brand URL',
+        url,
+        appliedAt: new Date().toISOString(),
+      }
+    }
+  }
+
+  // Fallback brand specification
+  return {
+    brandName: trimmed.charAt(0).toUpperCase() + trimmed.slice(1),
+    rawInput: trimmed,
+    type: 'Brand Specification',
+    url: '',
+    appliedAt: new Date().toISOString(),
+  }
+}
 
 const CREATOR_IMAGE_POSITIONS = ['62% 24%', '50% 16%', '50% 18%', '50% 18%', '50% 18%', '50% 18%', '50% 16%']
 
 export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string) => void }) {
   const reduceMotion = useReducedMotion() ?? false
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [activeBrand, setActiveBrand] = React.useState<ActiveBrandRecord | null>(null)
+
+  React.useEffect(() => {
+    const saved = readLocalStorageJSON<ActiveBrandRecord>(ACTIVE_BRAND_STORAGE_KEY)
+    if (saved) setActiveBrand(saved)
+  }, [])
+
+  const applyBrandSpecification = React.useCallback((spec: ActiveBrandRecord) => {
+    // 1. Sync to Jarvis Persistent Memory for video output styling
+    try {
+      saveJarvisMemory(
+        {
+          brandProfile: {
+            brandName: spec.brandName,
+            tone: `Aligned with ${spec.type}: ${spec.rawInput}`,
+            preferredCaptionStyle: 'clean_bold',
+            pacing: 'cinematic_deliberate',
+            visualGuidelines: `Brand Identity: ${spec.rawInput} (${spec.type}). Apply brand typography, pacing, color accents, and aesthetic spirit across all generated video outputs and AI edits.`,
+          },
+        },
+        'global_creator',
+      )
+    } catch {
+      // safe fallback
+    }
+
+    // 2. Persist to active brand state and Brand DNA storage
+    writeLocalStorageJSON(ACTIVE_BRAND_STORAGE_KEY, spec)
+    try {
+      const existingDna = readLocalStorageJSON<Record<string, unknown>>(BRAND_DNA_STORAGE_KEY)
+      writeLocalStorageJSON(BRAND_DNA_STORAGE_KEY, {
+        ...(existingDna ?? {}),
+        id: `brand-${spec.brandName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        brandName: spec.brandName,
+        url: spec.url || `https://${spec.rawInput.replace(/^@/, '')}`,
+        tagline: `Brand spirit from ${spec.rawInput}`,
+        valueProposition: `Custom brand identity reflecting ${spec.rawInput} in video outputs.`,
+      })
+    } catch {
+      // safe fallback
+    }
+
+    setActiveBrand(spec)
+
+    toast.success(`Brand identity applied: "${spec.brandName}"`, {
+      description: `Video outputs will reflect the spirit and specifications of ${spec.rawInput}.`,
+    })
+  }, [])
 
   const visibleCreators = React.useMemo(() => {
     if (!searchQuery.trim()) {
       return LIBRARY_CREATOR_CARDS.map((creator, index) => ({ creator, index }))
     }
     const q = searchQuery.toLowerCase().trim()
+    const cleanQ = q.replace(/^@/, '').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\.[a-z]{2,}(\/.*)?$/, '').replace(/[-_.]/g, ' ')
     return LIBRARY_CREATOR_CARDS.map((creator, index) => ({ creator, index })).filter(
-      ({ creator }) =>
-        creator.name.toLowerCase().includes(q) || creator.designation.toLowerCase().includes(q),
+      ({ creator }) => {
+        const creatorName = creator.name.toLowerCase()
+        const creatorDesig = creator.designation.toLowerCase()
+        const collapsedName = creatorName.replace(/\s+/g, '')
+        const collapsedQ = cleanQ.replace(/\s+/g, '')
+        return (
+          creatorName.includes(q) ||
+          creatorDesig.includes(q) ||
+          (collapsedQ.length >= 3 && collapsedName.includes(collapsedQ))
+        )
+      },
     )
   }, [searchQuery])
 
   const handleSearchSubmit = (submittedQuery?: string) => {
-    const q = (submittedQuery ?? searchQuery).toLowerCase().trim()
+    const q = (submittedQuery ?? searchQuery).trim()
     if (!q) return
-    const match = LIBRARY_CREATOR_CARDS.findIndex(
-      (c) => c.name.toLowerCase().includes(q) || c.designation.toLowerCase().includes(q),
-    )
+
+    const lower = q.toLowerCase()
+    const cleanLower = lower.replace(/^@/, '').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\.[a-z]{2,}(\/.*)?$/, '').replace(/[-_.]/g, ' ')
+    const match = LIBRARY_CREATOR_CARDS.findIndex((c) => {
+      const name = c.name.toLowerCase()
+      const desig = c.designation.toLowerCase()
+      const collapsed = name.replace(/\s+/g, '')
+      const collapsedQ = cleanLower.replace(/\s+/g, '')
+      return (
+        name.includes(lower) ||
+        desig.includes(lower) ||
+        (collapsedQ.length >= 3 && collapsed.includes(collapsedQ))
+      )
+    })
+
     if (match !== -1) {
       onSelect(`uploads_${match}`)
+      return
+    }
+
+    // Custom brand URL, Instagram handle, or YouTube channel
+    const spec = parseBrandInput(q)
+    if (spec) {
+      applyBrandSpecification(spec)
     }
   }
 
@@ -77,16 +248,67 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
           />
         </div>
 
+        {/* Active Brand Indicator */}
+        {activeBrand ? (
+          <div className="mx-auto -mt-3 mb-6 flex flex-wrap items-center justify-center gap-2">
+            <div className="flex items-center gap-2 rounded-full border border-[#55ff9b]/25 bg-[#55ff9b]/[0.07] px-3.5 py-1 text-xs text-[#63ffa4] shadow-[0_4px_16px_rgba(85,255,155,0.08)] backdrop-blur-md">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#55ff9b] opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-[#55ff9b]" />
+              </span>
+              <span className="text-white/50">Active Brand Spirit:</span>
+              <span className="font-semibold text-white">{activeBrand.brandName}</span>
+              <span className="font-mono text-[11px] text-[#63ffa4]/80">({activeBrand.rawInput})</span>
+              <span className="text-[10px] uppercase tracking-wider text-white/40">• In video outputs</span>
+              <button
+                type="button"
+                onClick={() => {
+                  writeLocalStorageJSON(ACTIVE_BRAND_STORAGE_KEY, null)
+                  setActiveBrand(null)
+                  toast.info('Active brand reset to default')
+                }}
+                className="ml-1 inline-flex size-4 items-center justify-center rounded-full text-white/40 hover:bg-white/10 hover:text-white"
+                aria-label="Clear active brand"
+                title="Clear active brand"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {visibleCreators.length === 0 ? (
-          <div className="my-12 flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center backdrop-blur-md">
-            <p className="text-sm text-white/60">No creators found matching &ldquo;{searchQuery}&rdquo;</p>
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="mt-3 rounded-full border border-[#55ff9b]/30 bg-[#55ff9b]/10 px-4 py-1.5 text-xs font-medium text-[#63ffa4] transition hover:bg-[#55ff9b]/20"
-            >
-              Clear search
-            </button>
+          <div className="my-10 flex flex-col items-center justify-center rounded-xl border border-[#55ff9b]/25 bg-[#030503]/80 p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+            <div className="grid size-12 place-items-center rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 text-[#63ffa4]">
+              <Sparkles className="size-6" aria-hidden="true" />
+            </div>
+            <h3 className="mt-4 text-base font-semibold text-white sm:text-lg">
+              Set Brand Spirit for Video Outputs
+            </h3>
+            <p className="mt-2 max-w-md text-xs leading-relaxed text-white/60 sm:text-sm">
+              Reflect <span className="font-mono text-[#63ffa4]">{searchQuery}</span> across your video outputs.
+              Prometheus will calibrate video pacing, typography, color accents, and AI generation to match this brand identity.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const spec = parseBrandInput(searchQuery)
+                  if (spec) applyBrandSpecification(spec)
+                }}
+                className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02]"
+              >
+                <Check className="size-3.5" />
+                Apply &ldquo;{searchQuery}&rdquo; to Video Suite
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+              >
+                Clear search
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">

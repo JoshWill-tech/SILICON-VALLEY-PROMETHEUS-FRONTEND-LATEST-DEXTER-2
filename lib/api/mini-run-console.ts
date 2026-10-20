@@ -34,6 +34,7 @@ export type MiniRunDispatchFromProjectInput = {
   sourceAssetId: string
   shot?: Partial<MiniRunShotSpec>
   draftManifest?: Record<string, unknown>
+  prompt?: string
 }
 
 export type MiniRunPlanFromProjectResult = {

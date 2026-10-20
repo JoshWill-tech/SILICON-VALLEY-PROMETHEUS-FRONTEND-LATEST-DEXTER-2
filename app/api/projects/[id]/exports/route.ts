@@ -125,6 +125,7 @@ export async function POST(request: Request, {params}: RouteContext) {
   const body = await request.json().catch(() => ({})) as Record<string, unknown>
   const sourceAssetId = typeof body.sourceAssetId === 'string' ? body.sourceAssetId : ''
   const draftManifest = (body.draftManifest && typeof body.draftManifest === 'object' ? body.draftManifest : undefined) as Record<string, unknown> | undefined
+  const prompt = typeof body.prompt === 'string' && body.prompt.trim() ? body.prompt.trim() : undefined
   const editorialRevision = body.editorialRevision
   if (!sourceAssetId || (editorialRevision !== undefined && (!Number.isSafeInteger(editorialRevision) || (editorialRevision as number) < 0))) {
     return NextResponse.json({error: 'A source asset is required; any supplied timeline revision must be a nonnegative integer.'}, {status: 400})
@@ -180,6 +181,7 @@ export async function POST(request: Request, {params}: RouteContext) {
         editorialRevision: currentRevision,
         songPolicy: 'auto',
         draftManifest,
+        prompt,
         transcriptSegments: (Array.isArray(asset.transcript_segments) && asset.transcript_segments.length > 0)
           ? asset.transcript_segments
           : undefined,

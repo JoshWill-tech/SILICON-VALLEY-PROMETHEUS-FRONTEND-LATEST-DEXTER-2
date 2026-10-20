@@ -37,7 +37,8 @@ export type EditorActionDraft =
   | { kind: 'cut_silence'; minDurationSec?: number; summary: string }
   | { kind: 'set_typography'; preset: string; summary: string }
   | { kind: 'set_caption_style'; style: EditorCaptionStyle; summary: string }
-  | { kind: 'start_render'; mode: EditorRenderMode; summary: string }
+  | { kind: 'start_render'; mode: EditorRenderMode; prompt?: string; summary: string }
+  | { kind: 'modify_manifest'; instruction: string; summary: string }
   | { kind: 'propose'; description: string; summary: string }
 
 export type EditorActionKind = EditorActionDraft['kind']
@@ -59,6 +60,7 @@ export const EDITOR_ACTION_KINDS: readonly EditorActionKind[] = [
   'set_typography',
   'set_caption_style',
   'start_render',
+  'modify_manifest',
   'propose',
 ]
 
@@ -76,6 +78,7 @@ export const MUTATING_ACTION_KINDS: readonly EditorActionKind[] = [
   'set_typography',
   'set_caption_style',
   'start_render',
+  'modify_manifest',
 ]
 
 export const TAKEOVER_REQUIRED_MESSAGE =
@@ -250,11 +253,22 @@ export function parseEditorActionDraft(input: unknown): EditorActionDraft | null
     }
     case 'start_render': {
       const mode = typeof record.mode === 'string' ? record.mode.toLowerCase().trim() : null
+      const prompt = typeof record.prompt === 'string' && record.prompt.trim() ? record.prompt.trim() : undefined
       if (!mode || !RENDER_MODES.includes(mode as EditorRenderMode)) return null
       return {
         kind: 'start_render',
         mode: mode as EditorRenderMode,
+        ...(prompt ? { prompt } : {}),
         summary: cleanSummary(record.summary, `Start ${mode} render`),
+      }
+    }
+    case 'modify_manifest': {
+      const instruction = typeof record.instruction === 'string' ? record.instruction.trim() : null
+      if (!instruction) return null
+      return {
+        kind: 'modify_manifest',
+        instruction,
+        summary: cleanSummary(record.summary, `Apply AI edit: "${instruction}"`),
       }
     }
     case 'propose': {
@@ -310,7 +324,8 @@ export interface EditorActionContext {
   cutSilence?: (minDurationSec?: number) => void
   setTypography?: (preset: string) => void
   setCaptionStyle?: (style: EditorCaptionStyle) => void
-  startRender?: (mode: EditorRenderMode) => void
+  startRender?: (mode: EditorRenderMode, prompt?: string) => void
+  modifyManifest?: (instruction: string) => void | Promise<void>
   /** Used to clamp seek targets when known. */
   durationSec?: number
   /**
@@ -410,7 +425,8 @@ export function applyEditorAction(action: EditorActionDraft, ctx: EditorActionCo
     case 'cut_silence':
     case 'set_typography':
     case 'set_caption_style':
-    case 'start_render': {
+    case 'start_render':
+    case 'modify_manifest': {
       if (!ctx.allowMutations) return { applied: false, message: TAKEOVER_REQUIRED_MESSAGE }
       if (action.kind === 'split_at_playhead') {
         if (!ctx.splitAtPlayhead) return { applied: false, message: 'Timeline splitting is unavailable right now.' }
@@ -434,8 +450,13 @@ export function applyEditorAction(action: EditorActionDraft, ctx: EditorActionCo
         ctx.setCaptionStyle(action.style)
         return { applied: true, message: action.summary }
       }
+      if (action.kind === 'modify_manifest') {
+        if (!ctx.modifyManifest) return { applied: false, message: 'AI Manifest modification is unavailable right now.' }
+        void ctx.modifyManifest(action.instruction)
+        return { applied: true, message: action.summary }
+      }
       if (!ctx.startRender) return { applied: false, message: 'Rendering is unavailable right now.' }
-      ctx.startRender(action.mode)
+      ctx.startRender(action.mode, action.prompt)
       return { applied: true, message: action.summary }
     }
     case 'propose':

@@ -34,6 +34,8 @@ export async function POST(req: Request) {
     const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : ''
     const sourceAssetId = typeof body.sourceAssetId === 'string' ? body.sourceAssetId.trim() : ''
     const shot = (body.shot && typeof body.shot === 'object' ? body.shot : {}) as Record<string, unknown>
+    const draftManifest = (body.draftManifest && typeof body.draftManifest === 'object' ? body.draftManifest : undefined) as Record<string, unknown> | undefined
+    const prompt = typeof body.prompt === 'string' && body.prompt.trim() ? body.prompt.trim() : undefined
 
     if (!projectId) {
       return NextResponse.json(
@@ -152,6 +154,8 @@ export async function POST(req: Request) {
       },
       shot,
       jobId,
+      draftManifest,
+      prompt,
     })
 
     const response = await fetch(`${config.baseUrl}/api/pipeline/plan`, {

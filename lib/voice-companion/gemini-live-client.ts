@@ -424,8 +424,26 @@ export const LIVE_AUDIO_TOOLS: LiveFunctionDeclaration[] = [
           enum: ['preview', 'final'],
           description: 'final requests an MP4 export directly (default). preview opens an export review only when requested. Only a confirmed tool result proves submission.',
         },
+        prompt: {
+          type: 'string',
+          description: 'Creative bias or styling directive for the autonomous editor (e.g. "more B-roll cutaways", "Vox animation style with high motion graphics", "fast energetic pacing", "clean minimal look").',
+        },
       },
       required: ['mode'],
+    },
+  },
+  {
+    name: 'modify_manifest',
+    description: 'Modify components of the current edit manifest (words, captions, song, sound effects, typography, B-roll queries, or motion graphics) using autonomous AI instructions or conversational requests from the user.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instruction: {
+          type: 'string',
+          description: 'Natural language edit instruction (e.g., "Change the background music to upbeat electronic", "Add whoosh sound effect at 5 seconds", "Change font color to yellow and make it bold", "Replace phrase X with Y", "Bias towards Vox explainer graphics").',
+        },
+      },
+      required: ['instruction'],
     },
   },
   {

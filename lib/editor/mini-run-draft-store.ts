@@ -70,9 +70,11 @@ export type MiniRunDraftState = {
   currentTimeMs: number
   activeChunkIndex: number | null
   isDirty: boolean
+  rawManifest: Record<string, unknown> | null
 
   // Actions
   setPlan: (manifest: Record<string, unknown>, sourceUrl?: string) => void
+  updateFullManifest: (manifest: Record<string, unknown>) => void
   setError: (error: string | null) => void
   setStatus: (status: MiniRunDraftState['status']) => void
   setCurrentTimeMs: (timeMs: number) => void
@@ -104,6 +106,7 @@ const initialState = {
   currentTimeMs: 0,
   activeChunkIndex: null,
   isDirty: false,
+  rawManifest: null,
 }
 
 export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
@@ -143,6 +146,7 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
     const selWindow = (manifest.selected_window as any) || {}
 
     set({
+      rawManifest: manifest,
       jobId: (manifest.job_id as string) || (manifest.jobId as string) || null,
       status: 'planned',
       error: null,
@@ -168,6 +172,11 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       currentTimeMs: 0,
       activeChunkIndex: chunks.length > 0 ? 0 : null,
     })
+  },
+
+  updateFullManifest: (manifest: Record<string, unknown>) => {
+    get().setPlan(manifest, get().sourceUrl || undefined)
+    set({ isDirty: true, rawManifest: manifest })
   },
 
   setError: (error: string | null) => set({ error, status: error ? 'error' : get().status }),
@@ -346,13 +355,17 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
 
   getDraftManifest: (): Record<string, unknown> => {
     const state = get()
+    const base = state.rawManifest ? { ...state.rawManifest } : {}
     return {
-      job_id: state.jobId,
+      ...base,
+      job_id: state.jobId ?? (base.job_id as string) ?? (base.jobId as string),
+      jobId: state.jobId ?? (base.jobId as string) ?? (base.job_id as string),
       source: {
         url: state.sourceUrl,
         ...(state.sourceMeta || {}),
+        ...(((base.source as any) || {})),
       },
-      selected_window: state.selectedWindow,
+      selected_window: state.selectedWindow ?? base.selected_window ?? base.selectedWindow,
       chunks: state.chunks.map((c) => ({
         chunkIndex: c.chunkIndex,
         startMs: c.startMs,
@@ -373,12 +386,12 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
         placement: c.placement,
         behindSubject: c.behindSubject,
       })),
-      look: state.look,
-      font_manifest: state.fontManifest,
-      orchestration_plan: state.orchestrationPlan,
-      song_plan: state.songPlan,
-      subject_safe_placements: state.subjectSafePlacements,
-      silence_timeline: state.silenceTimeline,
+      look: state.look ?? base.look,
+      font_manifest: state.fontManifest ?? base.font_manifest,
+      orchestration_plan: state.orchestrationPlan ?? base.orchestration_plan,
+      song_plan: state.songPlan ?? base.song_plan,
+      subject_safe_placements: state.subjectSafePlacements ?? base.subject_safe_placements,
+      silence_timeline: state.silenceTimeline ?? base.silence_timeline,
       stats: {
         total_chunks: state.chunks.length,
         total_words: state.chunks.reduce((acc, c) => acc + c.words.filter((w) => !w.cut).length, 0),

@@ -166,6 +166,7 @@ body {
     background-color: #050505;
     background-image: none;
     box-shadow: none;
+    border-bottom-color: transparent;
   }
 
   .prometheus-footer {

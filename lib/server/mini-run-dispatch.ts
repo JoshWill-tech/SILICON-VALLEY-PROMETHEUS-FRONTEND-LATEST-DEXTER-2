@@ -35,6 +35,7 @@ export type MiniRunRenderDispatchRequest = {
   draftManifest?: Record<string, unknown>
   transcriptSegments?: unknown[]
   words?: unknown[]
+  prompt?: string
 }
 
 export type MiniRunRenderDispatchEnvironment = MiniRunEnvironment
@@ -65,6 +66,7 @@ export async function dispatchMiniRunRender({
     draftManifest: request.draftManifest,
     transcriptSegments: request.transcriptSegments,
     words: request.words,
+    prompt: request.prompt,
   })
   const metadata = body.metadata as Record<string, unknown>
   metadata.pipeline = 'maul'
