@@ -89,6 +89,7 @@ export function isAllowedMiniRunRequest(method: string, pathSegments: string[]) 
   if (normalizedMethod === 'POST' && path === 'api/pipeline/render') return true
   if (normalizedMethod === 'POST' && path === 'api/pipeline/preview-slice') return true
   if (normalizedMethod === 'POST' && path === 'api/pipeline/longform') return true
+  if (normalizedMethod === 'POST' && path === 'api/pipeline/url-ingest') return true
   if (normalizedMethod === 'POST' && path === 'api/pipeline/manifest/edit') return true
   if (
     normalizedMethod === 'GET' &&

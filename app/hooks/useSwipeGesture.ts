@@ -134,12 +134,12 @@ export function useSwipeGesture<T extends HTMLElement = HTMLElement>({
     startTarget.addEventListener('touchstart', handleStart, { passive: true })
     endTarget.addEventListener('touchmove', handleMove, { passive: true })
     endTarget.addEventListener('touchend', handleEnd, { passive: true })
-    startTarget.addEventListener('pointerdown', handleStart)
-    endTarget.addEventListener('pointermove', handleMove)
-    endTarget.addEventListener('pointerup', handleEnd)
-    startTarget.addEventListener('mousedown', handleStart)
-    endTarget.addEventListener('mousemove', handleMove)
-    endTarget.addEventListener('mouseup', handleEnd)
+    startTarget.addEventListener('pointerdown', handleStart, { passive: true })
+    endTarget.addEventListener('pointermove', handleMove, { passive: true })
+    endTarget.addEventListener('pointerup', handleEnd, { passive: true })
+    startTarget.addEventListener('mousedown', handleStart, { passive: true })
+    endTarget.addEventListener('mousemove', handleMove, { passive: true })
+    endTarget.addEventListener('mouseup', handleEnd, { passive: true })
 
     return () => {
       startTarget.removeEventListener('touchstart', handleStart)

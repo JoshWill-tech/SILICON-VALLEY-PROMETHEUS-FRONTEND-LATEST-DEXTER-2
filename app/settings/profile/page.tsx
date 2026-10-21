@@ -383,8 +383,6 @@ export default function ProfileSettingsPage() {
   const selectedDensity = watchedValues.density ?? DEFAULT_VALUES.density
   const selectedSidebar = watchedValues.sidebar ?? DEFAULT_VALUES.sidebar
   const bio = watchedValues.bio ?? DEFAULT_VALUES.bio
-  const pronouns = watchedValues.pronouns ?? DEFAULT_VALUES.pronouns
-  const pronounPreset = watchedValues.pronounPreset ?? DEFAULT_VALUES.pronounPreset
   const location = watchedValues.location ?? DEFAULT_VALUES.location
   const notificationPreferences = normalizeNotificationPreferences(watchedValues.notificationPreferences)
   const defaultExportQuality = watchedValues.defaultExportQuality ?? DEFAULT_VALUES.defaultExportQuality
@@ -809,43 +807,14 @@ export default function ProfileSettingsPage() {
                     </div>
                   </FieldRow>
 
-                  <div className="grid gap-5 @xl/settings:grid-cols-2">
-                    <FieldRow label="Pronouns" error={errors.pronouns?.message}>
-                      <div className="space-y-2">
-                        <SelectField
-                          label="Pronouns"
-                          value={pronounPreset}
-                          options={PRONOUN_OPTIONS}
-                          onChange={(value) => {
-                            setValue('pronounPreset', value, { shouldDirty: true })
-                            if (value !== 'custom') {
-                              setValue('pronouns', value, { shouldDirty: true, shouldValidate: true })
-                              void saveTextField('pronouns')
-                            } else {
-                              setValue('pronouns', '', { shouldDirty: true, shouldValidate: true })
-                            }
-                          }}
-                        />
-                        {pronounPreset === 'custom' ? (
-                          <Input
-                            {...register('pronouns')}
-                            onBlur={() => void saveTextField('pronouns')}
-                            placeholder="Add your pronouns"
-                            className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#38BDF8]/70 focus:ring-[#38BDF8]/20"
-                          />
-                        ) : null}
-                      </div>
-                    </FieldRow>
-
-                    <FieldRow label="Location" error={errors.location?.message}>
-                      <Input
-                        {...register('location')}
-                        onBlur={() => void saveTextField('location')}
-                        placeholder="City, country"
-                        className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#38BDF8]/70 focus:ring-[#38BDF8]/20"
-                      />
-                    </FieldRow>
-                  </div>
+                  <FieldRow label="Location" error={errors.location?.message}>
+                    <Input
+                      {...register('location')}
+                      onBlur={() => void saveTextField('location')}
+                      placeholder="City, country"
+                      className="h-10 rounded-[14px] border-white/16 bg-white/[0.06] text-white/90 focus:border-[#38BDF8]/70 focus:ring-[#38BDF8]/20"
+                    />
+                  </FieldRow>
                 </div>
               </div>
             </ProfileCard>

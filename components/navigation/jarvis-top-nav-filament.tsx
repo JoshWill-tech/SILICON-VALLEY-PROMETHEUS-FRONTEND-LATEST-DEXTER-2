@@ -51,7 +51,13 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
   const isSpeaking = companion.status === 'speaking' || isChatSpeaking
   const isListening = companion.status === 'listening' || isChatRecording
   const isInterrupted = companion.status === 'interrupted'
-  const shouldAnimateFilament = !prefersReducedMotion
+
+  // Animate whenever voice communication is active (individual or Jarvis speaking/listening),
+  // whenever connected/active/hovered, or at all times under normal motion preferences on desktop.
+  // Static idle is used on mobile viewports (< 768px) when idle to preserve mobile CPU/battery.
+  const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 768
+  const isVoiceActive = isSpeaking || isListening || isInterrupted || companion.status === 'connecting'
+  const shouldAnimateFilament = ((!prefersReducedMotion && !isMobileScreen) || isVoiceActive || isHovered || isActive)
 
   // Preserves living kinetic sine wave motion; respects OS reduced motion setting
   useEffect(() => {
@@ -72,71 +78,83 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
       if (shouldDraw) lastFrameAt = timestamp
 
       if (shouldDraw && pathRef.current) {
-        const comp = companionRef.current
-        const br = getVoiceCompanionBridge()
-        const chatState = br.chatVoiceState
-        const chatVol = chatState?.getLevel ? (chatState.getLevel() ?? 0) : 0
-        const isChatRec = Boolean(chatState?.isRecording)
-        const isChatSpk = Boolean(chatState?.isSpeaking)
+        try {
+          const comp = companionRef.current
+          const br = getVoiceCompanionBridge()
+          const chatState = br.chatVoiceState
+          const chatVol = chatState?.getLevel ? (chatState.getLevel() ?? 0) : 0
+          const isChatRec = Boolean(chatState?.isRecording)
+          const isChatSpk = Boolean(chatState?.isSpeaking)
 
-        const userVol = isChatRec ? chatVol : comp.getUserVolume()
-        const asstVol = isChatSpk ? 0.35 : comp.getAssistantVolume()
-        const status = isChatSpk ? 'speaking' : isChatRec ? 'listening' : comp.status
-        const hovered = isHoveredRef.current
+          const rawUserVol = isChatRec ? chatVol : (comp.getUserVolume ? comp.getUserVolume() : 0)
+          const rawAsstVol = isChatSpk ? 0.35 : (comp.getAssistantVolume ? comp.getAssistantVolume() : 0)
+          const userVol = Number.isFinite(rawUserVol) ? Math.max(0, Math.min(1, rawUserVol)) : 0
+          const asstVol = Number.isFinite(rawAsstVol) ? Math.max(0, Math.min(1, rawAsstVol)) : 0
 
-        const width = 200
-        const height = 32
-        const midY = height / 2
-        const numPoints = 48
+          const liveStatus = comp.getStatus ? comp.getStatus() : comp.status
+          const status = isChatSpk ? 'speaking' : isChatRec ? 'listening' : liveStatus
+          const hovered = isHoveredRef.current
 
-        let baseAmplitude = 1.2
-        let freq1 = 0.04
-        let freq2 = 0.08
-        let speed = 0.035
+          const width = 200
+          const height = 32
+          const midY = height / 2
+          const numPoints = 48
 
-        if (status === 'speaking') {
-          baseAmplitude = 7 + asstVol * 15
-          speed = 0.16
-          freq1 = 0.05
-          freq2 = 0.11
-        } else if (status === 'listening') {
-          baseAmplitude = 4 + userVol * 14
-          speed = 0.1
-          freq1 = 0.045
-          freq2 = 0.09
-        } else if (status === 'interrupted') {
-          baseAmplitude = 8
-          speed = 0.25
-        } else if (status === 'connecting') {
-          baseAmplitude = 2.5
-          speed = 0.08
-        } else if (hovered) {
-          baseAmplitude = 2.2
-          speed = 0.07
-        } else {
-          baseAmplitude = 1.2
-          speed = 0.035
-        }
+          let baseAmplitude = 1.6
+          let freq1 = 0.04
+          let freq2 = 0.08
+          let speed = 0.035
 
-        phaseRef.current += speed
+          if (status === 'speaking') {
+            baseAmplitude = 7.5 + asstVol * 16
+            speed = 0.16
+            freq1 = 0.05
+            freq2 = 0.11
+          } else if (status === 'listening') {
+            baseAmplitude = 4.5 + userVol * 15
+            speed = 0.11
+            freq1 = 0.045
+            freq2 = 0.09
+          } else if (status === 'interrupted') {
+            baseAmplitude = 8.5
+            speed = 0.25
+          } else if (status === 'connecting') {
+            baseAmplitude = 2.8
+            speed = 0.08
+          } else if (hovered) {
+            baseAmplitude = 2.4
+            speed = 0.07
+          } else {
+            baseAmplitude = 1.6
+            speed = 0.035
+          }
 
-        let d = `M 0 ${midY}`
-        for (let i = 0; i <= numPoints; i++) {
-          const x = (i / numPoints) * width
-          const envelope = Math.sin((Math.PI * i) / numPoints)
-          const yOffset =
-            (Math.sin(x * freq1 + phaseRef.current) * 0.7 +
-              Math.sin(x * freq2 - phaseRef.current * 1.3) * 0.3) *
-            baseAmplitude *
-            envelope
+          if (prefersReducedMotion && (status === 'speaking' || status === 'listening')) {
+            speed *= 0.75
+          }
 
-          const y = midY + yOffset
-          d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`
-        }
+          phaseRef.current += speed
 
-        pathRef.current.setAttribute('d', d)
-        if (glowPathRef.current) {
-          glowPathRef.current.setAttribute('d', d)
+          let d = `M 0 ${midY}`
+          for (let i = 0; i <= numPoints; i++) {
+            const x = (i / numPoints) * width
+            const envelope = Math.sin((Math.PI * i) / numPoints)
+            const yOffset =
+              (Math.sin(x * freq1 + phaseRef.current) * 0.7 +
+                Math.sin(x * freq2 - phaseRef.current * 1.3) * 0.3) *
+              baseAmplitude *
+              envelope
+
+            const y = Number.isFinite(yOffset) ? midY + yOffset : midY
+            d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`
+          }
+
+          pathRef.current.setAttribute('d', d)
+          if (glowPathRef.current) {
+            glowPathRef.current.setAttribute('d', d)
+          }
+        } catch {
+          // Safeguard: keep rAF loop running even if audio context or bridge throws
         }
       }
 
@@ -151,10 +169,10 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
         cancelAnimationFrame(animFrameIdRef.current)
       }
     }
-  }, [shouldAnimateFilament])
+  }, [shouldAnimateFilament, prefersReducedMotion])
 
   const handleToggleCompanion = () => {
-    if (companion.status === 'disconnected') {
+    if (companion.status === 'disconnected' || companion.status === 'error') {
       companion.connect()
       setIsExpanded(true)
     } else {

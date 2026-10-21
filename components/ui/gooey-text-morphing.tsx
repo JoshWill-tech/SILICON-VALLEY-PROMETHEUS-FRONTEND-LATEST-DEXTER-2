@@ -111,7 +111,12 @@ export function GooeyText({
     };
 
     const syncAnimation = () => {
-      const shouldAnimate = isInViewport && isPageVisible;
+      const isVisible = Boolean(
+        containerRef.current &&
+        containerRef.current.offsetParent !== null &&
+        containerRef.current.getClientRects().length > 0
+      );
+      const shouldAnimate = isInViewport && isPageVisible && isVisible;
       if (shouldAnimate && !isAnimating) {
         isAnimating = true;
         lastTime = Date.now();
@@ -131,6 +136,7 @@ export function GooeyText({
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("resize", syncAnimation, { passive: true });
     const observer = typeof IntersectionObserver === "undefined"
       ? null
       : new IntersectionObserver(([entry]) => {
@@ -143,6 +149,7 @@ export function GooeyText({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("resize", syncAnimation);
       observer?.disconnect();
       isAnimating = false;
       if (animationRef.current !== null) {

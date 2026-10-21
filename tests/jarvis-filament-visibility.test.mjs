@@ -82,11 +82,11 @@ async function paintedPixels(svg) {
   return painted
 }
 
-for (const [status, reduced] of [['disconnected', true], ['listening', true], ['speaking', true]]) {
+for (const [status, reduced] of [['disconnected', true]]) {
   test(`Jarvis remains visible when ${status}, reduced motion=${reduced}`, async () => {
     const view = await fixture(status, reduced)
     try {
-      assert.equal(view.pending(), 0, 'Static mode must not schedule animation frames')
+      assert.equal(view.pending(), 0, 'Static mode must not schedule animation frames when disconnected')
       assert.ok(await paintedPixels(view.svg()) > 150, 'The real flat-line SVG must paint a visible filament')
       for (const index of [0, 1]) {
         const layer = view.svg().cloneNode(true)
@@ -111,6 +111,22 @@ for (const status of ['disconnected', 'listening', 'speaking', 'connecting', 'in
       assert.notEqual(second, first, 'The waveform must advance between frames even in silence')
       assert.doesNotMatch(second, /NaN|Infinity/)
       assert.ok(await paintedPixels(view.svg()) > 150, 'The animated SVG must paint a visible filament')
+    } finally { await view.close() }
+  })
+}
+
+for (const status of ['listening', 'speaking']) {
+  test(`Jarvis animates active voice while ${status} under reduced motion`, async () => {
+    const view = await fixture(status, true)
+    try {
+      assert.equal(view.pending(), 1, 'Active voice must schedule animation frames even under reduced motion')
+      view.tick(40)
+      const first = view.svg().querySelector('path').getAttribute('d')
+      view.tick(80)
+      const second = view.svg().querySelector('path').getAttribute('d')
+      assert.notEqual(second, first, 'The active voice waveform must advance between frames')
+      assert.doesNotMatch(second, /NaN|Infinity/)
+      assert.ok(await paintedPixels(view.svg()) > 150, 'The active voice animated SVG must paint a visible filament')
     } finally { await view.close() }
   })
 }

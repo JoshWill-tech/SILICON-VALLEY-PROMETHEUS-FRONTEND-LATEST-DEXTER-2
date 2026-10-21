@@ -20,6 +20,8 @@ export interface AntiTamperOptions {
 
 let isInitialized = false
 let cleanups: Array<() => void> = []
+let devToolsDetectionCount = 0
+let lastDevToolsDetectedAt = 0
 
 export function isDevToolsOpen(): boolean {
   if (typeof window === 'undefined') return false
@@ -30,8 +32,16 @@ export function isDevToolsOpen(): boolean {
 
 export function handleDevToolsDetected() {
   if (typeof window === 'undefined') return
+  const now = Date.now()
+  // Throttle repeated warnings when inspection or mobile emulation keeps threshold open
+  if (now - lastDevToolsDetectedAt < 10000 && devToolsDetectionCount > 0) return
+  lastDevToolsDetectedAt = now
   try {
-    console.clear()
+    // Only clear once on initial detection to prevent continuous console DOM thrashing
+    if (devToolsDetectionCount === 0) {
+      console.clear()
+    }
+    devToolsDetectionCount++
     console.warn(
       '%c⚠️ PROMETHEUS SECURITY SHIELD ACTIVE%c\nUnauthorized inspection, debugger attachment, or network telemetry tampering is prohibited.',
       'color:#ef4444;font-size:14px;font-weight:bold;background:#18181b;padding:6px 10px;border-radius:4px;',
@@ -175,11 +185,14 @@ export function initClientAntiTamper(options: AntiTamperOptions = {}): () => voi
     cleanups.push(setupConsoleNeutralizer(bannerMessage))
   }
 
-  // Setup periodic DevTools inspection check
+  // Setup periodic DevTools inspection check with edge detection to avoid continuous interval thrashing
+  let wasOpen = false
   const intervalId = window.setInterval(() => {
-    if (isDevToolsOpen()) {
+    const open = isDevToolsOpen()
+    if (open && !wasOpen) {
       handleDevToolsDetected()
     }
+    wasOpen = open
   }, 2500)
 
   cleanups.push(() => window.clearInterval(intervalId))

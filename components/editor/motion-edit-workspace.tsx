@@ -167,6 +167,7 @@ export interface MotionEditWorkspaceProps {
   soundtrackDucking?: boolean
   onSoundtrackDuckingChange?: (enabled: boolean) => void
   onRemoveMusicTrack?: () => void
+  initialCropRect?: CropRect | null
 }
 
 const DEFAULT_TRANSCRIPT: MotionTranscriptSegment[] = [
@@ -292,6 +293,7 @@ export function MotionEditWorkspace({
   textPlacements, onSeek, onVideoLoadedMetadata, onVideoLoadedData, onVideoCanPlay,
   onVideoTimeUpdate, onVideoEnded, onVideoPlay, onVideoPause, onVideoError, onImageLoaded, onApplyPrompt,
   selectedMusicTrack: parentSelectedMusicTrack = null, onSelectMusicTrack, onOpenMusicCatalog, soundtrackVolume: parentSoundtrackVolume = 0.5, onSoundtrackVolumeChange: parentVolumeChange, soundtrackMuted: parentSoundtrackMuted = false, onSoundtrackMutedChange: parentMutedChange, soundtrackDucking: parentSoundtrackDucking = true, onSoundtrackDuckingChange: parentDuckingChange, onRemoveMusicTrack,
+  initialCropRect = null,
 }: MotionEditWorkspaceProps) {
   const editorial = useEditorialTimeline()
   const patchEditorial = editorial.patch
@@ -345,12 +347,18 @@ export function MotionEditWorkspace({
   const [showTimeline, setShowTimeline] = React.useState(true)
   const [timelineHeight, setTimelineHeight] = React.useState(DEFAULT_TIMELINE_HEIGHT)
   const [cropEnabled, setCropEnabled] = React.useState(true)
-  const [cropRect, setCropRect] = React.useState<CropRect>(DEFAULT_CROP_RECT)
+  const [cropRect, setCropRect] = React.useState<CropRect>(initialCropRect ?? DEFAULT_CROP_RECT)
+  React.useEffect(() => {
+    if (initialCropRect) {
+      setCropRect(initialCropRect)
+      setCropEnabled(true)
+    }
+  }, [initialCropRect])
   const [frameAspectRatio, setFrameAspectRatio] = React.useState<number | null>(null)
   React.useEffect(() => {
     setFrameAspectRatio(null)
-    setCropRect(DEFAULT_CROP_RECT)
-  }, [previewUrl])
+    setCropRect(initialCropRect ?? DEFAULT_CROP_RECT)
+  }, [previewUrl, initialCropRect])
   const [captionsVisible, setCaptionsVisible] = React.useState(false)
   const [captionsOverride, setCaptionsOverride] = React.useState<boolean | null>(null)
   const [treatment, setTreatment] = React.useState<PreviewTreatment>('clean')

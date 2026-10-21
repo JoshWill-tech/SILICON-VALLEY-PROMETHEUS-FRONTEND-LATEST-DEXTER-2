@@ -18,6 +18,9 @@ export function LuxuryMotionController() {
     let current = { ...RESTING_POSITION }
     let target = { ...RESTING_POSITION }
 
+    const isMobileViewport = () =>
+      typeof window !== 'undefined' && (window.innerWidth < 768 || window.matchMedia('(max-width: 768px)').matches)
+
     const writePosition = () => {
       frame = 0
       current.x += (target.x - current.x) * 0.13
@@ -32,7 +35,7 @@ export function LuxuryMotionController() {
     }
 
     const updateTarget = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return
+      if (event.pointerType === 'touch' || isMobileViewport()) return
 
       target = {
         x: Math.max(0, Math.min(100, (event.clientX / window.innerWidth) * 100)),
@@ -47,8 +50,8 @@ export function LuxuryMotionController() {
       if (!frame) frame = window.requestAnimationFrame(writePosition)
     }
 
-    if (reduceMotion) {
-      root.dataset.prometheusLuxuryMotion = 'reduced'
+    if (reduceMotion || isMobileViewport()) {
+      root.dataset.prometheusLuxuryMotion = reduceMotion ? 'reduced' : 'resting'
       root.style.setProperty('--luxury-pointer-x', `${RESTING_POSITION.x}%`)
       root.style.setProperty('--luxury-pointer-y', `${RESTING_POSITION.y}%`)
       return () => {

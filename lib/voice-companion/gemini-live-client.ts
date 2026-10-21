@@ -495,6 +495,96 @@ export const LIVE_AUDIO_TOOLS: LiveFunctionDeclaration[] = [
       required: ['prompt'],
     },
   },
+  {
+    name: 'get_timeline_state',
+    description: 'Inspect the current timeline tracks, clips, playhead time, duration, cut ranges, and visibility states.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'split_clip',
+    description: 'Split the video clip at the playhead position or at a specified timestamp in seconds.',
+    parameters: {
+      type: 'object',
+      properties: {
+        timeSec: {
+          type: 'number',
+          description: 'Timestamp in seconds at which to split the clip. If omitted, splits at current playhead time.',
+        },
+      },
+    },
+  },
+  {
+    name: 'trim_clip',
+    description: 'Trim the start or end of a video clip to adjust its timing on the timeline.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clipId: {
+          type: 'string',
+          description: 'ID of the clip to trim. If omitted, trims currently active or selected clip.',
+        },
+        side: {
+          type: 'string',
+          enum: ['left', 'right'],
+          description: 'Which side to trim: "left" trims the start, "right" trims the end.',
+        },
+        newTimeSec: {
+          type: 'number',
+          description: 'The new timestamp in seconds for the trimmed boundary.',
+        },
+      },
+      required: ['side', 'newTimeSec'],
+    },
+  },
+  {
+    name: 'delete_clip',
+    description: 'Delete a clip from the timeline or cut out its range.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clipId: {
+          type: 'string',
+          description: 'Optional ID of the clip to delete. Defaults to currently selected clip.',
+        },
+      },
+    },
+  },
+  {
+    name: 'duplicate_clip',
+    description: 'Duplicate a clip or cue on the timeline.',
+    parameters: {
+      type: 'object',
+      properties: {
+        clipId: {
+          type: 'string',
+          description: 'Optional ID of the clip or cue to duplicate.',
+        },
+      },
+    },
+  },
+  {
+    name: 'toggle_track',
+    description: 'Toggle visibility or mute of a timeline track (video, captions, text, music).',
+    parameters: {
+      type: 'object',
+      properties: {
+        track: {
+          type: 'string',
+          enum: ['video', 'captions', 'text', 'music'],
+          description: 'The track to toggle.',
+        },
+        action: {
+          type: 'string',
+          enum: ['visibility', 'mute'],
+          description: 'Action to perform: toggle "visibility" (hide/show) or "mute" (soundtrack/audio).',
+        },
+      },
+      required: ['track'],
+    },
+  },
 ]
 
 export class GeminiLiveClient {

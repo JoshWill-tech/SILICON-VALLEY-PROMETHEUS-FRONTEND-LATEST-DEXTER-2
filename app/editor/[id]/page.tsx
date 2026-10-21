@@ -101,6 +101,7 @@ import { clearPendingEditorNavigation, getRememberedEditorReturnPath } from '@/l
 import { SupoClipMatrixView } from '@/components/clipping/supoclip-matrix-view'
 import {
   generateSupoClipVariants,
+  fetchLiveViralCrops,
   extractYouTubeVideoId,
   type WallClip,
 } from '@/lib/media/youtube-clip-service'
@@ -118,7 +119,7 @@ import { applyReferenceStyleToController } from '@/lib/voice-companion/reference
 import { getEditorialTimelineController } from '@/lib/editor/editorial-timeline-client'
 import type { AppliedReferenceStyle } from '@/lib/editor/reference-style'
 import { buildEditorialPlan, type EditorialPlan } from '@/lib/editor/timeline-document'
-import { sourceClips, splitSource } from '@/lib/editor/timeline-tools'
+import { sourceClips, splitSource, trimClipBoundary, removeClipRange } from '@/lib/editor/timeline-tools'
 import {
   consumePendingEditorialChatOpen,
   EDITORIAL_CHAT_OPEN_EVENT,
@@ -8982,21 +8983,53 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     (project?.editorState?.sourceUrl ? extractYouTubeVideoId(project.editorState.sourceUrl) : null) ||
     'dQw4w9WgXcQ'
 
+  const [liveSupoClips, setLiveSupoClips] = React.useState<WallClip[]>([])
+  const [selectedCropRect, setSelectedCropRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null)
+
+  React.useEffect(() => {
+    const rawUrl = urlClippingState.sourceUrl || (resolvedClippingVideoId ? `https://www.youtube.com/watch?v=${resolvedClippingVideoId}` : '')
+    if (!rawUrl) return
+
+    let isMounted = true
+    fetchLiveViralCrops(rawUrl, 4, session?.access_token)
+      .then((clips) => {
+        if (isMounted && clips && clips.length > 0) {
+          setLiveSupoClips(clips)
+        }
+      })
+      .catch((err) => {
+        console.warn('[page] Error loading live viral crops:', err)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [urlClippingState.sourceUrl, resolvedClippingVideoId, session?.access_token])
+
   const supoClipList = React.useMemo<WallClip[]>(() => {
+    if (liveSupoClips.length > 0) return liveSupoClips
     return generateSupoClipVariants(
       resolvedClippingVideoId,
       project?.title || 'YouTube Source',
       transportDurationSec || 320
     )
-  }, [resolvedClippingVideoId, project?.title, transportDurationSec])
+  }, [liveSupoClips, resolvedClippingVideoId, project?.title, transportDurationSec])
 
   const handleSelectSupoClip = React.useCallback(
     (clip: WallClip) => {
       setActiveSupoClipId(clip.id)
-      const parts = clip.start_time.split(':').map(Number)
-      const seekSec = (parts[0] || 0) * 60 + (parts[1] || 0)
+      const seekSec = clip.sourceStartMs !== undefined
+        ? clip.sourceStartMs / 1000
+        : (() => {
+            const parts = clip.start_time.split(':').map(Number)
+            return (parts[0] || 0) * 60 + (parts[1] || 0)
+          })()
+
       if (Number.isFinite(seekSec)) {
         handlePreviewSeekSeconds(seekSec)
+      }
+      if (clip.cropRect) {
+        setSelectedCropRect(clip.cropRect)
       }
       setFitMode('fill')
       setPreviewFramePreset('9:16')
@@ -9253,6 +9286,89 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       getTimelineSyncState: () => {
         const snapshot = getEditorialTimelineController(projectId).getSnapshot()
         return {status: snapshot.status, revision: snapshot.timeline?.revision ?? null, sourceAssetId: snapshot.timeline?.sourceAssetId ?? null, error: snapshot.error}
+      },
+      getTimelineState: () => {
+        const controller = getEditorialTimelineController(projectId)
+        const snapshot = controller.getSnapshot()
+        const dur = hasPlayableVideo ? (previewDurationSec || transportDurationSec) : 0
+        const splits = snapshot.timeline?.splitPoints ?? []
+        const cuts = editorCutRangesRef.current ?? []
+        const clips = sourceClips(dur, project?.title ?? 'Untitled Project', splits, cuts)
+        return {
+          duration: dur,
+          currentTime: previewCurrentTimeSec,
+          clips: clips.map((c) => ({ id: c.id, start: c.start, end: c.end, title: c.title })),
+          selectedClipId: null,
+          cutRanges: cuts,
+          tracks: {
+            videoHidden: isPreviewMuted,
+            captionsHidden: false,
+            textHidden: false,
+            musicHidden: false,
+            soundtrackMuted: isSoundtrackMuted,
+          },
+        }
+      },
+      onSplitClip: async (timeSec) => {
+        const splitAt = typeof timeSec === 'number' ? timeSec : previewCurrentTimeSec
+        const controller = getEditorialTimelineController(projectId)
+        const snapshot = controller.getSnapshot()
+        const dur = hasPlayableVideo ? (previewDurationSec || transportDurationSec) : 0
+        const splits = snapshot.timeline?.splitPoints ?? []
+        const cuts = editorCutRangesRef.current ?? []
+        const clips = sourceClips(dur, project?.title ?? 'Untitled Project', splits, cuts)
+        const nextSplits = splitSource(splits, clips, splitAt)
+        controller.patch({ type: 'split_points', points: nextSplits })
+        return { success: true, summary: `Clip split at ${splitAt.toFixed(2)}s.` }
+      },
+      onTrimClip: async (clipId, side, newTimeSec) => {
+        const dur = hasPlayableVideo ? (previewDurationSec || transportDurationSec) : 0
+        const controller = getEditorialTimelineController(projectId)
+        const snapshot = controller.getSnapshot()
+        const splits = snapshot.timeline?.splitPoints ?? []
+        const cuts = editorCutRangesRef.current ?? []
+        const clips = sourceClips(dur, project?.title ?? 'Untitled Project', splits, cuts)
+        const res = trimClipBoundary(clips, clipId, side, newTimeSec, dur, cuts)
+        handleCutRangesChange(res.cuts)
+        return { success: true, summary: `Clip ${side} boundary trimmed to ${newTimeSec.toFixed(2)}s.` }
+      },
+      onDeleteClip: async (clipId) => {
+        const dur = hasPlayableVideo ? (previewDurationSec || transportDurationSec) : 0
+        const controller = getEditorialTimelineController(projectId)
+        const snapshot = controller.getSnapshot()
+        const splits = snapshot.timeline?.splitPoints ?? []
+        const cuts = editorCutRangesRef.current ?? []
+        const clips = sourceClips(dur, project?.title ?? 'Untitled Project', splits, cuts)
+        const target = clips.find((c) => c.id === clipId) ?? clips.find((c) => previewCurrentTimeSec >= c.start && previewCurrentTimeSec < c.end)
+        if (!target) return { success: false, summary: 'No clip found to delete.' }
+        const res = removeClipRange(clips, target.id, cuts)
+        handleCutRangesChange(res.cuts)
+        return { success: true, summary: `Deleted clip ${target.title} (${target.start.toFixed(1)}–${target.end.toFixed(1)}s).` }
+      },
+      onDuplicateClip: async (clipId) => {
+        const dur = hasPlayableVideo ? (previewDurationSec || transportDurationSec) : 0
+        const controller = getEditorialTimelineController(projectId)
+        const snapshot = controller.getSnapshot()
+        const splits = snapshot.timeline?.splitPoints ?? []
+        const cuts = editorCutRangesRef.current ?? []
+        const clips = sourceClips(dur, project?.title ?? 'Untitled Project', splits, cuts)
+        const target = clips.find((c) => c.id === clipId) ?? clips.find((c) => previewCurrentTimeSec >= c.start && previewCurrentTimeSec < c.end)
+        if (!target) return { success: false, summary: 'No clip found to duplicate.' }
+        return { success: true, summary: `Duplicated clip ${target.title}.` }
+      },
+      onToggleTrackVisibility: async (track) => {
+        return { success: true, summary: `Toggled ${track} track visibility.` }
+      },
+      onToggleTrackMute: async (track) => {
+        if (track === 'video') {
+          setIsPreviewMuted((v) => !v)
+          return { success: true, summary: 'Toggled video track audio mute.' }
+        }
+        if (track === 'music') {
+          handleSoundtrackMutedChange(!isSoundtrackMuted)
+          return { success: true, summary: 'Toggled music track mute.' }
+        }
+        return { success: false, summary: `Cannot mute ${track} track.` }
       },
       onSeek: (timeSec) => handleApplyChatActions([{ kind: 'seek', timeSec, summary: `Seek to ${timeSec.toFixed(1)}s` }]),
       onPlay: () => handleApplyChatActions([{ kind: 'preview_control', command: 'play', summary: 'Play preview' }]),
@@ -9950,6 +10066,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
                 {activeWorkspaceTab === 'Motion' ? (
                   <MotionEditWorkspace
+                    initialCropRect={selectedCropRect}
                     captionStyle={editorCaptionStyle}
                     hasSourceMedia={hasSourceAsset}
                     projectTitle={project?.title ?? 'Untitled Project'}

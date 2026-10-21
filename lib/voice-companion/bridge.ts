@@ -86,6 +86,27 @@ export interface VoiceCompanionBridgeHandlers {
   activeThumbnailUrl?: string
   activeThumbnailHeadline?: string
   onModifyThumbnail?: (args: { changes: string; headline?: string; referenceId?: string }) => Promise<VoiceActionResult> | VoiceActionResult
+  /** Timeline inspection & autonomous manipulation */
+  getTimelineState?: () => {
+    duration: number
+    currentTime: number
+    clips: Array<{ id: string; start: number; end: number; title: string }>
+    selectedClipId: string | null
+    cutRanges: Array<{ start: number; end: number }>
+    tracks: {
+      videoHidden: boolean
+      captionsHidden: boolean
+      textHidden: boolean
+      musicHidden: boolean
+      soundtrackMuted: boolean
+    }
+  }
+  onSplitClip?: (timeSec?: number) => Promise<VoiceActionResult> | VoiceActionResult
+  onTrimClip?: (clipId: string, side: 'left' | 'right', newTimeSec: number) => Promise<VoiceActionResult> | VoiceActionResult
+  onDeleteClip?: (clipId?: string) => Promise<VoiceActionResult> | VoiceActionResult
+  onDuplicateClip?: (clipId?: string) => Promise<VoiceActionResult> | VoiceActionResult
+  onToggleTrackVisibility?: (track: 'video' | 'captions' | 'text' | 'music') => Promise<VoiceActionResult> | VoiceActionResult
+  onToggleTrackMute?: (track: 'video' | 'music') => Promise<VoiceActionResult> | VoiceActionResult
   /** Optional auth token or resolver for authenticated status checks */
   accessToken?: string
   getAccessToken?: () => Promise<string | undefined> | string | undefined

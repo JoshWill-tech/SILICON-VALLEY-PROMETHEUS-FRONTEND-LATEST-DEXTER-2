@@ -67,6 +67,7 @@ export interface UseVoiceCompanionReturn {
   assistantVolume: number
   getUserVolume: () => number
   getAssistantVolume: () => number
+  getStatus?: () => VoiceCompanionStatus
   transcripts: VoiceCompanionTranscriptItem[]
   error: string | null
   connectionNotice: string | null
@@ -189,6 +190,8 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     if (!playerRef.current) return 0
     return playerRef.current.getVolume()
   }, [])
+
+  const getStatus = useCallback(() => statusRef.current, [])
 
   // Tool call executor. Reads handlers through a ref so late-registered editor
   // bridges (or re-mounted panels) are always honored without reconnecting.
@@ -785,6 +788,84 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           }
         }
 
+        case 'get_timeline_state': {
+          const handlers = getCurrentHandlers()
+          if (!handlers.getTimelineState) {
+            return {
+              success: true,
+              duration: handlers.videoDurationSec || handlers.timelineDurationSec || 0,
+              currentTime: 0,
+              clips: [],
+              tracks: { videoHidden: false, captionsHidden: false, textHidden: false, musicHidden: false, soundtrackMuted: false },
+              summary: 'Timeline state retrieved from basic video metadata.',
+            }
+          }
+          const state = handlers.getTimelineState()
+          return {
+            success: true,
+            ...state,
+            summary: `Timeline duration: ${state.duration.toFixed(1)}s, ${state.clips.length} clip(s), current time: ${state.currentTime.toFixed(1)}s.`,
+          }
+        }
+
+        case 'split_clip': {
+          const handlers = getCurrentHandlers()
+          if (!handlers.onSplitClip) return { success: false, error: 'Clip splitting is unavailable in the active editor.' }
+          const access = await requireEditingAccess()
+          if (!access.success) return access
+          const timeSec = typeof args.timeSec === 'number' ? args.timeSec : undefined
+          const outcome = await handlers.onSplitClip(timeSec)
+          return outcome
+        }
+
+        case 'trim_clip': {
+          const handlers = getCurrentHandlers()
+          if (!handlers.onTrimClip) return { success: false, error: 'Clip trimming is unavailable in the active editor.' }
+          const access = await requireEditingAccess()
+          if (!access.success) return access
+          const clipId = String(args.clipId || '')
+          const side = args.side === 'left' ? 'left' : 'right'
+          const newTimeSec = Number(args.newTimeSec)
+          if (!Number.isFinite(newTimeSec) || newTimeSec < 0) return { success: false, error: 'Invalid trim timestamp.' }
+          const outcome = await handlers.onTrimClip(clipId, side, newTimeSec)
+          return outcome
+        }
+
+        case 'delete_clip': {
+          const handlers = getCurrentHandlers()
+          if (!handlers.onDeleteClip) return { success: false, error: 'Clip deletion is unavailable in the active editor.' }
+          const access = await requireEditingAccess()
+          if (!access.success) return access
+          const clipId = typeof args.clipId === 'string' ? args.clipId : undefined
+          const outcome = await handlers.onDeleteClip(clipId)
+          return outcome
+        }
+
+        case 'duplicate_clip': {
+          const handlers = getCurrentHandlers()
+          if (!handlers.onDuplicateClip) return { success: false, error: 'Clip duplication is unavailable in the active editor.' }
+          const access = await requireEditingAccess()
+          if (!access.success) return access
+          const clipId = typeof args.clipId === 'string' ? args.clipId : undefined
+          const outcome = await handlers.onDuplicateClip(clipId)
+          return outcome
+        }
+
+        case 'toggle_track': {
+          const handlers = getCurrentHandlers()
+          const track = args.track as 'video' | 'captions' | 'text' | 'music'
+          const action = args.action as 'visibility' | 'mute'
+          if (action === 'mute' && handlers.onToggleTrackMute && (track === 'video' || track === 'music')) {
+            const outcome = await handlers.onToggleTrackMute(track)
+            return outcome
+          }
+          if (handlers.onToggleTrackVisibility) {
+            const outcome = await handlers.onToggleTrackVisibility(track)
+            return outcome
+          }
+          return { success: false, error: `Track control for ${track} is not available.` }
+        }
+
         default:
           return { error: `Tool ${name} not found` }
       }
@@ -807,6 +888,12 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
       modify_manifest: 'Modifying edit components with AI',
       get_source_status: 'Checking saved video',
       get_export_status: 'Checking MP4 status',
+      split_clip: 'Splitting video clip',
+      trim_clip: 'Trimming clip boundary',
+      delete_clip: 'Deleting clip',
+      duplicate_clip: 'Duplicating clip',
+      toggle_track: 'Toggling track',
+      get_timeline_state: 'Inspecting timeline',
     }
     const label = labels[name]
     const receipt = label ? useAutonomousStore.getState().beginAction({ label }) : null
@@ -1074,6 +1161,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     assistantVolume,
     getUserVolume,
     getAssistantVolume,
+    getStatus,
     transcripts,
     error,
     connectionNotice,

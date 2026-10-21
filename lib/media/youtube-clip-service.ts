@@ -23,6 +23,14 @@ export interface WallClip {
   hook_type: 'curiosity_gap' | 'bold_statement' | 'story_loop' | 'action_oriented' | 'none';
   hook_title: string;
   reasoning?: string;
+  cropRect?: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+  sourceStartMs?: number;
+  sourceEndMs?: number;
 }
 
 export interface YouTubeSourceMeta {
@@ -267,6 +275,78 @@ export function generateSupoClipVariants(
       hook_type: item.hook_type,
       hook_title: item.hook_title,
       reasoning: item.reasoning,
+      cropRect: { left: 34.38, top: 0, width: 31.25, height: 100 },
+      sourceStartMs: startSec * 1000,
+      sourceEndMs: endSec * 1000,
     };
   });
+}
+
+/**
+ * Fetches real viral crop analysis from the AWS Lambda pipeline via /api/mini-run/api/pipeline/url-ingest.
+ * Falls back gracefully to local generation if the backend is unreachable.
+ */
+export async function fetchLiveViralCrops(
+  url: string,
+  nClips: number = 4,
+  userToken?: string
+): Promise<WallClip[]> {
+  const videoId = extractYouTubeVideoId(url) || 'source_video';
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (userToken) {
+      headers['X-Mini-Run-User-Token'] = userToken;
+    }
+
+    const res = await fetch('/api/mini-run/api/pipeline/url-ingest', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        url,
+        nClips,
+        targetAspectRatio: '9:16',
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[youtube-clip-service] url-ingest returned HTTP ${res.status}, falling back to local variants.`);
+      return generateSupoClipVariants(videoId);
+    }
+
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.clips) || data.clips.length === 0) {
+      return generateSupoClipVariants(videoId);
+    }
+
+    const sourceThumb = data.source?.thumbnailUrl || getYouTubeThumbnailUrl(videoId) || '';
+
+    return data.clips.map((clip: any, index: number) => ({
+      id: clip.id || `supoclip-${videoId}-${index + 1}`,
+      filename: `clip_${index + 1}_${videoId}.mp4`,
+      start_time: clip.startTime || formatClipDuration((clip.sourceStartMs || 0) / 1000),
+      end_time: clip.endTime || formatClipDuration((clip.sourceEndMs || 30000) / 1000),
+      duration: Math.round((clip.durationMs || 30000) / 1000),
+      text: clip.transcriptExcerpt || clip.hookTitle || '',
+      relevance_score: Math.min(1.0, (clip.viralityScore || 85) / 100),
+      clip_order: clip.rank || index + 1,
+      video_url: url,
+      thumbnail_url: clip.thumbnailUrl || sourceThumb,
+      virality_score: clip.viralityScore || 85,
+      hook_score: clip.hookScore || 22,
+      engagement_score: clip.engagementScore || 22,
+      value_score: clip.valueScore || 22,
+      shareability_score: clip.shareabilityScore || 20,
+      hook_type: clip.hookType || 'curiosity_gap',
+      hook_title: clip.hookTitle || `Viral Insight #${index + 1}`,
+      reasoning: clip.reasoning || '',
+      cropRect: clip.cropRect || { left: 34.38, top: 0, width: 31.25, height: 100 },
+      sourceStartMs: clip.sourceStartMs ?? (index * 30000),
+      sourceEndMs: clip.sourceEndMs ?? ((index + 1) * 30000),
+    }));
+  } catch (err) {
+    console.warn('[youtube-clip-service] Network error fetching live viral crops, using fallback:', err);
+    return generateSupoClipVariants(videoId);
+  }
 }

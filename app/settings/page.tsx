@@ -88,7 +88,6 @@ export default function SettingsPage() {
           email={email}
           initials={initials || 'P'}
           location={profile?.location}
-          pronouns={profile?.pronouns}
           username={username}
         />
       ) : null}
@@ -194,7 +193,6 @@ function ProfilePanel({
   email,
   initials,
   location,
-  pronouns,
   username,
 }: {
   avatarUrl?: string | null
@@ -202,7 +200,6 @@ function ProfilePanel({
   email: string
   initials: string
   location?: string | null
-  pronouns?: string | null
   username: string
 }) {
   return (
@@ -243,7 +240,6 @@ function ProfilePanel({
           <DetailRow label="Username" value={`@${username}`} />
           <DetailRow label="Email" value={email} />
           <DetailRow label="Location" value={location || 'Not set'} />
-          <DetailRow label="Pronouns" value={pronouns || 'Not set'} />
         </dl>
       </div>
 
