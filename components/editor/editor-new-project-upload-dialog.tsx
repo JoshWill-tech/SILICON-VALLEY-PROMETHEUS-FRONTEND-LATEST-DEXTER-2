@@ -22,6 +22,7 @@ import { upsertProject } from '@/lib/mock'
 import { uploadProjectSourceMultipart, type MultipartUploadProgress } from '@/lib/r2/multipart-client'
 import { setSessionSourcePreview } from '@/lib/source-preview-session'
 import { createClient } from '@/lib/supabase/client'
+import { captureFirstVideoFrame } from '@/lib/media/capture-first-video-frame'
 import type { SourceProfile } from '@/lib/types'
 import { normalizeUxError } from '@/lib/ux/errors'
 
@@ -283,6 +284,25 @@ export function EditorNewProjectUploadDialog({ open, onOpenChange }: EditorNewPr
       if (!assetResponse.ok) throw new Error(assetData.error || 'Failed to register uploaded source')
 
       project.sourceAssetId = uploadAsset.id
+
+      if (file && file.type.startsWith('video/')) {
+        try {
+          const localBlobUrl = URL.createObjectURL(file)
+          const initialFrame = await captureFirstVideoFrame(localBlobUrl, 4_000)
+          URL.revokeObjectURL(localBlobUrl)
+          if (initialFrame) {
+            project.thumbnailUrl = initialFrame
+            void fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ thumbnailUrl: initialFrame }),
+            }).catch(() => undefined)
+          }
+        } catch {
+          // Non-blocking thumbnail generation
+        }
+      }
+
       upsertProject(project)
 
       setSessionSourcePreview({

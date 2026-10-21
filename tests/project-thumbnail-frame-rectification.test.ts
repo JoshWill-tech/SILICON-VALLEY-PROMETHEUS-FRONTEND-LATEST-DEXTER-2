@@ -37,7 +37,7 @@ test('G1: Editorial ProjectTile provides fallback video frame capture and auto-p
   )
 })
 
-test('G2: video-upload-interface captures initial frame from uploaded video files and persists thumbnailUrl', () => {
+test('G2: video upload pipelines capture initial frame from uploaded video files and persist thumbnailUrl', () => {
   const uploadSource = readFileSync('components/video-upload-interface.tsx', 'utf8')
 
   assert.match(
@@ -74,6 +74,30 @@ test('G2: video-upload-interface captures initial frame from uploaded video file
     uploadSource,
     /fetch\(`\/api\/projects\/\$\{encodeURIComponent\(project\.id\)\}`[\s\S]*?thumbnailUrl:\s*initialFrame/,
     'video-upload-interface must persist the initial frame to the database'
+  )
+
+  const editorUploadSource = readFileSync('components/editor/editor-new-project-upload-dialog.tsx', 'utf8')
+  assert.match(
+    editorUploadSource,
+    /captureFirstVideoFrame\(localBlobUrl/,
+    'editor-new-project-upload-dialog must capture initial frame on upload'
+  )
+  assert.match(
+    editorUploadSource,
+    /project\.thumbnailUrl\s*=\s*initialFrame/,
+    'editor-new-project-upload-dialog must set thumbnailUrl on project'
+  )
+
+  const editorPageSource = readFileSync('app/editor/[id]/page.tsx', 'utf8')
+  assert.match(
+    editorPageSource,
+    /captureFirstVideoFrame\(localBlobUrl/,
+    'editor source replacement must capture initial frame on upload'
+  )
+  assert.match(
+    editorPageSource,
+    /thumbnailUrl:\s*frame/,
+    'editor source replacement must persist initial frame to database'
   )
 })
 

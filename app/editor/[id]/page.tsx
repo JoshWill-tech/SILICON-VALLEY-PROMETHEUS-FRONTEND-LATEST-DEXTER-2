@@ -134,6 +134,7 @@ import {
   getSourcePreviewAspectRatio,
   getOutputProfileAspectRatio,
 } from '@/lib/media/source-profile'
+import { captureFirstVideoFrame } from '@/lib/media/capture-first-video-frame'
 import {
   MUSIC_CATALOG,
   buildMusicRecommendationSet as buildCatalogRecommendations,
@@ -9502,9 +9503,31 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // A newer pick may have replaced this source while uploading; newest pick wins.
         if (pendingSourceUploadAssetIdRef.current !== input.assetId) return false
 
-        const nextProject = projects.update(input.projectId, { sourceAssetId: uploadAsset.id })
+        let capturedThumbnailUrl: string | undefined = undefined
+        if (input.file && input.file.type.startsWith('video/')) {
+          try {
+            const localBlobUrl = URL.createObjectURL(input.file)
+            const frame = await captureFirstVideoFrame(localBlobUrl, 4_000)
+            URL.revokeObjectURL(localBlobUrl)
+            if (frame) {
+              capturedThumbnailUrl = frame
+              void fetch(`/api/projects/${encodeURIComponent(input.projectId)}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ thumbnailUrl: frame }),
+              }).catch(() => undefined)
+            }
+          } catch {
+            // Non-blocking thumbnail capture
+          }
+        }
+
+        const nextProject = projects.update(input.projectId, {
+          sourceAssetId: uploadAsset.id,
+          ...(capturedThumbnailUrl ? { thumbnailUrl: capturedThumbnailUrl } : {}),
+        })
         setProject((current) => current?.id === input.projectId
-          ? { ...current, ...nextProject, sourceAssetId: uploadAsset.id }
+          ? { ...current, ...nextProject, sourceAssetId: uploadAsset.id, ...(capturedThumbnailUrl ? { thumbnailUrl: capturedThumbnailUrl } : {}) }
           : current)
         await clearResumableSessionForFile(input.file, input.projectId)
         return true
