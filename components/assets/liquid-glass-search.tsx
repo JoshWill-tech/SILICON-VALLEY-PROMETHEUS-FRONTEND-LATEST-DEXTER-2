@@ -85,6 +85,25 @@ export function LiquidGlassSearch({
   const [placeholder, setPlaceholder] = React.useState(activePrompts[0])
   const [isTypingAnimation, setIsTypingAnimation] = React.useState(true)
 
+  const searchBarRef = React.useRef<HTMLDivElement>(null)
+  const searchGoRef = React.useRef<HTMLButtonElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const restorePointerEvents = React.useCallback(() => {
+    if (searchBarRef.current) {
+      searchBarRef.current.style.pointerEvents = 'auto'
+      searchBarRef.current.style.setProperty('pointer-events', 'auto', 'important')
+    }
+    if (searchGoRef.current) {
+      searchGoRef.current.style.pointerEvents = 'auto'
+      searchGoRef.current.style.setProperty('pointer-events', 'auto', 'important')
+    }
+    if (inputRef.current) {
+      inputRef.current.style.pointerEvents = 'auto'
+      inputRef.current.style.setProperty('pointer-events', 'auto', 'important')
+    }
+  }, [])
+
   const isControlled = value !== undefined
   const query = isControlled ? value : internalValue
 
@@ -193,6 +212,14 @@ export function LiquidGlassSearch({
           tint: 'rgba(0, 0, 0, 0.02)',
           helper: false,
         })
+
+        // Guarantee pointer events and text input focus are immediately active
+        restorePointerEvents()
+        if (typeof window !== 'undefined') {
+          window.requestAnimationFrame?.(restorePointerEvents)
+          setTimeout(restorePointerEvents, 50)
+          setTimeout(restorePointerEvents, 250)
+        }
       } catch (error) {
         console.warn('liquidGL execution warning:', error)
       }
@@ -211,11 +238,15 @@ export function LiquidGlassSearch({
         }
       }
     }
-  }, [])
+  }, [restorePointerEvents])
 
   const handleSubmit = (event?: React.FormEvent) => {
     event?.preventDefault()
-    onSubmit?.(query)
+    const targetQuery = query.trim() || (!isFocused && placeholder ? placeholder : '')
+    if (targetQuery && !query) {
+      setQuery(targetQuery)
+    }
+    onSubmit?.(targetQuery || query)
   }
 
   return (
@@ -225,9 +256,14 @@ export function LiquidGlassSearch({
         className="search-wrap relative flex w-full max-w-[560px] items-center gap-3 px-2 sm:px-0"
       >
         <div
+          ref={searchBarRef}
           role="search"
+          onClick={() => {
+            inputRef.current?.focus()
+          }}
+          style={{ pointerEvents: 'auto' }}
           className={cn(
-            'search-bar glass relative flex h-14 flex-1 items-center gap-2.5 rounded-full px-2.5 text-white transition-all duration-300 sm:h-16 sm:gap-3 sm:px-3',
+            'search-bar glass relative flex h-14 flex-1 cursor-text items-center gap-2.5 rounded-full px-2.5 text-white transition-all duration-300 sm:h-16 sm:gap-3 sm:px-3',
             'pointer-events-auto border border-white/14 bg-white/[0.04] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.22)] backdrop-blur-xl',
           )}
         >
@@ -251,8 +287,16 @@ export function LiquidGlassSearch({
           </div>
 
           {/* Text Input with Animated Placeholder */}
-          <div className="input-wrap relative flex min-w-0 flex-1 items-center">
+          <div
+            className="input-wrap relative flex min-w-0 flex-1 items-center"
+            style={{ pointerEvents: 'auto' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              inputRef.current?.focus()
+            }}
+          >
             <input
+              ref={inputRef}
               type="text"
               autoFocus={autoFocus}
               value={query}
@@ -263,9 +307,10 @@ export function LiquidGlassSearch({
               aria-label="Enter brand URL, website URL, YouTube link, or Instagram handle"
               autoComplete="off"
               spellCheck="false"
+              style={{ pointerEvents: 'auto' }}
               className={cn(
-                'search-input w-full bg-transparent text-sm font-medium text-white outline-none placeholder:text-white/55 sm:text-[15px]',
-                'caret-white/80 select-text',
+                'search-input relative z-20 w-full bg-transparent text-sm font-medium text-white outline-none placeholder:text-white/55 sm:text-[15px]',
+                'caret-white/80 select-text cursor-text pointer-events-auto',
                 isTypingAnimation && 'placeholder:text-white/75',
               )}
             />
@@ -283,18 +328,31 @@ export function LiquidGlassSearch({
           </div>
 
           {/* Action Icons: Mic & Waveform */}
-          <div className="search-actions flex shrink-0 items-center gap-1">
+          <div
+            className="search-actions relative z-20 flex shrink-0 items-center gap-1"
+            style={{ pointerEvents: 'auto' }}
+          >
             <button
               type="button"
               aria-label="Voice search"
-              className="icon-btn flex size-9 items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
+              onClick={(e) => {
+                e.stopPropagation()
+                inputRef.current?.focus()
+              }}
+              style={{ pointerEvents: 'auto' }}
+              className="icon-btn flex size-9 cursor-pointer items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
             >
               <Mic className="size-4 sm:size-4.5" aria-hidden="true" />
             </button>
             <button
               type="button"
               aria-label="Start audio"
-              className="icon-btn flex size-9 items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
+              onClick={(e) => {
+                e.stopPropagation()
+                inputRef.current?.focus()
+              }}
+              style={{ pointerEvents: 'auto' }}
+              className="icon-btn flex size-9 cursor-pointer items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
             >
               <AudioWaveform className="size-4 sm:size-4.5" aria-hidden="true" />
             </button>
@@ -303,8 +361,10 @@ export function LiquidGlassSearch({
 
         {/* Circular Glass Search Submit Button */}
         <button
+          ref={searchGoRef}
           type="submit"
           aria-label="Search"
+          style={{ pointerEvents: 'auto' }}
           className={cn(
             'search-go glass relative flex size-14 shrink-0 cursor-pointer items-center justify-center rounded-full text-white transition duration-300 hover:scale-105 hover:text-[#55ff9b] sm:size-16',
             'pointer-events-auto border border-white/14 bg-white/[0.04] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8),inset_0_1px_2px_rgba(255,255,255,0.22)] backdrop-blur-xl',

@@ -2020,6 +2020,26 @@ input, textarea, select, button { font-family: inherit; }
   z-index: 2;
 }
 
+/* liquidGL lens interactive protections to guarantee pointer events & typing */
+.glass.search-bar,
+.glass.search-go,
+.liquid-glass-stage .search-bar,
+.liquid-glass-stage .search-go,
+.liquid-glass-stage .search-input,
+.liquid-glass-stage .input-wrap,
+.liquid-glass-stage .icon-btn {
+  pointer-events: auto !important;
+}
+
+.liquid-glass-stage .search-input {
+  cursor: text !important;
+}
+
+.liquid-glass-stage .search-go,
+.liquid-glass-stage .icon-btn {
+  cursor: pointer !important;
+}
+
 @keyframes liquidGlassBlink {
   0%, 100% {
     opacity: 1;

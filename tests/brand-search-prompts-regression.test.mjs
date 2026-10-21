@@ -24,6 +24,16 @@ assert.match(searchSource, /prompts\?: string\[\]/, 'LiquidGlassSearchProps must
 assert.match(searchSource, /aria-label="Enter brand URL, website URL, YouTube link, or Instagram handle"/, 'Must have updated accessible aria-label')
 assert.match(searchSource, /placeholder=\{isFocused && !query \? 'Enter brand URL, @handle, or YouTube\.\.\.' : placeholder\}/, 'Must provide brand-focused placeholder on focus')
 
+// Verify interactive typing and pointer event isolation
+assert.match(searchSource, /restorePointerEvents/, 'Must define pointer-events restoration for liquidGL WebGL compatibility')
+assert.match(searchSource, /inputRef\.current\?\.focus\(\)/, 'Must delegate click on search bar container to focus input')
+assert.match(searchSource, /style=\{\{ pointerEvents: 'auto' \}\}/, 'Must enforce inline pointer-events auto protection')
+
+// Verify global CSS pointer-events immunity
+const globalsCss = read('app/globals.css')
+assert.match(globalsCss, /\.glass\.search-bar[\s\S]*pointer-events:\s*auto\s*!important/, 'Must override liquidGL pointer-events freeze in globals.css')
+assert.match(globalsCss, /\.liquid-glass-stage \.search-input[\s\S]*cursor:\s*text\s*!important/, 'Must enforce text cursor for search input')
+
 // 2. Check library-collection.tsx
 const librarySource = read('components/assets/library-collection.tsx')
 
