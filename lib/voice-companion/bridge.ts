@@ -106,11 +106,16 @@ function notify() {
 
 export function registerVoiceCompanionBridge(handlers: VoiceCompanionBridgeHandlers): void {
   currentHandlers = { ...currentHandlers, ...handlers }
+  if (handlers.chatVoiceState === undefined && 'chatVoiceState' in handlers) {
+    delete currentHandlers.chatVoiceState
+  }
   notify()
 }
 
 export function unregisterVoiceCompanionBridge(): void {
-  currentHandlers = {}
+  // Retain active chat voice state so editor timeline refreshes do not sever chat audio reactivity
+  const retainedChatVoiceState = currentHandlers.chatVoiceState
+  currentHandlers = retainedChatVoiceState ? { chatVoiceState: retainedChatVoiceState } : {}
   notify()
 }
 

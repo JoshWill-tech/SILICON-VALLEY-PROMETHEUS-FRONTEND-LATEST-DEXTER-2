@@ -1981,28 +1981,37 @@ export function VideoUploadInterface() {
             }
 
             // If YouTube or URL source was provided or armed, attach SupoClip clipping metadata
+            const promptYtId = extractYouTubeVideoId(prompt);
             const isYouTubeTarget = Boolean(
                 youtubeVideoId ||
+                promptYtId ||
                 sourceUrlValue.includes("youtube.com") ||
                 sourceUrlValue.includes("youtu.be") ||
-                attachments.some((a) => a.startsWith("YouTube:"))
+                attachments.some((a) => a.startsWith("YouTube:")) ||
+                prompt.includes("youtube.com") ||
+                prompt.includes("youtu.be")
             );
             if (isYouTubeTarget || (addSourceMode === "link" && sourceUrlValue.length > 0)) {
-                const targetYtId = youtubeVideoId ?? (sourceUrlValue ? extractYouTubeVideoId(sourceUrlValue) : null);
+                const targetYtId =
+                    youtubeVideoId ??
+                    promptYtId ??
+                    (sourceUrlValue ? extractYouTubeVideoId(sourceUrlValue) : null);
                 const targetThumb = targetYtId ? getYouTubeThumbnailUrl(targetYtId) : null;
+                const effectiveSourceUrl =
+                    sourceUrlValue || (targetYtId ? `https://www.youtube.com/watch?v=${targetYtId}` : "");
                 if (targetThumb) {
                     project.thumbnailUrl = targetThumb;
                 }
                 project.editorState = {
                     ...(project.editorState || {}),
                     isUrlClipping: true,
-                    sourceUrl: sourceUrlValue,
+                    sourceUrl: effectiveSourceUrl,
                     youtubeVideoId: targetYtId,
                 };
                 if (typeof window !== "undefined") {
                     window.sessionStorage.setItem(`prometheus.url-clipping.${project.id}`, JSON.stringify({
                         isUrlClipping: true,
-                        sourceUrl: sourceUrlValue,
+                        sourceUrl: effectiveSourceUrl,
                         youtubeVideoId: targetYtId,
                         thumbnailUrl: targetThumb,
                     }));

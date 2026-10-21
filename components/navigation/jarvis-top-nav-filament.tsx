@@ -40,13 +40,9 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
 
   // Track latest reactive values in refs for zero-react-render RAF animation loop
   const companionRef = useRef(companion)
-  const bridgeRef = useRef(bridge)
   const isHoveredRef = useRef(isHovered)
-  useEffect(() => {
-    companionRef.current = companion
-    bridgeRef.current = bridge
-    isHoveredRef.current = isHovered
-  })
+  companionRef.current = companion
+  isHoveredRef.current = isHovered
 
   const isChatRecording = Boolean(bridge.chatVoiceState?.isRecording)
   const isChatSpeaking = Boolean(bridge.chatVoiceState?.isSpeaking)
@@ -77,7 +73,7 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
 
       if (shouldDraw && pathRef.current) {
         const comp = companionRef.current
-        const br = bridgeRef.current
+        const br = getVoiceCompanionBridge()
         const chatState = br.chatVoiceState
         const chatVol = chatState?.getLevel ? (chatState.getLevel() ?? 0) : 0
         const isChatRec = Boolean(chatState?.isRecording)
@@ -93,18 +89,18 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
         const midY = height / 2
         const numPoints = 48
 
-        let baseAmplitude = 0.6
+        let baseAmplitude = 1.2
         let freq1 = 0.04
         let freq2 = 0.08
-        let speed = 0.03
+        let speed = 0.035
 
         if (status === 'speaking') {
-          baseAmplitude = 6 + asstVol * 14
+          baseAmplitude = 7 + asstVol * 15
           speed = 0.16
           freq1 = 0.05
           freq2 = 0.11
         } else if (status === 'listening') {
-          baseAmplitude = 3 + userVol * 12
+          baseAmplitude = 4 + userVol * 14
           speed = 0.1
           freq1 = 0.045
           freq2 = 0.09
@@ -115,11 +111,11 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
           baseAmplitude = 2.5
           speed = 0.08
         } else if (hovered) {
-          baseAmplitude = 2
+          baseAmplitude = 2.2
           speed = 0.07
         } else {
-          baseAmplitude = 0.6
-          speed = 0.03
+          baseAmplitude = 1.2
+          speed = 0.035
         }
 
         phaseRef.current += speed

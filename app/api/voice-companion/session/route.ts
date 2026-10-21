@@ -5,10 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-const DEFAULT_GEMINI_LIVE_MODEL = 'models/gemini-3.1-flash-live-preview'
+const DEFAULT_GEMINI_LIVE_MODEL =
+  process.env.GEMINI_LIVE_MODEL || 'models/gemini-2.0-flash-exp'
 const SUPPORTED_GEMINI_LIVE_MODELS = new Set([
-  DEFAULT_GEMINI_LIVE_MODEL,
+  'models/gemini-2.0-flash-exp',
+  'models/gemini-2.0-flash-live-001',
   'models/gemini-2.5-flash-native-audio-preview-12-2025',
+  'models/gemini-3.1-flash-live-preview',
 ])
 
 function resolveLiveModel(value: string | undefined): string {

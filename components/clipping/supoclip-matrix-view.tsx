@@ -131,6 +131,17 @@ export function SupoClipMatrixView({
   const [focusedClip, setFocusedClip] = React.useState<WallClip | null>(null)
   const [focusedIndex, setFocusedIndex] = React.useState<number>(0)
   const [isPlayingFocusVideo, setIsPlayingFocusVideo] = React.useState(false)
+  const [filterMode, setFilterMode] = React.useState<'all' | 'top' | 'short'>('all')
+
+  const processedClips = React.useMemo(() => {
+    let result = [...clips]
+    if (filterMode === 'top') {
+      result = result.filter((c) => c.virality_score >= 90)
+    } else if (filterMode === 'short') {
+      result = result.filter((c) => c.duration <= 45)
+    }
+    return result
+  }, [clips, filterMode])
 
   const handleOpenFocus = (clip: WallClip, index: number) => {
     setFocusedClip(clip)
@@ -270,15 +281,50 @@ export function SupoClipMatrixView({
 
       {/* Clips Wall Scrollable Area */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
-            Candidate Cuts ({clips.length})
-          </p>
-          <span className="text-[10px] text-white/30">Click to focus & inspect</span>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setFilterMode('all')}
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-[10px] font-medium transition',
+                filterMode === 'all'
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+              )}
+            >
+              All ({clips.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('top')}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium transition',
+                filterMode === 'top'
+                  ? 'bg-[#ecff49]/20 text-[#ecff49]'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+              )}
+            >
+              <Flame className="size-3" /> Top 90%+
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('short')}
+              className={cn(
+                'rounded-full px-2.5 py-0.5 text-[10px] font-medium transition',
+                filterMode === 'short'
+                  ? 'bg-[#68f0d7]/20 text-[#68f0d7]'
+                  : 'text-white/40 hover:text-white hover:bg-white/5'
+              )}
+            >
+              &le; 45s
+            </button>
+          </div>
+          <span className="text-[10px] text-white/30">Click to focus</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-          {clips.map((clip, index) => {
+          {processedClips.map((clip, index) => {
             const isBest = clip.id === bestClipId
             const isCurrent = clip.id === activeClipId
 
@@ -380,35 +426,60 @@ export function SupoClipMatrixView({
               {/* Left Side: 9:16 Video Stage */}
               <div className="relative flex items-center justify-center bg-black p-4">
                 <div className="relative aspect-[9/16] w-full max-h-[75dvh] overflow-hidden rounded-xl border border-white/10 bg-zinc-950 shadow-2xl">
-                  {focusedClip.thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={focusedClip.thumbnail_url}
-                      alt={focusedClip.hook_title}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+                  {isPlayingFocusVideo && videoId ? (
+                    <div className="relative h-full w-full">
+                      {(() => {
+                        const parts = focusedClip.start_time.split(':').map(Number)
+                        const startSec = (parts[0] || 0) * 60 + (parts[1] || 0)
+                        const endSec = startSec + focusedClip.duration
+                        return (
+                          <iframe
+                            src={`https://www.youtube-nocookie.com/embed/${videoId}?start=${startSec}&end=${endSec}&autoplay=1&controls=1&modestbranding=1&rel=0`}
+                            title={focusedClip.hook_title}
+                            className="h-full w-full border-0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        )
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => setIsPlayingFocusVideo(false)}
+                        className="absolute top-2 right-2 z-10 rounded-full bg-black/70 p-1.5 text-white/70 hover:bg-black hover:text-white shadow-md backdrop-blur-sm"
+                        title="Back to poster"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {focusedClip.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={focusedClip.thumbnail_url}
+                          alt={focusedClip.hook_title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
-                  <button
-                    type="button"
-                    onClick={() => setIsPlayingFocusVideo((prev) => !prev)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/30 transition hover:bg-black/10"
-                    aria-label={isPlayingFocusVideo ? 'Pause clip' : 'Play clip'}
-                  >
-                    <span className="flex size-14 items-center justify-center rounded-full bg-white/90 text-black shadow-xl">
-                      {isPlayingFocusVideo ? (
-                        <Pause className="size-6 fill-current" />
-                      ) : (
-                        <Play className="ml-0.5 size-6 fill-current" />
-                      )}
-                    </span>
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsPlayingFocusVideo(true)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/30 transition hover:bg-black/10 group"
+                        aria-label="Play YouTube clip segment"
+                      >
+                        <span className="flex size-14 items-center justify-center rounded-full bg-white/90 text-black shadow-xl group-hover:scale-110 transition-transform">
+                          <Play className="ml-0.5 size-6 fill-current" />
+                        </span>
+                      </button>
 
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-mono text-white/80">
-                    <span className="rounded bg-black/60 px-2 py-0.5">{focusedClip.start_time}</span>
-                    <span className="rounded bg-black/60 px-2 py-0.5">{focusedClip.end_time}</span>
-                  </div>
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-mono text-white/80">
+                        <span className="rounded bg-black/60 px-2 py-0.5">{focusedClip.start_time}</span>
+                        <span className="rounded bg-black/60 px-2 py-0.5">{focusedClip.end_time}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
