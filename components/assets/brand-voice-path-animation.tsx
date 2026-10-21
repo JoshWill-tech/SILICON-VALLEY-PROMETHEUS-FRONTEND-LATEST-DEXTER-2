@@ -129,11 +129,16 @@ export function BrandVoicePathAnimation({
     setCycleCount((c) => c + 1)
   }, [brandQuery])
 
-  // Advance the copy as each complete message leaves the path.
+  // Stream out of the waveform, then hold the complete loop like the reference.
   React.useEffect(() => {
-    if (!visible || reduceMotion) return
+    if (!visible) return
     const textPath = textPathRef.current
     if (!textPath) return
+    const targetOffset = 1.6
+    if (reduceMotion) {
+      textPath.setAttribute('startOffset', `${targetOffset}%`)
+      return
+    }
 
     let animFrameId: number | null = null
     let startTime: number | null = null
@@ -144,15 +149,20 @@ export function BrandVoicePathAnimation({
       const elapsed = timestamp - startTime
       const tp = textPath!
 
-      // Continuous flowing marquee along the loop
-      const loopDuration = 9000
+      const streamDuration = 3400
+      const holdDuration = 2600
+      const loopDuration = streamDuration + holdDuration
       const cycle = Math.floor(elapsed / loopDuration)
       if (cycle > lastCycle) {
         lastCycle = cycle
         setCurrentText((previous) => getRandomWittyPun(brandQuery, previous))
       }
-      const progress = (elapsed % loopDuration) / loopDuration
-      const currentOffset = -85 + progress * 185
+      const cycleTime = elapsed % loopDuration
+      const progress = 1 - Math.pow(1 - Math.min(cycleTime / streamDuration, 1), 3)
+      const drift = cycleTime < streamDuration
+        ? 0
+        : Math.sin(((cycleTime - streamDuration) / holdDuration) * Math.PI * 2) * 0.25
+      const currentOffset = -75 + progress * (targetOffset + 75) + drift
       tp.setAttribute('startOffset', `${currentOffset}%`)
 
       animFrameId = requestAnimationFrame(runAnimation)
@@ -174,9 +184,9 @@ export function BrandVoicePathAnimation({
         'relative w-full max-w-[920px] mx-auto overflow-hidden rounded-[24px] border border-[#55ff9b]/20 bg-[#060b07]/90 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_1px_3px_rgba(85,255,155,0.06)] backdrop-blur-md select-none',
         className
       )}
-      style={{ aspectRatio: '920 / 330' }}
+      style={{ aspectRatio: '920 / 360' }}
     >
-      <p className={reduceMotion ? 'absolute inset-x-6 top-1/3 text-center text-sm text-[#bbf7d0] sm:text-lg' : 'sr-only'} role="status" aria-live="polite">
+      <p className="sr-only" role="status" aria-live="polite">
         {currentText}
       </p>
       {/* Background Ambient Grid Accent */}
@@ -196,7 +206,7 @@ export function BrandVoicePathAnimation({
         title="Show the next brand discovery message"
         aria-label="Show the next brand discovery message"
         className={cn(
-          'group absolute z-20 flex h-[48px] w-[96px] cursor-pointer items-center justify-center gap-[3px] rounded-full border border-[#55ff9b]/35 bg-[#0f1712] px-4 shadow-[0_6px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(85,255,155,0.18)] transition-all duration-300 hover:scale-105 hover:border-[#55ff9b]/70 hover:shadow-[0_0_25px_rgba(85,255,155,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#55ff9b]',
+          'group absolute z-20 flex h-[13.333%] w-[10%] cursor-pointer items-center justify-center gap-[clamp(1px,0.24vw,3px)] rounded-full border border-[#55ff9b]/35 bg-[#0f1712] p-0 shadow-[0_6px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(85,255,155,0.18)] transition-all duration-300 hover:scale-105 hover:border-[#55ff9b]/70 hover:shadow-[0_0_25px_rgba(85,255,155,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#55ff9b]',
           isAnalyzing && 'ring-2 ring-[#55ff9b]/60 border-[#55ff9b]'
         )}
         style={{
@@ -326,7 +336,7 @@ export function BrandVoicePathAnimation({
 
       {/* SVG Roller-Coaster Text Path matching exact geometry */}
       <svg
-        className={cn('block h-full w-full', reduceMotion && 'invisible')}
+        className="block h-full w-full"
         viewBox="0 0 920 360"
         preserveAspectRatio="xMidYMid meet"
         aria-hidden="true"
@@ -354,7 +364,7 @@ export function BrandVoicePathAnimation({
             <stop offset="100%" stopColor="black" />
           </linearGradient>
 
-          <mask id={maskId}>
+          <mask id={maskId} maskUnits="userSpaceOnUse" x="0" y="0" width="920" height="360">
             <rect x="0" y="0" width="920" height="360" fill={`url(#${gradientId})`} />
           </mask>
         </defs>
@@ -370,9 +380,9 @@ export function BrandVoicePathAnimation({
           >
             <textPath
               ref={textPathRef}
-              id="animatedTextPath"
+              id={`animatedTextPath-${reactId}`}
               href={`#${pathId}`}
-              startOffset="0%"
+              startOffset="1.6%"
             >
               {currentText}
             </textPath>
@@ -381,7 +391,7 @@ export function BrandVoicePathAnimation({
       </svg>
 
       {/* Floating Status Label */}
-      <div className="absolute bottom-3 inset-x-4 flex items-center pointer-events-auto">
+      <div className="absolute bottom-3 inset-x-4 hidden items-center pointer-events-auto sm:flex">
         <div className="flex items-center gap-2 rounded-full border border-[#55ff9b]/25 bg-black/60 px-3 py-1 text-[11px] text-[#63ffa4] backdrop-blur-md">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#55ff9b] opacity-75" />
@@ -395,6 +405,15 @@ export function BrandVoicePathAnimation({
 
       {/* Embedded CSS Keyframes for the equalizer bars */}
       <style jsx>{`
+        [data-testid='voice-pill']::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: max(100%, 44px);
+          height: max(100%, 44px);
+          transform: translate(-50%, -50%);
+        }
         @keyframes brandWavePulse {
           0% {
             height: 4px;

@@ -791,7 +791,7 @@ The user's microphone commands are expected in English. Interpret English speech
 
     const setupPayload = {
       setup: {
-        model: this.config.model || 'models/gemini-3.1-flash-live-preview',
+        model: this.config.model || 'models/gemini-3.8-live',
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {

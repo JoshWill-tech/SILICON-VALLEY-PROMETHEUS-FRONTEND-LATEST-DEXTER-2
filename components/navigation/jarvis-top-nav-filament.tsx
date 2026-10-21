@@ -13,6 +13,7 @@ import {
 } from '@/lib/voice-companion/bridge'
 import { autonomousCoordinator } from '@/lib/autonomous-ui/coordinator'
 import { downloadConversationLog } from '@/lib/conversation-log'
+import { getMediaFailureMessage } from '@/lib/media/feedback'
 
 export interface JarvisTopNavFilamentProps {
   className?: string
@@ -381,7 +382,7 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
                   </p>
                 ) : companion.status === 'error' ? (
                   <p className="text-[12px] leading-relaxed text-rose-200/90">
-                    {companion.error || 'Connection failed. Verify GEMINI_API_KEY.'}
+                    {getMediaFailureMessage(new Error(companion.error || 'Voice could not connect. Retry the connection.'))}
                   </p>
                 ) : companion.status === 'listening' ? (
                   <p className="text-[13px] leading-5 text-white/70">Listening. Speak freely or direct Jarvis.</p>
@@ -397,6 +398,11 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
               </div>
 
               {/* A sober command line provides a second input modality without competing with voice. */}
+              {latestTranscript && companion.status === 'error' && companion.error && (
+                <p role="alert" className="mt-3 text-[12px] leading-relaxed text-rose-200/90">
+                  {getMediaFailureMessage(new Error(companion.error))}
+                </p>
+              )}
               {companion.connectionNotice && (
                 <p role="status" className="mt-3 text-[11px] leading-relaxed text-white/55">
                   {companion.connectionNotice}

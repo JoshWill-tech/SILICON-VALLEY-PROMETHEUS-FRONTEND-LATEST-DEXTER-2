@@ -16,6 +16,11 @@ export function getMediaFailureMessage(error: unknown): string {
   if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return 'Microphone access is blocked. Allow microphone access for this site in your browser settings, then retry. You can keep using text chat.'
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'No microphone was found. Connect a microphone and retry, or use text chat.'
   if (name === 'NotReadableError' || name === 'TrackStartError') return 'Your microphone is busy or unavailable. Close other apps using it and retry.'
+  // Classify provider failures before the generic transport fallback. Never
+  // diagnose exhausted tokens from a WebSocket error alone.
+  if (/resource[_ ]exhausted|quota|rate.?limit|too many requests|\b429\b/i.test(message)) return 'The voice provider reached its usage limit. Check the Gemini project quota and billing, or retry after the limit resets.'
+  if (/model.*(?:not found|not supported|unavailable|retired|shut.?down)|not supported for bidiGenerateContent/i.test(message)) return 'The configured voice model is unavailable. The voice service configuration needs to be updated before reconnecting.'
+  if (/invalid api key|api key.*(?:not valid|invalid|revoked|expired)|unauthenticated|permission_denied/i.test(message)) return 'The voice service credentials are unavailable or lack access. Check the service configuration before reconnecting.'
   if (/websocket|gemini|server credentials|permission denied|api key|setup timed out/i.test(message)) return 'The voice service is unavailable. Use text chat while the connection is restored, or retry the connection.'
   return message || 'Voice could not connect. Retry or continue in text chat.'
 }

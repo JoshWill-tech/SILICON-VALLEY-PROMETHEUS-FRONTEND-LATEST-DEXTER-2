@@ -87,6 +87,13 @@ test('submitted brand animation lifecycle and contextual rotation', async () => 
     const firstText = stage().querySelector('textPath').textContent
     assert.match(firstText, /brand|color|palette|typograph|tone|style|identity|preference/i)
     await tick(100)
+    await tick(3500)
+    const heldOffset = Number.parseFloat(stage().querySelector('textPath').getAttribute('startOffset'))
+    assert.ok(Math.abs(heldOffset - 1.6) < 0.3, 'The streamed message must settle into the complete roller-coaster composition')
+    await tick(5700)
+    const laterOffset = Number.parseFloat(stage().querySelector('textPath').getAttribute('startOffset'))
+    assert.ok(Math.abs(laterOffset - 1.6) < 0.3, 'The complete loop must stay readable instead of disappearing off the path')
+    assert.equal(stage().querySelector('textPath').textContent, firstText, 'Keep the same message during the readable hold')
     await tick(9101)
     assert.notEqual(stage().querySelector('textPath').textContent, firstText, 'A completed animation cycle must advance the brand message')
     await edit('https://second-studio.com')

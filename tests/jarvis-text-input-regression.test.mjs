@@ -45,10 +45,11 @@ test('expanded Jarvis keeps typed input available after connection failure', asy
     assert.match(host.textContent, /Convert this virtual journey into a finished video/, 'The pending instruction should remain visible in the conversation')
     assert.match(host.textContent, /Your message will be sent when the live session is ready/, 'Jarvis should explain that the message is queued')
     await act(async () => {
-      rejectSession(new Error('Simulated voice session connection failure'))
+      rejectSession(new Error('Gemini Server Error: RESOURCE_EXHAUSTED: quota exceeded'))
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
     assert.match(host.textContent, /Voice could not connect/, 'The reproduction must reach the disconnected error state')
+    assert.match(host.querySelector('[role="alert"]')?.textContent || '', /usage limit|quota/i, 'A pending user message must not hide the actual quota failure and recovery action')
     assert.ok(host.querySelector('[aria-label="Type an instruction to Jarvis"]'), 'Expanded Jarvis should keep the typed input available when voice connection fails')
   } finally {
     await act(() => root.unmount())
