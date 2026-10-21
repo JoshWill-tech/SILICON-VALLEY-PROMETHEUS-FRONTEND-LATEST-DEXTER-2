@@ -1538,7 +1538,7 @@ export function VideoUploadInterface() {
         () => (youtubeVideoId ? getYouTubeThumbnailUrl(youtubeVideoId) : null),
         [youtubeVideoId]
     );
-    const isYouTube = Boolean(youtubeVideoId);
+    const isYouTube = isYouTubeUrl(sourceUrlValue);
     const pendingSourceProfile = pendingUpload?.sourceProfile ?? null;
     const pendingSourceMetrics = pendingSourceProfile ? formatSourceProfileMetric(pendingSourceProfile) : null;
     const sourceReady = addSourceMode === "upload" ? !!pendingUpload : sourceUrlValue.length > 0;
@@ -2296,18 +2296,19 @@ export function VideoUploadInterface() {
             : `https://${raw}`;
 
         const ytId = extractYouTubeVideoId(normalized);
-        if (ytId) {
-            addSourceChip(`YouTube: ${ytId}`);
+        if (isYouTubeUrl(normalized)) {
+            const youtubeLabel = ytId ?? new URL(normalized).pathname.replace(/^\/+/, "");
+            addSourceChip(`YouTube: ${youtubeLabel}`);
             if (typeof window !== "undefined") {
                 window.sessionStorage.setItem("prometheus.url-clipping.pending", JSON.stringify({
                     isUrlClipping: true,
                     sourceUrl: normalized,
                     youtubeVideoId: ytId,
-                    thumbnailUrl: getYouTubeThumbnailUrl(ytId),
+                    thumbnailUrl: ytId ? getYouTubeThumbnailUrl(ytId) : null,
                 }));
             }
-            toast.success("YouTube URL Armed", {
-                description: "Ready to clip into high-retention shorts in the editor chamber.",
+            toast.success("YouTube source added", {
+                description: "The editor will fetch and analyze this source when you open the clip panel.",
             });
         } else {
             try {

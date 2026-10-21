@@ -100,7 +100,6 @@ import { buildEditorialCleanupRun, isAutonomousEditRequest, type EditorialCleanu
 import { clearPendingEditorNavigation, getRememberedEditorReturnPath } from '@/lib/editor-navigation'
 import { SupoClipMatrixView } from '@/components/clipping/supoclip-matrix-view'
 import {
-  generateSupoClipVariants,
   fetchLiveViralCrops,
   extractYouTubeVideoId,
   type WallClip,
@@ -8978,6 +8977,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [project])
 
   const [isClipsLoading, setIsClipsLoading] = React.useState(false)
+  const [clipLoadError, setClipLoadError] = React.useState<string | null>(null)
+  const [clipRetryCount, setClipRetryCount] = React.useState(0)
+  const lastClipRequestRef = React.useRef<{ url: string; retry: number }>({ url: '', retry: -1 })
   const [liveSupoClips, setLiveSupoClips] = React.useState<WallClip[]>([])
 
   const resolvedClippingVideoId =
@@ -8989,56 +8991,49 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   const [selectedCropRect, setSelectedCropRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   React.useEffect(() => {
-    const rawUrl = urlClippingState.sourceUrl || (resolvedClippingVideoId ? `https://www.youtube.com/watch?v=${resolvedClippingVideoId}` : '')
+    const rawUrl =
+      urlClippingState.sourceUrl ||
+      project?.editorState?.sourceUrl ||
+      (resolvedClippingVideoId ? `https://www.youtube.com/watch?v=${resolvedClippingVideoId}` : '')
     if (!rawUrl) return
+    const requestKey = rawUrl.trim()
+    if (lastClipRequestRef.current.url === requestKey && lastClipRequestRef.current.retry === clipRetryCount) return
+    lastClipRequestRef.current = { url: requestKey, retry: clipRetryCount }
 
     let isMounted = true
     setIsClipsLoading(true)
+    setClipLoadError(null)
+    setLiveSupoClips([])
 
-    createClient().auth.getSession().then((result) => {
-      const currentSession = result.data.session
-      if (!isMounted) return
-      fetchLiveViralCrops(rawUrl, 4, currentSession?.access_token)
-        .then((clips) => {
-          if (isMounted) {
-            setIsClipsLoading(false)
-            if (clips && clips.length > 0) {
-              setLiveSupoClips(clips)
-              const resolvedId = clips[0]?.id ? clips[0].id.replace(/^supoclip-/, '').split('-')[0] : null
-              if (resolvedId && resolvedId !== 'source_video' && !urlClippingState.youtubeVideoId) {
-                setUrlClippingState((prev) => ({
-                  ...prev,
-                  youtubeVideoId: resolvedId,
-                  thumbnailUrl: clips[0]?.thumbnail_url || prev.thumbnailUrl,
-                }))
-              }
-            }
-          }
-        })
-        .catch((err) => {
-          console.warn('[page] Error loading live viral crops:', err)
-          if (isMounted) {
-            setIsClipsLoading(false)
-          }
-        })
-    })
+    const loadClips = async () => {
+      try {
+        const result = await createClient().auth.getSession()
+        if (!isMounted) return
+        const clips = await fetchLiveViralCrops(rawUrl, 4, result.data.session?.access_token)
+        if (!isMounted) return
+        setLiveSupoClips(clips)
+        const resolvedId = extractYouTubeVideoId(clips[0]?.video_url) || extractYouTubeVideoId(rawUrl)
+        if (resolvedId && resolvedId !== 'source_video' && resolvedId !== urlClippingState.youtubeVideoId) {
+          setUrlClippingState((prev) => ({
+            ...prev,
+            youtubeVideoId: resolvedId,
+            thumbnailUrl: clips[0]?.thumbnail_url || prev.thumbnailUrl,
+          }))
+        }
+      } catch (error) {
+        if (!isMounted) return
+        setLiveSupoClips([])
+        setClipLoadError(error instanceof Error ? error.message : 'Could not fetch this source. Try again.')
+      } finally {
+        if (isMounted) setIsClipsLoading(false)
+      }
+    }
+    void loadClips()
 
     return () => {
       isMounted = false
     }
-  }, [urlClippingState.sourceUrl])
-
-  const supoClipList = React.useMemo<WallClip[]>(() => {
-    if (liveSupoClips.length > 0) return liveSupoClips
-    if (resolvedClippingVideoId) {
-      return generateSupoClipVariants(
-        resolvedClippingVideoId,
-        project?.title || 'YouTube Source',
-        transportDurationSec || 320
-      )
-    }
-    return []
-  }, [liveSupoClips, resolvedClippingVideoId, project?.title, transportDurationSec])
+  }, [urlClippingState.sourceUrl, urlClippingState.youtubeVideoId, project?.editorState?.sourceUrl, resolvedClippingVideoId, clipRetryCount])
 
   const handleSelectSupoClip = React.useCallback(
     (clip: WallClip) => {
@@ -10241,10 +10236,12 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
                         <div className="min-h-0 h-full max-h-[calc(100vh-280px)]">
                           <SupoClipMatrixView
                             videoId={resolvedClippingVideoId}
-                            sourceUrl={urlClippingState.sourceUrl}
-                            clips={supoClipList}
+                            sourceUrl={urlClippingState.sourceUrl || project?.editorState?.sourceUrl}
+                            clips={liveSupoClips}
                             activeClipId={activeSupoClipId}
-                            isProcessing={isClipsLoading || (isUrlClippingActive && liveSupoClips.length === 0)}
+                            isProcessing={isClipsLoading}
+                            loadError={clipLoadError}
+                            onRetry={() => setClipRetryCount((count) => count + 1)}
                             onSelectClip={handleSelectSupoClip}
                             onClose={() => setIsUrlClippingActive(false)}
                           />

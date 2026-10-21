@@ -292,14 +292,12 @@ export function generateSupoClipVariants(
   });
 }
 
-/**
- * Fetches real viral crop analysis from the AWS Lambda pipeline via /api/mini-run/api/pipeline/url-ingest.
- * Falls back gracefully to local generation if the backend is unreachable.
- */
+/** Fetches real clip analysis from the authenticated Mini-Run URL-ingest route. */
 export async function fetchLiveViralCrops(
   url: string,
   nClips: number = 4,
-  userToken?: string
+  userToken?: string,
+  signal?: AbortSignal
 ): Promise<WallClip[]> {
   const directId = extractYouTubeVideoId(url);
   try {
@@ -318,22 +316,25 @@ export async function fetchLiveViralCrops(
         nClips,
         targetAspectRatio: '9:16',
       }),
+      signal,
     });
 
     if (!res.ok) {
-      console.warn(`[youtube-clip-service] url-ingest returned HTTP ${res.status}`);
-      if (directId) {
-        return generateSupoClipVariants(directId);
-      }
-      return [];
+      const detail = await res.json().catch(() => null);
+      throw new Error(
+        typeof detail?.error === 'string'
+          ? detail.error
+          : `Video ingest failed (HTTP ${res.status}). Try another public video URL.`,
+      );
     }
 
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.clips) || data.clips.length === 0) {
-      if (directId) {
-        return generateSupoClipVariants(directId);
-      }
-      return [];
+      throw new Error(
+        typeof data.error === 'string'
+          ? data.error
+          : 'No clips were returned for this source. Check that the video is public and try again.',
+      );
     }
 
     const effectiveVideoId = data.source?.videoId || directId || 'source_video';
@@ -351,7 +352,9 @@ export async function fetchLiveViralCrops(
       text: clip.transcriptExcerpt || clip.hookTitle || '',
       relevance_score: Math.min(1.0, (clip.viralityScore || 85) / 100),
       clip_order: clip.rank || index + 1,
-      video_url: data.source?.url || url,
+      video_url: data.source?.videoId
+        ? `https://www.youtube.com/watch?v=${data.source.videoId}`
+        : data.source?.url || url,
       thumbnail_url: clip.thumbnailUrl || sourceThumb,
       virality_score: clip.viralityScore || 85,
       hook_score: clip.hookScore || 22,
@@ -366,10 +369,9 @@ export async function fetchLiveViralCrops(
       sourceEndMs: clip.sourceEndMs ?? ((index + 1) * 30000),
     }));
   } catch (err) {
-    console.warn('[youtube-clip-service] Network error fetching live viral crops:', err);
-    if (directId) {
-      return generateSupoClipVariants(directId);
-    }
-    return [];
+    if (err instanceof Error) throw err;
+    throw new Error(directId
+      ? 'Could not fetch this YouTube video. Check the link and try again.'
+      : 'Could not fetch this source. Check the link and try again.');
   }
 }
