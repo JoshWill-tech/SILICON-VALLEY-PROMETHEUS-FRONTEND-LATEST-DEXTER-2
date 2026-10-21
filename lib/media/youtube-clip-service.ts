@@ -98,10 +98,20 @@ export function extractYouTubeVideoId(value: string | null | undefined): string 
 }
 
 /**
- * Checks if a string represents a valid YouTube URL or video ID.
+ * Checks if a string represents a YouTube channel or creator profile handle (@username).
+ */
+export function isYouTubeChannelUrl(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const input = value.trim();
+  if (!input) return false;
+  return /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/(?:@[\w.-]+|(?:c|channel|user)\/[\w.-]+)/.test(input);
+}
+
+/**
+ * Checks if a string represents a valid YouTube URL, channel link, or video ID.
  */
 export function isYouTubeUrl(value: string | null | undefined): boolean {
-  return extractYouTubeVideoId(value) !== null;
+  return extractYouTubeVideoId(value) !== null || isYouTubeChannelUrl(value);
 }
 
 /**
@@ -291,7 +301,7 @@ export async function fetchLiveViralCrops(
   nClips: number = 4,
   userToken?: string
 ): Promise<WallClip[]> {
-  const videoId = extractYouTubeVideoId(url) || 'source_video';
+  const directId = extractYouTubeVideoId(url);
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -311,27 +321,37 @@ export async function fetchLiveViralCrops(
     });
 
     if (!res.ok) {
-      console.warn(`[youtube-clip-service] url-ingest returned HTTP ${res.status}, falling back to local variants.`);
-      return generateSupoClipVariants(videoId);
+      console.warn(`[youtube-clip-service] url-ingest returned HTTP ${res.status}`);
+      if (directId) {
+        return generateSupoClipVariants(directId);
+      }
+      return [];
     }
 
     const data = await res.json();
     if (!data.ok || !Array.isArray(data.clips) || data.clips.length === 0) {
-      return generateSupoClipVariants(videoId);
+      if (directId) {
+        return generateSupoClipVariants(directId);
+      }
+      return [];
     }
 
-    const sourceThumb = data.source?.thumbnailUrl || getYouTubeThumbnailUrl(videoId) || '';
+    const effectiveVideoId = data.source?.videoId || directId || 'source_video';
+    const sourceThumb =
+      data.source?.thumbnailUrl ||
+      (directId ? getYouTubeThumbnailUrl(directId) : '') ||
+      '';
 
     return data.clips.map((clip: any, index: number) => ({
-      id: clip.id || `supoclip-${videoId}-${index + 1}`,
-      filename: `clip_${index + 1}_${videoId}.mp4`,
+      id: clip.id || `supoclip-${effectiveVideoId}-${index + 1}`,
+      filename: `clip_${index + 1}_${effectiveVideoId}.mp4`,
       start_time: clip.startTime || formatClipDuration((clip.sourceStartMs || 0) / 1000),
       end_time: clip.endTime || formatClipDuration((clip.sourceEndMs || 30000) / 1000),
       duration: Math.round((clip.durationMs || 30000) / 1000),
       text: clip.transcriptExcerpt || clip.hookTitle || '',
       relevance_score: Math.min(1.0, (clip.viralityScore || 85) / 100),
       clip_order: clip.rank || index + 1,
-      video_url: url,
+      video_url: data.source?.url || url,
       thumbnail_url: clip.thumbnailUrl || sourceThumb,
       virality_score: clip.viralityScore || 85,
       hook_score: clip.hookScore || 22,
@@ -346,7 +366,10 @@ export async function fetchLiveViralCrops(
       sourceEndMs: clip.sourceEndMs ?? ((index + 1) * 30000),
     }));
   } catch (err) {
-    console.warn('[youtube-clip-service] Network error fetching live viral crops, using fallback:', err);
-    return generateSupoClipVariants(videoId);
+    console.warn('[youtube-clip-service] Network error fetching live viral crops:', err);
+    if (directId) {
+      return generateSupoClipVariants(directId);
+    }
+    return [];
   }
 }
