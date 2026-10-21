@@ -242,11 +242,9 @@ export function LiquidGlassSearch({
 
   const handleSubmit = (event?: React.FormEvent) => {
     event?.preventDefault()
-    const targetQuery = query.trim() || (!isFocused && placeholder ? placeholder : '')
-    if (targetQuery && !query) {
-      setQuery(targetQuery)
-    }
-    onSubmit?.(targetQuery || query)
+    const targetQuery = query.trim()
+    if (!targetQuery) return
+    onSubmit?.(targetQuery)
   }
 
   return (

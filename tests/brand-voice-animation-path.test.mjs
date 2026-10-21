@@ -74,6 +74,17 @@ test('dynamic witty pun engine', async () => {
   const pun2 = getRandomWittyPun('www.youtube.com/ao9afafuaafb', pun1)
   assert.notEqual(pun2, pun1, 'Must exclude previous pun when possible')
 
+  const originalRandom = Math.random
+  try {
+    Math.random = () => 0
+    for (const query of ['youtube.com/@studio', '@studio', 'https://studio.com', 'Studio']) {
+      const first = getRandomWittyPun(query)
+      assert.notEqual(getRandomWittyPun(query, first), first, 'Interpolated brand messages must never repeat consecutively')
+    }
+  } finally {
+    Math.random = originalRandom
+  }
+
   console.log('dynamic witty pun engine passed')
 })
 
@@ -84,8 +95,8 @@ test('library collection integration', () => {
     'library-collection.tsx must import and render BrandVoicePathAnimation'
   )
   assert.ok(
-    libraryContent.includes('brandQuery={searchQuery}'),
-    'BrandVoicePathAnimation must receive searchQuery as brandQuery'
+    libraryContent.includes('brandQuery={submittedBrandQuery}'),
+    'BrandVoicePathAnimation must receive the submitted brand query'
   )
 
   console.log('library collection integration passed')

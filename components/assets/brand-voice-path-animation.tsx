@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useReducedMotion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 export interface BrandVoicePathAnimationProps {
@@ -13,47 +14,36 @@ export interface BrandVoicePathAnimationProps {
 }
 
 /**
- * Curated witty, pun-filled lines tailored to brand types & channels.
- * Dynamically interpolated with the brand name.
+ * Brand discovery prompts tailored to the submitted source.
+ * These describe identity and preferences, without claiming verified findings.
  */
 export const WITTY_PUNS_BY_TYPE = {
   youtube: [
-    'Smash that like button on your brand DNA... subscribing to 60fps high-retention vibes...',
-    'Buffering 100% pure charisma... our timeline algorithm just fell in love with {brand}\'s pacing...',
-    'Demonetizing boring corporate templates... {brand} is strictly 4K creator-tier cinematic heat...',
-    'Mining {brand}\'s channel for golden hooks... retention graphs are breaking our physics engine...',
-    'The algorithm whispered to Prometheus: {brand} is about to break the internet in post-production...',
-    'Zero clickbait detected... just pure unadulterated visual dopamine for {brand}\'s subscribers...',
-    'Transcribing video aura... warning: retention rate approaching terminal velocity...',
-    'Slicing YouTube metadata with laser precision... each frame seasoned to cinematic perfection...',
+    'Getting to know {brand}\'s channel identity and creative preferences...',
+    'Exploring the colors and thumbnail style that make {brand} recognizable...',
+    'Considering {brand}\'s typography, captions, and visual style...',
+    'Getting a feel for {brand}\'s tone of voice and storytelling preferences...',
+    'Bringing {brand}\'s brand identity into focus for future videos...',
   ],
   social: [
-    'Translating {brand}\'s grid into kinetic typography... scrolling stops right here...',
-    'Your typography has undeniable main character energy... rolling the Hollywood credits now...',
-    'Stealing {brand}\'s aesthetic secret sauce... completely legal and with immaculate kerning...',
-    'Calculating viral coefficient for {brand}... result: dangerously high engagement detected...',
-    'Verified aesthetic only: {brand} just passed the Prometheus aura check with flying colors...',
-    'Converting aesthetic tension into 9:16 vertical gold... every pixel is punching above its weight...',
-    'Calibrating cuts to {brand}\'s heartbeat... fast, punchy, and impossible to skip...',
+    'Getting to know {brand}\'s visual identity and style preferences...',
+    'Exploring {brand}\'s color palette and the mood behind the feed...',
+    'Considering the typography and imagery that express {brand}\'s identity...',
+    'Getting a feel for {brand}\'s brand voice and creative preferences...',
+    'Bringing {brand}\'s signature style into focus for future content...',
   ],
   domain: [
-    'Siphoning {brand}\'s chromatic soul... CSS variables have never looked this spicy in motion...',
-    'Distilling DNS records into liquid motion... DNS stands for Definitely Neat Style, right?...',
-    'Teaching neural nets to speak fluent {brand}... they won\'t stop quoting your landing page...',
-    'Analyzing site DNA: 100% visionary founder spirit, 0% comic sans, zero compromise...',
-    'Baking {brand} into the video timeline... hot, crispy render fresh out of the GPU oven...',
-    'Consulting the brand oracle... definitive verdict: {brand}\'s aesthetic goes certifiably hard...',
-    'Injecting 1,000 CCs of kinetic espresso into {brand}\'s video suite...',
-    'Decompiling your visual architecture... finding fonts that refuse to be ignored...',
-    'Turning {brand}\'s landing page into a Sundance festival selection, one keyframe at a time...',
-    'Aesthetic radar locked onto {brand}... spooling up hyperdrive for video outputs...',
-    'Brewing bespoke motion alchemy... 99% high-craft precision, 1% unhinged creative genius...',
+    'Getting to know {brand}\'s brand identity and creative preferences...',
+    'Exploring {brand}\'s color palette and visual direction...',
+    'Considering the typography and imagery that give {brand} its character...',
+    'Getting a feel for {brand}\'s tone of voice and brand personality...',
+    'Bringing {brand}\'s style preferences into focus for future content...',
   ],
   fallback: [
-    'Calibrating cinematic pacing... because life is too short for boring transitions...',
-    'Syncing color palettes to maximum dopamine... pixels are officially vibrating on frequency...',
-    'Rendering the unseen spirit of {brand}... timeline magnets engaged and locked in...',
-    'Prometheus neural forge ignited... forging bespoke visual identity with zero templates...',
+    'Getting to know {brand}\'s brand identity and preferences...',
+    'Exploring the colors, typography, and imagery that express {brand}...',
+    'Considering {brand}\'s tone of voice and creative direction...',
+    'Bringing {brand}\'s preferred visual style into focus...',
   ],
 }
 
@@ -106,9 +96,9 @@ export function extractBrandInfo(query: string): { brandName: string; category: 
 export function getRandomWittyPun(query: string, excludeText?: string): string {
   const { brandName, category } = extractBrandInfo(query)
   const pool = WITTY_PUNS_BY_TYPE[category] || WITTY_PUNS_BY_TYPE.fallback
-  const filtered = pool.filter((pun) => pun !== excludeText)
-  const chosenTemplate = filtered[Math.floor(Math.random() * filtered.length)] || pool[0]
-  return chosenTemplate.replace(/\{brand\}/g, brandName)
+  const messages = pool.map((template) => template.replace(/\{brand\}/g, brandName))
+  const filtered = messages.filter((message) => message !== excludeText)
+  return filtered[Math.floor(Math.random() * filtered.length)] || messages[0]
 }
 
 export function BrandVoicePathAnimation({
@@ -118,6 +108,7 @@ export function BrandVoicePathAnimation({
   onComplete,
   visible = false,
 }: BrandVoicePathAnimationProps) {
+  const reduceMotion = useReducedMotion()
   const textPathRef = React.useRef<SVGTextPathElement | null>(null)
   const [currentText, setCurrentText] = React.useState<string>(() => getRandomWittyPun(brandQuery))
   const [cycleCount, setCycleCount] = React.useState(0)
@@ -138,22 +129,28 @@ export function BrandVoicePathAnimation({
     setCycleCount((c) => c + 1)
   }, [brandQuery])
 
-  // Marquee animation loop — continuous flowing text along the SVG path
+  // Advance the copy as each complete message leaves the path.
   React.useEffect(() => {
-    if (!visible) return
+    if (!visible || reduceMotion) return
     const textPath = textPathRef.current
     if (!textPath) return
 
     let animFrameId: number | null = null
     let startTime: number | null = null
+    let lastCycle = 0
 
     function runAnimation(timestamp: number) {
-      if (!startTime) startTime = timestamp
+      if (startTime === null) startTime = timestamp
       const elapsed = timestamp - startTime
       const tp = textPath!
 
       // Continuous flowing marquee along the loop
       const loopDuration = 9000
+      const cycle = Math.floor(elapsed / loopDuration)
+      if (cycle > lastCycle) {
+        lastCycle = cycle
+        setCurrentText((previous) => getRandomWittyPun(brandQuery, previous))
+      }
       const progress = (elapsed % loopDuration) / loopDuration
       const currentOffset = -85 + progress * 185
       tp.setAttribute('startOffset', `${currentOffset}%`)
@@ -166,7 +163,7 @@ export function BrandVoicePathAnimation({
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId)
     }
-  }, [visible, brandQuery, cycleCount, onComplete])
+  }, [visible, brandQuery, cycleCount, onComplete, reduceMotion])
 
   if (!visible) return null
 
@@ -179,6 +176,9 @@ export function BrandVoicePathAnimation({
       )}
       style={{ aspectRatio: '920 / 330' }}
     >
+      <p className={reduceMotion ? 'absolute inset-x-6 top-1/3 text-center text-sm text-[#bbf7d0] sm:text-lg' : 'sr-only'} role="status" aria-live="polite">
+        {currentText}
+      </p>
       {/* Background Ambient Grid Accent */}
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
@@ -193,8 +193,8 @@ export function BrandVoicePathAnimation({
         type="button"
         data-testid="voice-pill"
         onClick={nextWittyPun}
-        title="Click to spin next witty brand thought"
-        aria-label="Click to generate dynamic witty brand thought"
+        title="Show the next brand discovery message"
+        aria-label="Show the next brand discovery message"
         className={cn(
           'group absolute z-20 flex h-[48px] w-[96px] cursor-pointer items-center justify-center gap-[3px] rounded-full border border-[#55ff9b]/35 bg-[#0f1712] px-4 shadow-[0_6px_20px_rgba(0,0,0,0.6),0_0_15px_rgba(85,255,155,0.18)] transition-all duration-300 hover:scale-105 hover:border-[#55ff9b]/70 hover:shadow-[0_0_25px_rgba(85,255,155,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#55ff9b]',
           isAnalyzing && 'ring-2 ring-[#55ff9b]/60 border-[#55ff9b]'
@@ -326,7 +326,7 @@ export function BrandVoicePathAnimation({
 
       {/* SVG Roller-Coaster Text Path matching exact geometry */}
       <svg
-        className="block h-full w-full"
+        className={cn('block h-full w-full', reduceMotion && 'invisible')}
         viewBox="0 0 920 360"
         preserveAspectRatio="xMidYMid meet"
         aria-hidden="true"
@@ -388,7 +388,7 @@ export function BrandVoicePathAnimation({
             <span className="relative inline-flex size-2 rounded-full bg-[#55ff9b]" />
           </span>
           <span className="font-mono uppercase tracking-wider text-white/50 text-[10px]">
-            {isAnalyzing ? 'Calibrating Brand Aura' : 'Voice-to-Text Brand Engine'}
+            {isAnalyzing ? 'Applying brand preferences' : 'Brand identity & preferences'}
           </span>
         </div>
       </div>
@@ -401,6 +401,12 @@ export function BrandVoicePathAnimation({
           }
           100% {
             height: var(--max-h, 16px);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-testid='voice-pill'] span,
+          .animate-ping {
+            animation: none !important;
           }
         }
       `}</style>

@@ -46,6 +46,6 @@ assert.match(librarySource, /BRAND_DNA_STORAGE_KEY/, 'Must link to brand DNA sto
 // Verify UI components
 assert.match(librarySource, /Active Brand Spirit:/, 'Must render active brand indicator when applied')
 assert.match(librarySource, /Set Brand Spirit for Video Outputs/, 'Must provide fallback action to apply brand to video suite')
-assert.match(librarySource, /Apply &ldquo;\{searchQuery\}&rdquo; to Video Suite/, 'Must include action button to apply custom query')
+assert.ok(librarySource.includes('`Apply "${searchQuery}" to Video Suite`'), 'Must include action button to apply custom query')
 
 console.log('brand search prompts regression checks passed successfully!')
