@@ -153,11 +153,23 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
   }, [])
 
   const clientRef = useRef<GeminiLiveClient | null>(null)
+  const pendingTextMessagesRef = useRef<string[]>([])
   const recorderRef = useRef<AudioRecorder | null>(null)
   const playerRef = useRef<AudioPlayer | null>(null)
   const volumeTimerRef = useRef<NodeJS.Timeout | null>(null)
   const assistantTurnActiveRef = useRef(false)
   const statusRef = useRef<VoiceCompanionStatus>('disconnected')
+  const flushPendingTextMessages = useCallback(() => {
+    const client = clientRef.current
+    if (!client?.isConnected() || pendingTextMessagesRef.current.length === 0) return
+
+    playerRef.current?.flush()
+    assistantTurnActiveRef.current = false
+    recorderRef.current?.resetBargeFrames()
+    const pending = pendingTextMessagesRef.current.splice(0)
+    for (const message of pending) client.sendContextText(message)
+    setConnectionNotice(null)
+  }, [])
   const setUserStatus = useCallback(
     (next: VoiceCompanionStatus | ((prev: VoiceCompanionStatus) => VoiceCompanionStatus)) => {
       const resolved = typeof next === 'function' ? next(statusRef.current) : next
@@ -915,7 +927,8 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     }
   }, [executeToolCall])
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback((preservePendingText = false) => {
+    if (!preservePendingText) pendingTextMessagesRef.current = []
     connectionGenerationRef.current += 1
     fetchAbortRef.current?.abort()
     fetchAbortRef.current = null
@@ -940,7 +953,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
   }, [setUserStatus, syncRecovery])
 
   const connect = useCallback(async () => {
-    disconnect()
+    disconnect(true)
     const generation = connectionGenerationRef.current
     const isCurrent = () => connectionGenerationRef.current === generation
     const controller = new AbortController()
@@ -986,7 +999,11 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         wsUrl: sessionData.wsUrl, wsUrls: sessionData.wsUrls, model: sessionData.model,
         voiceName: selectedVoice || sessionData.voiceName, projectContext,
       }, {
-        onSetupConfirmed: () => { if (isCurrent()) setUserStatus('listening') },
+        onSetupConfirmed: () => {
+          if (!isCurrent()) return
+          setUserStatus('listening')
+          flushPendingTextMessages()
+        },
         onAudio: (chunk) => {
           if (!isCurrent()) return
           assistantTurnActiveRef.current = true
@@ -1093,12 +1110,12 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     } catch (err) {
       if (!isCurrent()) return
       const msg = getMediaFailureMessage(err)
-      disconnect()
+      disconnect(true)
       setError(msg)
       setConnectionNotice('Voice could not connect. Your received conversation is retained. Reconnect to try again.')
       setUserStatus('error')
     }
-  }, [disconnect, handleToolCall, selectedVoice, setUserStatus, syncRecovery])
+  }, [disconnect, flushPendingTextMessages, handleToolCall, selectedVoice, setUserStatus, syncRecovery])
 
   const replayLastResponse = useCallback(async () => {
     const chunks = recoveryRef.current.replayAudio
@@ -1133,20 +1150,21 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
 
   const sendTextMessage = useCallback((text: string) => {
     const trimmed = text.trim()
-    if (!trimmed || !clientRef.current?.isConnected()) return
+    if (!trimmed) return
 
-    // Immediately stop any residual assistant playback so it does not talk over the user
-    playerRef.current?.flush()
-    assistantTurnActiveRef.current = false
-    setUserStatus('listening')
-
-    // Clear any stale barge-in state before sending this complete text turn.
-    recorderRef.current?.resetBargeFrames()
-
-    clientRef.current.sendContextText(text)
     recoveryRef.current.addUserMessage(text)
     syncRecovery()
-  }, [setUserStatus, syncRecovery])
+    pendingTextMessagesRef.current.push(text)
+
+    if (clientRef.current?.isConnected()) {
+      flushPendingTextMessages()
+      setUserStatus('listening')
+      return
+    }
+
+    setConnectionNotice('Connecting to Jarvis. Your message will be sent when the live session is ready.')
+    if (statusRef.current === 'disconnected' || statusRef.current === 'error') void connect()
+  }, [connect, flushPendingTextMessages, setUserStatus, syncRecovery])
 
   useEffect(() => {
     return () => {

@@ -190,6 +190,8 @@ function hookHarness() {
     '@/lib/editor/mini-run-draft-store': { useMiniRunDraftStore: { getState: () => ({ staging: null, clearStaging: () => {} }) } },
     '@/lib/media/feedback': { getMediaFailureMessage: err => (err && err.message) || 'Media failure' },
     '@/lib/voice-companion/export-status': { readVoiceExportStatus: async () => ({ success: true, summary: 'Export idle' }) },
+    '@/lib/voice-companion/source-status': { readVoiceSourceStatus: async () => ({ success: true, summary: 'Source ready' }) },
+    '@/lib/api/mini-run': { miniRun: async () => ({ success: true }) },
     '@/lib/voice-companion/error-sanitizer': { sanitizeVoiceCompanionError: (msg) => msg },
     '@/lib/theme/theme-store': { useThemePreferenceStore: { getState: () => ({ mode: 'dark', setThemeMode: () => {} }) } },
   }
@@ -218,6 +220,18 @@ assert.equal(lifecycle.render().status, 'disconnected')
 lifecycle.unmount()
 
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ wsUrl: 'wss://hook.invalid' }) })
+const queuedHook = hookHarness()
+voice = queuedHook.render()
+voice.sendTextMessage('Convert this virtual journey into a finished video')
+await tick()
+let queuedSocket = newSocket()
+queuedSocket.open(); queuedSocket.message({ setupComplete: {} }); await tick(); await tick()
+assert.deepEqual(
+  queuedSocket.sent.find(payload => payload.clientContent)?.clientContent.turns[0].parts[0].text,
+  'Convert this virtual journey into a finished video',
+  'A typed instruction submitted while disconnected must send once session setup completes',
+)
+queuedHook.unmount()
 const liveHook = hookHarness(); voice = liveHook.render()
 const hookConnect = voice.connect(); await tick()
 let hookSocket = newSocket(); hookSocket.open(); hookSocket.message({ setupComplete: {} }); await hookConnect
@@ -244,6 +258,7 @@ assert.equal(voice.transcripts.length, 2, 'Reconnect preserves prior transcripts
 assert.equal(voice.transcripts[1].status, 'complete')
 voice.sendTextMessage('  exact typed words  ')
 assert.equal(liveHook.render().transcripts.at(-1).text, '  exact typed words  ')
+assert.equal(hookSocket.sent.at(-1).clientContent.turns[0].parts[0].text, '  exact typed words  ')
 
 // Editing responses are based on awaited actual results, including zero changes.
 const edited = deferred()

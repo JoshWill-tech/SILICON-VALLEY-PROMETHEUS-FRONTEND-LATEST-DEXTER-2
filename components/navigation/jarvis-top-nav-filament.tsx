@@ -397,34 +397,43 @@ export function JarvisTopNavFilament({ className }: JarvisTopNavFilamentProps) {
               </div>
 
               {/* A sober command line provides a second input modality without competing with voice. */}
-              {isActive && (
-                <form
-                  className="mt-4 flex items-center gap-2 border border-white/[0.13] bg-black/30 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-300 focus-within:border-cyan-300/45"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    const message = textDraft.trim()
-                    if (!message) return
-                    companion.sendTextMessage(message)
-                    setTextDraft('')
-                  }}
-                >
-                  <input
-                    value={textDraft}
-                    onChange={(event) => setTextDraft(event.target.value)}
-                    placeholder={isEditorLinked ? 'Instruct Jarvis (editor linked)…' : 'Message Jarvis…'}
-                    aria-label="Type an instruction to Jarvis"
-                    className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[13px] text-white/90 outline-none placeholder:text-white/30"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!textDraft.trim()}
-                    aria-label="Send message to Jarvis"
-                    className="grid size-8 shrink-0 place-items-center rounded-[4px] bg-cyan-200 text-[#061014] transition-all duration-300 hover:bg-cyan-100 active:scale-[0.96] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30"
-                  >
-                    <ArrowUp className="size-3.5" strokeWidth={1.8} />
-                  </button>
-                </form>
+              {companion.connectionNotice && (
+                <p role="status" className="mt-3 text-[11px] leading-relaxed text-white/55">
+                  {companion.connectionNotice}
+                </p>
               )}
+              <form
+                className="mt-4 flex items-center gap-2 border border-white/[0.13] bg-black/30 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition-colors duration-300 focus-within:border-cyan-300/45"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const message = textDraft.trim()
+                  if (!message) return
+                  companion.sendTextMessage(message)
+                  setTextDraft('')
+                }}
+              >
+                <input
+                  value={textDraft}
+                  onChange={(event) => setTextDraft(event.target.value)}
+                  placeholder={companion.status === 'connecting'
+                    ? 'Send an instruction while Jarvis connects…'
+                    : !isActive
+                    ? 'Message Jarvis to connect…'
+                    : isEditorLinked
+                    ? 'Instruct Jarvis (editor linked)…'
+                    : 'Message Jarvis…'}
+                  aria-label="Type an instruction to Jarvis"
+                  className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[13px] text-white/90 outline-none placeholder:text-white/30"
+                />
+                <button
+                  type="submit"
+                  disabled={!textDraft.trim()}
+                  aria-label="Send message to Jarvis"
+                  className="grid size-8 shrink-0 place-items-center rounded-[4px] bg-cyan-200 text-[#061014] transition-all duration-300 hover:bg-cyan-100 active:scale-[0.96] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/30"
+                >
+                  <ArrowUp className="size-3.5" strokeWidth={1.8} />
+                </button>
+              </form>
             </div>
 
             <div className="relative mt-4 border-t border-white/[0.09] pt-3">
