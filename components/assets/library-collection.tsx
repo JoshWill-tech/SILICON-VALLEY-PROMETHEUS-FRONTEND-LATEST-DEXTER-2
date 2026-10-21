@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 
 import { LIBRARY_CREATOR_CARDS } from '@/components/assets/cinematic-library'
 import { LiquidGlassSearch } from '@/components/assets/liquid-glass-search'
+import { BrandVoicePathAnimation } from '@/components/assets/brand-voice-path-animation'
 import { BRAND_DNA_STORAGE_KEY } from '@/components/assets/brand-dna-studio'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { saveJarvisMemory } from '@/lib/voice-companion/memory'
@@ -108,6 +109,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
   const reduceMotion = useReducedMotion() ?? false
   const [searchQuery, setSearchQuery] = React.useState('')
   const [activeBrand, setActiveBrand] = React.useState<ActiveBrandRecord | null>(null)
+  const [isApplyingBrand, setIsApplyingBrand] = React.useState(false)
 
   React.useEffect(() => {
     const saved = readLocalStorageJSON<ActiveBrandRecord>(ACTIVE_BRAND_STORAGE_KEY)
@@ -278,7 +280,12 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
         ) : null}
 
         {visibleCreators.length === 0 ? (
-          <div className="my-10 flex flex-col items-center justify-center rounded-xl border border-[#55ff9b]/25 bg-[#030503]/80 p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+          <div className="my-10 flex flex-col items-center justify-center rounded-2xl border border-[#55ff9b]/25 bg-[#030503]/85 p-6 sm:p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+            {/* Animated Voice-to-Text Path when getting requisite brand info */}
+            <div className="w-full max-w-[920px] mb-6">
+              <BrandVoicePathAnimation brandQuery={searchQuery} isAnalyzing={isApplyingBrand} />
+            </div>
+
             <div className="grid size-12 place-items-center rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 text-[#63ffa4]">
               <Sparkles className="size-6" aria-hidden="true" />
             </div>
@@ -293,13 +300,18 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
               <button
                 type="button"
                 onClick={() => {
+                  setIsApplyingBrand(true)
                   const spec = parseBrandInput(searchQuery)
                   if (spec) applyBrandSpecification(spec)
+                  setTimeout(() => {
+                    setIsApplyingBrand(false)
+                  }, 600)
                 }}
-                className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02]"
+                disabled={isApplyingBrand}
+                className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02] disabled:opacity-60"
               >
                 <Check className="size-3.5" />
-                Apply &ldquo;{searchQuery}&rdquo; to Video Suite
+                {isApplyingBrand ? 'Calibrating Brand Spirit...' : `Apply "${searchQuery}" to Video Suite`}
               </button>
               <button
                 type="button"
