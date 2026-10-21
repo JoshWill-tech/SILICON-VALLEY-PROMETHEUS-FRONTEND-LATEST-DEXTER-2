@@ -611,6 +611,7 @@ export function PrometheusChat({
                 active={showingThinking}
                 intent={persistentChat.streamIntent}
                 thoughts={lastMessage?.role === 'assistant' ? lastMessage.thoughts : []}
+                prompt={[...renderedMessages].reverse().find((m) => m.role === 'user')?.content}
               />
             </div>
           )}
@@ -794,7 +795,7 @@ const PrometheusMessageBubble = React.memo(function PrometheusMessageBubble({
   const [showThoughts, setShowThoughts] = React.useState(false)
 
   if (isThinking) {
-    return <PrometheusChatLoadingSkeleton className="max-w-[18rem] py-2" />
+    return <PrometheusChatLoadingSkeleton prompt={message.content} className="max-w-[22rem] py-2" />
   }
 
   const drafts = message.actionDrafts ?? []

@@ -6,15 +6,25 @@ import { CinematicSkeletalLoader } from "@/components/loading-animation"
 
 import { cn } from "@/lib/utils"
 
-export function PrometheusChatLoadingSkeleton({
-  label = "Jarvis is preparing a response...",
-  className,
-  showCinematicVideo = true,
-}: {
+export interface PrometheusChatLoadingSkeletonProps {
   label?: string
+  sublabel?: string
+  prompt?: string | null
+  intent?: string | null
+  thoughts?: string[] | null
   className?: string
   showCinematicVideo?: boolean
-}) {
+}
+
+export function PrometheusChatLoadingSkeleton({
+  label = "Jarvis is preparing a response...",
+  sublabel = "Preparing your Prometheus response...",
+  prompt,
+  intent,
+  thoughts,
+  className,
+  showCinematicVideo = true,
+}: PrometheusChatLoadingSkeletonProps) {
   const reduceMotion = useReducedMotion()
 
   if (showCinematicVideo) {
@@ -23,7 +33,10 @@ export function PrometheusChatLoadingSkeleton({
         <CinematicSkeletalLoader
           variant="chat"
           label={label}
-          sublabel="Preparing your Prometheus response..."
+          sublabel={sublabel}
+          prompt={prompt}
+          intent={intent}
+          thoughts={thoughts}
         />
       </div>
     )

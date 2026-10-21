@@ -3,21 +3,33 @@
 import * as React from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import {
+  JarvisDispatchAnimation,
+  type JarvisDispatchAnimationProps,
+} from './jarvis-dispatch-animation'
 
 export interface CinematicSkeletalLoaderProps {
   label?: string
   sublabel?: string
+  prompt?: string | null
+  intent?: string | null
+  thoughts?: string[] | null
   variant?: 'stage' | 'card' | 'chat' | 'inline'
   className?: string
   showText?: boolean
   aspectRatio?: string
 }
 
+export { JarvisDispatchAnimation, type JarvisDispatchAnimationProps }
+
 const CINEMATIC_LOADER_SRC = '/loaders/cinematic-loader.webm'
 
 export function CinematicSkeletalLoader({
   label = 'Jarvis compiling directive on Modal...',
   sublabel,
+  prompt,
+  intent,
+  thoughts,
   variant = 'stage',
   className,
   showText = true,
@@ -30,6 +42,20 @@ export function CinematicSkeletalLoader({
       videoRef.current.play().catch(() => {})
     }
   }, [])
+
+  if (variant === 'chat') {
+    return (
+      <JarvisDispatchAnimation
+        prompt={prompt}
+        intent={intent}
+        label={label}
+        sublabel={sublabel}
+        thoughts={thoughts}
+        className={className}
+        aspectRatio={aspectRatio}
+      />
+    )
+  }
 
   if (variant === 'inline') {
     return (
@@ -47,39 +73,6 @@ export function CinematicSkeletalLoader({
           />
         </div>
         {showText && <span className="text-[11px] font-medium text-white/80">{label}</span>}
-      </div>
-    )
-  }
-
-  if (variant === 'chat') {
-    return (
-      <div className={cn('relative flex w-full max-w-[22rem] flex-col gap-2 overflow-hidden rounded-2xl border border-white/10 bg-black/60 p-2.5 shadow-2xl backdrop-blur-xl', className)}>
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
-          <video
-            ref={videoRef}
-            src={CINEMATIC_LOADER_SRC}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute bottom-2 left-2.5 flex items-center gap-1.5">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7ff2d4] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#7ff2d4]" />
-            </span>
-            <span className="text-[10px] font-medium tracking-wide uppercase text-white/80">Jarvis Dispatching</span>
-          </div>
-        </div>
-        {showText && (
-          <div className="flex flex-col px-1 pb-0.5">
-            <p className="text-[12px] font-medium text-white/90">{label}</p>
-            {sublabel && <p className="text-[11px] text-white/50">{sublabel}</p>}
-          </div>
-        )}
       </div>
     )
   }

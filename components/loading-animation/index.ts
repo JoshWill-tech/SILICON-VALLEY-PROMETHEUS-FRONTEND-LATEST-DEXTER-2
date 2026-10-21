@@ -16,4 +16,6 @@ export type {
 export {
   CinematicSkeletalLoader,
   type CinematicSkeletalLoaderProps,
+  JarvisDispatchAnimation,
+  type JarvisDispatchAnimationProps,
 } from './cinematic-skeletal-loader'

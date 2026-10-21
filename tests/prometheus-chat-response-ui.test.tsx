@@ -9,7 +9,7 @@ import { PrometheusChatMarkdown } from "../components/editor/prometheus-chat-mar
 import { buildChatFollowUpSuggestions } from "../lib/prometheus-assistant/chat-follow-ups";
 
 test("thinking indicator exposes a breathing orb and flowing skeleton lines", () => {
-  const markup = renderToStaticMarkup(<PrometheusChatLoadingSkeleton />);
+  const markup = renderToStaticMarkup(<PrometheusChatLoadingSkeleton showCinematicVideo={false} />);
 
   assert.match(markup, /role="status"/);
   assert.match(markup, /data-thinking-orb="breathing"/);

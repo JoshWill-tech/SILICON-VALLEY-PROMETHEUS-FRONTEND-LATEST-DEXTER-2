@@ -21,11 +21,13 @@ export function PrometheusChatActivity({
   active,
   intent,
   thoughts = [],
+  prompt,
 }: {
   entries: AIChatActivity[];
   active: boolean;
   intent?: string | null;
   thoughts?: string[];
+  prompt?: string | null;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -56,7 +58,11 @@ export function PrometheusChatActivity({
       <div className="flex items-center gap-2">
         <PrometheusChatLoadingSkeleton
           label={activeStage?.label ?? latestThought ?? "Assessing your request"}
-          className="max-w-[18rem]"
+          sublabel={activeStage?.detail}
+          prompt={prompt}
+          intent={intent}
+          thoughts={thoughts}
+          className="max-w-[22rem]"
         />
         <button
           type="button"
