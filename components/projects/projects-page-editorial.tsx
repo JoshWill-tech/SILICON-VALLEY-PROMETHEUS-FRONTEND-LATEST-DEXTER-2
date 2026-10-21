@@ -9,6 +9,7 @@ import {
   CircleAlert,
   Clock3,
   Copy,
+  Film,
   FolderOpen,
   MoreHorizontal,
   Plus,
@@ -27,6 +28,7 @@ import { useProjectsList } from '@/hooks/use-projects-list'
 import { rememberCurrentPathForEditorReturn } from '@/lib/editor-navigation'
 import { matchesProjectStatusFilter, PROJECT_STATUS_LABELS } from '@/lib/projects/project-list'
 import { getProject, upsertProject } from '@/lib/mock'
+import { captureFirstVideoFrame } from '@/lib/media/capture-first-video-frame'
 import type { ProjectCardStatus, ProjectListItem } from '@/lib/projects/types'
 import type { Project } from '@/lib/types'
 
@@ -108,11 +110,67 @@ function ProjectTile({
   isOpening: boolean
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
+  const [fallbackFrame, setFallbackFrame] = React.useState<string | null>(null)
+  const [nearViewport, setNearViewport] = React.useState(false)
+  const tileRef = React.useRef<HTMLElement | null>(null)
   const status = statusCopy[project.status]
-  const thumbnailStyle = project.thumbnailUrl ? { backgroundImage: `url("${project.thumbnailUrl}")` } : undefined
+
+  React.useEffect(() => {
+    const target = tileRef.current
+    if (!target || !('IntersectionObserver' in window)) {
+      setNearViewport(true)
+      return
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setNearViewport(true)
+        observer.disconnect()
+      }
+    }, { rootMargin: '200px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
+
+  React.useEffect(() => {
+    if (!nearViewport || !project.sourceAssetId || (project.thumbnailUrl && !thumbnailFailed) || fallbackFrame) return
+    const controller = new AbortController()
+    let active = true
+
+    async function loadFallbackFrame() {
+      try {
+        const response = await fetch(`/api/projects/${encodeURIComponent(project.id)}/assets`, { signal: controller.signal })
+        if (!response.ok) return
+        const payload = (await response.json()) as { asset?: { mime_type?: string }; source?: { url?: string } }
+        if (!payload.asset?.mime_type?.startsWith('video/') || !payload.source?.url) return
+
+        const frame = await captureFirstVideoFrame(payload.source.url)
+        if (active && frame) {
+          setFallbackFrame(frame)
+          void fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ thumbnailUrl: frame }),
+          }).catch(() => undefined)
+        }
+      } catch {
+        // Fallback silently if asset cannot be resolved
+      }
+    }
+
+    void loadFallbackFrame()
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [fallbackFrame, nearViewport, project.id, project.sourceAssetId, project.thumbnailUrl, thumbnailFailed])
+
+  const effectiveThumbnail = (!thumbnailFailed && project.thumbnailUrl) ? project.thumbnailUrl : fallbackFrame
+  const thumbnailStyle = effectiveThumbnail ? { backgroundImage: `url("${effectiveThumbnail}")` } : undefined
 
   return (
     <article
+      ref={tileRef}
       data-ui-surface="project-card"
       onClick={(event) => {
         const target = event.target as HTMLElement | null
@@ -134,7 +192,16 @@ function ProjectTile({
 
       <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(90deg,rgba(255,255,255,.18)_1px,transparent_1px),linear-gradient(rgba(255,255,255,.18)_1px,transparent_1px)] [background-size:28px_28px] transition-opacity duration-500 group-hover:opacity-0 group-focus-within:opacity-0" />
-        {thumbnailStyle ? <div className="project-tile-artwork absolute inset-0 bg-cover bg-center grayscale opacity-[var(--project-artwork-opacity,0.18)] mix-blend-screen transition-[opacity,transform,mix-blend-mode] duration-700 group-hover:scale-105 group-hover:opacity-[0.12] group-hover:mix-blend-multiply group-focus-within:scale-105 group-focus-within:opacity-[0.12] group-focus-within:mix-blend-multiply" style={thumbnailStyle} /> : null}
+        {thumbnailStyle ? (
+          <div className="project-tile-artwork absolute inset-0 bg-cover bg-center grayscale opacity-[var(--project-artwork-opacity,0.18)] mix-blend-screen transition-[opacity,transform,mix-blend-mode] duration-700 group-hover:scale-105 group-hover:opacity-[0.12] group-hover:mix-blend-multiply group-focus-within:scale-105 group-focus-within:opacity-[0.12] group-focus-within:mix-blend-multiply" style={thumbnailStyle} />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none opacity-40 transition-opacity duration-500 group-hover:opacity-75">
+            <div className="grid size-12 place-items-center rounded-full border border-[var(--project-line)]/25 bg-[var(--project-inverse)]/[0.04]">
+              <Film className="size-5 text-[var(--project-ink)] opacity-60" strokeWidth={1.5} />
+            </div>
+            <span className="mt-2 font-mono text-[9px] uppercase tracking-[0.22em] text-[color:var(--light-ui-muted,rgba(255,255,255,0.48))]">Draft piece</span>
+          </div>
+        )}
         <span className="absolute -right-12 -top-10 size-44 rounded-full bg-[var(--project-inverse)]/10 blur-3xl transition-[transform,background-color] duration-700 group-hover:translate-x-6 group-hover:translate-y-5 group-hover:bg-[var(--project-card)]/10 group-focus-within:translate-x-6 group-focus-within:translate-y-5 group-focus-within:bg-[var(--project-card)]/10" />
         <span className="absolute left-5 top-5 font-mono text-[10px] tracking-[0.22em] text-[color:var(--light-ui-muted,rgba(255,255,255,0.7))] transition-colors duration-500 group-hover:text-[color:var(--light-ui-muted,rgba(0,0,0,0.65))] group-focus-within:text-[color:var(--light-ui-muted,rgba(0,0,0,0.65))]">PROMETHEUS / 0{index + 1}</span>
       </div>

@@ -74,6 +74,7 @@ import {
     getYouTubeThumbnailUrl,
     isYouTubeUrl,
 } from "@/lib/media/youtube-clip-service";
+import { captureFirstVideoFrame } from "@/lib/media/capture-first-video-frame";
 import {
     R2_MULTIPART_CLIENT_MAX_BYTES,
     uploadProjectSourceMultipart,
@@ -1978,6 +1979,24 @@ export function VideoUploadInterface() {
 
                 // Update local project object with the newly registered asset ID
                 project.sourceAssetId = uploadAsset.id;
+
+                if (selectedSourceFile && selectedSourceFile.type.startsWith("video/")) {
+                    try {
+                        const localBlobUrl = URL.createObjectURL(selectedSourceFile);
+                        const initialFrame = await captureFirstVideoFrame(localBlobUrl, 4_000);
+                        URL.revokeObjectURL(localBlobUrl);
+                        if (initialFrame) {
+                            project.thumbnailUrl = initialFrame;
+                            void fetch(`/api/projects/${encodeURIComponent(project.id)}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ thumbnailUrl: initialFrame }),
+                            }).catch(() => undefined);
+                        }
+                    } catch {
+                        // Non-blocking thumbnail generation
+                    }
+                }
             }
 
             // If YouTube or URL source was provided or armed, attach SupoClip clipping metadata
