@@ -53,15 +53,16 @@ function SourceAddGlyph({
             }
       }
     >
-      <span className="absolute inset-0 rounded-[20px] border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.13)_0%,rgba(255,255,255,0.04)_46%,rgba(255,255,255,0.02)_100%)] shadow-[0_22px_44px_-30px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-xl" />
-      <span className="absolute inset-[7px] rounded-[15px] border border-white/10 bg-black/38 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" />
+      <span data-source-glyph-outer="" className="absolute inset-0 rounded-[20px] border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.13)_0%,rgba(255,255,255,0.04)_46%,rgba(255,255,255,0.02)_100%)] shadow-[0_22px_44px_-30px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-xl" />
+      <span data-source-glyph-inner="" className="absolute inset-[7px] rounded-[15px] border border-white/10 bg-black/38 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]" />
       <motion.span
+        data-source-glyph-ring=""
         className="absolute inset-[11px] rounded-[12px] border border-white/14"
         animate={reduceMotion ? undefined : { rotate: isDragActive ? 8 : [0, 2, 0, -2, 0], opacity: isDragActive ? 0.82 : [0.42, 0.62, 0.42] }}
         transition={reduceMotion ? undefined : { duration: isDragActive ? 0.32 : 6, repeat: isDragActive ? 0 : Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
       />
-      <span className={cn('absolute h-[2px] w-7 rounded-full bg-gradient-to-r shadow-[0_0_18px_rgba(159,246,227,0.32)]', accentClass)} />
-      <span className={cn('absolute h-7 w-[2px] rounded-full bg-gradient-to-b shadow-[0_0_18px_rgba(159,246,227,0.32)]', accentClass)} />
+      <span data-source-glyph-bar="" className={cn('absolute h-[2px] w-7 rounded-full bg-gradient-to-r shadow-[0_0_18px_rgba(159,246,227,0.32)]', accentClass)} />
+      <span data-source-glyph-bar="" className={cn('absolute h-7 w-[2px] rounded-full bg-gradient-to-b shadow-[0_0_18px_rgba(159,246,227,0.32)]', accentClass)} />
       <span className="absolute left-3.5 top-3.5 size-1 rounded-full bg-white/48 shadow-[0_0_12px_rgba(255,255,255,0.5)]" />
     </motion.span>
   )
@@ -93,6 +94,8 @@ export function SourceStagePlaceholder({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
+      data-source-stage-placeholder=""
+      data-drag-over={isDragActive ? 'true' : undefined}
       className={cn(
         'group relative flex h-full min-h-[clamp(250px,40vh,460px)] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[16px] border transition-all duration-300 ease-out',
         isDragActive
@@ -104,6 +107,7 @@ export function SourceStagePlaceholder({
     >
       <div
         aria-hidden
+        data-source-stage-dots=""
         className="pointer-events-none absolute inset-0 z-[1] opacity-50"
         style={{
           backgroundImage:
@@ -114,11 +118,12 @@ export function SourceStagePlaceholder({
       />
       <motion.span
         aria-hidden
+        data-source-stage-dashed=""
         className="pointer-events-none absolute inset-[10%] z-[1] rounded-[18px] border border-dashed border-white/10"
         animate={reduceMotion ? undefined : { opacity: isDragActive ? 0.64 : [0.22, 0.42, 0.22] }}
         transition={reduceMotion ? undefined : { duration: 2.8, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
       />
-      <span className="pointer-events-none absolute inset-x-[18%] top-0 z-[1] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(159,246,227,0.52)_48%,rgba(255,255,255,0)_100%)]" />
+      <span data-source-stage-sheen="" className="pointer-events-none absolute inset-x-[18%] top-0 z-[1] h-px bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(159,246,227,0.52)_48%,rgba(255,255,255,0)_100%)]" />
 
       <span className="relative z-10 inline-flex">
         <SourceAddGlyph isDragActive={isDragActive} isError={isError} reduceMotion={reduceMotion} />

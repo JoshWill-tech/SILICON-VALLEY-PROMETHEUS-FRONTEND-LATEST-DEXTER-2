@@ -102,6 +102,7 @@ export function ElegistChatGreeting({
 
   return (
     <div
+      data-chat-greeting=""
       className={cn(
         "relative w-full font-elegist whitespace-pre-line [font-synthesis:none]",
         className,

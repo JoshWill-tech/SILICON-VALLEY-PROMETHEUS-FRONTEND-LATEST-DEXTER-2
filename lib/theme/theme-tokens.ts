@@ -174,7 +174,7 @@ export function themeCssVariables(themeId: string | null | undefined, colorMode:
   const preset = colorMode === 'light' ? {
     ...selected,
     background: '#F6F7FB',
-    foreground: '#182230',
+    foreground: '#0A0A0F',
     accent: LIGHT_ACCENTS[selected.id],
     surface: '#FFFFFF',
     elevated: '#EDF0F5',
