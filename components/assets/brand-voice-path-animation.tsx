@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { Sparkles, Play, RefreshCw, Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface BrandVoicePathAnimationProps {
@@ -9,6 +8,8 @@ export interface BrandVoicePathAnimationProps {
   isAnalyzing?: boolean
   className?: string
   onComplete?: () => void
+  /** When false (default) the component is hidden; set to true after the search button is clicked with a URL */
+  visible?: boolean
 }
 
 /**
@@ -115,9 +116,9 @@ export function BrandVoicePathAnimation({
   isAnalyzing = false,
   className,
   onComplete,
+  visible = false,
 }: BrandVoicePathAnimationProps) {
   const textPathRef = React.useRef<SVGTextPathElement | null>(null)
-  const [mode, setMode] = React.useState<'stream' | 'continuous'>('stream')
   const [currentText, setCurrentText] = React.useState<string>(() => getRandomWittyPun(brandQuery))
   const [cycleCount, setCycleCount] = React.useState(0)
 
@@ -137,59 +138,25 @@ export function BrandVoicePathAnimation({
     setCycleCount((c) => c + 1)
   }, [brandQuery])
 
-  // Animation loop using requestAnimationFrame matching user specifications
+  // Marquee animation loop — continuous flowing text along the SVG path
   React.useEffect(() => {
+    if (!visible) return
     const textPath = textPathRef.current
     if (!textPath) return
 
-    // Target offset that matches the exact framing in the reference image
-    const TARGET_OFFSET = 1.6
     let animFrameId: number | null = null
     let startTime: number | null = null
-    let lastCycleCompleted = -1
-
-    function easeOutCubic(t: number) {
-      return 1 - Math.pow(1 - t, 3)
-    }
 
     function runAnimation(timestamp: number) {
       if (!startTime) startTime = timestamp
       const elapsed = timestamp - startTime
-      // textPath is guaranteed non-null: checked at effect entry point above
       const tp = textPath!
 
-      if (mode === 'stream') {
-        // Stream out of the pill over 3.4s, hold on the exact frame for 2.6s, then repeat
-        const streamDuration = 3400
-        const holdDuration = 2600
-        const totalCycle = streamDuration + holdDuration
-        const cycleIndex = Math.floor(elapsed / totalCycle)
-        const cycleTime = elapsed % totalCycle
-
-        // Trigger dynamic text swap on each new cycle
-        if (cycleIndex !== lastCycleCompleted && cycleIndex > 0) {
-          lastCycleCompleted = cycleIndex
-          setCurrentText((prev) => getRandomWittyPun(brandQuery, prev))
-          onComplete?.()
-        }
-
-        if (cycleTime < streamDuration) {
-          const progress = easeOutCubic(cycleTime / streamDuration)
-          const currentOffset = -75 + progress * (TARGET_OFFSET - -75)
-          tp.setAttribute('startOffset', `${currentOffset}%`)
-        } else {
-          // Subtle breathing drift while holding on the final composition
-          const holdTime = cycleTime - streamDuration
-          const drift = Math.sin((holdTime / holdDuration) * Math.PI * 2) * 0.25
-          tp.setAttribute('startOffset', `${TARGET_OFFSET + drift}%`)
-        }
-      } else {
-        // Continuous flowing marquee along the loop
-        const loopDuration = 9000
-        const progress = (elapsed % loopDuration) / loopDuration
-        const currentOffset = -85 + progress * 185
-        tp.setAttribute('startOffset', `${currentOffset}%`)
-      }
+      // Continuous flowing marquee along the loop
+      const loopDuration = 9000
+      const progress = (elapsed % loopDuration) / loopDuration
+      const currentOffset = -85 + progress * 185
+      tp.setAttribute('startOffset', `${currentOffset}%`)
 
       animFrameId = requestAnimationFrame(runAnimation)
     }
@@ -199,7 +166,9 @@ export function BrandVoicePathAnimation({
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId)
     }
-  }, [mode, brandQuery, cycleCount, onComplete])
+  }, [visible, brandQuery, cycleCount, onComplete])
+
+  if (!visible) return null
 
   return (
     <div
@@ -411,8 +380,8 @@ export function BrandVoicePathAnimation({
         </g>
       </svg>
 
-      {/* Floating Status & Interactive Controls */}
-      <div className="absolute bottom-3 inset-x-4 flex items-center justify-between gap-2 pointer-events-auto">
+      {/* Floating Status Label */}
+      <div className="absolute bottom-3 inset-x-4 flex items-center pointer-events-auto">
         <div className="flex items-center gap-2 rounded-full border border-[#55ff9b]/25 bg-black/60 px-3 py-1 text-[11px] text-[#63ffa4] backdrop-blur-md">
           <span className="relative flex size-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#55ff9b] opacity-75" />
@@ -421,42 +390,6 @@ export function BrandVoicePathAnimation({
           <span className="font-mono uppercase tracking-wider text-white/50 text-[10px]">
             {isAnalyzing ? 'Calibrating Brand Aura' : 'Voice-to-Text Brand Engine'}
           </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 p-1 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => setMode('stream')}
-            className={cn(
-              'rounded-full px-2.5 py-0.5 text-[10.5px] font-medium transition-colors',
-              mode === 'stream'
-                ? 'bg-[#55ff9b]/20 text-[#63ffa4] border border-[#55ff9b]/40'
-                : 'text-white/50 hover:text-white'
-            )}
-          >
-            Stream &amp; Hold
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('continuous')}
-            className={cn(
-              'rounded-full px-2.5 py-0.5 text-[10.5px] font-medium transition-colors',
-              mode === 'continuous'
-                ? 'bg-[#55ff9b]/20 text-[#63ffa4] border border-[#55ff9b]/40'
-                : 'text-white/50 hover:text-white'
-            )}
-          >
-            Marquee
-          </button>
-          <button
-            type="button"
-            onClick={nextWittyPun}
-            className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] text-white/60 hover:text-white transition-colors"
-            title="Spin next witty brand quip"
-          >
-            <RefreshCw className="size-3" />
-            <span>Next</span>
-          </button>
         </div>
       </div>
 

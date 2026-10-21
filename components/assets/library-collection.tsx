@@ -110,6 +110,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [activeBrand, setActiveBrand] = React.useState<ActiveBrandRecord | null>(null)
   const [isApplyingBrand, setIsApplyingBrand] = React.useState(false)
+  const [brandAnimationVisible, setBrandAnimationVisible] = React.useState(false)
 
   React.useEffect(() => {
     const saved = readLocalStorageJSON<ActiveBrandRecord>(ACTIVE_BRAND_STORAGE_KEY)
@@ -202,7 +203,8 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
       return
     }
 
-    // Custom brand URL, Instagram handle, or YouTube channel
+    // Custom brand URL, Instagram handle, or YouTube channel — show animation then apply
+    setBrandAnimationVisible(true)
     const spec = parseBrandInput(q)
     if (spec) {
       applyBrandSpecification(spec)
@@ -283,7 +285,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
           <div className="my-10 flex flex-col items-center justify-center rounded-2xl border border-[#55ff9b]/25 bg-[#030503]/85 p-6 sm:p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
             {/* Animated Voice-to-Text Path when getting requisite brand info */}
             <div className="w-full max-w-[920px] mb-6">
-              <BrandVoicePathAnimation brandQuery={searchQuery} isAnalyzing={isApplyingBrand} />
+              <BrandVoicePathAnimation brandQuery={searchQuery} isAnalyzing={isApplyingBrand} visible={brandAnimationVisible} />
             </div>
 
             <div className="grid size-12 place-items-center rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 text-[#63ffa4]">
@@ -315,7 +317,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
               </button>
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => { setSearchQuery(''); setBrandAnimationVisible(false) }}
                 className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
               >
                 Clear search
