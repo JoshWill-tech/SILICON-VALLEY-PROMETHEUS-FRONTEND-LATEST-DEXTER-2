@@ -8977,13 +8977,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     }
   }, [project])
 
+  const [isClipsLoading, setIsClipsLoading] = React.useState(false)
+  const [liveSupoClips, setLiveSupoClips] = React.useState<WallClip[]>([])
+
   const resolvedClippingVideoId =
     urlClippingState.youtubeVideoId ||
     (urlClippingState.sourceUrl ? extractYouTubeVideoId(urlClippingState.sourceUrl) : null) ||
     (project?.editorState?.sourceUrl ? extractYouTubeVideoId(project.editorState.sourceUrl) : null) ||
-    'dQw4w9WgXcQ'
-
-  const [liveSupoClips, setLiveSupoClips] = React.useState<WallClip[]>([])
+    (liveSupoClips[0]?.id ? liveSupoClips[0].id.replace(/^supoclip-/, '').split('-')[0] : null) ||
+    null
   const [selectedCropRect, setSelectedCropRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null)
 
   React.useEffect(() => {
@@ -8991,28 +8993,51 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     if (!rawUrl) return
 
     let isMounted = true
-    fetchLiveViralCrops(rawUrl, 4, session?.access_token)
-      .then((clips) => {
-        if (isMounted && clips && clips.length > 0) {
-          setLiveSupoClips(clips)
-        }
-      })
-      .catch((err) => {
-        console.warn('[page] Error loading live viral crops:', err)
-      })
+    setIsClipsLoading(true)
+
+    createClient().auth.getSession().then((result) => {
+      const currentSession = result.data.session
+      if (!isMounted) return
+      fetchLiveViralCrops(rawUrl, 4, currentSession?.access_token)
+        .then((clips) => {
+          if (isMounted) {
+            setIsClipsLoading(false)
+            if (clips && clips.length > 0) {
+              setLiveSupoClips(clips)
+              const resolvedId = clips[0]?.id ? clips[0].id.replace(/^supoclip-/, '').split('-')[0] : null
+              if (resolvedId && resolvedId !== 'source_video' && !urlClippingState.youtubeVideoId) {
+                setUrlClippingState((prev) => ({
+                  ...prev,
+                  youtubeVideoId: resolvedId,
+                  thumbnailUrl: clips[0]?.thumbnail_url || prev.thumbnailUrl,
+                }))
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[page] Error loading live viral crops:', err)
+          if (isMounted) {
+            setIsClipsLoading(false)
+          }
+        })
+    })
 
     return () => {
       isMounted = false
     }
-  }, [urlClippingState.sourceUrl, resolvedClippingVideoId, session?.access_token])
+  }, [urlClippingState.sourceUrl])
 
   const supoClipList = React.useMemo<WallClip[]>(() => {
     if (liveSupoClips.length > 0) return liveSupoClips
-    return generateSupoClipVariants(
-      resolvedClippingVideoId,
-      project?.title || 'YouTube Source',
-      transportDurationSec || 320
-    )
+    if (resolvedClippingVideoId) {
+      return generateSupoClipVariants(
+        resolvedClippingVideoId,
+        project?.title || 'YouTube Source',
+        transportDurationSec || 320
+      )
+    }
+    return []
   }, [liveSupoClips, resolvedClippingVideoId, project?.title, transportDurationSec])
 
   const handleSelectSupoClip = React.useCallback(
@@ -10219,7 +10244,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
                             sourceUrl={urlClippingState.sourceUrl}
                             clips={supoClipList}
                             activeClipId={activeSupoClipId}
-                            isProcessing={false}
+                            isProcessing={isClipsLoading || (isUrlClippingActive && liveSupoClips.length === 0)}
                             onSelectClip={handleSelectSupoClip}
                             onClose={() => setIsUrlClippingActive(false)}
                           />

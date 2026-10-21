@@ -155,6 +155,8 @@ export function BrandVoicePathAnimation({
     function runAnimation(timestamp: number) {
       if (!startTime) startTime = timestamp
       const elapsed = timestamp - startTime
+      // textPath is guaranteed non-null: checked at effect entry point above
+      const tp = textPath!
 
       if (mode === 'stream') {
         // Stream out of the pill over 3.4s, hold on the exact frame for 2.6s, then repeat
@@ -174,19 +176,19 @@ export function BrandVoicePathAnimation({
         if (cycleTime < streamDuration) {
           const progress = easeOutCubic(cycleTime / streamDuration)
           const currentOffset = -75 + progress * (TARGET_OFFSET - -75)
-          textPath.setAttribute('startOffset', `${currentOffset}%`)
+          tp.setAttribute('startOffset', `${currentOffset}%`)
         } else {
           // Subtle breathing drift while holding on the final composition
           const holdTime = cycleTime - streamDuration
           const drift = Math.sin((holdTime / holdDuration) * Math.PI * 2) * 0.25
-          textPath.setAttribute('startOffset', `${TARGET_OFFSET + drift}%`)
+          tp.setAttribute('startOffset', `${TARGET_OFFSET + drift}%`)
         }
       } else {
         // Continuous flowing marquee along the loop
         const loopDuration = 9000
         const progress = (elapsed % loopDuration) / loopDuration
         const currentOffset = -85 + progress * 185
-        textPath.setAttribute('startOffset', `${currentOffset}%`)
+        tp.setAttribute('startOffset', `${currentOffset}%`)
       }
 
       animFrameId = requestAnimationFrame(runAnimation)
