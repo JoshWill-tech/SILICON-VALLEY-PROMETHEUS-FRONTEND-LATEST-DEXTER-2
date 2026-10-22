@@ -16,7 +16,8 @@ import {
 } from '@/lib/thumbnails/openai-image-edit'
 
 import { buildStudioArtDirection, parseStudioDesign, resolveStudioImageModel, resolveStudioImageSize, type StudioDesign } from '@/lib/thumbnails/studio-art-direction'
-import { getStudioReference, loadStudioReferenceDataUrl, STUDIO_REFERENCES } from '@/lib/thumbnails/studio-references'
+import { getStudioReference, STUDIO_REFERENCES } from '@/lib/thumbnails/studio-references'
+import { loadStudioReferenceDataUrl } from '@/lib/thumbnails/studio-references-server'
 import { compactGeneratedThumbnail } from '@/lib/thumbnails/thumbnail-output'
 import { runWithThumbnailSignal, THUMBNAIL_PIPELINE_TIMEOUT_MS, THUMBNAIL_PLANNER_TIMEOUT_MS, THUMBNAIL_PROVIDER_TIMEOUT_MS } from '@/lib/thumbnails/thumbnail-runtime'
 import { applyThumbnailCreativeDirection, applyThumbnailIterationDirection } from '@/lib/thumbnails/creative-direction'

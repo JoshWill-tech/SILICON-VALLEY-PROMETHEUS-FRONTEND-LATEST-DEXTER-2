@@ -61,24 +61,3 @@ export function getStudioReference(id: string): StudioReference {
     cue: enrichCue(found),
   }
 }
-
-/**
- * Server-side loader: reliably loads the reference image file from disk into a base64 Data URL.
- * Ensures the multimodal image generator ALWAYS receives the real reference image file.
- */
-export async function loadStudioReferenceDataUrl(id: string): Promise<string | null> {
-  const reference = getStudioReference(id)
-  if (!reference?.src) return null
-  try {
-    const fs = await import('node:fs/promises')
-    const path = await import('node:path')
-    const cleanSrc = reference.src.replace(/^\//, '')
-    const filePath = path.join(process.cwd(), 'public', cleanSrc)
-    const buffer = await fs.readFile(filePath)
-    const ext = path.extname(filePath).toLowerCase()
-    const mimeType = ext === '.webp' ? 'image/webp' : ext === '.png' ? 'image/png' : 'image/jpeg'
-    return `data:${mimeType};base64,${buffer.toString('base64')}`
-  } catch {
-    return null
-  }
-}

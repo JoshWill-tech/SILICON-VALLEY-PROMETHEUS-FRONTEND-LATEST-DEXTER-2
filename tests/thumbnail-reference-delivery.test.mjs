@@ -3,8 +3,8 @@ import test from 'node:test'
 import {
   STUDIO_REFERENCES,
   getStudioReference,
-  loadStudioReferenceDataUrl,
 } from '../lib/thumbnails/studio-references.ts'
+import { loadStudioReferenceDataUrl } from '../lib/thumbnails/studio-references-server.ts'
 import {
   buildOpenAIImageEditRequest,
   buildOpenAIImageEditFormData,
