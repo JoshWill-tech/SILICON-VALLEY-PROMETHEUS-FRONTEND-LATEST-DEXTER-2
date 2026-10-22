@@ -59,9 +59,20 @@ export function extractBrandInfo(query: string): { brandName: string; category: 
   // YouTube
   if (/youtube\.com|youtu\.be/i.test(trimmed)) {
     const handleMatch = trimmed.match(/@([a-zA-Z0-9_.-]+)/)
-    const channelName = handleMatch
-      ? handleMatch[1]
-      : trimmed.replace(/^(https?:\/\/)?(www\.)?youtube\.com\/(c\/|channel\/|user\/)?/i, '')
+    if (handleMatch) {
+      const clean = handleMatch[1].startsWith('@') ? handleMatch[1].slice(1) : handleMatch[1]
+      const formatted = clean.charAt(0).toUpperCase() + clean.slice(1)
+      return { brandName: formatted, category: 'youtube' }
+    }
+
+    if (/watch\?v=|shorts\/|youtu\.be\/|embed\//i.test(trimmed)) {
+      return { brandName: 'YouTube Creator', category: 'youtube' }
+    }
+
+    const channelName = trimmed
+      .replace(/^(https?:\/\/)?(www\.)?youtube\.com\/(c\/|channel\/|user\/)?/i, '')
+      .split('?')[0]
+      .split('/')[0]
     const clean = (channelName.startsWith('@') ? channelName.slice(1) : channelName) || 'YouTube Brand'
     const formatted = clean.charAt(0).toUpperCase() + clean.slice(1)
     return { brandName: formatted, category: 'youtube' }
@@ -135,10 +146,9 @@ export function BrandVoicePathAnimation({
     const textPath = textPathRef.current
     if (!textPath) return
     const targetOffset = 1.6
-    if (reduceMotion) {
-      textPath.setAttribute('startOffset', `${targetOffset}%`)
-      return
-    }
+
+    // Ensure the animation begins cleanly from the start point behind the voice pill
+    textPath.setAttribute('startOffset', '-75%')
 
     let animFrameId: number | null = null
     let startTime: number | null = null
@@ -163,7 +173,7 @@ export function BrandVoicePathAnimation({
         ? 0
         : Math.sin(((cycleTime - streamDuration) / holdDuration) * Math.PI * 2) * 0.25
       const currentOffset = -75 + progress * (targetOffset + 75) + drift
-      tp.setAttribute('startOffset', `${currentOffset}%`)
+      tp.setAttribute('startOffset', `${currentOffset.toFixed(2)}%`)
 
       animFrameId = requestAnimationFrame(runAnimation)
     }
@@ -173,7 +183,7 @@ export function BrandVoicePathAnimation({
     return () => {
       if (animFrameId) cancelAnimationFrame(animFrameId)
     }
-  }, [visible, brandQuery, cycleCount, onComplete, reduceMotion])
+  }, [visible, brandQuery, cycleCount, onComplete])
 
   if (!visible) return null
 
@@ -369,20 +379,22 @@ export function BrandVoicePathAnimation({
           </mask>
         </defs>
 
-        <g mask={`url(#${maskId})`}>
+        <g mask={`url(#${maskId})`} style={{ willChange: 'transform' }}>
           <text
             className="select-none font-sans font-normal tracking-[-0.015em]"
             style={{
               fontSize: '30px',
               fill: '#bbf7d0',
               filter: 'drop-shadow(0 2px 8px rgba(85,255,155,0.22))',
+              willChange: 'transform',
             }}
           >
             <textPath
               ref={textPathRef}
               id={`animatedTextPath-${reactId}`}
               href={`#${pathId}`}
-              startOffset="1.6%"
+              xlinkHref={`#${pathId}`}
+              startOffset="-75%"
             >
               {currentText}
             </textPath>

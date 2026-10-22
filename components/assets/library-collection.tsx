@@ -43,9 +43,32 @@ function parseBrandInput(raw: string): ActiveBrandRecord | null {
   // YouTube URL or channel
   if (/youtube\.com|youtu\.be/i.test(trimmed)) {
     const handleMatch = trimmed.match(/@([a-zA-Z0-9_.-]+)/)
-    const channelName = handleMatch
-      ? handleMatch[1]
-      : trimmed.replace(/^(https?:\/\/)?(www\.)?youtube\.com\/(c\/|channel\/|user\/)?/i, '')
+    if (handleMatch) {
+      const clean = handleMatch[1].startsWith('@') ? handleMatch[1].slice(1) : handleMatch[1]
+      const brandName = clean.charAt(0).toUpperCase() + clean.slice(1)
+      return {
+        brandName,
+        rawInput: trimmed,
+        type: 'YouTube Channel',
+        url: `https://www.youtube.com/@${clean}`,
+        appliedAt: new Date().toISOString(),
+      }
+    }
+
+    if (/watch\?v=|shorts\/|youtu\.be\/|embed\//i.test(trimmed)) {
+      return {
+        brandName: 'YouTube Creator',
+        rawInput: trimmed,
+        type: 'YouTube Video',
+        url: trimmed.startsWith('http') ? trimmed : `https://${trimmed}`,
+        appliedAt: new Date().toISOString(),
+      }
+    }
+
+    const channelName = trimmed
+      .replace(/^(https?:\/\/)?(www\.)?youtube\.com\/(c\/|channel\/|user\/)?/i, '')
+      .split('?')[0]
+      .split('/')[0]
     const brandName = (channelName.startsWith('@') ? channelName.slice(1) : channelName) || 'YouTube Brand'
     return {
       brandName: brandName.charAt(0).toUpperCase() + brandName.slice(1),
@@ -210,9 +233,42 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
 
     // Custom brand URL, Instagram handle, or YouTube channel — show animation then apply
     setSubmittedBrandQuery(q)
+    setIsApplyingBrand(true)
     const spec = parseBrandInput(q)
     if (spec) {
       applyBrandSpecification(spec)
+    }
+
+    // Call backend to resolve detailed brand identity (YouTube oEmbed channel name, website title, etc.)
+    if (typeof window !== 'undefined' && typeof fetch === 'function') {
+      const endpoint = window.location?.origin ? `${window.location.origin}/api/brand/resolve` : '/api/brand/resolve'
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.brand?.brandName) {
+            const resolvedSpec: ActiveBrandRecord = {
+              brandName: data.brand.brandName,
+              rawInput: q,
+              type: data.brand.type,
+              url: data.brand.url || (spec?.url ?? ''),
+              appliedAt: new Date().toISOString(),
+            }
+            applyBrandSpecification(resolvedSpec)
+            setSubmittedBrandQuery(data.brand.brandName)
+          }
+        })
+        .catch(() => {
+          // Graceful fallback already applied
+        })
+        .finally(() => {
+          setIsApplyingBrand(false)
+        })
+    } else {
+      setIsApplyingBrand(false)
     }
   }
 
