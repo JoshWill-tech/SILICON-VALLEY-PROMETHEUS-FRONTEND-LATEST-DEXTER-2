@@ -147,15 +147,16 @@ export const thumbnailWorkspaceCss = String.raw`
 .prom-thumbnail-aspectGroup, .prom-thumbnail-viewGroup { display: flex; gap: 4px; }
 .prom-thumbnail-aspectButton { padding: 7px 10px; min-height: 32px; background: var(--light-ui-surface, #ffffff03); color: var(--light-ui-muted, #a5aeb2); border: 1px solid var(--studio-border); border-radius: 6px; font-size: 10px !important; font-variant-numeric: tabular-nums; }
 .prom-thumbnail-aspectButton[aria-pressed=true] { border-color: var(--light-ui-border, #7ff2d45c); color: var(--studio-accent); background: #7ff2d40b; }
-.prom-thumbnail-stage { position: relative; display: grid; place-items: center; min-height: clamp(320px,42vh,520px); flex: none; perspective: 1400px; background: #05090c; border: 1px solid #263239; border-radius: 9px; overflow: hidden; background-image: radial-gradient(ellipse at center,#1b293244,transparent 70%); }
+.prom-thumbnail-stage { position: relative; display: grid; place-items: center; min-height: clamp(320px,42vh,520px); flex: none; perspective: 1400px; background: #05090c; border: 1px solid #263239; border-radius: 12px; overflow: hidden; background-image: radial-gradient(ellipse at 50% 44%,#24353b70,transparent 72%),linear-gradient(135deg,#ffffff05,transparent 42%,#a8e9ff04); }
 .prom-thumbnail-stage[data-ratio="9:16"], .prom-thumbnail-stage[data-ratio="2:3"] { min-height: clamp(410px,55vh,650px); }
 .prom-thumbnail-stage[data-ratio="1:1"] { min-height: clamp(360px,47vh,560px); }
-.prom-thumbnail-artboard { position: relative; flex: none; overflow: hidden; border: 1px solid #ffffff30; border-radius: 4px; background: #090f14; box-shadow: 0 28px 70px #000a,0 0 42px #00b9f21c; transform-style: preserve-3d; transition: width .48s cubic-bezier(.2,.8,.2,1),height .48s cubic-bezier(.2,.8,.2,1),transform .16s ease-out,box-shadow .3s ease; will-change: width,height,transform; }
-.prom-thumbnail-artboard::after { content: ''; position: absolute; inset: 0; pointer-events: none; border: 1px solid #ffffff18; }
+.prom-thumbnail-artboard { position: relative; flex: none; overflow: hidden; border: 1px solid #e9f5f554; border-radius: 10px; background: #090f14; box-shadow: 0 28px 70px #000a,0 0 42px #00b9f21c,inset 0 0 0 1px #ffffff15; transform-style: preserve-3d; transition: width .48s cubic-bezier(.2,.8,.2,1),height .48s cubic-bezier(.2,.8,.2,1),transform .16s ease-out,box-shadow .3s ease; will-change: width,height,transform; }
+.prom-thumbnail-artboard::before { content: ''; position: absolute; z-index: 1; inset: 0; pointer-events: none; background: radial-gradient(ellipse at var(--pointer-x,50%) var(--pointer-y,50%),#ffffff17,transparent 52%),linear-gradient(145deg,#eaf8ff1c 0%,#eaf8ff05 19%,transparent 44%,#9fd9e90a 76%,#ffffff14 100%); mix-blend-mode: screen; opacity: .7; }
+.prom-thumbnail-artboard::after { content: ''; position: absolute; z-index: 2; inset: 0; pointer-events: none; border: 1px solid #f4fbff42; border-radius: inherit; box-shadow: inset 0 1px 0 #ffffff34,inset 1px 0 0 #ffffff18,inset -1px 0 0 #b6efff12,inset 0 -1px 0 #ffffff1b; }
 .prom-thumbnail-stageImage { display: block; width: 100%; height: 100%; object-fit: cover; }
 .prom-thumbnail-stageSource { object-fit: contain; }
-.prom-thumbnail-stageGlare { position: absolute; inset: 0; pointer-events: none; opacity: .42; background: radial-gradient(ellipse at var(--pointer-x,50%) var(--pointer-y,50%),#ffffff28,transparent 48%); mix-blend-mode: screen; transition: opacity .3s ease; }
-.prom-thumbnail-artboard:hover { box-shadow: 0 34px 82px #000c,0 0 52px #00b9f227; }
+.prom-thumbnail-stageGlare { position: absolute; inset: 0; pointer-events: none; opacity: .3; background: radial-gradient(ellipse at var(--pointer-x,50%) var(--pointer-y,50%),#ffffff32,transparent 46%),linear-gradient(120deg,#e7f8ff12,transparent 28%,transparent 70%,#b6edff0a); mix-blend-mode: screen; transition: opacity .3s ease; }
+.prom-thumbnail-artboard:hover { box-shadow: 0 34px 82px #000c,0 0 52px #00b9f227,inset 0 0 0 1px #ffffff22; }
 .prom-thumbnail-guides { position: absolute; inset: 6%; pointer-events: none; border: 1px dashed #ffffff85; }
 .prom-thumbnail-guides::before, .prom-thumbnail-guides::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right,transparent 33.2%,#ffffff45 33.2%,#ffffff45 33.4%,transparent 33.4%,transparent 66.5%,#ffffff45 66.5%,#ffffff45 66.7%,transparent 66.7%); }
 .prom-thumbnail-guides::after { background: linear-gradient(to bottom,transparent 33.2%,#ffffff45 33.2%,#ffffff45 33.4%,transparent 33.4%,transparent 66.5%,#ffffff45 66.5%,#ffffff45 66.7%,transparent 66.7%); }
@@ -177,9 +178,9 @@ export const thumbnailWorkspaceCss = String.raw`
 .prom-thumbnail-sectionActions { display: flex; align-items: center; gap: 9px; }
 .prom-thumbnail-sectionActions .prom-thumbnail-iconButton { width: 25px; height: 25px; }
 .prom-thumbnail-frameStrip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #344047 transparent; padding: 2px 2px 8px; scroll-snap-type: x proximity; }
-.prom-thumbnail-frame { position: relative; flex: 0 0 102px; height: 62px; overflow: hidden; border: 1px solid var(--studio-border); border-radius: 6px; background: #172026; scroll-snap-align: start; padding: 0; }
+.prom-thumbnail-frame { position: relative; flex: 0 0 102px; height: 62px; overflow: hidden; border: 1px solid #dcecf02b; border-radius: 8px; background: #172026; box-shadow: inset 0 1px 0 #ffffff18,0 5px 14px #0003; scroll-snap-align: start; padding: 0; transition: border-color .2s ease,box-shadow .2s ease,transform .2s ease; }
 .prom-thumbnail-frame img { width: 100%; height: 100%; object-fit: cover; opacity: .72; }
-.prom-thumbnail-frame[aria-pressed=true] { border-color: var(--studio-accent); box-shadow: 0 0 0 1px var(--studio-accent); }
+.prom-thumbnail-frame[aria-pressed=true] { border-color: color-mix(in srgb,var(--studio-accent) 82%,white); box-shadow: 0 0 0 1px var(--studio-accent),0 7px 22px #0006,inset 0 1px 0 #ffffff50; transform: translateY(-1px); }
 .prom-thumbnail-frame[aria-pressed=true] img, .prom-thumbnail-frame:hover img { opacity: 1; }
 .prom-thumbnail-frameTime { position: absolute; bottom: 4px; right: 4px; padding: 1px 4px; border-radius: 3px; background: #000c; color: #fff; font-size: 9px; font-variant-numeric: tabular-nums; }
 .prom-thumbnail-frameSelected { position: absolute; top: 4px; left: 4px; display: grid; place-items: center; width: 13px; height: 13px; background: var(--studio-accent); color: var(--light-ui-on-accent, #0b171b); border-radius: 50%; }
