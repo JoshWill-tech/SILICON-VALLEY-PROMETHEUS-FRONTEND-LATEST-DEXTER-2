@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils'
 import { useTimelineTools } from '@/hooks/use-timeline-tools'
 
 export interface EditorialTimelineViewportProps extends EditorialTimelineTracksProps {
+  videoMuted?: boolean
+  onVideoMutedChange?: (muted: boolean) => void
   splitPoints?: number[]
   onSplitPointsChange?: (points: number[]) => void
   playing: boolean
@@ -59,7 +61,7 @@ export function EditorialTimelineViewport({
 
   // Track lock and visibility states
   const [isVideoHidden, setIsVideoHidden] = React.useState(false)
-  const [isVideoMuted, setIsVideoMuted] = React.useState(false)
+  const [localVideoMuted, setLocalVideoMuted] = React.useState(false)
   const [isCaptionsHidden, setIsCaptionsHidden] = React.useState(false)
   const [isTextHidden, setIsTextHidden] = React.useState(false)
   const [isMusicHidden, setIsMusicHidden] = React.useState(false)
@@ -78,8 +80,13 @@ export function EditorialTimelineViewport({
     onCues: props.onEditorialCuesChange,
   })
 
-  const contentWidth = Math.max(1, viewportWidth - 110) * Math.max(1, props.zoom)
+  // The outer track column is the timeline's scaled pixel space. Keep each
+  // rendered track at 100% of that space so clips, ruler, and playhead share
+  // one coordinate system at every zoom level.
+  const contentWidth = Math.max(1, viewportWidth - 110) * Math.max(0.2, props.zoom)
+  const canvasWidth = Math.max(viewportWidth, contentWidth + 110)
   const time = Math.max(0, Math.min(props.effectiveDuration, props.currentTime))
+  const isVideoMuted = props.videoMuted ?? localVideoMuted
 
   React.useEffect(() => {
     const element = scroller.current
@@ -94,7 +101,7 @@ export function EditorialTimelineViewport({
   React.useEffect(() => {
     const element = scroller.current
     if (!element || !playing || playheadDrag.current !== null) return
-    const position = 110 + (time / Math.max(props.effectiveDuration, 0.01)) * (contentWidth - 12)
+    const position = 110 + (time / Math.max(props.effectiveDuration, 0.01)) * contentWidth
     if (position > element.scrollLeft + element.clientWidth - 32 || position < element.scrollLeft + 110) {
       element.scrollLeft = Math.max(0, position - 110 - (element.clientWidth - 110) * 0.2)
     }
@@ -193,7 +200,6 @@ export function EditorialTimelineViewport({
           onZoomChange={(newZoom) => onZoomChange?.(newZoom)}
           activeTool={activeTool}
           onSelectTool={setActiveTool}
-          onSplitClip={() => tools.split()}
           onUndo={onUndo ?? tools.undo}
           onRedo={onRedo ?? tools.redo}
           canUndo={tools.canUndo}
@@ -219,7 +225,7 @@ export function EditorialTimelineViewport({
       >
         <div
           className="grid min-h-full grid-cols-[110px_minmax(0,1fr)]"
-          style={{ width: contentWidth + 110 }}
+          style={{ width: canvasWidth, gridTemplateColumns: `110px ${contentWidth}px` }}
         >
           {/* Left Sticky Column: Track Headers with visibility & mute controls */}
           <div className="sticky left-0 z-20 flex flex-col border-r border-white/10 bg-[#0c1018] pt-[24px] text-[10px] text-white/70 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
@@ -238,7 +244,11 @@ export function EditorialTimelineViewport({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setIsVideoMuted((v) => !v)}
+                  onClick={() => {
+                    const nextMuted = !isVideoMuted
+                    props.onVideoMutedChange?.(nextMuted)
+                    if (!props.onVideoMutedChange) setLocalVideoMuted(nextMuted)
+                  }}
                   aria-label={isVideoMuted ? 'Unmute video audio' : 'Mute video audio'}
                   title={isVideoMuted ? 'Unmute video audio' : 'Mute video audio'}
                   className={cn(
@@ -380,7 +390,7 @@ export function EditorialTimelineViewport({
 
           {/* Right Column: Track Area & Scrubbable Playhead */}
           <div
-            className="relative min-w-0 pb-2 pr-4 outline-none"
+            className="relative min-w-0 pb-2 outline-none"
             style={{ width: contentWidth }}
             role="region"
             aria-label="Editorial tracks. Click to seek or use arrow keys."

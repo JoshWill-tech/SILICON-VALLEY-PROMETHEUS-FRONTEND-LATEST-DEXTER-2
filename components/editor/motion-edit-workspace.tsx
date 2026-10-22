@@ -1261,6 +1261,8 @@ export function MotionEditWorkspace({
               transcriptSegments={resolvedSegments}
               captionsVisible={effectiveCaptionsVisible}
               currentTime={currentTimeSec}
+              videoMuted={previewMuted}
+              onVideoMutedChange={onPreviewMutedChange}
               textPlacements={textPlacements}
               cutRanges={effectiveCutRanges}
               onCutRangesChange={onCutRangesChange}

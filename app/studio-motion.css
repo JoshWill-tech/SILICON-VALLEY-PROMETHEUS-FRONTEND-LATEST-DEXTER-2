@@ -1,0 +1,17 @@
+@keyframes studio-suggestion-rail-drift {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-12%);
+  }
+}
+
+.studio-cinematic-rails .studio-cinematic-rail-track[data-direction='left'] {
+  animation: studio-suggestion-rail-drift 10s linear infinite alternate !important;
+}
+
+.studio-cinematic-rails .studio-cinematic-rail-track[data-direction='right'] {
+  animation: studio-suggestion-rail-drift 10s linear infinite alternate-reverse !important;
+}

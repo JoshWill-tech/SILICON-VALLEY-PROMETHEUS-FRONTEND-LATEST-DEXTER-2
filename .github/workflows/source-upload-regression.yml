@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - 'app/editor/**'
+      - 'app/api/projects/**/upload-multipart/**'
+      - 'app/api/user/storage/cleanup/**'
+      - 'lib/api/source-control-plane-errors.ts'
       - 'lib/r2/**'
       - 'lib/storage-limits.ts'
       - 'supabase/migrations/**'
       - 'tests/source-replacement-upload.test.ts'
       - 'tests/multipart-upload-runtime.test.ts'
+      - 'tests/source-upload-quota-handlers.test.ts'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/source-upload-regression.yml'
@@ -16,11 +20,15 @@ on:
     branches: [main]
     paths:
       - 'app/editor/**'
+      - 'app/api/projects/**/upload-multipart/**'
+      - 'app/api/user/storage/cleanup/**'
+      - 'lib/api/source-control-plane-errors.ts'
       - 'lib/r2/**'
       - 'lib/storage-limits.ts'
       - 'supabase/migrations/**'
       - 'tests/source-replacement-upload.test.ts'
       - 'tests/multipart-upload-runtime.test.ts'
+      - 'tests/source-upload-quota-handlers.test.ts'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/source-upload-regression.yml'

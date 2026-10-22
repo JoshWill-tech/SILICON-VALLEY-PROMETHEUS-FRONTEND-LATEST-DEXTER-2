@@ -11,6 +11,7 @@ import { ConsentGatedAnalytics } from '@/components/cookie-consent/consent-gated
 import { CookieConsentProvider } from '@/components/cookie-consent/consent-context'
 import './globals.css'
 import './premium-vignette.css'
+import './studio-motion.css'
 
 const inter = Inter({
   subsets: ['latin'],

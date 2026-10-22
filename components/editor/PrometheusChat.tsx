@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { ArrowDown, ArrowUp, Brain, ChevronDown, LoaderCircle, Mic, Volume2, X } from 'lucide-react'
+import { MetalFx, setCursorLightConfig, useMetalBend } from 'metal-fx'
 
 import { useAuth } from '@/components/auth/auth-provider'
 import { useAIChat, type AIChatContextProvider, type AIChatFrameReference, type CarouselItem } from '@/hooks/use-ai-chat'
@@ -25,6 +26,8 @@ import { PrometheusChatActivity } from './prometheus-chat-activity'
 import { PrometheusChatLoadingSkeleton } from './prometheus-chat-loading-skeleton'
 import { PrometheusChatMedia } from './prometheus-chat-media'
 import { VoiceWaveform } from './voice-waveform'
+
+setCursorLightConfig({ cursor: false })
 
 export type PrometheusChatMessage = {
   id: string
@@ -82,6 +85,38 @@ export function isVoiceCeaseOrStopIntent(text: string): boolean {
     /^(stop|stop talking|stop speech|cease|cease speech|shut up|be quiet|quiet|silence|shh|halt|pause|pause speech|hold on|nevermind|cancel)$/i.test(normalized) ||
     /^(please\s+)?(stop|cease|shut up|be quiet|halt)(\s+please)?$/i.test(normalized) ||
     /^(stop|cancel|halt)\s+(it|this|that|talking|speaking)$/i.test(normalized)
+  )
+}
+
+function MetalSendButton({
+  disabled,
+  reflectionTarget,
+}: {
+  disabled: boolean
+  reflectionTarget: React.RefObject<HTMLInputElement | null>
+}) {
+  const sendMetalRef = React.useRef<HTMLDivElement | null>(null)
+  const reflectionTargets = React.useMemo(() => [reflectionTarget], [reflectionTarget])
+  useMetalBend(sendMetalRef)
+
+  return (
+    <MetalFx
+      ref={sendMetalRef}
+      preset="chromatic"
+      variant="circle"
+      innerShadow
+      strength={0.9}
+      reflectionTargets={reflectionTargets}
+    >
+      <button
+        type="submit"
+        disabled={disabled}
+        className="grid size-10 shrink-0 place-items-center rounded-full text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-20"
+        aria-label="Send message"
+      >
+        <ArrowUp className="size-5" strokeWidth={1.5} />
+      </button>
+    </MetalFx>
   )
 }
 
@@ -723,14 +758,7 @@ export function PrometheusChat({
                 >
                   <Volume2 className="size-4" strokeWidth={1.5} />
                 </button>
-                <button
-                  type="submit"
-                  disabled={!hasDraft}
-                  className="grid size-8 shrink-0 place-items-center rounded-full text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-20"
-                  aria-label="Send message"
-                >
-                  <ArrowUp className="size-5" strokeWidth={1.5} />
-                </button>
+                <MetalSendButton disabled={!hasDraft} reflectionTarget={inputRef} />
               </>
             )}
           </form>

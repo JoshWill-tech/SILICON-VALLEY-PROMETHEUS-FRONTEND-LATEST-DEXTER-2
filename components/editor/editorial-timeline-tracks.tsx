@@ -88,7 +88,6 @@ function generateWaveBars(count: number, seed: number) {
 
 export function EditorialTimelineTracks({
   previewUrl,
-  zoom,
   effectiveDuration,
   sourceLabel,
   transcriptSegments,
@@ -124,7 +123,9 @@ export function EditorialTimelineTracks({
   onAddTextPlacement,
 }: EditorialTimelineTracksProps) {
   const thumbnails = useEditorialTimelineThumbnails(previewUrl, 12)
-  const width = `${Math.max(1, zoom) * 100}%`
+  // Viewport width already includes zoom. Scaling this child again made the
+  // ruler and clips drift away from the playhead as soon as zoom exceeded 1.
+  const width = '100%'
 
   const [internalClips, setInternalClips] = React.useState<EditorialVideoClip[]>(() => {
     return [{ id: 'source-video', start: 0, end: Math.max(0.01, effectiveDuration), title: sourceLabel, type: 'video' }]

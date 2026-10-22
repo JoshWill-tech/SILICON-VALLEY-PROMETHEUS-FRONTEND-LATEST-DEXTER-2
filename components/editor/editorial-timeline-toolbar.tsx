@@ -27,7 +27,6 @@ export interface EditorialTimelineToolbarProps {
   onZoomChange: (zoom: number) => void
   activeTool?: 'select' | 'razor'
   onSelectTool?: (tool: 'select' | 'razor') => void
-  onSplitClip?: () => void
   onUndo?: () => void
   onRedo?: () => void
   onDeleteClip?: () => void
@@ -59,7 +58,6 @@ export function EditorialTimelineToolbar({
   onZoomChange,
   activeTool = 'select',
   onSelectTool,
-  onSplitClip,
   onUndo,
   onRedo,
   onDeleteClip,
@@ -106,14 +104,11 @@ export function EditorialTimelineToolbar({
         {/* Razor / Split tool */}
         <button
           type="button"
-          onClick={() => {
-            onSelectTool?.('razor')
-            onSplitClip?.()
-          }}
+          onClick={() => onSelectTool?.('razor')}
           data-tool="razor"
-          data-action="split-clip"
-          aria-label="Razor / Split Clip"
-          title="Razor / Split Clip at Playhead (S)"
+          data-action="select-razor-tool"
+          aria-label="Razor tool"
+          title="Razor Tool (click a clip to split)"
           className={cn(
             'grid size-8 place-items-center rounded-md transition-all',
             activeTool === 'razor'

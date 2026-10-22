@@ -68,7 +68,7 @@ export async function POST(
     // Auto-abort any prior uncommitted sessions for this project and user
     // so interrupted, failed, or superseded upload attempts do not leak upload reservations.
     try {
-      const { data: staleSessions } = await supabase
+      const { data: staleSessions, error: staleSessionsError } = await supabase
         .from('source_upload_sessions')
         .select('id, bucket, object_key, multipart_upload_id')
         .eq('project_id', context.projectId)
@@ -76,12 +76,17 @@ export async function POST(
         .in('status', ['reserved', 'uploading', 'verified'])
         .neq('asset_id', context.assetId)
 
+      if (staleSessionsError) throw new Error(staleSessionsError.message)
+
       if (staleSessions && staleSessions.length > 0) {
         for (const stale of staleSessions) {
           try {
-            await supabase.rpc('maul_abort_source_upload', { p_session_id: stale.id })
-          } catch {
-            // best-effort cleanup
+            const { data: aborted, error: abortError } = await supabase.rpc('maul_abort_source_upload', { p_session_id: stale.id })
+            if (abortError) throw new Error(abortError.message)
+            if (aborted?.status !== 'aborted') continue
+          } catch (abortErr) {
+            console.warn('[SOURCE_UPLOAD_CLEANUP_FAILED]', { sessionId: stale.id, error: abortErr })
+            continue
           }
           if (stale.multipart_upload_id && stale.bucket && stale.object_key) {
             await r2Client.send(new AbortMultipartUploadCommand({
@@ -109,22 +114,28 @@ export async function POST(
     })
 
     if (reserveError && reserveError.message?.includes('STORAGE_QUOTA_EXCEEDED')) {
-      // If quota was exceeded, clear any orphaned uncommitted sessions across the user's workspace
-      // immediately and attempt reservation once more.
+      // Recover only this project's superseded attempts. Pending uploads in
+      // other projects are not evidence of abandoned work.
       try {
-        const { data: abandonedSessions } = await supabase
+        const { data: abandonedSessions, error: abandonedSessionsError } = await supabase
           .from('source_upload_sessions')
           .select('id, bucket, object_key, multipart_upload_id')
           .eq('user_id', context.userId)
+          .eq('project_id', context.projectId)
           .in('status', ['reserved', 'uploading', 'verified'])
           .neq('asset_id', context.assetId)
+
+        if (abandonedSessionsError) throw new Error(abandonedSessionsError.message)
 
         if (abandonedSessions && abandonedSessions.length > 0) {
           for (const abandoned of abandonedSessions) {
             try {
-              await supabase.rpc('maul_abort_source_upload', { p_session_id: abandoned.id })
-            } catch {
-              // best-effort cleanup
+              const { data: aborted, error: abortError } = await supabase.rpc('maul_abort_source_upload', { p_session_id: abandoned.id })
+              if (abortError) throw new Error(abortError.message)
+              if (aborted?.status !== 'aborted') continue
+            } catch (abortErr) {
+              console.warn('[SOURCE_UPLOAD_CLEANUP_FAILED]', { sessionId: abandoned.id, error: abortErr })
+              continue
             }
             if (abandoned.multipart_upload_id && abandoned.bucket && abandoned.object_key) {
               await r2Client.send(new AbortMultipartUploadCommand({

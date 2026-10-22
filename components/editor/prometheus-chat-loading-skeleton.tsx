@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion"
 import { ThinkingOrb } from "thinking-orbs"
+import { BotAvatar } from "bot-avatars"
 import { CinematicSkeletalLoader } from "@/components/loading-animation"
 
 import { cn } from "@/lib/utils"
@@ -14,6 +15,7 @@ export interface PrometheusChatLoadingSkeletonProps {
   thoughts?: string[] | null
   className?: string
   showCinematicVideo?: boolean
+  showBotAvatar?: boolean
 }
 
 export function PrometheusChatLoadingSkeleton({
@@ -23,7 +25,8 @@ export function PrometheusChatLoadingSkeleton({
   intent,
   thoughts,
   className,
-  showCinematicVideo = true,
+  showCinematicVideo = false,
+  showBotAvatar = true,
 }: PrometheusChatLoadingSkeletonProps) {
   const reduceMotion = useReducedMotion()
 
@@ -38,6 +41,22 @@ export function PrometheusChatLoadingSkeleton({
           intent={intent}
           thoughts={thoughts}
         />
+      </div>
+    )
+  }
+
+  if (showBotAvatar) {
+    return (
+      <div
+        role="status"
+        aria-label={label}
+        className={cn("flex w-full min-w-0 flex-col items-center justify-center gap-2 py-3 text-center", className)}
+      >
+        <BotAvatar type="clover" state="working" size={96} />
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-medium text-white/80">{label}</span>
+          {sublabel ? <span className="text-[11px] text-white/50">{sublabel}</span> : null}
+        </div>
       </div>
     )
   }

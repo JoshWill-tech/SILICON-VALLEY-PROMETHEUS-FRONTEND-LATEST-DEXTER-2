@@ -108,15 +108,16 @@ async function getUserStorageQuota(userId: string, currentProjectId?: string) {
 
   const { data: assets, error: assetsError } = await supabase
     .from('source_assets')
-    .select('size_bytes, project_id')
+    .select('size_bytes, project_id, source_revisions!inner(state)')
     .eq('user_id', userId)
+    .eq('source_revisions.state', 'current')
 
   if (assetsError) {
     throw assetsError
   }
 
-  // When replacing a project's source, do not count the project's existing
-  // source asset against the upload limit because it will be superseded.
+  // Match the database's current-revision accounting. Historical replacements
+  // and the source being replaced must not consume the new source's allowance.
   const usedBytes = (assets ?? [])
     .filter((asset) => !currentProjectId || asset.project_id !== currentProjectId)
     .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
