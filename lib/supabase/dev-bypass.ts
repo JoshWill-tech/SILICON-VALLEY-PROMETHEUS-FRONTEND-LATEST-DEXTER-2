@@ -37,10 +37,12 @@ export function getDevSession(): DevSession | null {
   if (!isDevBypassActive()) return null
 
   const now = Math.floor(Date.now() / 1000)
+  const id = (typeof process !== 'undefined' && process.env?.DEV_AUTH_BYPASS_USER_ID) || 'dev-audit-user-001'
+  const email = (typeof process !== 'undefined' && process.env?.DEV_AUTH_BYPASS_EMAIL) || 'audit@prometheus.local'
   return {
     user: {
-      id: 'dev-audit-user-001',
-      email: 'audit@prometheus.local',
+      id,
+      email,
       user_metadata: {
         full_name: 'Audit User',
         avatar_url: null,

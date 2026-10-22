@@ -41,6 +41,9 @@ export type MiniRunRenderDispatchRequest = {
 export type MiniRunRenderDispatchEnvironment = MiniRunEnvironment
 
 export async function buildMiniRunSourceUrl(bucket: string, storagePath: string): Promise<string> {
+  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+    return storagePath
+  }
   return getPresignedGetUrl(bucket, storagePath, undefined, SOURCE_URL_EXPIRES_SECONDS)
 }
 

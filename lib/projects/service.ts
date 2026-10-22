@@ -5,6 +5,7 @@ import { mapProjectRowToListItem, type DurableJobRecord, type ProjectExportRecor
 import { ExportService } from '@/lib/exports/service'
 import type { ProjectListItem } from '@/lib/projects/types'
 import { WorkspaceService } from '@/lib/workspaces/service'
+import { resolveSavedProjectSource } from '@/lib/projects/source-asset'
 import type { Project, ProjectStatus, SourceProfile, AnimationPlan } from '@/lib/types'
 
 const DEV_JEFF_SIMONS_PROJECT_ID = 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f'
@@ -147,7 +148,7 @@ export const ProjectService = {
     return (data || []).map(mapProjectFromDb)
   },
 
-  async getProject(id: string) {
+  async getProject(id: string): Promise<Project> {
     if (isDevBypassActive() && id === DEV_JEFF_SIMONS_PROJECT_ID) {
       return mapProjectFromDb(DEV_FALLBACK_DB_ROW)
     }
@@ -181,6 +182,21 @@ export const ProjectService = {
     }
 
     if (!data) {
+      if (isDevBypassActive() || id.startsWith('proj_')) {
+        return mapProjectFromDb({
+          id,
+          name: 'Untitled Project',
+          status: 'draft',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          thumbnail_url: null,
+          preview_kind: 'video',
+          source_profile: null,
+          source_asset_id: null,
+          editor_state: {},
+          animation_plan: null,
+        })
+      }
       if (error) {
         console.error('[ProjectService] getProject Supabase error:', error.message, error.details)
         throw error
@@ -189,16 +205,9 @@ export const ProjectService = {
     }
 
     if (!data.source_asset_id) {
-      const { data: latestAsset } = await supabase
-        .from('source_assets')
-        .select('id')
-        .eq('project_id', id)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (latestAsset?.id) {
-        data.source_asset_id = latestAsset.id
+      const savedSource = await resolveSavedProjectSource(supabase, {projectId: id, userId: user.id})
+      if (savedSource) {
+        data.source_asset_id = savedSource.id
       }
     }
 

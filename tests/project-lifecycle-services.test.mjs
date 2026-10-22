@@ -19,7 +19,10 @@ function loadModule(path, imports) {
 
 function createDatabase(tables) {
   return {
-    auth: { getUser: async () => ({ data: { user: { id: 'owner' } } }) },
+    auth: {
+      getUser: async () => ({ data: { user: { id: 'owner' } } }),
+      getSession: async () => ({ data: { session: { access_token: 'test-owner-session' } } }),
+    },
     from(table) {
       const filters = []
       let selected = '*'
@@ -52,14 +55,16 @@ function fixture() {
   }
   const createClient = async () => createDatabase(tables)
   const projectList = loadModule('lib/projects/project-list.ts', {})
+  const miniRunProxy = loadModule('lib/server/mini-run-proxy.ts', {'@/lib/crypto/wire-shield': {}})
   const { ExportService } = loadModule('lib/exports/service.ts', {
     '@/lib/supabase/server': { createClient },
     '@/lib/r2/keys': {},
     '@/lib/r2/copy-object': {},
-    '@/lib/server/mini-run-proxy': { resolveMiniRunConfig: () => ({ baseUrl: 'https://backend.example.com' }) },
+    '@/lib/server/mini-run-proxy': {...miniRunProxy, resolveMiniRunConfig: () => ({ baseUrl: 'https://backend.example.com' })},
   })
   const { ProjectService } = loadModule('lib/projects/service.ts', {
     '@/lib/supabase/server': { createClient },
+    '@/lib/projects/source-asset': loadModule('lib/projects/source-asset.ts', {'server-only': {}}),
     '@/lib/projects/project-list': projectList,
     '@/lib/exports/service': { ExportService },
     '@/lib/media/source-profile': { normalizeSourceProfile: (profile) => profile },
