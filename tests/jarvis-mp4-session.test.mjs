@@ -96,6 +96,7 @@ function exportRoute({user = {id: 'user-1'}, projectSource = 'source-1'} = {}) {
   const {POST} = loadModule('app/api/projects/[id]/exports/route.ts', {
     'next/server': {NextResponse: {json: (body, options) => ({body, status: options?.status ?? 200})}},
     '@/lib/supabase/server': {createClient: async () => supabase},
+    '@/lib/projects/source-asset': loadModule('lib/projects/source-asset.ts', {'server-only': {}}),
     '@/lib/exports/service': {ExportService: {
       findActiveProjectExport: async () => null,
       createProjectExport: async (_id, options) => ({id: 'export-1', metadata: options.metadata}),
@@ -421,4 +422,3 @@ test('EditorialTimelineController marks error on initial load failure or when di
   assert.equal(controller.snapshot.status, 'error')
   assert.equal(controller.snapshot.error, 'Initial load network timeout')
 })
-

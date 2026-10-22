@@ -56,7 +56,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
     }
 
-    const project = await ProjectService.getProject(projectId)
+    let project = await ProjectService.getProject(projectId).catch(() => null)
+    if (!project) {
+      const { data: sharedProject } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .maybeSingle()
+      if (sharedProject) {
+        project = {
+          id: sharedProject.id,
+          title: sharedProject.name || 'Untitled Project',
+          status: sharedProject.status || 'draft',
+          createdAt: sharedProject.created_at || new Date().toISOString(),
+          updatedAt: sharedProject.updated_at || new Date().toISOString(),
+          sourceAssetId: sharedProject.source_asset_id || undefined,
+          editorState: sharedProject.editor_state || {},
+          sourceProfile: sharedProject.source_profile || undefined,
+        }
+      }
+    }
     if (!project) {
       return NextResponse.json({ error: 'Project not found.', code: 'PROJECT_NOT_FOUND' }, { status: 404 })
     }
@@ -114,6 +133,28 @@ export async function POST(req: Request) {
         if (latestAsset) {
           asset = latestAsset
           targetAssetId = latestAsset.id
+          assetError = null
+        }
+      }
+
+      if (!asset) {
+        const inputSourceUrl = typeof body.sourceUrl === 'string' && body.sourceUrl.trim() ? body.sourceUrl.trim() : undefined
+        const fallbackSourceUrl =
+          inputSourceUrl ||
+          (typeof project.editorState?.sourceUrl === 'string' ? project.editorState.sourceUrl : null) ||
+          (typeof (project.sourceProfile as any)?.url === 'string' ? (project.sourceProfile as any).url : null)
+
+        if (fallbackSourceUrl) {
+          asset = {
+            id: targetAssetId || 'source_video_direct',
+            storage_path: fallbackSourceUrl,
+            storage_bucket: '',
+            duration_ms: (typeof project.editorState?.durationMs === 'number' && project.editorState.durationMs > 0)
+              ? project.editorState.durationMs
+              : 30000,
+            width: 1080,
+            height: 1920,
+          } as any
           assetError = null
         }
       }

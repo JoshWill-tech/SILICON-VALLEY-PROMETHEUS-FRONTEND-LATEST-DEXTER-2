@@ -8364,8 +8364,14 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     setShowExport(true)
   }, [setShowExport])
 
-  const startProjectRender = React.useCallback(async () => {
-    const sourceAssetId = project?.sourceAssetId
+  const startProjectRender = React.useCallback(async (spokenPrompt?: string) => {
+    const activeSourceUrl =
+      (typeof urlClippingState !== 'undefined' ? urlClippingState?.sourceUrl : null) ||
+      (typeof project?.editorState?.sourceUrl === 'string' ? project.editorState.sourceUrl : null) ||
+      (typeof (project as any)?.sourceProfile?.url === 'string' ? (project as any).sourceProfile.url : null) ||
+      (typeof previewUrl !== 'undefined' ? previewUrl : null) ||
+      null
+    const sourceAssetId = project?.sourceAssetId || (activeSourceUrl ? 'source_video_direct' : null)
     let effectiveUploadStatus: SourceUploadStatus = sourceUploadStatus
     if (effectiveUploadStatus === 'failed' && sourceAssetId) {
       try {
@@ -8442,7 +8448,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // This worker consumes source media, independently of editor timeline sync.
         body: JSON.stringify({
           preset: 'mini-run-maul-portrait',
-          sourceAssetId,
+          sourceAssetId: sourceAssetId || 'source_video_direct',
+          ...(activeSourceUrl ? { sourceUrl: activeSourceUrl } : {}),
+          ...(spokenPrompt ? { prompt: spokenPrompt } : {}),
           ...(draftManifest ? { draftManifest } : {}),
         }),
         signal: AbortSignal.timeout(60_000),
@@ -8482,9 +8490,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     }
   }, [project?.sourceAssetId, projectId, sourceUploadStatus])
 
-  const handleVoiceStartRender = React.useCallback(async (mode: 'preview' | 'final') => {
+  const handleVoiceStartRender = React.useCallback(async (mode: 'preview' | 'final', prompt?: string) => {
     if (mode === 'final') {
-      return await startProjectRender()
+      return await startProjectRender(prompt)
     }
     await handlePrepareExport()
     return {
