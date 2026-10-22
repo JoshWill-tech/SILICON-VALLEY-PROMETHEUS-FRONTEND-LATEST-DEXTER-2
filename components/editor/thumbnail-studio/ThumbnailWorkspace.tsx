@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, Camera, Check, ChevronLeft, ChevronRight, Download, Frame, ImagePlus, Layers, Loader2, MessageSquare, Palette, ScanLine, Send, Sparkles, X } from 'lucide-react'
+import type { LiquidGLLens, LiquidGLOptions } from '@/components/assets/liquid-glass-search'
 import { STUDIO_ACCENTS, STUDIO_BACKGROUNDS, type StudioDesign } from '@/lib/thumbnails/studio-art-direction'
 import { STUDIO_REFERENCES, type StudioReferenceCategory, type StudioReferenceId } from '@/lib/thumbnails/studio-references'
 import { VIRAL_THUMBNAIL_RECIPES } from '@/lib/thumbnails/nano-banana-rulebook'
@@ -138,6 +139,67 @@ export function ThumbnailWorkspace(props: Props) {
   // Until artwork has actually been generated, show the chosen source frame
   // without suggesting that the local layout mockup is the finished result.
   const image = view === 'source' ? source?.dataUrl : props.generatedUrl ?? source?.dataUrl
+  React.useEffect(() => {
+    if (!portalReady || !image || props.isGenerating) return
+    let isMounted = true
+    let lens: LiquidGLLens | LiquidGLLens[] | null | undefined = null
+    const initialize = async () => {
+      if (!window.liquidGL) {
+        await new Promise<void>((resolve, reject) => {
+          const existing = document.querySelector('script[src="/scripts/liquidGL.js"]')
+          if (existing) {
+            if (window.liquidGL) return resolve()
+            existing.addEventListener('load', () => resolve(), { once: true })
+            existing.addEventListener('error', reject, { once: true })
+            return
+          }
+          const script = document.createElement('script')
+          script.src = '/scripts/liquidGL.js'
+          script.async = true
+          script.onload = () => resolve()
+          script.onerror = reject
+          document.body.appendChild(script)
+        }).catch(error => console.warn('Thumbnail liquid lens failed to load:', error))
+      }
+      if (!isMounted || !window.liquidGL) return
+      try {
+        const options: LiquidGLOptions = {
+          target: '#lens',
+          snapshot: 'body',
+          resolution: 4,
+          refraction: 0.016,
+          aberration: 1,
+          bevelDepth: 0.014,
+          bevelWidth: 0.071,
+          frost: 0,
+          shadow: true,
+          specular: true,
+          reveal: 'none',
+          tilt: false,
+          tiltFactor: 5,
+          tiltEase: 400,
+          draggable: true,
+          interaction: 'fluid',
+          interactionStrength: 0.5,
+          interactionRadius: 3,
+          interactionViscosity: 0.25,
+          magnify: 1.05,
+          tint: 'rgba(234, 234, 236, 0.24)',
+          helper: false,
+        }
+        lens = window.liquidGL(options)
+      } catch (error) {
+        console.warn('Thumbnail liquid lens failed to initialize:', error)
+      }
+    }
+    const timer = window.setTimeout(() => void initialize(), 120)
+    return () => {
+      isMounted = false
+      window.clearTimeout(timer)
+      if (Array.isArray(lens)) lens.forEach(item => item?.destroy())
+      else lens?.destroy()
+    }
+  }, [image, portalReady, props.isGenerating])
   const background = STUDIO_BACKGROUNDS.find(item => item.id === props.design.background)!
   const [ratioWidth, ratioHeight] = props.aspectRatio.split(':').map(Number)
   const feedScale = view === 'feed' ? Math.min(1, 320 / artboardSize.width, 270 / artboardSize.height) : 1
@@ -162,7 +224,7 @@ export function ThumbnailWorkspace(props: Props) {
     if (!bounds) return
     const px = (event.clientX - bounds.left) / bounds.width
     const py = (event.clientY - bounds.top) / bounds.height
-    setTilt({ x: (0.5 - py) * 5, y: (px - 0.5) * 7, pointerX: px * 100, pointerY: py * 100 })
+    setTilt({ x: 0, y: 0, pointerX: px * 100, pointerY: py * 100 })
   }
   const resetStageTilt = () => setTilt({ x: 0, y: 0, pointerX: 50, pointerY: 50 })
   const headlineWords = Array.from(new Set(props.headline.trim().split(/\s+/).filter(Boolean)))
@@ -244,6 +306,7 @@ export function ThumbnailWorkspace(props: Props) {
               {props.generatedUrl && <div className={styles.stageGlare} aria-hidden="true" />}
               {guides && view !== 'source' && <div className={styles.guides} aria-hidden="true" />}
             </div> : <div className={styles.empty}>{props.isExtracting ? <Loader2 size={25} className={styles.spin} /> : <Camera size={28} />}<strong>{props.isExtracting ? 'Finding your best frames' : 'Start with your subject'}</strong><p>{props.isExtracting ? 'We’re preparing frames from your video.' : 'Load a video in the editor, or add a still image to start creating.'}</p>{!props.isExtracting && <label className={styles.upload}><ImagePlus size={16} /><span>Add a source image</span><input className={styles.hiddenInput} type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload source image" onChange={event => onFileInput(event, props.onUploadFrame)} /></label>}</div>}
+            {image && !props.isGenerating && <div id="lens" className={styles.liquidLens} aria-hidden="true" title="Drag to explore the thumbnail" />}
             {props.isGenerating && <div className={styles.generating} role="status"><Sparkles size={27} className={styles.spin} /><strong>Composing your thumbnail</strong><small>Refining the subject, lighting, and headline.</small><button className={styles.secondary} type="button" onClick={props.onCancel}>Cancel generation</button></div>}
           </div>
           <div className={styles.previewMeta}><span className={styles.metaLabel}>{props.generatedUrl ? <Check size={12} /> : <Layers size={12} />}{view === 'source' ? 'Source frame' : generatedLabel}{dimensions && ' · ' + dimensions}</span><div className={styles.viewGroup}>{props.generatedUrl && <button type="button" className={styles.refineChatButton} onClick={() => setTab('chat')} title="Refine this thumbnail in the Chat assistant"><MessageSquare size={12} />Refine in Chat</button>}{(['artwork','source','feed'] as const).map(mode => <button className={styles.viewButton} type="button" key={mode} aria-pressed={view === mode} disabled={!image && mode !== 'artwork'} onClick={() => setView(mode)}>{mode === 'artwork' ? props.generatedUrl ? 'Artwork' : 'Frame preview' : mode === 'source' ? 'Source' : 'Feed size'}</button>)}<button className={styles.viewButton} type="button" aria-pressed={guides} aria-label="Toggle safe area guides" onClick={() => setGuides(!guides)}><ScanLine size={13} /></button></div></div>

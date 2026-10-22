@@ -30,6 +30,7 @@ export const thumbnailWorkspaceClasses = {
   stageImage: 'prom-thumbnail-stageImage',
   stageSource: 'prom-thumbnail-stageSource',
   stageGlare: 'prom-thumbnail-stageGlare',
+  liquidLens: 'prom-thumbnail-liquidLens',
   guides: 'prom-thumbnail-guides',
   empty: 'prom-thumbnail-empty',
   generating: 'prom-thumbnail-generating',
@@ -156,6 +157,8 @@ export const thumbnailWorkspaceCss = String.raw`
 .prom-thumbnail-stageImage { display: block; width: 100%; height: 100%; object-fit: cover; }
 .prom-thumbnail-stageSource { object-fit: contain; }
 .prom-thumbnail-stageGlare { position: absolute; inset: 0; pointer-events: none; opacity: .3; background: radial-gradient(ellipse at var(--pointer-x,50%) var(--pointer-y,50%),#ffffff32,transparent 46%),linear-gradient(120deg,#e7f8ff12,transparent 28%,transparent 70%,#b6edff0a); mix-blend-mode: screen; transition: opacity .3s ease; }
+.prom-thumbnail-liquidLens { position: absolute; z-index: 15; inset: 0; margin: auto; width: clamp(108px,22%,164px); aspect-ratio: 1; border: 1px solid rgba(244,251,255,.62); border-radius: 50%; background: rgba(234,234,236,.24); box-shadow: 0 12px 34px #0008,inset 0 1px 0 #ffffffb0; backdrop-filter: blur(1px) saturate(1.1); -webkit-backdrop-filter: blur(1px) saturate(1.1); cursor: grab; touch-action: none; user-select: none; }
+.prom-thumbnail-liquidLens:active { cursor: grabbing; }
 .prom-thumbnail-artboard:hover { box-shadow: 0 34px 82px #000c,0 0 52px #00b9f227,inset 0 0 0 1px #ffffff22; }
 .prom-thumbnail-guides { position: absolute; inset: 6%; pointer-events: none; border: 1px dashed #ffffff85; }
 .prom-thumbnail-guides::before, .prom-thumbnail-guides::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to right,transparent 33.2%,#ffffff45 33.2%,#ffffff45 33.4%,transparent 33.4%,transparent 66.5%,#ffffff45 66.5%,#ffffff45 66.7%,transparent 66.7%); }
