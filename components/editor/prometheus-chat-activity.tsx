@@ -48,10 +48,8 @@ export function PrometheusChatActivity({
 
   return (
     <motion.section
-      initial={reduceMotion ? false : { opacity: 0, y: 8, filter: "blur(8px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
-      className="w-full max-w-md"
+      initial={false}
+      className="w-full max-w-3xl"
       aria-label="Live editorial process"
       aria-live="polite"
     >

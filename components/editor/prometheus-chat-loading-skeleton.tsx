@@ -50,12 +50,42 @@ export function PrometheusChatLoadingSkeleton({
       <div
         role="status"
         aria-label={label}
-        className={cn("flex w-full min-w-0 flex-col items-center justify-center gap-2 py-3 text-center", className)}
+        data-chat-thinking-indicator="true"
+        className={cn("flex w-full min-w-0 items-center gap-2.5", className)}
       >
-        <BotAvatar type="clover" state="working" size={96} />
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium text-white/80">{label}</span>
-          {sublabel ? <span className="text-[11px] text-white/50">{sublabel}</span> : null}
+        <motion.span
+          aria-hidden="true"
+          className="grid size-10 shrink-0 place-items-center"
+          animate={reduceMotion
+            ? { y: [0, -1, 0] }
+            : { y: [0, -2, 0], rotate: [0, -2, 0, 2, 0], scale: [1, 1.025, 1] }}
+          transition={{ duration: reduceMotion ? 2 : 1.35, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <BotAvatar
+            type="clover"
+            face="mouth"
+            state="working"
+            size={40}
+            speed={1.2}
+            jumpEvery={3}
+            jumpHeight={14}
+          />
+        </motion.span>
+        <div className="inline-flex min-h-10 min-w-0 items-center gap-2 rounded-[18px] rounded-bl-[6px] border border-white/[0.08] bg-white/[0.045] px-3 py-2">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-xs font-medium text-white/78">{label}</span>
+            {sublabel ? <span className="truncate text-[11px] text-white/42">{sublabel}</span> : null}
+          </div>
+          <span aria-hidden="true" className="ml-0.5 flex shrink-0 items-center gap-1">
+            {[0, 1, 2].map((index) => (
+              <motion.span
+                key={index}
+                className="size-1.5 rounded-full bg-[#9ff6e3]/75"
+                animate={reduceMotion ? undefined : { opacity: [0.35, 1, 0.35], y: [0, -2.5, 0] }}
+                transition={{ duration: 0.72, delay: index * 0.14, repeat: Infinity, ease: "easeInOut" }}
+              />
+            ))}
+          </span>
         </div>
       </div>
     )
