@@ -8413,7 +8413,15 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         if (typeof useMiniRunDraftStore !== 'undefined') {
           const draftState = useMiniRunDraftStore.getState()
           if (draftState?.chunks?.length > 0) {
-            draftManifest = draftState.getDraftManifest()
+            const draftSource = draftState.sourceUrl
+            if (!draftSource || !activeSourceUrl || draftSource === activeSourceUrl) {
+              draftManifest = draftState.getDraftManifest()
+            } else {
+              console.warn('[MiniRun] Skipping draftManifest: draft source does not match activeSourceUrl', {
+                draftSource,
+                activeSourceUrl,
+              })
+            }
           }
         }
       } catch {

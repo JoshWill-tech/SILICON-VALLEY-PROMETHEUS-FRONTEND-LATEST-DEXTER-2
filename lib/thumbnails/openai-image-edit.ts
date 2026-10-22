@@ -72,6 +72,7 @@ ${input.prompt}`
 1. Image roles and priority: use the first attached image as the video subject anchor. The second attached image is the selected primary thumbnail style reference. Any later reference images are secondary style cues.
 2. Follow the selected reference closely: transfer its macro-composition, subject-to-text relationship, visual hierarchy, palette, lighting, background treatment, tactile props (such as a 3D brain, documents, tools, or physical objects), hand gestures (such as pointing, framing, or holding props), typography style, texture, and graphic devices.
 3. Rebuild those qualities around the source subject, exact requested headline, creative brief, and aspect ratio. Keep the source person's identity, expression, and recognizable features. Never copy the reference person's identity, logos, exact words, or factual claims. Create a complete thumbnail, not a flat text overlay on the source frame.
+4. SEED REFERENCE INFLUENCE IS MANDATORY: Do not output a generic template or arbitrary layout. Faithfully adapt the selected reference's distinct visual DNA, atmosphere, and visual devices for this creator's subject.
 
 SPECIFIC DESIGN INSTRUCTIONS:
 ${input.prompt}`

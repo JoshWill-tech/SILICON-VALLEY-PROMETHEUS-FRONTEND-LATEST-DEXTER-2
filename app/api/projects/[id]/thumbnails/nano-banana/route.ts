@@ -16,7 +16,7 @@ import {
 } from '@/lib/thumbnails/openai-image-edit'
 
 import { buildStudioArtDirection, parseStudioDesign, resolveStudioImageModel, resolveStudioImageSize, type StudioDesign } from '@/lib/thumbnails/studio-art-direction'
-import { getStudioReference, STUDIO_REFERENCES } from '@/lib/thumbnails/studio-references'
+import { getStudioReference, loadStudioReferenceDataUrl, STUDIO_REFERENCES } from '@/lib/thumbnails/studio-references'
 import { compactGeneratedThumbnail } from '@/lib/thumbnails/thumbnail-output'
 import { runWithThumbnailSignal, THUMBNAIL_PIPELINE_TIMEOUT_MS, THUMBNAIL_PLANNER_TIMEOUT_MS, THUMBNAIL_PROVIDER_TIMEOUT_MS } from '@/lib/thumbnails/thumbnail-runtime'
 import { applyThumbnailCreativeDirection, applyThumbnailIterationDirection } from '@/lib/thumbnails/creative-direction'
@@ -135,9 +135,21 @@ export async function POST(
     const brandColor = body?.brandColor || '#3E5C76'
     const userPrompt = typeof body?.userPrompt === 'string' ? body.userPrompt.trim().slice(0, 500) : ''
     const aspectRatio = body?.aspectRatio || '9:16'
-    const referenceImages = Array.isArray(body?.referenceImages)
+    let referenceImages = Array.isArray(body?.referenceImages)
       ? body.referenceImages.filter((reference): reference is string => typeof reference === 'string').slice(0, 4)
       : []
+
+    // Server-side reference resolution guarantee: if a studio reference is selected, ensure it is present as the primary visual reference
+    if (body?.studioReferenceId) {
+      const serverRef = await loadStudioReferenceDataUrl(body.studioReferenceId)
+      if (serverRef) {
+        if (referenceImages.length === 0) {
+          referenceImages = [serverRef]
+        } else if (!referenceImages.some(img => img === serverRef || img.slice(0, 80) === serverRef.slice(0, 80))) {
+          referenceImages = [serverRef, ...referenceImages].slice(0, 4)
+        }
+      }
+    }
     const lockChannelStyle = body?.lockChannelStyle ?? true
 
     const archetype = SHORT_FORM_ARCHETYPES.find((a) => a.id === styleId) || SHORT_FORM_ARCHETYPES[0]

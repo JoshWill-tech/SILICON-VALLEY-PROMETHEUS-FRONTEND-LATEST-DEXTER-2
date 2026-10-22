@@ -113,17 +113,21 @@ async function readCompactFrame(file: File): Promise<string> {
   } finally { bitmap.close() }
 }
 
-async function readStudioReference(id: StudioReferenceId): Promise<string> {
-  const reference = getStudioReference(id)
-  const response = await fetch(reference.src)
-  if (!response.ok) throw new Error('Could not load the selected visual reference.')
-  const blob = await response.blob()
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not load the selected visual reference.'))
-    reader.onerror = () => reject(new Error('Could not load the selected visual reference.'))
-    reader.readAsDataURL(blob)
-  })
+async function readStudioReference(id: StudioReferenceId): Promise<string | null> {
+  try {
+    const reference = getStudioReference(id)
+    const response = await fetch(reference.src)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Could not load the selected visual reference.'))
+      reader.onerror = () => reject(new Error('Could not load the selected visual reference.'))
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }
 
 export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, projectTitle, videoElement, videoUrl, transcriptSnippet = '', onSaveProjectThumbnail }: ThumbnailStudioModalProps) {
@@ -357,7 +361,7 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       const recipe = VIRAL_THUMBNAIL_RECIPES.find(item => item.id === recipeId)!
       const visualReference = await readStudioReference(referenceId)
       if (controller.signal.aborted) return
-      const referenceImages = [visualReference, ...channelReferences].slice(0, 4)
+      const referenceImages = [visualReference, ...channelReferences].filter((item): item is string => typeof item === 'string' && Boolean(item)).slice(0, 4)
       const effectiveIterativePrompt = options?.iterationPrompt || (jarvisDraft?.isIterative ? jarvisDraft.iterationPrompt : undefined)
       const baseThumbnailUrl = resolveThumbnailBaseUrl({
         isIterative: options?.isIterative,

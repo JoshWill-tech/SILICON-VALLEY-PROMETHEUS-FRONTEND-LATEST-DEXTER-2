@@ -255,7 +255,9 @@ export function EditorialDeliveryStudio({
     try {
       const draftStore = useMiniRunDraftStore.getState()
       const promptToDispatch = promptOverride ?? effectivePrompt
-      const draftManifest = draftStore.isDirty ? draftStore.getDraftManifest() : undefined
+      const draftManifest = (draftStore.chunks && draftStore.chunks.length > 0)
+        ? draftStore.getDraftManifest()
+        : undefined
 
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
         method: 'POST',

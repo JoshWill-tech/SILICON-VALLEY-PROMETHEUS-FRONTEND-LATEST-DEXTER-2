@@ -24,8 +24,21 @@ const forwardedResponseHeaders = [
 function outputUrlFromPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null
   const record = payload as Record<string, unknown>
-  if (typeof record.outputUrl === 'string' && record.outputUrl) return record.outputUrl
-  return outputUrlFromPayload(record.returnvalue ?? record.response ?? null)
+  let candidate: string | null = null
+  if (typeof record.outputUrl === 'string' && record.outputUrl) {
+    candidate = record.outputUrl
+  } else {
+    candidate = outputUrlFromPayload(record.returnvalue ?? record.response ?? null)
+  }
+  if (!candidate) return null
+
+  const inputProps = (record.inputProps || record.manifest) as Record<string, unknown> | undefined
+  if (inputProps && typeof inputProps.videoSrc === 'string' && inputProps.videoSrc) {
+    if (candidate.trim() === inputProps.videoSrc.trim()) {
+      return null
+    }
+  }
+  return candidate
 }
 
 export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
@@ -137,11 +150,23 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
           // ignore
         }
       }
+      if (!outputUrl && typeof dbExport?.metadata?.outputUrl === 'string' && dbExport.metadata.outputUrl.startsWith('http')) {
+        outputUrl = dbExport.metadata.outputUrl
+      }
       if (!outputUrl) {
         return NextResponse.json(
           {error: 'Mini-Run render could not be found for this account.', status: statusResponse.status},
           {status: statusResponse.status === 404 ? 404 : statusResponse.status === 401 ? 401 : 502},
         )
+      }
+      if (outputUrl && typeof dbExport?.metadata?.sourceUrl === 'string') {
+        const sourceUrl = dbExport.metadata.sourceUrl.trim()
+        if (sourceUrl && outputUrl.trim() === sourceUrl) {
+          return NextResponse.json(
+            {error: 'Mini-Run render failed: output matches raw source media.'},
+            {status: 500},
+          )
+        }
       }
     } else {
       return NextResponse.json(

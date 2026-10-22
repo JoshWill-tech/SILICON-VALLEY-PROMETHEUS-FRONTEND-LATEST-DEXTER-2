@@ -65,7 +65,7 @@ export async function dispatchMiniRunRender({
     sourceUrl,
     source: {durationMs: request.durationMs, width: request.width, height: request.height},
     shot: {...request.shot, songPolicy: request.songPolicy ?? request.shot?.songPolicy},
-    jobId: request.jobId ?? request.projectId,
+    jobId: request.jobId ?? crypto.randomUUID(),
     draftManifest: request.draftManifest,
     transcriptSegments: request.transcriptSegments,
     words: request.words,

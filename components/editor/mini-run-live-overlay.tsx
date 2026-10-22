@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scissors, Check, X, Sparkles, Loader2, Type, RotateCcw } from 'lucide-react'
+import { Scissors, Check, X, Sparkles, Loader2, Type, RotateCcw, Download } from 'lucide-react'
 import {
   useMiniRunDraftStore,
   type DraftChunk,
@@ -10,6 +10,7 @@ import {
   type DraftTypography,
 } from '@/lib/editor/mini-run-draft-store'
 import { dispatchMiniRunFromProject, planMiniRunFromProject } from '@/lib/api/mini-run-console'
+import { miniRun } from '@/lib/api/mini-run'
 import { toast } from 'sonner'
 
 export const TYPOGRAPHY_PRESETS: Array<{
@@ -81,6 +82,8 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
   const getDraftManifest = useMiniRunDraftStore((s) => s.getDraftManifest)
   const setStatus = useMiniRunDraftStore((s) => s.setStatus)
   const reset = useMiniRunDraftStore((s) => s.reset)
+  const sourceUrl = useMiniRunDraftStore((s) => s.sourceUrl)
+  const [renderedOutputUrl, setRenderedOutputUrl] = React.useState<string | null>(null)
 
   const [currentTimeMs, setCurrentTimeMs] = React.useState(0)
   const [editingWord, setEditingWord] = React.useState<{
@@ -231,8 +234,59 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
         draftManifest,
       })
 
-      toast.success(`Cloud render started! Job ID: ${result.jobId.slice(0, 8)}`)
+      const toastId = toast.loading(`Cloud render started (Job ID: ${result.jobId.slice(0, 8)}). Processing video...`)
+
+      // Poll until completion or terminal failure (up to 450s)
+      const maxAttempts = 180
+      let attempt = 0
+      let completedOutputUrl: string | null = null
+
+      while (attempt < maxAttempts) {
+        attempt++
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+
+        try {
+          const pollStatus = await miniRun.getRenderStatus(result.jobId)
+          const state = (pollStatus.state || pollStatus.status || '').toLowerCase()
+          const progress = pollStatus.progressPercent ? ` (${pollStatus.progressPercent}%)` : ''
+
+          toast.loading(`Rendering cloud video${progress}...`, { id: toastId })
+
+          if (state === 'completed' || state === 'success' || state === 'finished') {
+            completedOutputUrl = pollStatus.outputUrl || `/api/mini-run/job/${encodeURIComponent(result.jobId)}/output`
+            break
+          } else if (state === 'failed' || state === 'error') {
+            const reason = pollStatus.failedReason || pollStatus.error || 'Cloud render failed.'
+            throw new Error(reason)
+          }
+        } catch (pollErr) {
+          if (attempt > 3 && (pollErr as Error)?.message?.includes('failed')) {
+            throw pollErr
+          }
+        }
+      }
+
+      if (!completedOutputUrl) {
+        throw new Error('Cloud render timed out before output was ready.')
+      }
+
+      // Fail-closed guard: ensure output is not identical to source video
+      const sourceVideo = videoRef.current?.src || ''
+      if (sourceVideo && completedOutputUrl === sourceVideo) {
+        throw new Error('Cloud render produced raw unedited video. Pipeline rejected.')
+      }
+
+      setRenderedOutputUrl(completedOutputUrl)
+
+      // Swap the active video player element to the rendered output MP4!
+      if (videoRef.current) {
+        videoRef.current.src = completedOutputUrl
+        videoRef.current.load()
+        videoRef.current.play().catch(() => {})
+      }
+
       setStatus('rendered')
+      toast.success('Final edited video rendered and loaded!', { id: toastId })
     } catch (err) {
       console.error('[MiniRunLiveOverlay] Bake failed:', err)
       toast.error(err instanceof Error ? err.message : 'Failed to dispatch final render.')
@@ -250,11 +304,11 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
       {/* Top Banner: Mode Indicator & Cloud Bake Trigger */}
       <div className="pointer-events-auto flex items-center justify-between p-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
         <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className={`flex h-2 w-2 rounded-full ${status === 'rendered' ? 'bg-emerald-400' : 'bg-accent-cyan'} animate-pulse`} />
           <span className="text-xs font-semibold text-white tracking-wide uppercase">
-            Mini-Run Live Preview
+            {status === 'rendered' ? 'Rendered Short (Edited MP4)' : 'Mini-Run Live Preview'}
           </span>
-          {isDirty && (
+          {status !== 'rendered' && isDirty && (
             <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 border border-amber-500/30">
               User Modified
             </span>
@@ -262,36 +316,68 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => reset()}
-            className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
-            title="Exit interactive preview mode"
-          >
-            <RotateCcw className="size-3" />
-            <span>Reset</span>
-          </button>
+          {status === 'rendered' ? (
+            <>
+              <button
+                onClick={() => {
+                  if (sourceUrl && videoRef.current) {
+                    videoRef.current.src = sourceUrl
+                    videoRef.current.load()
+                  }
+                  setStatus('planned')
+                }}
+                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+                title="Switch back to live editable draft"
+              >
+                <RotateCcw className="size-3" />
+                <span>Re-edit Draft</span>
+              </button>
+              {(renderedOutputUrl || videoRef.current?.src) && (
+                <a
+                  href={`${renderedOutputUrl || videoRef.current?.src}${String(renderedOutputUrl || videoRef.current?.src).includes('?') ? '&' : '?'}download=1`}
+                  download="prometheus_short.mp4"
+                  className="flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                >
+                  <Download className="size-3.5" />
+                  <span>Download MP4</span>
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => reset()}
+                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+                title="Exit interactive preview mode"
+              >
+                <RotateCcw className="size-3" />
+                <span>Reset</span>
+              </button>
 
-          <button
-            onClick={handleBakeFinal}
-            disabled={isBaking}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-          >
-            {isBaking ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin" />
-                <span>Rendering on AWS...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="size-3.5 fill-current" />
-                <span>Bake Final Video</span>
-              </>
-            )}
-          </button>
+              <button
+                onClick={handleBakeFinal}
+                disabled={isBaking}
+                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isBaking ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Rendering on AWS...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-3.5 fill-current" />
+                    <span>Bake Final Video</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Center/Lower: Kinetic Live Typography Overlay */}
+      {status !== 'rendered' && (
       <div
         className="pointer-events-auto absolute inset-x-0 flex justify-center px-4 transition-all duration-150"
         style={{ top: `${positionYPercent}%`, transform: 'translateY(-50%)' }}
@@ -347,6 +433,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Word Quick Edit / Cut Modal Popover */}
       <AnimatePresence>
@@ -409,6 +496,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
       </AnimatePresence>
 
       {/* Bottom Floating Control Dock: Typography Presets & Stats */}
+      {status !== 'rendered' && (
       <div className="pointer-events-auto mx-auto mb-3 flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-neutral-900/90 px-3.5 py-1.5 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center gap-1 pr-2 border-r border-white/15">
           <Type className="size-3.5 text-accent-cyan" />
@@ -439,6 +527,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
           {chunks.length} chunks • {chunks.reduce((acc, c) => acc + c.words.filter((w) => !w.cut).length, 0)} words
         </div>
       </div>
+      )}
 
       {/* Bottom Spacer */}
       <div className="h-4" />

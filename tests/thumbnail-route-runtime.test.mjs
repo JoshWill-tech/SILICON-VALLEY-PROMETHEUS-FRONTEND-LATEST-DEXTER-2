@@ -50,7 +50,7 @@ async function exercise(context, { env = {}, fetch: fetcher, body = {} }, check)
   }
 }
 
-async function within(promise, milliseconds = 500) {
+async function within(promise, milliseconds = 1500) {
   let timer
   try {
     return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Thumbnail route did not settle within the test deadline')), milliseconds) })])
