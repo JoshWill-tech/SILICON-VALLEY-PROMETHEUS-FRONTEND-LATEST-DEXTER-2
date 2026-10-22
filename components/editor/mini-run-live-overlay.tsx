@@ -157,8 +157,13 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
     try {
       setIsPlanning(true)
       toast.info('Synthesizing zero-lag editable draft (3-5s)...')
-      const result = await planMiniRunFromProject({ projectId, sourceAssetId: sourceAssetId || '' })
-      useMiniRunDraftStore.getState().setPlan(result.manifest, (result.source?.url as string) || undefined)
+      const videoSrc = videoRef.current?.currentSrc || videoRef.current?.src || undefined
+      const result = await planMiniRunFromProject({
+        projectId,
+        sourceAssetId: sourceAssetId || '',
+        sourceUrl: videoSrc,
+      })
+      useMiniRunDraftStore.getState().setPlan(result.manifest, (result.source?.url as string) || videoSrc || undefined)
       toast.success('Live preview active! Click any word to edit or cut, or switch font profiles.')
     } catch (err) {
       console.error('[MiniRunLiveOverlay] Failed to load draft plan:', err)

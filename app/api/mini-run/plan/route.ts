@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}))
     const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : ''
     const sourceAssetId = typeof body.sourceAssetId === 'string' ? body.sourceAssetId.trim() : ''
+    const inputSourceUrl = typeof body.sourceUrl === 'string' && body.sourceUrl.trim() ? body.sourceUrl.trim() : ''
     const shot = (body.shot && typeof body.shot === 'object' ? body.shot : {}) as Record<string, unknown>
     const draftManifest = (body.draftManifest && typeof body.draftManifest === 'object' ? body.draftManifest : undefined) as Record<string, unknown> | undefined
     const prompt = typeof body.prompt === 'string' && body.prompt.trim() ? body.prompt.trim() : undefined
@@ -116,21 +117,44 @@ export async function POST(req: Request) {
       }
 
       if (assetError || !asset) {
-        return NextResponse.json(
-          { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
-          { status: 400 },
-        )
-      }
+        const directSourceUrl =
+          inputSourceUrl ||
+          (project.editorState && typeof (project.editorState as any).sourceUrl === 'string' && (project.editorState as any).sourceUrl.trim()
+            ? (project.editorState as any).sourceUrl.trim()
+            : null) ||
+          (project.sourceProfile && typeof (project.sourceProfile as any).url === 'string' && (project.sourceProfile as any).url.trim()
+            ? (project.sourceProfile as any).url.trim()
+            : null) ||
+          (typeof (project as any).source_url === 'string' && (project as any).source_url.trim()
+            ? (project as any).source_url.trim()
+            : null) ||
+          null
 
-      if (targetAssetId && project.sourceAssetId !== targetAssetId) {
-        void supabase
-          .from('projects')
-          .update({ source_asset_id: targetAssetId })
-          .eq('id', projectId)
-          .eq('user_id', user.id)
-      }
+        if (!directSourceUrl) {
+          return NextResponse.json(
+            { error: 'The selected source does not belong to this project.', code: 'SOURCE_MISMATCH' },
+            { status: 400 },
+          )
+        }
 
-      row = asset as SourceAssetRow
+        row = {
+          id: 'direct-source',
+          storage_path: directSourceUrl,
+          duration_ms: (typeof shot.preferredDurationSec === 'number' ? shot.preferredDurationSec * 1000 : 30000),
+          width: 1080,
+          height: 1920,
+        }
+      } else {
+        if (targetAssetId && project.sourceAssetId !== targetAssetId) {
+          void supabase
+            .from('projects')
+            .update({ source_asset_id: targetAssetId })
+            .eq('id', projectId)
+            .eq('user_id', user.id)
+        }
+
+        row = asset as SourceAssetRow
+      }
     }
     if (!row.storage_path) {
       return NextResponse.json(
@@ -144,7 +168,10 @@ export async function POST(req: Request) {
 
     const env = getMiniRunEnvironment()
     const config = resolveMiniRunConfig(env)
-    const sourceUrl = await buildMiniRunSourceUrl(bucket, row.storage_path)
+    const sourceUrl =
+      row.storage_path.startsWith('http://') || row.storage_path.startsWith('https://')
+        ? row.storage_path
+        : await buildMiniRunSourceUrl(bucket, row.storage_path)
     const bodyPayload = buildMiniRunRenderPayload({
       sourceUrl,
       source: {
@@ -168,25 +195,33 @@ export async function POST(req: Request) {
       cache: 'no-store',
     })
 
-    const upstream = (await response.json().catch(() => ({}))) as {
-      jobId?: unknown
-      manifest?: unknown
-      source?: unknown
-      error?: unknown
-    }
+    const upstream = (await response.json().catch(() => ({}))) as Record<string, unknown>
 
     if (!response.ok) {
       const message =
-        typeof upstream.error === 'string' ? upstream.error : `Mini-Run plan returned HTTP ${response.status}.`
+        typeof upstream.error === 'string'
+          ? upstream.error
+          : 'Mini-Run plan returned HTTP ' + String(response.status) + '.'
       return NextResponse.json({ error: message, code: 'PLAN_SYNTHESIS_FAILED' }, { status: 502 })
     }
 
-    const plannedJobId = typeof upstream.jobId === 'string' ? upstream.jobId : jobId
+    const manifest =
+      (upstream.manifest && typeof upstream.manifest === 'object' && upstream.manifest !== null)
+        ? (upstream.manifest as Record<string, unknown>)
+        : upstream
+
+    const plannedJobId =
+      typeof upstream.jobId === 'string'
+        ? upstream.jobId
+        : typeof (manifest as any)?.jobId === 'string'
+        ? (manifest as any).jobId
+        : jobId
+
     return NextResponse.json({
       ok: true,
       jobId: plannedJobId,
-      manifest: upstream.manifest,
-      source: upstream.source,
+      manifest,
+      source: (upstream.source as Record<string, unknown>) || { url: sourceUrl },
     })
   } catch (err) {
     console.error('[api/mini-run/plan] error:', err)
