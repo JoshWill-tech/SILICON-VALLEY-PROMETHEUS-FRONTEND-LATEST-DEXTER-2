@@ -11,7 +11,7 @@
     "dev:webpack": "next dev --webpack",
     "lint": "eslint .",
     "typecheck": "node scripts/verify-typecheck.mjs",
-    "test:source-upload": "node --import tsx --test --test-reporter=tap tests/source-replacement-upload.test.ts tests/multipart-upload-runtime.test.ts tests/source-upload-quota-handlers.test.ts",
+    "test:source-upload": "node --import tsx --test --test-reporter=tap tests/source-replacement-upload.test.ts tests/multipart-upload-runtime.test.ts tests/source-upload-quota-handlers.test.ts tests/storage-quota-eradication.test.ts",
     "test:jarvis-render": "node --import tsx --test --test-reporter=tap tests/jarvis-source-registration.test.ts tests/jarvis-render-receipts.test.ts tests/jarvis-end-to-end-session.test.mjs tests/jarvis-mp4-session.test.mjs tests/source-render-readiness.test.ts tests/project-lifecycle-services.test.mjs",
     "music:sync:drive": "node scripts/sync-google-drive-music-catalog.mjs",
     "render:proof": "tsx scripts/render-proof-smoke-test.ts",

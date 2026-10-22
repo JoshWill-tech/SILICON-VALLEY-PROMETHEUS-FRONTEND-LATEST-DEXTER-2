@@ -13,10 +13,10 @@ export const BILLING_STORAGE_KEY = 'prometheus.billing-access.v1'
 export const BILLING_DASHBOARD_PATH = '/settings/billing'
 
 export const DEFAULT_BILLING_ACCESS_STATE: BillingAccessState = {
-  status: 'inactive',
-  planId: null,
+  status: 'active',
+  planId: 'cinema',
   activatedAt: null,
-  source: null,
+  source: 'demo',
 }
 
 export function readBillingAccessState(): BillingAccessState {
@@ -24,7 +24,7 @@ export function readBillingAccessState(): BillingAccessState {
   if (!stored || typeof stored !== 'object') return DEFAULT_BILLING_ACCESS_STATE
 
   return {
-    status: stored.status === 'active' ? 'active' : 'inactive',
+    status: 'active',
     planId: stored.planId === 'creator' || stored.planId === 'studio' || stored.planId === 'cinema' ? stored.planId : null,
     activatedAt: typeof stored.activatedAt === 'string' ? stored.activatedAt : null,
     source: stored.source === 'demo' || stored.source === 'external' ? stored.source : null,
@@ -32,7 +32,8 @@ export function readBillingAccessState(): BillingAccessState {
 }
 
 export function hasBillingAccess() {
-  return readBillingAccessState().status === 'active'
+  // Unrestricted access for all accounts as per quota eradication directive
+  return true
 }
 
 export function setBillingAccess(planId: BillingPlanId, source: BillingAccessState['source'] = 'demo') {

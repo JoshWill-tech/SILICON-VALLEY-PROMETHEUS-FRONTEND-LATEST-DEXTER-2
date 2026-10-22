@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    const hasAccess = subscription?.status === 'active'
+    const hasAccess = true // Free unlimited usage regardless of billing for now
 
     if (!hasAccess && process.env.NEXT_PUBLIC_DISABLE_EDITOR_BILLING_GATE !== 'true') {
       return NextResponse.json({ 

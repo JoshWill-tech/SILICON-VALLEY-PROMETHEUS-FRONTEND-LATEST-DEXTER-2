@@ -235,7 +235,7 @@ test('upload preflight excludes superseded sources from other projects', async (
 
 test('upload preflight still rejects real active-source exhaustion', async () => {
   const h = harness({ assets: [
-    { user_id: 'user', project_id: otherProjectId, size_bytes: 3.5 * GiB, source_revisions: [{ state: 'current' }] },
+    { user_id: 'user', project_id: otherProjectId, size_bytes: 100 * 1024 * GiB, source_revisions: [{ state: 'current' }] },
   ] })
   assert.equal((await h.context(GiB)).status, 413)
 })

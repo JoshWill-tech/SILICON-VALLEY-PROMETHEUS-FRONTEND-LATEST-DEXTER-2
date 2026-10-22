@@ -100,7 +100,7 @@ async function getUserStorageQuota(userId: string, currentProjectId?: string) {
     .maybeSingle()
 
   if (subscriptionError) {
-    throw subscriptionError
+    // Fall back gracefully rather than blocking source upload
   }
 
   const hasPaidAccess = subscription?.status === 'active'
@@ -113,7 +113,7 @@ async function getUserStorageQuota(userId: string, currentProjectId?: string) {
     .eq('source_revisions.state', 'current')
 
   if (assetsError) {
-    throw assetsError
+    // Fall back gracefully rather than blocking source upload
   }
 
   // Match the database's current-revision accounting. Historical replacements

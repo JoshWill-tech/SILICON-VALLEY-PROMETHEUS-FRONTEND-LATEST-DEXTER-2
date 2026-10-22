@@ -89,13 +89,14 @@ test('the latest database storage limits match every frontend tier', () => {
 
 test('replacement does not double-count existing project source asset against storage quota', async () => {
   const currentProjectId = 'project-with-source'
-  const oldAssetSize = 2.5 * 1024 * 1024 * 1024
-  const newAssetSize = 2.0 * 1024 * 1024 * 1024
+  const TiB = 1024 * 1024 * 1024 * 1024
+  const oldAssetSize = 60 * TiB
+  const newAssetSize = 50 * TiB
   const quotaLimit = STORAGE_TIERS.free.bytes
 
   const mockAssets = [
     { project_id: currentProjectId, size_bytes: oldAssetSize },
-    { project_id: 'other-project', size_bytes: 500 * 1024 * 1024 },
+    { project_id: 'other-project', size_bytes: 10 * TiB },
   ]
 
   const usedBytesExcludingReplaced = mockAssets
@@ -105,8 +106,8 @@ test('replacement does not double-count existing project source asset against st
   const usedBytesWithoutFix = mockAssets
     .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
 
-  assert.ok(usedBytesWithoutFix + newAssetSize > quotaLimit, 'without fix, replacement would exceed quota (3.0 GB + 2.0 GB > 4.0 GB)')
-  assert.ok(usedBytesExcludingReplaced + newAssetSize <= quotaLimit, 'with fix, replacement fits within quota (0.5 GB + 2.0 GB <= 4.0 GB)')
+  assert.ok(usedBytesWithoutFix + newAssetSize > quotaLimit, 'without fix, replacement would exceed quota (70 TB + 50 TB > 100 TB)')
+  assert.ok(usedBytesExcludingReplaced + newAssetSize <= quotaLimit, 'with fix, replacement fits within quota (10 TB + 50 TB <= 100 TB)')
 })
 
 test('prior uncommitted sessions are aborted when initiating a new upload for the project', async () => {

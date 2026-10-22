@@ -1,8 +1,8 @@
 export const STORAGE_TIERS = {
-  free: { label: 'Free', bytes: 4 * 1024 * 1024 * 1024 },        // 4GB (supports up to 4GB long video upload capacity)
-  creator: { label: 'Creator', bytes: 500 * 1024 * 1024 * 1024 },  // 500GB
-  studio: { label: 'Studio', bytes: 2 * 1024 * 1024 * 1024 * 1024 }, // 2TB
-  cinema: { label: 'Cinema', bytes: 5 * 1024 * 1024 * 1024 * 1024 }, // 5TB
+  free: { label: 'Free', bytes: 100 * 1024 * 1024 * 1024 * 1024 }, // 100 TB (Unlimited Free Usage)
+  creator: { label: 'Creator', bytes: 500 * 1024 * 1024 * 1024 * 1024 }, // 500 TB
+  studio: { label: 'Studio', bytes: 1000 * 1024 * 1024 * 1024 * 1024 }, // 1 PB
+  cinema: { label: 'Cinema', bytes: 5000 * 1024 * 1024 * 1024 * 1024 }, // 5 PB
 } as const;
 
 export type StorageTier = keyof typeof STORAGE_TIERS;
