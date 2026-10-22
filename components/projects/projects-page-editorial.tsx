@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import {
   ArrowUpRight,
@@ -289,7 +289,6 @@ function ProjectTile({
 
 export function ProjectsPageEditorial() {
   const router = useRouter()
-  const prefersReducedMotion = useReducedMotion()
   const [deleteTarget, setDeleteTarget] = React.useState<ProjectListItem | null>(null)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const openingRef = React.useRef(false)
@@ -396,7 +395,7 @@ export function ProjectsPageEditorial() {
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--light-ui-muted,rgba(255,255,255,0.65))]">Your creative room</p>
               <h1 className="max-w-3xl [font-family:var(--font-playfair-display)] text-balance text-[clamp(3.25rem,9vw,8.5rem)] font-semibold leading-[0.78] tracking-[-0.09em]">
                 <motion.span
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
+                  initial={{ opacity: 0, y: 22 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.58, ease: [0.16, 1, 0.3, 1] }}
                 >
@@ -407,11 +406,11 @@ export function ProjectsPageEditorial() {
                     <motion.span
                       aria-hidden="true"
                       className="inline-block origin-bottom"
-                      initial={prefersReducedMotion ? false : { opacity: 0, y: 28, rotate: 4, skewX: 0 }}
+                      initial={{ opacity: 0, y: 28, rotate: 4, skewX: 0 }}
                       animate={{ opacity: 1, y: 0, rotate: 0, skewX: [0, 0, -12, 0], fontStyle: ['normal', 'normal', 'normal', 'italic'] }}
                       transition={{
-                        duration: prefersReducedMotion ? 0 : 1.35,
-                        delay: prefersReducedMotion ? 0 : 0.25 + index * 0.075,
+                        duration: 1.35,
+                        delay: 0.25 + index * 0.075,
                         times: [0, 0.5, 0.88, 1],
                         ease: [0.16, 1, 0.3, 1],
                       }}
@@ -425,19 +424,19 @@ export function ProjectsPageEditorial() {
                 <motion.span
                   aria-label="together."
                   className="inline-flex items-baseline border border-[var(--project-line)]/65 px-[0.08em] text-[color:var(--light-ui-text,#f5f5f2)] shadow-[inset_0_0_0_1px_rgba(255,255,255,.08)]"
-                  initial={prefersReducedMotion ? false : { opacity: 0 }}
+                  initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.01, delay: prefersReducedMotion ? 0 : 0.8 }}
+                  transition={{ duration: 0.01, delay: 0.8 }}
                 >
                   {togetherLetters.map((letter, index) => (
                     <span className="inline-block overflow-hidden" key={`${letter}-${index}`} aria-hidden="true">
                       <motion.span
                         className="inline-block"
-                        initial={prefersReducedMotion ? false : { opacity: 0, y: '112%', rotate: 7, filter: 'blur(5px)' }}
+                        initial={{ opacity: 0, y: '112%', rotate: 7, filter: 'blur(5px)' }}
                         animate={{ opacity: 1, y: '0%', rotate: 0, filter: 'blur(0px)' }}
                         transition={{
-                          duration: prefersReducedMotion ? 0 : 0.54,
-                          delay: prefersReducedMotion ? 0 : 0.83 + index * 0.065,
+                          duration: 0.54,
+                          delay: 0.83 + index * 0.065,
                           ease: [0.16, 1, 0.3, 1],
                         }}
                       >
@@ -445,7 +444,7 @@ export function ProjectsPageEditorial() {
                       </motion.span>
                     </span>
                   ))}
-                  {!prefersReducedMotion ? <motion.span aria-hidden="true" className="ml-[0.03em] inline-block h-[0.74em] w-[0.035em] bg-[var(--project-inverse)] align-[-0.02em]" animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: 0.72, delay: 1.46, times: [0, 0.15, 0.78, 1] }} /> : null}
+                  <motion.span aria-hidden="true" className="ml-[0.03em] inline-block h-[0.74em] w-[0.035em] bg-[var(--project-inverse)] align-[-0.02em]" animate={{ opacity: [0, 1, 1, 0] }} transition={{ duration: 0.72, delay: 1.46, times: [0, 0.15, 0.78, 1] }} />
                 </motion.span>
               </h1>
             </div>
