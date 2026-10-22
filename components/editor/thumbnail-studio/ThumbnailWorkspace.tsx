@@ -8,6 +8,7 @@ import { STUDIO_REFERENCES, type StudioReferenceCategory, type StudioReferenceId
 import { VIRAL_THUMBNAIL_RECIPES } from '@/lib/thumbnails/nano-banana-rulebook'
 import type { ExtractedFrameCandidate } from '@/lib/thumbnails/thumbnail-engine'
 import { thumbnailWorkspaceClasses as styles, thumbnailWorkspaceCss } from './ThumbnailWorkspace.styles'
+import { LiquidGlButton } from './LiquidGlButton'
 
 export type ThumbnailVariant = {
   id: string
@@ -246,7 +247,7 @@ export function ThumbnailWorkspace(props: Props) {
             </div> : <div className={styles.empty}>{props.isExtracting ? <Loader2 size={25} className={styles.spin} /> : <Camera size={28} />}<strong>{props.isExtracting ? 'Finding your best frames' : 'Start with your subject'}</strong><p>{props.isExtracting ? 'We’re preparing frames from your video.' : 'Load a video in the editor, or add a still image to start creating.'}</p>{!props.isExtracting && <label className={styles.upload}><ImagePlus size={16} /><span>Add a source image</span><input className={styles.hiddenInput} type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload source image" onChange={event => onFileInput(event, props.onUploadFrame)} /></label>}</div>}
             {props.isGenerating && <div className={styles.generating} role="status"><Sparkles size={27} className={styles.spin} /><strong>Composing your thumbnail</strong><small>Refining the subject, lighting, and headline.</small><button className={styles.secondary} type="button" onClick={props.onCancel}>Cancel generation</button></div>}
           </div>
-          <div className={styles.previewMeta}><span className={styles.metaLabel}>{props.generatedUrl ? <Check size={12} /> : <Layers size={12} />}{view === 'source' ? 'Source frame' : generatedLabel}{dimensions && ' · ' + dimensions}</span><div className={styles.viewGroup}>{props.generatedUrl && <button type="button" className={styles.refineChatButton} onClick={() => setTab('chat')} title="Refine this thumbnail in the Chat assistant"><MessageSquare size={12} />Refine in Chat</button>}{(['artwork','source','feed'] as const).map(mode => <button className={styles.viewButton} type="button" key={mode} aria-pressed={view === mode} disabled={!image && mode !== 'artwork'} onClick={() => setView(mode)}>{mode === 'artwork' ? props.generatedUrl ? 'Artwork' : 'Frame preview' : mode === 'source' ? 'Source' : 'Feed size'}</button>)}<button className={styles.viewButton} type="button" aria-pressed={guides} aria-label="Toggle safe area guides" onClick={() => setGuides(!guides)}><ScanLine size={13} /></button></div></div>
+          <div className={styles.previewMeta}><span className={styles.metaLabel}>{props.generatedUrl ? <Check size={12} /> : <Layers size={12} />}{view === 'source' ? 'Source frame' : generatedLabel}{dimensions && ' · ' + dimensions}</span><div className={styles.viewGroup}>{/* Chat tab removed per request */}{(['artwork','source','feed'] as const).map(mode => <button className={styles.viewButton} type="button" key={mode} aria-pressed={view === mode} disabled={!image && mode !== 'artwork'} onClick={() => setView(mode)}>{mode === 'artwork' ? props.generatedUrl ? 'Artwork' : 'Frame preview' : mode === 'source' ? 'Source' : 'Feed size'}</button>)}<button className={styles.viewButton} type="button" aria-pressed={guides} aria-label="Toggle safe area guides" onClick={() => setGuides(!guides)}><ScanLine size={13} /></button></div></div>
           </div>
           <section className={styles.sourceFramesPanel} aria-label="Source keyframes">
             <div className={styles.sectionHeading}><h2>Source keyframes<span className={styles.count}>{props.candidates.length} captures</span></h2><div className={styles.sectionActions}>{props.onCapture && <button type="button" className={styles.textButton} onClick={props.onCapture}><Camera size={12} />Capture playhead</button>}<button type="button" className={styles.iconButton} aria-label="Previous source frames" disabled={!props.candidates.length} onClick={() => frameStripRef.current?.scrollBy({ left: -220, top: -220, behavior: 'smooth' })}><ChevronLeft size={13} /></button><button type="button" className={styles.iconButton} aria-label="Next source frames" disabled={!props.candidates.length} onClick={() => frameStripRef.current?.scrollBy({ left: 220, top: 220, behavior: 'smooth' })}><ChevronRight size={13} /></button></div></div>
@@ -257,7 +258,7 @@ export function ThumbnailWorkspace(props: Props) {
             <div className={styles.sectionHeading}>
               <h2>Reference thumbnails<span className={styles.count}>{STUDIO_REFERENCES.length} looks</span></h2>
               <div className={styles.sectionActions}>
-                <button className={styles.textButton} type="button" onClick={() => setTab('styles')}>Refine look<ArrowRight size={12} /></button>
+                {/* Styles tab link removed per request */}
                 <button className={styles.textButton} type="button" aria-expanded={showAllReferences} aria-controls="thumbnail-reference-library" onClick={() => setShowAllReferences(value => !value)}>{showAllReferences ? 'Show featured' : `Browse all ${STUDIO_REFERENCES.length}`}</button>
               </div>
             </div>
@@ -275,7 +276,7 @@ export function ThumbnailWorkspace(props: Props) {
           {props.variants.length > 0 && <section className={styles.variants} aria-label="Generated versions"><div className={styles.sectionHeading}><h2>Your versions<span className={styles.count}>{props.variants.length}</span></h2><span className={styles.hint}>Select a version to restore its design</span></div><div className={styles.frameStrip}>{props.variants.map((variant, index) => <button type="button" className={styles.frame + ' ' + styles.variant} key={variant.id} aria-label={'Restore version ' + (index + 1) + ': ' + variant.headline} aria-pressed={props.selectedVariantId === variant.id} onClick={() => { props.onVariant(variant); setView('artwork') }}><img src={variant.dataUrl} alt={'Generated version ' + (index + 1)} /><span className={styles.frameTime}>Version {index + 1}</span>{props.selectedVariantId === variant.id && <span className={styles.frameSelected}><Check size={9} /></span>}</button>)}</div></section>}
         </section>
         <aside className={styles.inspector} aria-label="Thumbnail controls">
-          <nav className={styles.tabs} aria-label="Thumbnail settings">{([{ id: 'create', label: 'Create', icon: Sparkles },{ id: 'chat', label: 'Chat', icon: MessageSquare },{ id: 'styles', label: 'Styles', icon: Layers },{ id: 'brand', label: 'Brand', icon: Palette }] as const).map(item => <button type="button" className={styles.tab} key={item.id} aria-pressed={tab === item.id} onClick={() => setTab(item.id)}><item.icon size={14} />{item.label}</button>)}</nav>
+          <nav className={styles.tabs} aria-label="Thumbnail settings"><button type="button" className={styles.tab} aria-pressed={tab === 'create'} onClick={() => setTab('create')}><Sparkles size={14} />Create</button></nav>
           <div className={`${styles.panel} ${tab === 'create' ? styles.createPanel : ''}`}>
             <div className={styles.panelIntro}><h2>{title}</h2><p>{help}</p></div>
             {tab === 'create' && <>
@@ -393,7 +394,26 @@ export function ThumbnailWorkspace(props: Props) {
           </div>
           <footer className={styles.footer}>
             {props.error && <p className={styles.error} role="alert">{props.error}</p>}{props.success && <p className={styles.success} role="status"><Check size={12} />{props.success}</p>}
-            <button type="button" className={styles.primary} onClick={props.isGenerating ? props.onCancel : () => { setView('artwork'); props.onGenerate() }} disabled={!props.isGenerating && (!props.candidates.length || !props.headline.trim())}>{props.isGenerating ? <><X size={15} />Cancel generation</> : <><Sparkles size={16} />{props.generatedUrl ? 'Generate another version' : 'Generate thumbnail'}<ArrowRight size={14} /></>}</button>
+            <LiquidGlButton
+              type="button"
+              className={styles.liquidButton}
+              isGenerating={props.isGenerating}
+              onClick={props.isGenerating ? props.onCancel : () => { setView('artwork'); props.onGenerate() }}
+              disabled={!props.isGenerating && (!props.candidates.length || !props.headline.trim())}
+            >
+              {props.isGenerating ? (
+                <>
+                  <X size={15} />
+                  Cancel generation
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  {props.generatedUrl ? 'Generate another version' : 'Generate thumbnail'}
+                  <ArrowRight size={14} />
+                </>
+              )}
+            </LiquidGlButton>
             {props.generatedUrl && <>
               <p className={styles.footerHint}>Choose a version, then save or download.</p>
               <div className={styles.exportRow}><button type="button" className={styles.secondary} onClick={props.onDownload}><Download size={13} />Download image</button><button type="button" className={styles.secondary} onClick={props.onSave} disabled={props.isSaving}>{props.isSaving ? <Loader2 size={13} className={styles.spin} /> : props.saved ? <Check size={13} /> : <Frame size={13} />}{props.isSaving ? 'Saving…' : props.saved ? 'Cover Saved' : 'Save Project Cover'}</button></div>

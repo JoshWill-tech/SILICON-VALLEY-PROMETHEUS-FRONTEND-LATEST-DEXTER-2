@@ -61,7 +61,7 @@ function readinessRoute(assetError = null) {
     select() {return this}, eq() {return this},
     maybeSingle: async () => table === 'projects'
       ? {data: {source_asset_id: 'saved-source', editor_state: {}}}
-      : {data: assetError ? null : {storage_path: 'source.mp4'}, error: assetError},
+      : {data: assetError ? null : {id: 'saved-source', storage_path: 'source.mp4'}, error: assetError},
   })
   const mocks = {
     'next/server': {NextResponse: {json: body => body}},
@@ -73,6 +73,15 @@ function readinessRoute(assetError = null) {
     '@/lib/exports/service': {}, '@/lib/server/mini-run-dispatch': {},
     '@/lib/server/mini-run-proxy': {resolveMiniRunConfig() {}},
   }
+  const sourceModule = {exports: {}}
+  const sourceJs = ts.transpileModule(readFileSync('lib/projects/source-asset.ts', 'utf8'), {
+    compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS},
+  }).outputText
+  new Function('require', 'module', 'exports', sourceJs)(id => {
+    assert.equal(id, 'server-only')
+    return {}
+  }, sourceModule, sourceModule.exports)
+  mocks['@/lib/projects/source-asset'] = sourceModule.exports
   const compiled = ts.transpileModule(readFileSync('app/api/projects/[id]/exports/route.ts', 'utf8'), {
     compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS},
   }).outputText

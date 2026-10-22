@@ -371,12 +371,16 @@ export function buildNanoBananaPrompt(params: {
     ? 'Emulate any hand gestures (pointing, holding, framing) or directional visual flow demonstrated in the selected reference image.'
     : dir.promptFragment
 
+  const textClause = params.hasReferenceImage
+    ? 'Adopt the headline typography style, placement, scale, and text treatment demonstrated in the selected reference image (e.g. bold modern sans, editorial serif, clean contrast pill, or subtle graphic badge). Do not add arbitrary highlighter brush strokes unless the reference explicitly features them.'
+    : text.promptFragment
+
   return [
     `Create a viral, ultra-high-resolution, conversion-optimized YouTube/Shorts cover image (${params.aspectRatio} aspect ratio).`,
-    `MAIN SUBJECT: Preserve the primary visible subject from the anchor keyframe. If a person is present, keep their recognizable facial features and authentic skin texture; do not invent a new person. Place the subject ${params.subjectPosition || 'center'} with clear negative space for the headline.`,
+    `MAIN SUBJECT: Preserve the primary visible subject from the anchor keyframe. If a person is present, keep their recognizable facial features, authentic skin texture, and natural expression in a clean, simple, authentic manner; do not invent a new person, contort their features, or alter facial identity. Place the subject ${params.subjectPosition || 'center'} with clear negative space for the headline.`,
     `LIGHTING & DEPTH: ${lightClause}`,
     `BACKGROUND: ${bgClause}`,
-    `HEADLINE & TEXT: The headline reads "${params.headline.toUpperCase()}". ${text.promptFragment} ${highlightClause}`,
+    `HEADLINE & TEXT: The headline reads "${params.headline.toUpperCase()}". ${textClause} ${highlightClause}`,
     `PROOF ARTIFACT & UI: ${proofClause}`,
     `DIRECTIONAL GUIDANCE: ${dirClause}`,
     `QUALITY STANDARD: Cinematic commercial quality, authentic skin texture, controlled contrast, legible typography, and a clear focal hierarchy. Use one dominant prop or proof cue at most. Avoid invented numbers, unrelated logos, clutter, muddy gradients, and cartoonish rendering.`,

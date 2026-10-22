@@ -1,4 +1,4 @@
-import { KALLAWAY_STUDIO_REFERENCES } from './kallaway-studio-references'
+import { KALLAWAY_STUDIO_REFERENCES } from './kallaway-studio-references.ts'
 
 export type StudioReferenceCategory = 'All looks' | 'Hooks & Storytelling' | 'Growth & Strategy' | 'AI & Tools' | 'Creator Business' | 'Platform Trends'
 

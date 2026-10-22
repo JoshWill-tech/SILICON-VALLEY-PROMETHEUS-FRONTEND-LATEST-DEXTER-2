@@ -176,6 +176,34 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
   React.useEffect(() => { currentSignatureRef.current = requestSignature }, [requestSignature])
   React.useEffect(() => { currentGeneratedUrlRef.current = generatedDataUrl }, [generatedDataUrl])
   React.useEffect(() => { candidatesRef.current = candidates }, [candidates])
+  const handleSelectReference = React.useCallback((id: StudioReferenceId) => {
+    setReferenceId(id)
+    const ref = getStudioReference(id)
+    const cue = (ref?.cue || '').toLowerCase()
+
+    const isLightLook = cue.includes('white') || cue.includes('pale') || cue.includes('graph-paper') || cue.includes('light') || cue.includes('bright') || id === 'easy-mode' || id === 'ideas' || id === 'control-mind'
+    const nextAccent = cue.includes('electric blue') ? '#00B9F2'
+      : (cue.includes('yellow') || id === 'control-mind' || id === 'three-ways') ? '#FFCA58'
+      : (cue.includes('lime') || id === 'perfect-logo') ? '#7FF2D4'
+      : (cue.includes('red') || cue.includes('coral') || id === 'time-ticking') ? '#FF6259'
+      : (cue.includes('violet') || cue.includes('purple')) ? '#A47AFF'
+      : undefined
+
+    setDesign(previous => ({
+      ...previous,
+      background: isLightLook ? 'light' : 'dark',
+      ...(nextAccent ? { accent: nextAccent } : {}),
+    }))
+
+    if (id === 'easy-mode') setRecipeId('split_growth_proof')
+    else if (id === 'ideas') setRecipeId('ideas_concept')
+    else if (id === 'control-mind') setRecipeId('highlighter_power_callout')
+    else if (id === 'cmo-brain') setRecipeId('solid_pill_podcast')
+    else if (id === '300-to-100k') setRecipeId('split_comparison_scale')
+    else if (id === 'perfect-logo') setRecipeId('vertical_reel_ransom_chalk')
+    else if (id === 'time-ticking') setRecipeId('calendar_time_pressure')
+  }, [])
+
   React.useEffect(() => {
     if (!isOpen || !jarvisDraft || appliedJarvisDraftIdRef.current === jarvisDraft.id) return
     appliedJarvisDraftIdRef.current = jarvisDraft.id
@@ -185,7 +213,7 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       headlineTouchedRef.current = true
       setHeadline(jarvisDraft.headline.slice(0, 64))
     }
-    if (jarvisDraft.referenceId) setReferenceId(jarvisDraft.referenceId)
+    if (jarvisDraft.referenceId) handleSelectReference(jarvisDraft.referenceId)
     if (jarvisDraft.aspectRatio && ['9:16', '2:3', '1:1', '3:2', '16:9'].includes(jarvisDraft.aspectRatio)) {
       setAspectRatio(jarvisDraft.aspectRatio as StudioAspectRatio)
     }
@@ -493,5 +521,5 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
   }
 
   if (!isOpen) return null
-  return <ThumbnailWorkspace projectTitle={projectTitle} aspectRatio={aspectRatio} onAspectRatio={setAspectRatio} design={design} onDesign={update => setDesign(previous => ({ ...previous,...update }))} headline={headline} onHeadline={handleHeadline} emphasis={highlightWord} onEmphasis={setHighlightWord} creativeDirection={creativeDirection} onCreativeDirection={setCreativeDirection} recipeId={recipeId} onRecipe={setRecipeId} candidates={candidates} selectedFrameIndex={selectedFrameIndex} onFrame={handleFrame} isExtracting={isExtracting} isCurating={isAiCurating} recommendedFrameIndex={aiData?.recommendedFrameIndex} hookTitles={aiData?.hookTitles ?? []} onCapture={videoElement ? handleCaptureCurrentPlayhead : undefined} onUploadFrame={files => { void handleUploadFrame(files) }} generatedUrl={generatedDataUrl} referenceId={referenceId} onReference={setReferenceId} references={channelReferences} onReferences={files => { void handleAddReferenceImages(files) }} onRemoveReference={index => setChannelReferences(previous => previous.filter((_,i) => i !== index))} variants={variants} selectedVariantId={selectedVariantId} onVariant={handleRestoreVariant} isGenerating={isGeneratingNano} onGenerate={() => { void handleGenerateNanoBanana() }} onCancel={handleCancelGeneration} error={nanoErrorMessage} success={nanoSuccessMessage} onDownload={handleDownload} onSave={() => { void handleSaveCover() }} isSaving={isExporting} saved={savedSuccess} onClose={onClose} chatMessages={chatMessages} onIterateThumbnail={handleIterateThumbnail} />
+  return <ThumbnailWorkspace projectTitle={projectTitle} aspectRatio={aspectRatio} onAspectRatio={setAspectRatio} design={design} onDesign={update => setDesign(previous => ({ ...previous,...update }))} headline={headline} onHeadline={handleHeadline} emphasis={highlightWord} onEmphasis={setHighlightWord} creativeDirection={creativeDirection} onCreativeDirection={setCreativeDirection} recipeId={recipeId} onRecipe={setRecipeId} candidates={candidates} selectedFrameIndex={selectedFrameIndex} onFrame={handleFrame} isExtracting={isExtracting} isCurating={isAiCurating} recommendedFrameIndex={aiData?.recommendedFrameIndex} hookTitles={aiData?.hookTitles ?? []} onCapture={videoElement ? handleCaptureCurrentPlayhead : undefined} onUploadFrame={files => { void handleUploadFrame(files) }} generatedUrl={generatedDataUrl} referenceId={referenceId} onReference={handleSelectReference} references={channelReferences} onReferences={files => { void handleAddReferenceImages(files) }} onRemoveReference={index => setChannelReferences(previous => previous.filter((_,i) => i !== index))} variants={variants} selectedVariantId={selectedVariantId} onVariant={handleRestoreVariant} isGenerating={isGeneratingNano} onGenerate={() => { void handleGenerateNanoBanana() }} onCancel={handleCancelGeneration} error={nanoErrorMessage} success={nanoSuccessMessage} onDownload={handleDownload} onSave={() => { void handleSaveCover() }} isSaving={isExporting} saved={savedSuccess} onClose={onClose} chatMessages={chatMessages} onIterateThumbnail={handleIterateThumbnail} />
 }

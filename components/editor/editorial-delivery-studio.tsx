@@ -24,6 +24,8 @@ type TextTreatment = {
   animation: string
 }
 
+type RenderStartResult = {success: boolean; summary: string; renderInitiated: boolean}
+
 const fonts = ['Inter', 'Arial', 'Georgia', 'Impact', 'Courier New']
 const animations = ['none', 'fade', 'rise', 'pop', 'typewriter']
 const defaultTreatment: TextTreatment = {
@@ -83,6 +85,7 @@ export function EditorialDeliveryStudio({
   const [expanded, setExpanded] = React.useState(false)
   const [comparisonOpen, setComparisonOpen] = React.useState(false)
   const refreshSequenceRef = React.useRef(0)
+  const submissionInFlightRef = React.useRef(false)
   const comparisonSourceRef = React.useRef<HTMLVideoElement>(null)
   const comparisonRenderRef = React.useRef<HTMLVideoElement>(null)
 
@@ -229,8 +232,23 @@ export function EditorialDeliveryStudio({
     }
   }, [aiInstruction, isApplyingAi])
 
-  const startRender = async (promptOverride?: string) => {
-    if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus) || isSubmitting || pendingRecord) return
+  const startRender = React.useCallback(async (promptOverride?: string): Promise<RenderStartResult> => {
+    if (!canSubmitSourceRender(sourceAssetId, sourceUploadStatus)) {
+      const summary = sourceUploadStatus === 'uploading'
+        ? 'Wait for the source video to finish saving before rendering.'
+        : sourceUploadStatus === 'failed'
+          ? 'The source upload failed. Check its upload error before retrying.'
+          : 'Add a source video before rendering.'
+      setError(summary)
+      return {success: false, summary, renderInitiated: false}
+    }
+    if (pendingRecord?.id) {
+      return {success: true, summary: `Your MP4 render is already ${pendingRecord.status === 'pending' ? 'queued' : 'processing'}.`, renderInitiated: true}
+    }
+    if (isSubmitting || submissionInFlightRef.current) {
+      return {success: false, summary: 'A render submission is already in progress. Check its status before retrying.', renderInitiated: false}
+    }
+    submissionInFlightRef.current = true
     setIsSubmitting(true)
     setError(null)
     setExpanded(true)
@@ -248,23 +266,28 @@ export function EditorialDeliveryStudio({
           prompt: promptToDispatch,
           draftManifest,
         }),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(60_000),
       })
       const payload = await response.json() as {export?: ProjectExport; error?: string}
       if (!response.ok) throw new Error(payload.error || 'The render could not start.')
       const created = payload.export
       if (!created?.id) throw new Error('The export service returned no tracked render job.')
       if (created.status === 'failed') throw new Error(created.errorMessage || 'The render service rejected the job.')
+      if (!['pending', 'processing', 'completed'].includes(created.status)) throw new Error('The render service did not confirm an accepted job.')
       setRecords((current) => [created, ...current.filter((record) => record.id !== created.id)])
       await refresh()
+      return {success: true, summary: `Your MP4 render is ${created.status === 'pending' ? 'queued' : created.status}.`, renderInitiated: true}
     } catch (cause) {
-      setError(cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')
+      const summary = cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')
         ? 'The render submission response timed out. Refresh render status before retrying; a job may already have been accepted.'
-        : cause instanceof Error ? cause.message : 'The render could not start.')
+        : cause instanceof Error ? cause.message : 'The render could not start.'
+      setError(summary)
+      return {success: false, summary, renderInitiated: false}
     } finally {
+      submissionInFlightRef.current = false
       setIsSubmitting(false)
     }
-  }
+  }, [sourceAssetId, sourceUploadStatus, pendingRecord, isSubmitting, projectId, effectivePrompt, refresh])
 
   React.useEffect(() => {
     registerVoiceCompanionBridge({
@@ -273,16 +296,15 @@ export function EditorialDeliveryStudio({
       onStartRender: async (mode: 'preview' | 'final', prompt?: string) => {
         if (mode === 'preview') {
           setComparisonOpen(true)
-          return { success: true, summary: 'Export review opened.' }
+          return { success: true, summary: 'Export review opened.', renderInitiated: false }
         }
-        await startRender(prompt)
-        return { success: true, summary: 'Mini-Run render dispatched.', renderInitiated: true }
+        return await startRender(prompt)
       },
       onModifyManifest: async (instruction: string) => {
         return await handleApplyAiModification(instruction)
       },
     })
-  }, [projectId, sourceAssetId, handleApplyAiModification, effectivePrompt])
+  }, [projectId, sourceAssetId, handleApplyAiModification, startRender])
 
   React.useEffect(() => {
     if (!finishedRecord) return

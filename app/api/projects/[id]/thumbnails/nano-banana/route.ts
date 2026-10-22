@@ -316,7 +316,7 @@ Extract the exact Channel Style DNA (lighting ratios, color contrast, proof card
           const planningSignal = AbortSignal.any([pipelineSignal, AbortSignal.timeout(THUMBNAIL_PLANNER_TIMEOUT_MS)])
           const planned = await runWithThumbnailSignal(planningSignal, () => planner.generateContent(plannerParts as never, { signal: planningSignal }))
           const artDirection = extractPlannedArtDirection(planned.response?.text() ?? '')
-          if (artDirection) synthesizedPrompt += '\n\nRETENTION-AWARE CREATIVE CONCEPT: ' + artDirection
+          if (artDirection) synthesizedPrompt = 'PRIMARY VISUAL DIRECTION & REFERENCE CONCEPT:\n' + artDirection + '\n\n' + synthesizedPrompt
           else console.warn('[Thumbnail Prompt Planner]', { requestId, result: 'empty-or-invalid-json' })
         } catch {
           pipelineSignal.throwIfAborted()

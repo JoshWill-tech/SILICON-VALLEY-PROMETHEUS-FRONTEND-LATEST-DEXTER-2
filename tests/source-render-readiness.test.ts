@@ -9,10 +9,11 @@ assert.equal(canSubmitSourceRender('committed-source-id', 'ready'), true)
 
 const deliveryStudio = readFileSync(new URL('../components/editor/editorial-delivery-studio.tsx', import.meta.url), 'utf8')
 const editorPage = readFileSync(new URL('../app/editor/[id]/page.tsx', import.meta.url), 'utf8')
-assert.match(deliveryStudio, /if \(!canSubmitSourceRender\(sourceAssetId, sourceUploadStatus\) \|\| isSubmitting \|\| pendingRecord\) return/)
+assert.match(deliveryStudio, /if \(!canSubmitSourceRender\(sourceAssetId, sourceUploadStatus\)\)/)
 assert.match(deliveryStudio, /disabled=\{!canSubmitSourceRender\(sourceAssetId, sourceUploadStatus\)/)
-assert.match(editorPage, /if \(!canSubmitSourceRender\(sourceAssetId, sourceUploadStatus\)\)/)
+assert.match(editorPage, /if \(!canSubmitSourceRender\(sourceAssetId, effectiveUploadStatus\)\)/)
 assert.match(editorPage, /setIsSourceUploadFailed\(true\)/)
-assert.equal((editorPage.match(/sourceUploadStatus=\{sourceUploadStatus\}/g) ?? []).length, 4)
+// Four delivery surfaces and their mobile workspace wrapper forward this guard.
+assert.equal((editorPage.match(/sourceUploadStatus=\{sourceUploadStatus\}/g) ?? []).length, 5)
 
 console.log('source render readiness assertions passed')
