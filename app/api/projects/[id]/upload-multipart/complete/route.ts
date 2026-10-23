@@ -41,7 +41,7 @@ export async function POST(
   try {
     const { id: projectId } = await params
     const body = await req.json().catch(() => ({}))
-    const keyContext = await requireOwnedProjectSourceKey(projectId, body.key)
+    const keyContext = await requireOwnedProjectSourceKey(projectId, body.key, req)
     if ('error' in keyContext) {
       return NextResponse.json({ error: keyContext.error, code: 'INVALID_SOURCE_KEY', retryable: false }, { status: keyContext.status })
     }
@@ -54,7 +54,7 @@ export async function POST(
       return NextResponse.json({ error: 'Missing session, upload id, completed parts, or expected size.', code: 'INVALID_COMPLETE_REQUEST', retryable: false }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = await createClient(req)
     const { data: session, error: sessionError } = await supabase
       .from('source_upload_sessions')
       .select('*')

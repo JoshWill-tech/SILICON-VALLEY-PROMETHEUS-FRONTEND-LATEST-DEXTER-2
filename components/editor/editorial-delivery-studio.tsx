@@ -253,6 +253,18 @@ export function EditorialDeliveryStudio({
     setError(null)
     setExpanded(true)
     try {
+      let userToken: string | undefined
+      try {
+        if (typeof window !== 'undefined') {
+          const { createClient } = await import('@/lib/supabase/client')
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          userToken = session?.access_token
+        }
+      } catch {
+        // Fall back gracefully
+      }
+
       const draftStore = useMiniRunDraftStore.getState()
       const promptToDispatch = promptOverride ?? effectivePrompt
       const draftManifest = (draftStore.chunks && draftStore.chunks.length > 0)
@@ -261,7 +273,10 @@ export function EditorialDeliveryStudio({
 
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userToken ? { Authorization: `Bearer ${userToken}` } : {}),
+        },
         body: JSON.stringify({
           preset: 'mini-run-maul-portrait',
           sourceAssetId,

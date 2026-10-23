@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Invalid session or part number.', code: 'INVALID_SIGN_REQUEST' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = await createClient(req)
     const { data: session, error } = await supabase.from('source_upload_sessions').select('*')
       .eq('id', sessionId).eq('project_id', projectId).single()
     if (error || !session) return NextResponse.json({ error: 'Upload session not found.', code: 'UPLOAD_SESSION_NOT_FOUND' }, { status: 404 })

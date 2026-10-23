@@ -77,6 +77,7 @@ export type UploadProjectSourceMultipartOptions = {
   /** Keep the verified checkpoint until the caller commits the asset metadata. */
   retainCompletedSession?: boolean
   signal?: AbortSignal
+  userToken?: string
 }
 
 export type UploadProjectSourceMultipartResult = {
@@ -294,13 +295,29 @@ async function uploadPartWithProgress(input: {
   })
 }
 
+async function resolveAuthToken(explicitToken?: string): Promise<string | undefined> {
+  if (explicitToken && explicitToken !== 'local-token') return explicitToken
+  if (typeof window === 'undefined') return undefined
+  try {
+    const { createClient } = await import('@/lib/supabase/client')
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || undefined
+  } catch {
+    return undefined
+  }
+}
+
 export async function abortProjectSourceMultipartUpload(input: {
   projectId: string
   sessionId: string
+  userToken?: string
 }) {
+  const token = await resolveAuthToken(input.userToken)
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
   const response = await fetch(`/api/projects/${input.projectId}/upload-multipart/abort`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify({
       sessionId: input.sessionId,
     }),
@@ -384,7 +401,10 @@ export async function uploadProjectSourceMultipart({
   resumable = true,
   retainCompletedSession = false,
   signal,
+  userToken,
 }: UploadProjectSourceMultipartOptions): Promise<UploadProjectSourceMultipartResult> {
+  const token = await resolveAuthToken(userToken)
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
   if (file.size > R2_MULTIPART_CLIENT_MAX_BYTES) {
     throw new MultipartUploadError('File too large. Prometheus supports source videos up to 10GB.')
   }
@@ -467,7 +487,7 @@ export async function uploadProjectSourceMultipart({
 
     const initiateResponse = await fetch(`/api/projects/${projectId}/upload-multipart/initiate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       signal,
       body: JSON.stringify({
         assetId: stableAssetId,
@@ -555,7 +575,7 @@ export async function uploadProjectSourceMultipart({
         try {
           const signResponse = await fetch(`/api/projects/${projectId}/upload-multipart/sign-part`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
             signal,
             body: JSON.stringify({
               sessionId: upload.sessionId,
@@ -646,7 +666,7 @@ export async function uploadProjectSourceMultipart({
       try {
         const completeResponse = await fetch(`/api/projects/${projectId}/upload-multipart/complete`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
           signal,
           body: JSON.stringify({
             sessionId: upload.sessionId,
@@ -716,6 +736,7 @@ export async function uploadProjectSourceMultipart({
       await abortProjectSourceMultipartUpload({
         projectId,
         sessionId: upload.sessionId,
+        userToken: token,
       }).catch(() => undefined)
 
       if (resumable) {

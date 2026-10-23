@@ -58,12 +58,12 @@ export async function POST(
       contentType: body.contentType ?? body.mimeType,
       filename: body.filename,
       sizeBytes: body.sizeBytes,
-    })
+    }, req)
     if ('error' in context) {
       return NextResponse.json({ error: context.error, code: 'INVALID_UPLOAD_REQUEST', retryable: false }, { status: context.status })
     }
 
-    const supabase = await createClient()
+    const supabase = await createClient(req)
 
     // Auto-abort any prior uncommitted sessions for this project and user
     // so interrupted, failed, or superseded upload attempts do not leak upload reservations.

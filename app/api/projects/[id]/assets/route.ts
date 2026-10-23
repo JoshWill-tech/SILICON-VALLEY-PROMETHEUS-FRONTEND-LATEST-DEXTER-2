@@ -10,13 +10,21 @@ import { createClient } from '@/lib/supabase/server'
 import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: projectId } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const supabase = await createClient(req)
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
     if (!user && !isDevBypassActive()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const project = await ProjectService.getProject(projectId)
@@ -97,8 +105,16 @@ export async function POST(
       return NextResponse.json({ error: 'Missing uploadSessionId.', code: 'UPLOAD_SESSION_REQUIRED', retryable: false }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const supabase = await createClient(req)
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
     if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
 
     const { data: session, error: sessionError } = await supabase.from('source_upload_sessions').select('*')

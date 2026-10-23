@@ -1887,11 +1887,22 @@ export function VideoUploadInterface() {
                 setUploadErrorDetail(null);
                 setUploadPartLabel(null);
 
+                let uploadUserToken: string | undefined = undefined;
+                try {
+                    const { createClient } = await import("@/lib/supabase/client");
+                    const supabase = createClient();
+                    const { data: { session } } = await supabase.auth.getSession();
+                    uploadUserToken = session?.access_token;
+                } catch {
+                    // Fall back
+                }
+
                 const multipartResult = await uploadProjectSourceMultipart({
                     assetId: resolvedSourceAssetId,
                     file: selectedSourceFile,
                     projectId: project.id,
                     signal: abortController.signal,
+                    userToken: uploadUserToken,
                     onProgress: (progress) => {
                         const nextStatus: UploadStatus =
                             progress.phase === 'initiating'
@@ -1956,7 +1967,10 @@ export function VideoUploadInterface() {
                 currentStage = 'ASSET_REGISTER';
                 const assetRegisterRes = await fetch(`/api/projects/${project.id}/assets`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(uploadUserToken ? { Authorization: `Bearer ${uploadUserToken}` } : {}),
+                    },
                     body: JSON.stringify({
                         assetId: uploadAsset.id,
                         uploadSessionId: uploadAsset.uploadSessionId,

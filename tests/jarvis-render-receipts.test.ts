@@ -44,6 +44,7 @@ function delivery({sourceAssetId = 'source', sourceUploadStatus = 'ready', statu
     '@/lib/voice-companion/bridge': {registerVoiceCompanionBridge: (next: RecordRow) => {handlers = {...handlers, ...next}}},
     '@/lib/editor/mini-run-draft-store': {useMiniRunDraftStore: draftStore},
     '@/lib/api/mini-run': {miniRun: {}},
+    '@/lib/supabase/client': {createClient: () => ({auth: {getSession: async () => ({data: {session: null}})}})},
     '@/components/editor/mobile-editor-workspace.module.css': {},
   }
   function load(path: string): RecordRow {

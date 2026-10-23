@@ -238,11 +238,23 @@ export function EditorNewProjectUploadDialog({ open, onOpenChange }: EditorNewPr
       currentStage = 'R2_MULTIPART_UPLOAD'
       const abortController = new AbortController()
       abortControllerRef.current = abortController
+
+      let uploadUserToken: string | undefined = undefined
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        uploadUserToken = session?.access_token
+      } catch {
+        // Fall back
+      }
+
       const multipartResult = await uploadProjectSourceMultipart({
         assetId: null,
         file,
         projectId: project.id,
         signal: abortController.signal,
+        userToken: uploadUserToken,
         onProgress: (progress) => {
           const nextStatus: UploadStatus =
             progress.phase === 'initiating'
@@ -265,7 +277,10 @@ export function EditorNewProjectUploadDialog({ open, onOpenChange }: EditorNewPr
       const uploadAsset = multipartResult.asset
       const assetResponse = await fetch(`/api/projects/${project.id}/assets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(uploadUserToken ? { Authorization: `Bearer ${uploadUserToken}` } : {}),
+        },
         body: JSON.stringify({
           assetId: uploadAsset.id,
           uploadSessionId: uploadAsset.uploadSessionId,

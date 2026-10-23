@@ -137,6 +137,7 @@ export async function requireProjectSourceUploadContext(
     filename?: unknown
     sizeBytes?: unknown
   },
+  req?: Request,
 ): Promise<ProjectSourceUploadContext | { error: string; status: number }> {
   const filename = normalizeSourceFilename(input.filename)
   const contentType = normalizeSourceContentType(input.contentType, filename)
@@ -147,10 +148,19 @@ export async function requireProjectSourceUploadContext(
     return { error: validationError, status: 400 }
   }
 
-  const supabase = await createClient()
-  const {
+  const supabase = await createClient(req)
+  let {
     data: { user },
   } = await supabase.auth.getUser()
+
+  if (!user && req) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim()
+      const { data: headerUser } = await supabase.auth.getUser(token)
+      if (headerUser?.user) user = headerUser.user
+    }
+  }
 
   if (!user) {
     return { error: 'Unauthorized', status: 401 }
@@ -187,15 +197,24 @@ export async function requireProjectSourceUploadContext(
   }
 }
 
-export async function requireOwnedProjectSourceKey(projectId: string, key: unknown) {
+export async function requireOwnedProjectSourceKey(projectId: string, key: unknown, req?: Request) {
   if (typeof key !== 'string' || !key.trim()) {
     return { error: 'Missing object key.', status: 400 } as const
   }
 
-  const supabase = await createClient()
-  const {
+  const supabase = await createClient(req)
+  let {
     data: { user },
   } = await supabase.auth.getUser()
+
+  if (!user && req) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim()
+      const { data: headerUser } = await supabase.auth.getUser(token)
+      if (headerUser?.user) user = headerUser.user
+    }
+  }
 
   if (!user) {
     return { error: 'Unauthorized', status: 401 } as const

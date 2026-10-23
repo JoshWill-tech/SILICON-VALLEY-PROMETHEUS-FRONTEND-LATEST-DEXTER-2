@@ -6587,9 +6587,7 @@ function OriginalEditorPage() {
         setProject(cachedProject)
         setProjectLoadError(null)
         setIsProjectLoading(false)
-        if (cachedProject.sourceAssetId) {
-          setIsSourceUploadFailed(false)
-        }
+        setIsSourceUploadFailed(false)
       }
 
       // 2. Fetch latest project state from API
@@ -6601,9 +6599,7 @@ function OriginalEditorPage() {
             setProject(apiProject)
             setProjectLoadError(null)
             setIsProjectLoading(false)
-            if (apiProject.sourceAssetId) {
-              setIsSourceUploadFailed(false)
-            }
+            setIsSourceUploadFailed(false)
             upsertProject(apiProject)
             return
           }
@@ -6619,9 +6615,7 @@ function OriginalEditorPage() {
           setProject(fallback)
           setProjectLoadError(null)
           setIsProjectLoading(false)
-          if (fallback.sourceAssetId) {
-            setIsSourceUploadFailed(false)
-          }
+          setIsSourceUploadFailed(false)
         } else {
           setProjectLoadError('This project could not be found.')
           setIsProjectLoading(false)
@@ -8371,9 +8365,9 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       (typeof (project as any)?.sourceProfile?.url === 'string' ? (project as any).sourceProfile.url : null) ||
       (typeof previewUrl !== 'undefined' ? previewUrl : null) ||
       null
-    const sourceAssetId = project?.sourceAssetId || (activeSourceUrl ? 'source_video_direct' : null)
+    let sourceAssetId = project?.sourceAssetId || (activeSourceUrl ? 'source_video_direct' : null)
     let effectiveUploadStatus: SourceUploadStatus = sourceUploadStatus
-    if (effectiveUploadStatus === 'failed' && sourceAssetId) {
+    if (effectiveUploadStatus === 'failed' || !sourceAssetId) {
       try {
         let userToken: string | undefined
         try {
@@ -8389,9 +8383,13 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         })
         if (checkRes.ok) {
           const checkData = await checkRes.json().catch(() => ({}))
-          if (checkData?.readiness?.sourceReady && checkData?.readiness?.sourceAssetId === sourceAssetId) {
+          if (checkData?.readiness?.sourceReady) {
             setIsSourceUploadFailed(false)
             effectiveUploadStatus = 'ready'
+            if (checkData.readiness.sourceAssetId && checkData.readiness.sourceAssetId !== sourceAssetId) {
+              sourceAssetId = checkData.readiness.sourceAssetId
+              setProject((curr) => curr ? { ...curr, sourceAssetId: checkData.readiness.sourceAssetId } : curr)
+            }
           }
         }
       } catch {
@@ -8401,9 +8399,11 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     if (!canSubmitSourceRender(sourceAssetId, effectiveUploadStatus)) {
       const summary = effectiveUploadStatus === 'uploading'
         ? 'Wait for the replacement source video to finish saving before rendering.'
-        : effectiveUploadStatus === 'failed'
-          ? 'The replacement source was not saved. Select the video again before rendering.'
-          : 'Upload a source video before rendering.'
+        : !sourceAssetId
+          ? 'Upload a source video before rendering.'
+          : effectiveUploadStatus === 'failed'
+            ? 'The replacement source was not saved. Select the video again before rendering.'
+            : 'Upload a source video before rendering.'
       toast.error(summary)
       return { success: false, summary }
     }
@@ -9606,6 +9606,17 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       uploadedSourceAssetIdsRef.current.add(input.assetId)
 
       try {
+        let userToken: string | undefined
+        try {
+          if (typeof createClient === 'function') {
+            const supabase = createClient()
+            const { data: { session } } = await supabase.auth.getSession()
+            userToken = session?.access_token
+          }
+        } catch {
+          // Fall back gracefully
+        }
+
         // Mirror of the studio upload flow (components/video-upload-interface.tsx):
         // push the re-picked source to R2 so the project keeps a durable cloud copy
         // that survives hard navigation. Preserve failures for the save UI.
@@ -9614,6 +9625,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           file: input.file,
           projectId: input.projectId,
           retainCompletedSession: true,
+          userToken,
         })
 
         const uploadAsset = multipartResult.asset
@@ -9625,7 +9637,10 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // Register the uploaded asset metadata (same request body as the studio flow).
         const assetRegisterRes = await fetch(`/api/projects/${input.projectId}/assets`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(userToken ? { Authorization: `Bearer ${userToken}` } : {}),
+          },
           body: JSON.stringify({
             assetId: uploadAsset.id,
             uploadSessionId: uploadAsset.uploadSessionId,
