@@ -296,9 +296,18 @@ export async function POST(request: Request, {params}: RouteContext) {
         songPolicy: 'auto',
         draftManifest,
         prompt,
+        words: (Array.isArray((editorState as any).words) && (editorState as any).words.length > 0)
+          ? (editorState as any).words
+          : (Array.isArray((editorState as any).transcriptWords) && (editorState as any).transcriptWords.length > 0)
+            ? (editorState as any).transcriptWords
+            : undefined,
         transcriptSegments: (Array.isArray(asset.transcript_segments) && asset.transcript_segments.length > 0)
           ? asset.transcript_segments
-          : undefined,
+          : (Array.isArray((editorState as any).transcriptSegments) && (editorState as any).transcriptSegments.length > 0)
+            ? (editorState as any).transcriptSegments
+            : (Array.isArray((editorState as any).transcript) && (editorState as any).transcript.length > 0)
+              ? (editorState as any).transcript
+              : undefined,
       },
       env: safeGetMiniRunEnvironment({
         MINI_RUN_AWS_API_URL: process.env.MINI_RUN_AWS_API_URL,
@@ -311,16 +320,24 @@ export async function POST(request: Request, {params}: RouteContext) {
           : null,
       ),
     })
+    const dispatchedMetadata = {
+      ...projectExport.metadata,
+      miniRunJobId: dispatched.jobId,
+      pipelineJobId: dispatched.pipelineJobId,
+    }
     const {data: updated, error: updateError} = await supabase.from('project_exports').update({
       status: dispatched.status === 'queued' ? 'pending' : 'processing',
-      metadata: {...projectExport.metadata, miniRunJobId: dispatched.jobId, pipelineJobId: dispatched.pipelineJobId},
+      metadata: dispatchedMetadata,
     }).eq('id', projectExport.id).eq('user_id', user.id).select('*').single()
     if (updateError || !updated) {
       console.error('[PROJECT_EXPORT_JOB_RECEIPT]', updateError || 'Mini-Run dispatch row was not returned')
-      // The durable Mini-Run id was saved before dispatch. Keep the export
-      // pending so history polling can reconcile it instead of losing a job
-      // the backend has already accepted.
-      return NextResponse.json({export: projectExport}, {status: 202, headers: {'Cache-Control': 'no-store'}})
+      // Ensure the client receives the authoritative dispatched jobId and pipelineJobId
+      // even if the database row update encounters a transient replica or RLS delay.
+      return NextResponse.json({export: {
+        ...projectExport,
+        status: dispatched.status === 'queued' ? 'pending' : 'processing',
+        metadata: dispatchedMetadata,
+      }}, {status: 202, headers: {'Cache-Control': 'no-store'}})
     }
     return NextResponse.json({export: {
       ...projectExport,

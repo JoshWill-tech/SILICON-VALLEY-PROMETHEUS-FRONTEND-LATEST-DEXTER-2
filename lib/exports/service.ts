@@ -252,7 +252,19 @@ export const ExportService = {
           signal: AbortSignal.timeout(8_000),
         })
         const redirectedOutput = response.status === 303 && response.headers.get('location')
-        if (!response.ok && !redirectedOutput) return
+        if (!response.ok && !redirectedOutput) {
+          if (response.status === 404) {
+            const ageMs = Date.now() - new Date(record.createdAt).getTime()
+            if (ageMs > 3 * 60 * 1000) {
+              await supabase.from('project_exports').update({
+                status: 'failed',
+                error_message: 'Render job was not found on the worker.',
+                failed_at: new Date().toISOString(),
+              }).eq('id', record.id).eq('user_id', user.id)
+            }
+          }
+          return
+        }
         const job = redirectedOutput
           ? {status: 'completed', outputUrl: `/api/mini-run/job/${encodeURIComponent(jobId)}/output`} as Record<string, unknown>
           : await response.json() as Record<string, unknown>
