@@ -241,7 +241,7 @@ export const ProjectService = {
       }
 
       // Use provided workspaceId or ensure user has one
-      const workspaceId = params.workspaceId || await WorkspaceService.getOrCreatePersonalWorkspace()
+      const workspaceId = params.workspaceId || await WorkspaceService.getOrCreatePersonalWorkspace(supabase)
       
       console.log('[ProjectService] Creating project for user:', user.id, 'in workspace:', workspaceId)
 

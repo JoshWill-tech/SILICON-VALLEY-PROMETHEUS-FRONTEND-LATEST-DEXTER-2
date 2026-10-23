@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id: projectId } = await params
-    const exports = await ExportService.listProjectExports(projectId)
+    const exports = await ExportService.listProjectExports(projectId, req)
     
     // Return the most recent export if it exists
     const latest = exports.length > 0 ? exports[0] : null

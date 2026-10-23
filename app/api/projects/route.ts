@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { ProjectService } from '@/lib/projects/service'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const projects = await ProjectService.listProjectCards()
+    const projects = await ProjectService.listProjectCards(req)
     return NextResponse.json({ success: true, projects })
   } catch (err) {
     console.error('[api/projects] GET error:', err)
@@ -17,9 +17,17 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const supabase = await createClient(req)
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (!user) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -35,7 +43,7 @@ export async function POST(req: Request) {
       sourceProfile: body.sourceProfile,
       sourceAssetId: body.sourceAssetId,
       workspaceId: body.workspaceId,
-    })
+    }, supabase)
     
     return NextResponse.json({ success: true, project })
   } catch (err) {

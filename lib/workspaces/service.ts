@@ -1,9 +1,44 @@
+import { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
-export const WorkspaceService = {
-  async getOrCreatePersonalWorkspace() {
+async function resolveWorkspaceClient(reqOrClient?: Request | string | SupabaseClient): Promise<SupabaseClient> {
+  if (reqOrClient && typeof reqOrClient === 'object' && 'from' in reqOrClient && 'auth' in reqOrClient) {
+    return reqOrClient as SupabaseClient
+  }
+  if (reqOrClient && typeof reqOrClient === 'object' && 'headers' in reqOrClient) {
+    return createClient(reqOrClient as Request)
+  }
+  if (typeof reqOrClient === 'string' && reqOrClient.trim()) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser(reqOrClient.trim())
+    if (user) {
+      return {
+        ...supabase,
+        auth: {
+          ...supabase.auth,
+          getUser: async (token?: string) => {
+            if (!token || token === reqOrClient) return { data: { user }, error: null }
+            return supabase.auth.getUser(token)
+          },
+        },
+      } as unknown as SupabaseClient
+    }
+  }
+  return createClient()
+}
+
+export const WorkspaceService = {
+  async getOrCreatePersonalWorkspace(reqOrClient?: Request | string | SupabaseClient) {
+    const supabase = await resolveWorkspaceClient(reqOrClient)
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user && reqOrClient && typeof reqOrClient === 'object' && 'headers' in reqOrClient) {
+      const authHeader = (reqOrClient as Request).headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
     
     if (!user) throw new Error('Unauthorized')
 

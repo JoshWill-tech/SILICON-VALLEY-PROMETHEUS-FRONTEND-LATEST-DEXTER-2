@@ -10,8 +10,14 @@ export async function readVoiceExportStatus(getBridge: () => VoiceCompanionBridg
   const {projectId, sourceAssetId} = bridge
   if (!projectId || !sourceAssetId) return {success: false, error: 'Open a project with source video to check its MP4 status.'}
   try {
+    let authToken = bridge.accessToken
+    if (!authToken && typeof bridge.getAccessToken === 'function') {
+      try { authToken = await bridge.getAccessToken() } catch { /* Ignore token resolution failure */ }
+    }
     const response = await fetchImpl(`/api/projects/${encodeURIComponent(projectId)}/exports/history`, {
-      cache: 'no-store', signal: AbortSignal.timeout(12_000),
+      cache: 'no-store',
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      signal: AbortSignal.timeout(12_000),
     })
     const parsed = await safeParseApiResponse<{exports?: ProjectExport[]; error?: string}>(
       response,

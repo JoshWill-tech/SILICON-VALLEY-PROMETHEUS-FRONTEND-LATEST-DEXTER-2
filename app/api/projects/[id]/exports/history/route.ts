@@ -3,10 +3,10 @@ import { ExportService } from '@/lib/exports/service'
 
 export const maxDuration = 60
 
-export async function GET(_request: Request, {params}: {params: Promise<{id: string}>}) {
+export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
   try {
     const {id} = await params
-    const exports = await ExportService.listProjectExports(id)
+    const exports = await ExportService.listProjectExports(id, request)
     return NextResponse.json({exports}, {headers: {'Cache-Control': 'private, no-store'}})
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {

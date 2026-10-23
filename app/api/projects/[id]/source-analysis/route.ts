@@ -2,9 +2,17 @@ import {NextResponse} from 'next/server'
 
 import {createClient} from '@/lib/supabase/server'
 
-async function ownedIngestion(projectId: string) {
-  const supabase = await createClient()
-  const {data: {user}} = await supabase.auth.getUser()
+async function ownedIngestion(projectId: string, req?: Request) {
+  const supabase = await createClient(req)
+  let {data: {user}} = await supabase.auth.getUser()
+  if (!user && req) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim()
+      const { data: headerUser } = await supabase.auth.getUser(token)
+      if (headerUser?.user) user = headerUser.user
+    }
+  }
   if (!user) return {supabase, response: NextResponse.json({error: 'Unauthorized'}, {status: 401})}
 
   const {data: ingestion, error} = await supabase
@@ -22,9 +30,9 @@ async function ownedIngestion(projectId: string) {
   return {supabase, ingestion}
 }
 
-export async function GET(_request: Request, {params}: {params: Promise<{id: string}>}) {
+export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
   const {id: projectId} = await params
-  const owned = await ownedIngestion(projectId)
+  const owned = await ownedIngestion(projectId, request)
   if ('response' in owned) return owned.response
   const {supabase, ingestion} = owned
   let snapshot: Record<string, unknown> | null = null
@@ -34,7 +42,7 @@ export async function GET(_request: Request, {params}: {params: Promise<{id: str
       .select('payload')
       .eq('id', ingestion.result_snapshot_id)
       .single()
-    if (error) return NextResponse.json({error: error.message}, {status: 500})
+  if (error) return NextResponse.json({error: error.message}, {status: 500})
     snapshot = data?.payload ?? null
   }
   return NextResponse.json({
@@ -48,9 +56,9 @@ export async function GET(_request: Request, {params}: {params: Promise<{id: str
   })
 }
 
-export async function POST(_request: Request, {params}: {params: Promise<{id: string}>}) {
+export async function POST(request: Request, {params}: {params: Promise<{id: string}>}) {
   const {id: projectId} = await params
-  const owned = await ownedIngestion(projectId)
+  const owned = await ownedIngestion(projectId, request)
   if ('response' in owned) return owned.response
   // The legacy Modal `api/source-analysis/jobs` dispatch endpoint no longer
   // exists. Ingestion now flows through the MAUL control-plane worker which

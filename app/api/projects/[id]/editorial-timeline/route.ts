@@ -9,11 +9,19 @@ const requestSchema = z.object({
   patch: editorialTimelinePatchSchema,
 })
 
-async function context(params: Promise<{ id: string }>) {
+async function context(params: Promise<{ id: string }>, req?: Request) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return { id, supabase, user: error ? null : user }
+  const supabase = await createClient(req)
+  let { data: { user }, error } = await supabase.auth.getUser()
+  if (!user && req) {
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim()
+      const { data: headerUser } = await supabase.auth.getUser(token)
+      if (headerUser?.user) user = headerUser.user
+    }
+  }
+  return { id, supabase, user: error && !user ? null : user }
 }
 
 async function findAuthorizedProject(supabase: any, projectId: string, userId: string) {
@@ -35,8 +43,8 @@ async function findAuthorizedProject(supabase: any, projectId: string, userId: s
   return { project: null, isOwner: false }
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id, supabase, user } = await context(params)
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id, supabase, user } = await context(params, request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { project: data } = await findAuthorizedProject(supabase, id, user.id)
   if (!data) return NextResponse.json({ error: 'Project not found.' }, { status: 404 })
@@ -45,7 +53,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 /** Operation patches preserve unrelated editor state and concurrent backend cues. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id, supabase, user } = await context(params)
+  const { id, supabase, user } = await context(params, request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: 'Invalid timeline edit.', details: parsed.error.flatten() }, { status: 400 })

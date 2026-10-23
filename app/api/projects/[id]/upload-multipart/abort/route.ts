@@ -15,9 +15,20 @@ export async function POST(
     const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
     if (!sessionId) return NextResponse.json({ error: 'Missing session id.', code: 'UPLOAD_SESSION_REQUIRED' }, { status: 400 })
 
-    const supabase = await createClient()
+    const supabase = await createClient(req)
+    let { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
+    if (!user) return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
+
     const { data: session, error: readError } = await supabase.from('source_upload_sessions').select('*')
-      .eq('id', sessionId).eq('project_id', projectId).single()
+      .eq('id', sessionId).eq('project_id', projectId).eq('user_id', user.id).single()
     if (readError || !session) return NextResponse.json({ error: 'Upload session not found.', code: 'UPLOAD_SESSION_NOT_FOUND' }, { status: 404 })
 
     const { data: aborted, error: abortError } = await supabase.rpc('maul_abort_source_upload', { p_session_id: sessionId })

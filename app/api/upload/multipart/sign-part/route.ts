@@ -8,10 +8,18 @@ export const runtime = 'edge'
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const supabase = await createClient(req)
+    let { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (!user) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim()
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) user = headerUser.user
+      }
+    }
     
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

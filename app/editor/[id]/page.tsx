@@ -6655,7 +6655,17 @@ function OriginalEditorPage() {
   React.useEffect(() => {
     const loadLatestExport = async () => {
       try {
-        const res = await fetch(`/api/projects/${projectId}/exports/latest`)
+        let userToken: string | undefined
+        try {
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          userToken = session?.access_token
+        } catch {
+          // Fall back gracefully
+        }
+        const res = await fetch(`/api/projects/${projectId}/exports/latest`, {
+          headers: userToken ? { Authorization: `Bearer ${userToken}` } : {},
+        })
         const data = await res.json()
         if (res.ok && data.export) {
           setLatestExport(data.export)
@@ -8377,7 +8387,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       null
     let sourceAssetId = project?.sourceAssetId || (activeSourceUrl ? 'source_video_direct' : null)
     let effectiveUploadStatus: SourceUploadStatus = sourceUploadStatus
-    if (effectiveUploadStatus === 'failed' || !sourceAssetId) {
+    if (effectiveUploadStatus !== 'ready' || !sourceAssetId) {
       try {
         let userToken: string | undefined
         try {
@@ -8394,6 +8404,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         if (checkRes.ok) {
           const checkData = await checkRes.json().catch(() => ({}))
           if (checkData?.readiness?.sourceReady) {
+            setIsSourceUploadPending(false)
             setIsSourceUploadFailed(false)
             effectiveUploadStatus = 'ready'
             if (checkData.readiness.sourceAssetId && checkData.readiness.sourceAssetId !== sourceAssetId) {
@@ -8408,11 +8419,11 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     }
     if (!canSubmitSourceRender(sourceAssetId, effectiveUploadStatus)) {
       const summary = effectiveUploadStatus === 'uploading'
-        ? 'Wait for the replacement source video to finish saving before rendering.'
+        ? 'Wait for the source video to finish saving before rendering.'
         : !sourceAssetId
           ? 'Upload a source video before rendering.'
           : effectiveUploadStatus === 'failed'
-            ? 'The replacement source was not saved. Select the video again before rendering.'
+            ? 'The source video could not be saved. Select the video again before rendering.'
             : 'Upload a source video before rendering.'
       toast.error(summary)
       return { success: false, summary }
@@ -9460,7 +9471,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       timelineDurationSec: transportDurationSec,
       sourceMediaState: hasPlayableVideo
         ? 'ready'
-        : (isSourceStageActivelyLoading || isSourceRecovering)
+        : (isSourceStageActivelyLoading || isSourceRecovering || isSourceUploadPending)
           ? 'loading'
           : previewUrl
             ? 'non_video'
@@ -9690,7 +9701,10 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
               capturedThumbnailUrl = frame
               void fetch(`/api/projects/${encodeURIComponent(input.projectId)}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(userToken ? { Authorization: `Bearer ${userToken}` } : {}),
+                },
                 body: JSON.stringify({ thumbnailUrl: frame }),
               }).catch(() => undefined)
             }

@@ -38,7 +38,7 @@ test('startProjectRender auto-recovers when server has sourceReady: true even if
   const callback = new Function(
     'React', 'project', 'projectId', 'getEditorialTimelineController', 'fetch', 'toast',
     'setLatestExport', 'setActiveWorkspaceTab', 'setDeliveryOpenToken', 'sourceUploadStatus',
-    'canSubmitSourceRender', 'setIsSourceUploadFailed', 'setProject',
+    'canSubmitSourceRender', 'setIsSourceUploadFailed', 'setProject', 'setIsSourceUploadPending',
     `${js}; return startProjectRender;`
   )(
     { useCallback: (fn: any) => fn },
@@ -77,6 +77,7 @@ test('startProjectRender auto-recovers when server has sourceReady: true even if
       const updated = typeof updater === 'function' ? updater({ id: 'proj-123', sourceAssetId: 'staged-temp-id' }) : updater
       if (updated?.sourceAssetId) updatedProjectSourceId = updated.sourceAssetId
     },
+    () => {},
   )
 
   const result = await callback()
@@ -94,7 +95,7 @@ test('startProjectRender reports "Upload a source video before rendering." when 
   const callback = new Function(
     'React', 'project', 'projectId', 'getEditorialTimelineController', 'fetch', 'toast',
     'setLatestExport', 'setActiveWorkspaceTab', 'setDeliveryOpenToken', 'sourceUploadStatus',
-    'canSubmitSourceRender', 'setIsSourceUploadFailed', 'setProject',
+    'canSubmitSourceRender', 'setIsSourceUploadFailed', 'setProject', 'setIsSourceUploadPending',
     `${js}; return startProjectRender;`
   )(
     { useCallback: (fn: any) => fn },
@@ -113,6 +114,7 @@ test('startProjectRender reports "Upload a source video before rendering." when 
     () => {}, () => {}, () => {},
     'failed', // failed latch from a previous session
     (id: any, status: any) => Boolean(id) && status === 'ready',
+    () => {},
     () => {},
     () => {},
   )
