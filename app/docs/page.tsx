@@ -42,6 +42,13 @@ const chapters = [
     'Open Cookie Settings in the footer to inspect or change your selection. Reject Non-Essential keeps authentication and security available.',
     'If browser storage is blocked, your choice applies to this visit and the banner may return on your next visit.',
   ] },
+  { id: 'pipeline-runbook', title: 'Media upload & render pipeline instant diagnosis', steps: [
+    'Run "npm run diag:pipeline" in terminal to automatically test all 6 critical database RPCs, column types, enum states, and storage credentials in under 5 seconds.',
+    'If Jarvis reports "The replacement source was not saved", verify that the video upload finished transferring before issuing the render command.',
+    'If Jarvis reports "No video is attached yet", check that you are signed in and that the editor preview has loaded the video.',
+    'If database RPC functions return PGRST203, ensure no duplicate overloaded signatures exist for maul_reserve_source_upload in PostgreSQL.',
+    'All accounts are granted 100 TB of storage quota unconditionally — storage exhaustion is never the cause of upload failures.',
+  ] },
 ]
 
 export default function DocsPage() {
