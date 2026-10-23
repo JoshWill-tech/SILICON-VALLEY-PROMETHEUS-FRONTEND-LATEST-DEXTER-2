@@ -6592,7 +6592,17 @@ function OriginalEditorPage() {
 
       // 2. Fetch latest project state from API
       try {
-        const res = await fetchWithTimeout(`/api/projects/${projectId}`)
+        let userToken: string | undefined
+        try {
+          const supabase = createClient()
+          const { data: { session } } = await supabase.auth.getSession()
+          userToken = session?.access_token
+        } catch {
+          // Fall back gracefully
+        }
+        const res = await fetchWithTimeout(`/api/projects/${projectId}`, {
+          headers: userToken ? { Authorization: `Bearer ${userToken}` } : {},
+        })
         if (res.ok) {
           const { project: apiProject } = await res.json()
           if (active && apiProject) {

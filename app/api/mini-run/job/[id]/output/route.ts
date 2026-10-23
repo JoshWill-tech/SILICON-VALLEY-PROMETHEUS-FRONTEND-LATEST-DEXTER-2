@@ -89,17 +89,24 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
   }
 
   try {
-    const supabase = await createClient()
+    const supabase = await createClient(request)
     const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
       supabase.auth.getUser(),
       supabase.auth.getSession(),
     ])
-    if (!isDevBypassActive() && (authError || !user || !session?.access_token)) {
+    let token = session?.access_token
+    if (!token) {
+      const authHeader = typeof request?.headers?.get === 'function' ? request.headers.get('authorization') : null
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.slice(7).trim()
+      }
+    }
+    if (!isDevBypassActive() && (authError || !user)) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401})
     }
 
     const config = resolveMiniRunConfig(getMiniRunEnvironment())
-    const headers = {'X-Mini-Run-User-Token': session?.access_token || ''}
+    const headers = {'X-Mini-Run-User-Token': token || ''}
     const statusUrl = `${config.baseUrl}/api/pipeline/job/${encodeURIComponent(id)}`
     const statusResponse = await fetch(statusUrl, {
       headers,

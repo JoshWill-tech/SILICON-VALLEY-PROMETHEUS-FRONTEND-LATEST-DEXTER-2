@@ -1,9 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 import type { ProjectExport, ProjectExportStatus } from '@/lib/types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { R2Keys } from '@/lib/r2/keys'
 import { copyR2Object } from '@/lib/r2/copy-object'
 import { getMiniRunEnvironment, resolveMiniRunConfig } from '@/lib/server/mini-run-proxy'
+
+async function resolveExportClient(reqOrClient?: Request | string | SupabaseClient): Promise<SupabaseClient> {
+  return reqOrClient && typeof (reqOrClient as any).from === 'function'
+    ? (reqOrClient as SupabaseClient)
+    : await createClient(reqOrClient as any)
+}
 
 export interface ExportOptions {
   preset?: string
@@ -74,8 +81,8 @@ export const ExportService = {
     return [...latest.values()]
   },
 
-  async findActiveProjectExport(projectId: string, sourceAssetId: string, editorialRevision: number): Promise<ProjectExport | null> {
-    const supabase = await createClient()
+  async findActiveProjectExport(projectId: string, sourceAssetId: string, editorialRevision: number, reqOrClient?: Request | string | SupabaseClient): Promise<ProjectExport | null> {
+    const supabase = await resolveExportClient(reqOrClient)
     const {data: {user}} = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
     const {data, error} = await supabase.from('project_exports').select('*')
@@ -87,8 +94,8 @@ export const ExportService = {
     return data ? mapProjectExportFromDb(data) : null
   },
 
-  async createProjectExport(projectId: string, options: ExportOptions = {}): Promise<ProjectExport> {
-    const supabase = await createClient()
+  async createProjectExport(projectId: string, options: ExportOptions = {}, reqOrClient?: Request | string | SupabaseClient): Promise<ProjectExport> {
+    const supabase = await resolveExportClient(reqOrClient)
     const {data: {user}} = await supabase.auth.getUser()
     if (!user) throw new Error('Unauthorized')
     const {data, error} = await supabase.from('project_exports').insert({
@@ -122,8 +129,8 @@ export const ExportService = {
     return mapProjectExportFromDb(data)
   },
 
-  async completeExportFromSourceCopy(projectExport: ProjectExport, sourceAssetId: string): Promise<ProjectExport> {
-    const supabase = await createClient()
+  async completeExportFromSourceCopy(projectExport: ProjectExport, sourceAssetId: string, reqOrClient?: Request | string | SupabaseClient): Promise<ProjectExport> {
+    const supabase = await resolveExportClient(reqOrClient)
     
     // Fetch source asset details
     const { data: sourceAsset, error: assetError } = await supabase
@@ -176,18 +183,15 @@ export const ExportService = {
     return mapProjectExportFromDb(updated)
   },
 
-  async getExport(exportId: string): Promise<ProjectExport> {
+  async getExport(exportId: string, reqOrClient?: Request | string | SupabaseClient): Promise<ProjectExport> {
     if (exportId === DEV_JEFF_SIMONS_EXPORT_ID || (isDevBypassActive() && exportId.includes('jeff_simons'))) {
       return DEV_JEFF_SIMONS_EXPORT_RECORD
     }
 
-    const supabase = await createClient()
-    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.auth.getSession(),
-    ])
+    const supabase = await resolveExportClient(reqOrClient)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    if (authError || !user || !session?.access_token) throw new Error('Unauthorized')
+    if (authError || !user) throw new Error('Unauthorized')
 
     const { data, error } = await supabase
       .from('project_exports')
@@ -205,18 +209,18 @@ export const ExportService = {
     return mapProjectExportFromDb(data)
   },
 
-  async listProjectExports(projectId: string): Promise<ProjectExport[]> {
+  async listProjectExports(projectId: string, reqOrClient?: Request | string | SupabaseClient): Promise<ProjectExport[]> {
     if (projectId === DEV_JEFF_SIMONS_PROJECT_ID && isDevBypassActive()) {
       return [DEV_JEFF_SIMONS_EXPORT_RECORD]
     }
 
-    const supabase = await createClient()
-    const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
+    const supabase = await resolveExportClient(reqOrClient)
+    const [{ data: { user }, error: authError }, { data: { session } }] = await Promise.all([
       supabase.auth.getUser(),
-      supabase.auth.getSession(),
+      supabase.auth.getSession().catch(() => ({ data: { session: null } })),
     ])
 
-    if (authError || !user || !session?.access_token) {
+    if (authError || !user) {
       if (projectId === DEV_JEFF_SIMONS_PROJECT_ID) {
         return [DEV_JEFF_SIMONS_EXPORT_RECORD]
       }
@@ -246,7 +250,7 @@ export const ExportService = {
       const jobId = record.metadata.miniRunJobId as string
       try {
         const response = await fetch(`${config.baseUrl}/api/pipeline/job/${encodeURIComponent(jobId)}`, {
-          headers: {'X-Mini-Run-User-Token': session.access_token},
+          headers: session?.access_token ? {'X-Mini-Run-User-Token': session.access_token} : {},
           cache: 'no-store',
           redirect: 'manual',
           signal: AbortSignal.timeout(8_000),
@@ -324,12 +328,12 @@ export const ExportService = {
     return records
   },
 
-  async getExportProject(exportId: string): Promise<{ id: string; title: string } | null> {
+  async getExportProject(exportId: string, reqOrClient?: Request | string | SupabaseClient): Promise<{ id: string; title: string } | null> {
     if (exportId === DEV_JEFF_SIMONS_EXPORT_ID || (isDevBypassActive() && exportId.includes('jeff_simons'))) {
       return { id: DEV_JEFF_SIMONS_PROJECT_ID, title: 'Jeff Simons — Thought of the Day' }
     }
 
-    const supabase = await createClient()
+    const supabase = await resolveExportClient(reqOrClient)
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) throw new Error('Unauthorized')
@@ -345,7 +349,7 @@ export const ExportService = {
 
     const { data: projectData, error: projectError } = await supabase
       .from('projects')
-      .select('id, title')
+      .select('id, title, name')
       .eq('id', exportData.project_id)
       .single()
 
@@ -353,7 +357,7 @@ export const ExportService = {
 
     return {
       id: projectData.id,
-      title: projectData.title
+      title: projectData.title || (projectData as any).name || 'Untitled project'
     }
   }
 }

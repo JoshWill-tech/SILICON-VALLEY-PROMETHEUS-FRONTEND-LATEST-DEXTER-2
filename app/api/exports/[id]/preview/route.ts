@@ -12,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const projectExport = await ExportService.getExport(id)
+    const projectExport = await ExportService.getExport(id, request)
 
     const miniRunJobId = typeof projectExport.metadata?.miniRunJobId === 'string' ? projectExport.metadata.miniRunJobId : null
     if (projectExport.status !== 'completed' || (!projectExport.storagePath && !miniRunJobId)) {

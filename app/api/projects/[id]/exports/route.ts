@@ -54,10 +54,25 @@ type RouteContext = {params: Promise<{id: string}>}
 
 export async function GET(request: Request, {params}: RouteContext) {
   const {id: projectId} = await params
-  const supabase = await createClient()
-  const [{data: {user}, error: authError}] = await Promise.all([
+  const supabase = await createClient(request)
+  const [{data: {user: initialUser}, error: initialAuthError}] = await Promise.all([
     supabase.auth.getUser(),
   ])
+  let user = initialUser
+  let authError = initialAuthError
+  if (!user) {
+    const authHeader = typeof request?.headers?.get === 'function' ? request.headers.get('authorization') : null
+    if (authHeader) {
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+      if (token && token !== 'local-token') {
+        const { data: headerUser } = await supabase.auth.getUser(token)
+        if (headerUser?.user) {
+          user = headerUser.user
+          authError = null
+        }
+      }
+    }
+  }
   if (authError || !user) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
 
   let {data: project, error: projectError} = await supabase.from('projects')
@@ -157,7 +172,7 @@ export async function GET(request: Request, {params}: RouteContext) {
 
 export async function POST(request: Request, {params}: RouteContext) {
   const {id: projectId} = await params
-  const supabase = await createClient()
+  const supabase = await createClient(request)
   const [userResult, sessionResult] = await Promise.all([
     supabase.auth.getUser(),
     typeof supabase.auth?.getSession === 'function'
@@ -263,7 +278,7 @@ export async function POST(request: Request, {params}: RouteContext) {
   }
 
   const currentRevision = typeof timeline.revision === 'number' ? timeline.revision : 0
-  const activeExport = await ExportService.findActiveProjectExport(projectId, sourceAssetId, currentRevision)
+  const activeExport = await ExportService.findActiveProjectExport(projectId, sourceAssetId, currentRevision, supabase)
   if (activeExport) return NextResponse.json({export: activeExport}, {status: 202, headers: {'Cache-Control': 'no-store'}})
 
   const miniRunJobId = crypto.randomUUID()
@@ -280,7 +295,7 @@ export async function POST(request: Request, {params}: RouteContext) {
         timelineApplied,
         canvas: '1080x1920',
       },
-    })
+    }, supabase)
     const dispatched = await dispatchMiniRunRender({
       request: {
         projectId,

@@ -12,7 +12,7 @@ export async function GET(
     const { id: exportId } = await params
     
     // 1. Fetch export metadata and verify ownership
-    const projectExport = await ExportService.getExport(exportId)
+    const projectExport = await ExportService.getExport(exportId, req)
 
     const miniRunJobId = typeof projectExport.metadata?.miniRunJobId === 'string' ? projectExport.metadata.miniRunJobId : null
     if (projectExport.status !== 'completed' || (!projectExport.storagePath && !miniRunJobId)) {
@@ -22,7 +22,7 @@ export async function GET(
       )
     }
 
-    const project = await ExportService.getExportProject(exportId)
+    const project = await ExportService.getExportProject(exportId, req)
     const title = sanitizeFilename(project?.title || 'export')
     const filename = `${title}-${exportId.slice(0, 8)}.mp4`
 

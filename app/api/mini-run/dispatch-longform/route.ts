@@ -34,16 +34,23 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = await createClient(req)
     const [{data: {user}, error: authError}, {data: {session}}] = await Promise.all([
       supabase.auth.getUser(),
       supabase.auth.getSession(),
     ])
-    if (authError || !user || !session?.access_token) {
+    let token = session?.access_token
+    if (!token) {
+      const authHeader = typeof req?.headers?.get === 'function' ? req.headers.get('authorization') : null
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.slice(7).trim()
+      }
+    }
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })
     }
 
-    const project = await ProjectService.getProject(projectId)
+    const project = await ProjectService.getProject(projectId, supabase)
     if (!project) {
       return NextResponse.json({ error: 'Project not found.', code: 'PROJECT_NOT_FOUND' }, { status: 404 })
     }
@@ -103,7 +110,7 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Mini-Run-User-Token': session.access_token,
+        'X-Mini-Run-User-Token': token || session?.access_token || '',
       },
       body: JSON.stringify(dispatchPayload),
       cache: 'no-store',

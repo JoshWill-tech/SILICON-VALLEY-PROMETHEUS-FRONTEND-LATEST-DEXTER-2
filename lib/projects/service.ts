@@ -61,9 +61,15 @@ export interface ProjectPatch {
   sourceAssetId?: string
 }
 
+async function resolveProjectClient(reqOrClient?: Request | string | SupabaseClient): Promise<SupabaseClient> {
+  return reqOrClient && typeof (reqOrClient as any).from === 'function'
+    ? (reqOrClient as SupabaseClient)
+    : await createClient(reqOrClient as any)
+}
+
 export const ProjectService = {
-  async listProjectCards(): Promise<ProjectListItem[]> {
-    const supabase = await createClient()
+  async listProjectCards(reqOrClient?: Request | string | SupabaseClient): Promise<ProjectListItem[]> {
+    const supabase = await resolveProjectClient(reqOrClient)
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -130,8 +136,8 @@ export const ProjectService = {
     return (projectRows ?? []).map((row) => mapProjectRowToListItem(row, jobsByProjectId.get(row.id) ?? null, exportsByProjectId.get(row.id) ?? null))
   },
 
-  async listProjects() {
-    const supabase = await createClient()
+  async listProjects(reqOrClient?: Request | string | SupabaseClient) {
+    const supabase = await resolveProjectClient(reqOrClient)
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) throw new Error('Unauthorized')
@@ -154,9 +160,7 @@ export const ProjectService = {
       return mapProjectFromDb(DEV_FALLBACK_DB_ROW)
     }
 
-    const supabase = reqOrClient && typeof (reqOrClient as any).from === 'function'
-      ? (reqOrClient as SupabaseClient)
-      : await createClient(reqOrClient as any)
+    const supabase = await resolveProjectClient(reqOrClient)
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -226,9 +230,9 @@ export const ProjectService = {
     sourceProfile?: SourceProfile | null
     sourceAssetId?: string
     workspaceId?: string
-  } = {}) {
+  } = {}, reqOrClient?: Request | string | SupabaseClient) {
     try {
-      const supabase = await createClient()
+      const supabase = await resolveProjectClient(reqOrClient)
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
@@ -276,8 +280,8 @@ export const ProjectService = {
     }
   },
 
-  async updateProject(id: string, patch: ProjectPatch) {
-    const supabase = await createClient()
+  async updateProject(id: string, patch: ProjectPatch, reqOrClient?: Request | string | SupabaseClient) {
+    const supabase = await resolveProjectClient(reqOrClient)
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) throw new Error('Unauthorized')
@@ -322,8 +326,8 @@ export const ProjectService = {
     return mapProjectFromDb(data)
   },
 
-  async deleteProject(id: string) {
-    const supabase = await createClient()
+  async deleteProject(id: string, reqOrClient?: Request | string | SupabaseClient) {
+    const supabase = await resolveProjectClient(reqOrClient)
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) throw new Error('Unauthorized')

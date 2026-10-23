@@ -27,7 +27,7 @@ export async function GET(
     }
     if (!user && !isDevBypassActive()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const project = await ProjectService.getProject(projectId)
+    const project = await ProjectService.getProject(projectId, supabase)
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
     if (isDevBypassActive() && (projectId === 'f56c53dc-d0c7-47c3-8ead-cb1c01adb49f' || project.sourceAssetId === 'jeff-simons-asset-001')) {

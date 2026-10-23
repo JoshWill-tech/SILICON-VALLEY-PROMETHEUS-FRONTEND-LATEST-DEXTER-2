@@ -10,7 +10,7 @@ export async function GET(
   try {
     const { id } = await params
     projectId = id
-    const project = await ProjectService.getProject(id)
+    const project = await ProjectService.getProject(id, req)
     return NextResponse.json({ success: true, project })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch project'
@@ -29,7 +29,7 @@ export async function PATCH(
 ) {
   let projectId = 'unknown'
   try {
-    const supabase = await createClient()
+    const supabase = await createClient(req)
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -38,7 +38,7 @@ export async function PATCH(
     const { id } = await params
     projectId = id
     const body = (await req.json().catch(() => ({}))) as ProjectPatch
-    const project = await ProjectService.updateProject(id, body)
+    const project = await ProjectService.updateProject(id, body, supabase)
     return NextResponse.json({ success: true, project })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to update project'
@@ -56,14 +56,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient(req)
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
-    await ProjectService.deleteProject(id)
+    await ProjectService.deleteProject(id, supabase)
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[api/projects/[id]] DELETE error:', err)

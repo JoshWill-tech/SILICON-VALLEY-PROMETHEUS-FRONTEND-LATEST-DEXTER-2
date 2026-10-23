@@ -123,13 +123,28 @@ test('startProjectRender reports "Upload a source video before rendering." when 
   assert.equal(errorToastMessage, 'Upload a source video before rendering.')
 })
 
-test('ProjectService.getProject and requireProjectSourceUploadContext forward authenticated client without unauthenticated cookie fallback', () => {
+test('ProjectService and ExportService methods forward authenticated client and accept Bearer token', () => {
   const projectService = readFileSync('lib/projects/service.ts', 'utf8')
+  const exportService = readFileSync('lib/exports/service.ts', 'utf8')
   const r2Context = readFileSync('lib/r2/project-source-multipart.ts', 'utf8')
+  const exportsRoute = readFileSync('app/api/projects/[id]/exports/route.ts', 'utf8')
+  const assetsRoute = readFileSync('app/api/projects/[id]/assets/route.ts', 'utf8')
 
   assert.match(projectService, /getProject\(id:\s*string,\s*reqOrClient\?:/, 'ProjectService.getProject must accept reqOrClient')
+  assert.match(projectService, /updateProject\(id:\s*string,\s*patch:\s*ProjectPatch,\s*reqOrClient\?:/, 'ProjectService.updateProject must accept reqOrClient')
+  assert.match(projectService, /deleteProject\(id:\s*string,\s*reqOrClient\?:/, 'ProjectService.deleteProject must accept reqOrClient')
+  assert.match(projectService, /listProjects\(reqOrClient\?:/, 'ProjectService.listProjects must accept reqOrClient')
+
+  assert.match(exportService, /getExport\(exportId:\s*string,\s*reqOrClient\?:/, 'ExportService.getExport must accept reqOrClient')
+  assert.match(exportService, /getExportProject\(exportId:\s*string,\s*reqOrClient\?:/, 'ExportService.getExportProject must accept reqOrClient')
+  assert.match(exportService, /findActiveProjectExport\([\s\S]*?reqOrClient\?:/, 'ExportService.findActiveProjectExport must accept reqOrClient')
+  assert.match(exportService, /createProjectExport\([\s\S]*?reqOrClient\?:/, 'ExportService.createProjectExport must accept reqOrClient')
+
   assert.match(r2Context, /ProjectService\.getProject\(projectId,\s*supabase\)/, 'requireProjectSourceUploadContext must pass authenticated supabase client to ProjectService.getProject')
   assert.match(r2Context, /getUserStorageQuota\(user\.id,\s*projectId,\s*supabase\)/, 'requireProjectSourceUploadContext must pass authenticated supabase client to getUserStorageQuota')
+
+  assert.match(assetsRoute, /ProjectService\.getProject\(projectId,\s*supabase\)/, 'assets route must forward supabase client to ProjectService.getProject')
+  assert.match(exportsRoute, /const supabase = await createClient\(request\)/, 'exports route must forward request to createClient')
 })
 
 test('database migration resolves PGRST203 overload ambiguity and sets source_control_plane guard during commit', () => {
