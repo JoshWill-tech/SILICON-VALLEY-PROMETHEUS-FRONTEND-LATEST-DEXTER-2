@@ -32,6 +32,12 @@ $$;
 
 grant execute on function public.maul_storage_limit_bytes(uuid) to authenticated, service_role, anon;
 
+-- Ensure client_request_id column is text to avoid uuid = text operator mismatches
+alter table if exists public.source_upload_sessions alter column client_request_id type text;
+
+-- Drop legacy overload with uuid client_request_id to avoid PGRST203 candidate ambiguity
+drop function if exists public.maul_reserve_source_upload(uuid, uuid, uuid, text, text, bigint, text, text, timestamptz);
+
 -- Update maul_reserve_source_upload to use the 100 TB allowance and auto-abort
 -- stale reservations across any project older than 30 minutes.
 create or replace function public.maul_reserve_source_upload(
@@ -62,6 +68,8 @@ begin
   if v_user_id is null then
     raise exception using errcode = '42501', message = 'UNAUTHORIZED';
   end if;
+
+  perform set_config('prometheus.source_control_plane', 'on', true);
 
   if not exists (
     select 1 from public.projects
@@ -200,6 +208,8 @@ begin
     raise exception using errcode = '42501', message = 'UNAUTHORIZED';
   end if;
 
+  perform set_config('prometheus.source_control_plane', 'on', true);
+
   select * into v_session
   from public.source_upload_sessions
   where id = p_session_id and user_id = v_user_id
@@ -310,7 +320,7 @@ begin
       error_message = 'Source was superseded by a newer upload.',
       updated_at = now()
   where id in (select durable_job_id from superseded where durable_job_id is not null)
-    and status in ('queued', 'leased', 'running');
+    and status in ('pending', 'processing');
 
   insert into public.source_revisions (
     project_id, source_asset_id, user_id, revision, state, upload_session_id
@@ -321,6 +331,7 @@ begin
   update public.projects
   set source_asset_id = v_asset.id,
       source_revision = v_next_revision,
+      current_source_revision_id = v_revision.id,
       updated_at = now()
   where id = v_session.project_id and user_id = v_user_id;
 
@@ -337,28 +348,34 @@ begin
     and id <> v_session.id
     and status in ('reserved', 'uploading', 'verified');
 
-  insert into public.durable_jobs (
-    job_type, user_id, project_id, payload
-  ) values (
-    'source_ingestion', v_user_id, v_session.project_id,
-    jsonb_build_object(
-      'sourceAssetId', v_asset.id,
-      'sourceRevisionId', v_revision.id,
-      'projectId', v_session.project_id,
-      'bucket', v_asset.storage_bucket,
-      'key', v_asset.storage_path,
-      'sizeBytes', v_asset.size_bytes,
-      'mimeType', v_asset.mime_type
-    )
-  ) returning * into v_job;
+  if v_session.mime_type like 'video/%' then
+    insert into public.durable_jobs (
+      id, user_id, project_id, type, status, progress, result_metadata
+    ) values (
+      v_session.asset_id, v_user_id, v_session.project_id,
+      'video_analysis'::public.job_type, 'pending'::public.job_status, 0,
+      jsonb_build_object(
+        'pipeline_version', 2,
+        'source_asset_id', v_session.asset_id,
+        'source_revision_id', v_revision.id,
+        'source_revision', v_next_revision,
+        'source_bucket', v_session.bucket,
+        'source_object_key', v_session.object_key,
+        'source_etag', v_session.verified_etag,
+        'source_size_bytes', v_session.expected_size_bytes,
+        'source_mime_type', v_session.mime_type,
+        'stage', 'queued'
+      )
+    ) returning * into v_job;
 
-  insert into public.source_ingestions (
-    project_id, source_revision_id, user_id, durable_job_id,
-    status, stage, progress
-  ) values (
-    v_session.project_id, v_revision.id, v_user_id, v_job.id,
-    'queued', 'queued', 0
-  ) returning * into v_ingestion;
+    insert into public.source_ingestions (
+      user_id, project_id, source_revision_id, source_asset_id, durable_job_id,
+      status, stage, progress
+    ) values (
+      v_user_id, v_session.project_id, v_revision.id, v_session.asset_id, v_job.id,
+      'queued', 'queued', 0
+    ) returning * into v_ingestion;
+  end if;
 
   return jsonb_build_object(
     'asset', to_jsonb(v_asset),

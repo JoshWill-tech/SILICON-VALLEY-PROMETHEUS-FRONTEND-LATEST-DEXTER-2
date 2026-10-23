@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { isDevBypassActive } from '@/lib/supabase/dev-bypass'
 import { normalizeSourceProfile } from '@/lib/media/source-profile'
 import { mapProjectRowToListItem, type DurableJobRecord, type ProjectExportRecord } from '@/lib/projects/project-list'
@@ -148,12 +149,14 @@ export const ProjectService = {
     return (data || []).map(mapProjectFromDb)
   },
 
-  async getProject(id: string): Promise<Project> {
+  async getProject(id: string, reqOrClient?: Request | string | SupabaseClient): Promise<Project> {
     if (isDevBypassActive() && id === DEV_JEFF_SIMONS_PROJECT_ID) {
       return mapProjectFromDb(DEV_FALLBACK_DB_ROW)
     }
 
-    const supabase = await createClient()
+    const supabase = reqOrClient && typeof (reqOrClient as any).from === 'function'
+      ? (reqOrClient as SupabaseClient)
+      : await createClient(reqOrClient as any)
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {

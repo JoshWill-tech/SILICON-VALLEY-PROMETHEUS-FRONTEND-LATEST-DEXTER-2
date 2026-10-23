@@ -88,8 +88,8 @@ export function validateProjectSourceUploadInput(input: {
   return null
 }
 
-async function getUserStorageQuota(userId: string, currentProjectId?: string) {
-  const supabase = await createClient()
+async function getUserStorageQuota(userId: string, currentProjectId?: string, client?: any) {
+  const supabase = client || await createClient()
 
   const { data: subscription, error: subscriptionError } = await supabase
     .from('dodo_subscriptions')
@@ -119,8 +119,8 @@ async function getUserStorageQuota(userId: string, currentProjectId?: string) {
   // Match the database's current-revision accounting. Historical replacements
   // and the source being replaced must not consume the new source's allowance.
   const usedBytes = (assets ?? [])
-    .filter((asset) => !currentProjectId || asset.project_id !== currentProjectId)
-    .reduce((total, asset) => total + (Number(asset.size_bytes) || 0), 0)
+    .filter((asset: any) => !currentProjectId || asset.project_id !== currentProjectId)
+    .reduce((total: number, asset: any) => total + (Number(asset.size_bytes) || 0), 0)
 
   return {
     tier,
@@ -166,12 +166,12 @@ export async function requireProjectSourceUploadContext(
     return { error: 'Unauthorized', status: 401 }
   }
 
-  const project = await ProjectService.getProject(projectId)
+  const project = await ProjectService.getProject(projectId, supabase).catch(() => null)
   if (!project) {
     return { error: 'Project not found', status: 404 }
   }
 
-  const quota = await getUserStorageQuota(user.id, projectId)
+  const quota = await getUserStorageQuota(user.id, projectId, supabase)
   if (quota.usedBytes + sizeBytes > quota.limitBytes) {
     return {
       error: `Storage limit exceeded. Your ${quota.tier} plan includes ${formatStorage(quota.limitBytes)}. You are using ${formatStorage(quota.usedBytes)}, and this upload is ${formatStorage(sizeBytes)}.`,
@@ -220,7 +220,7 @@ export async function requireOwnedProjectSourceKey(projectId: string, key: unkno
     return { error: 'Unauthorized', status: 401 } as const
   }
 
-  const project = await ProjectService.getProject(projectId)
+  const project = await ProjectService.getProject(projectId, supabase).catch(() => null)
   if (!project) {
     return { error: 'Project not found', status: 404 } as const
   }

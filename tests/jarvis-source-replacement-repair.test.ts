@@ -122,3 +122,22 @@ test('startProjectRender reports "Upload a source video before rendering." when 
   assert.equal(result.summary, 'Upload a source video before rendering.')
   assert.equal(errorToastMessage, 'Upload a source video before rendering.')
 })
+
+test('ProjectService.getProject and requireProjectSourceUploadContext forward authenticated client without unauthenticated cookie fallback', () => {
+  const projectService = readFileSync('lib/projects/service.ts', 'utf8')
+  const r2Context = readFileSync('lib/r2/project-source-multipart.ts', 'utf8')
+
+  assert.match(projectService, /getProject\(id:\s*string,\s*reqOrClient\?:/, 'ProjectService.getProject must accept reqOrClient')
+  assert.match(r2Context, /ProjectService\.getProject\(projectId,\s*supabase\)/, 'requireProjectSourceUploadContext must pass authenticated supabase client to ProjectService.getProject')
+  assert.match(r2Context, /getUserStorageQuota\(user\.id,\s*projectId,\s*supabase\)/, 'requireProjectSourceUploadContext must pass authenticated supabase client to getUserStorageQuota')
+})
+
+test('database migration resolves PGRST203 overload ambiguity and sets source_control_plane guard during commit', () => {
+  const migration = readFileSync('supabase/migrations/20261023000000_unlimited_storage_and_quota_prophylaxis.sql', 'utf8')
+
+  assert.match(migration, /drop function if exists public\.maul_reserve_source_upload\(uuid, uuid, uuid,/, 'migration must drop legacy uuid client_request_id overload to prevent PGRST203')
+  assert.match(migration, /alter table if exists public\.source_upload_sessions alter column client_request_id type text;/, 'migration must ensure client_request_id column is text')
+  assert.match(migration, /perform set_config\('prometheus\.source_control_plane',\s*'on',\s*true\);/, 'maul_commit_source_revision must set prometheus.source_control_plane on')
+  assert.match(migration, /and status in \('pending', 'processing'\);/, 'maul_commit_source_revision must use valid job_status enum values')
+})
+
