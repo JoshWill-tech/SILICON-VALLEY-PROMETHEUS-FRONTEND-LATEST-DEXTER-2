@@ -484,6 +484,8 @@ function selectedEditorMusicStorageKey(projectId: string) {
   return `${SELECTED_EDITOR_MUSIC_STORAGE_PREFIX}.${projectId}`
 }
 
+const SHOW_SOURCE_VIDEO_STORAGE_KEY = 'prometheus.editorial-chat.show-source-video.v1'
+
 function clampMusicPreviewVolume(value: number) {
   if (!Number.isFinite(value)) return DEFAULT_MUSIC_PREVIEW_VOLUME
   return Math.max(0, Math.min(1, value))
@@ -3127,7 +3129,24 @@ function FloatingChatComposer({
   isExportRendering?: boolean
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
-  const [showSourceVideo, setShowSourceVideo] = React.useState(false)
+  const [showSourceVideo, setShowSourceVideo] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem(SHOW_SOURCE_VIDEO_STORAGE_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleShowSourceVideo = React.useCallback(() => {
+    setShowSourceVideo((current) => {
+      const next = !current
+      try {
+        window.localStorage.setItem(SHOW_SOURCE_VIDEO_STORAGE_KEY, String(next))
+      } catch {}
+      return next
+    })
+  }, [])
   const responsivePlaceholderText = 'Ask about editing, color, sound...'
   const composerId = React.useId()
   const hasDraft = draft.trim().length > 0
@@ -3464,7 +3483,7 @@ function FloatingChatComposer({
             data-editorial-chat-video-toggle
             aria-label={showSourceVideo ? 'Hide source video alongside chat' : 'Show source video alongside chat'}
             aria-pressed={showSourceVideo}
-            onClick={() => setShowSourceVideo((current) => !current)}
+            onClick={toggleShowSourceVideo}
             className="absolute right-16 top-3 z-40 hidden max-w-[calc(100%-8rem)] items-center gap-2 rounded-full border border-white/10 bg-black/72 px-3 py-2 text-left text-[11px] text-white/62 shadow-[0_12px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white md:inline-flex"
           >
             <span className="size-1.5 shrink-0 rounded-full bg-[#7ff2d4]" />
@@ -6461,6 +6480,7 @@ function OriginalEditorPage() {
   const pendingSourceUploadAssetIdRef = React.useRef<string | null>(null)
   const [chatComposerPortal, setChatComposerPortal] = React.useState<HTMLDivElement | null>(null)
   const [composerAutomationRequest, setComposerAutomationRequest] = React.useState<ComposerAutomationRequest | null>(null)
+  const [isComposerThreadOpen, setIsComposerThreadOpen] = React.useState(false)
   const inspectorViewportRef = React.useRef<HTMLDivElement | null>(null)
   const [isDeferredChromeReady, setIsDeferredChromeReady] = React.useState(false)
   const [isPreviewBriefGenerating, setIsPreviewBriefGenerating] = React.useState(false)
@@ -7760,6 +7780,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
 
   const handleAutonomousEditRequest = React.useCallback((prompt: string) => {
     if (!isAutonomousEditRequest(prompt)) return
+    if (isComposerThreadOpen) return
     const run = buildEditorialCleanupRun({
       id: `cleanup-${crypto.randomUUID()}`,
       prompt,
@@ -7784,7 +7805,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     toast.success('Autonomous cleanup completed.', {
       description: run.reason ?? 'Transcript timing, pause cuts, and available editorial recommendations were reviewed.',
     })
-  }, [editorialReadiness?.recommendations, handleApplySilenceCuts, job?.artifacts.transcript, persistTimelineCutRanges])
+  }, [editorialReadiness?.recommendations, handleApplySilenceCuts, isComposerThreadOpen, job?.artifacts.transcript, persistTimelineCutRanges])
 
   React.useEffect(() => {
     const handleStart = (event: Event) => {

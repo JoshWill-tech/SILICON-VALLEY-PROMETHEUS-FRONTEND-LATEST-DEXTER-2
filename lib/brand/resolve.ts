@@ -1,4 +1,6 @@
 import { extractYouTubeVideoId } from '../media/youtube-clip-service'
+import { getCreatorRecommendations, KNOWN_CREATOR_PROFILES } from '../creators/creator-recommendations'
+import { CREATOR_VIDEO_CATALOG } from '../creators/video-catalog'
 
 export interface BrandVideoItem {
   videoId: string
@@ -319,6 +321,136 @@ export async function resolveWebsiteBrand(rawUrl: string): Promise<ResolvedBrand
 }
 
 /**
+ * Agentic Creator & Entity Harness:
+ * Automatically infers canonical YouTube channel and Instagram URLs from a creator/character name,
+ * extracts video collections, avatars, and style DNA, expressing them straight up as if a reference URL was provided.
+ */
+export async function resolveAgenticCreator(query: string): Promise<ResolvedBrand | null> {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+
+  // 1. Check known creator profiles (Gary Vaynerchuk, MrBeast, Neil Patel, Alex Hormozi, etc.)
+  const recs = getCreatorRecommendations(trimmed)
+  const matchedProfileName = recs.matchedCreator
+  const profile = matchedProfileName ? KNOWN_CREATOR_PROFILES[matchedProfileName] : null
+
+  if (profile) {
+    const ytPlatform = profile.platforms.find((p) => p.platform === 'youtube')
+    const igPlatform = profile.platforms.find((p) => p.platform === 'instagram')
+    const targetYtUrl = ytPlatform?.handleOrUrl || `https://www.youtube.com/@${profile.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+
+    // Attempt live channel scrape to extract latest videos & avatar
+    let liveResult: ResolvedBrand | null = null
+    try {
+      liveResult = await resolveYouTubeChannel(targetYtUrl)
+    } catch {
+      // Fallback below
+    }
+
+    // Curated catalog videos as reliable fallback or base
+    const catalogVideos = CREATOR_VIDEO_CATALOG[profile.name] || []
+    const fallbackVideos: BrandVideoItem[] = catalogVideos.map((v) => ({
+      videoId: v.videoId,
+      title: v.title,
+      thumbnailUrl: v.image,
+      url: `https://www.youtube.com/watch?v=${v.videoId}`,
+    }))
+
+    const finalVideos: BrandVideoItem[] = (liveResult?.videos && liveResult.videos.length > 0)
+      ? liveResult.videos
+      : fallbackVideos
+
+    const avatarUrl = liveResult?.avatarUrl || ytPlatform?.avatarUrl || igPlatform?.avatarUrl
+
+    return {
+      brandName: profile.name,
+      rawInput: trimmed,
+      type: 'Verified Creator Spirit',
+      url: targetYtUrl,
+      category: 'youtube',
+      title: liveResult?.title || profile.name,
+      avatarUrl,
+      thumbnailUrl: finalVideos[0]?.thumbnailUrl || avatarUrl,
+      description: profile.jarvisInsight,
+      videos: finalVideos,
+      styleDNA: liveResult?.styleDNA || profile.styleDNA,
+    }
+  }
+
+  // 2. Check CREATOR_VIDEO_CATALOG for direct name match
+  const catalogMatchKey = Object.keys(CREATOR_VIDEO_CATALOG).find((k) => {
+    const kn = k.toLowerCase()
+    const tn = trimmed.toLowerCase()
+    return kn === tn || kn.includes(tn) || tn.includes(kn)
+  })
+
+  if (catalogMatchKey && CREATOR_VIDEO_CATALOG[catalogMatchKey]) {
+    const catalogVideos = CREATOR_VIDEO_CATALOG[catalogMatchKey]
+    const fallbackVideos: BrandVideoItem[] = catalogVideos.map((v) => ({
+      videoId: v.videoId,
+      title: v.title,
+      thumbnailUrl: v.image,
+      url: `https://www.youtube.com/watch?v=${v.videoId}`,
+    }))
+    const safeHandle = catalogMatchKey.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const targetYtUrl = `https://www.youtube.com/@${safeHandle}`
+
+    let liveResult: ResolvedBrand | null = null
+    try {
+      liveResult = await resolveYouTubeChannel(targetYtUrl)
+    } catch {
+      // Fallback
+    }
+
+    const finalVideos = (liveResult?.videos && liveResult.videos.length > 0) ? liveResult.videos : fallbackVideos
+
+    return {
+      brandName: catalogMatchKey,
+      rawInput: trimmed,
+      type: 'Verified Creator Spirit',
+      url: targetYtUrl,
+      category: 'youtube',
+      title: liveResult?.title || catalogMatchKey,
+      avatarUrl: liveResult?.avatarUrl,
+      thumbnailUrl: finalVideos[0]?.thumbnailUrl,
+      videos: finalVideos,
+      styleDNA: liveResult?.styleDNA || {
+        tone: 'Authoritative & Audience-Calibrated',
+        typography: 'Kinetic Grotesk with High-Contrast Highlights',
+        colorAccent: '#55ff9b',
+        pacing: 'Dynamic Micro-Cuts (<2s Retention Hooks)',
+        aestheticDescription: `Video outputs and AI cuts calibrated to reflect the brand spirit of ${catalogMatchKey}.`,
+        insights: [
+          `Ingested signature video archetypes from ${catalogMatchKey}`,
+          'Calibrated pacing, typography, and visual hooks to creator DNA',
+          'Active Brand Spirit calibrated for video generation suite',
+        ],
+      },
+    }
+  }
+
+  // 3. Dynamic Agentic Lookup for custom creator / character names
+  const sanitizedHandle = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (sanitizedHandle.length >= 2) {
+    try {
+      const candidateUrl = `https://www.youtube.com/@${sanitizedHandle}`
+      const candidateResult = await resolveYouTubeChannel(candidateUrl)
+      if (candidateResult && candidateResult.videos && candidateResult.videos.length > 0) {
+        return {
+          ...candidateResult,
+          rawInput: trimmed,
+          category: 'youtube',
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  return null
+}
+
+/**
  * Master brand resolver handling YouTube URLs/videos/channels, social handles, websites, and brand names.
  */
 export async function resolveBrand(query: string): Promise<ResolvedBrand> {
@@ -406,31 +538,13 @@ export async function resolveBrand(query: string): Promise<ResolvedBrand> {
     if (websiteResult) return websiteResult
   }
 
-  // 4. Fallback Brand Name with curated intelligence
-  if (/neil\s*patel/i.test(trimmed)) {
-    return {
-      brandName: 'Neil Patel',
-      rawInput: trimmed,
-      type: 'Verified Creator Spirit',
-      url: 'https://www.youtube.com/@neilpatel',
-      category: 'fallback',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      styleDNA: {
-        tone: 'Authoritative, Tactical & Data-Driven',
-        typography: 'Bold Modern Grotesk & Kinetic Callouts',
-        colorAccent: '#FF6B35',
-        pacing: 'Rapid <2s Hook & Micro-Case Studies',
-        aestheticDescription: 'High-contrast infographic video architecture calibrated for audience retention, featuring bold statistic pop-ups, kinetic callouts, and clean tactical pacing.',
-        insights: [
-          'Authoritative metric hook delivered within first 1.8 seconds',
-          'Kinetic word highlighting on statistics, keywords, and frameworks',
-          'Clean high-contrast data callouts with signature orange & emerald accents',
-          'Step-by-step modular pacing with no narrative filler or dead air',
-        ],
-      },
-    }
+  // 4. Agentic Creator Resolution for names, personas, and characters (e.g. "Gary V", "MrBeast", "Neil Patel")
+  const agenticResult = await resolveAgenticCreator(trimmed)
+  if (agenticResult) {
+    return agenticResult
   }
 
+  // 5. Fallback Brand Specification
   return {
     brandName: formatBrandName(trimmed),
     rawInput: trimmed,

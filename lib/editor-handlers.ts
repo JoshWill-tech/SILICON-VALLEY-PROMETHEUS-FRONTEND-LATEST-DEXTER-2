@@ -63,17 +63,26 @@ export function isGenericMusicRequest(value: string) {
   )
 }
 
+const STRICT_EDIT_INTENT_COMMANDS = [
+  'edit this video',
+  'edit the video',
+  'make this video',
+  'make this cut',
+  'rough cut this',
+  'apply rough cut',
+  'cut out the silence',
+  'remove dead air',
+  'cut dead air',
+  'trim dead air',
+  'clean up the timeline',
+  'apply silence cuts',
+] as const
+
 export function isEditIntent(value: string) {
   const normalized = value.trim().toLowerCase()
-  return (
-    normalized.includes('edit') ||
-    normalized.includes('cut') ||
-    normalized.includes('trim') ||
-    normalized.includes('pace') ||
-    normalized.includes('hook') ||
-    normalized.includes('vibe') ||
-    normalized.includes('style')
-  )
+  if (!normalized) return false
+  if (STRICT_EDIT_INTENT_COMMANDS.some((cmd) => normalized.includes(cmd))) return true
+  return /^(?:please\s+)?(?:can\s+you\s+)?(?:cut\s+(?:the\s+)?silence|trim\s+(?:the\s+)?dead\s+air|remove\s+dead\s+air)\b/.test(normalized)
 }
 
 export function removeChatEntry(entries: any[], entryId: string) {

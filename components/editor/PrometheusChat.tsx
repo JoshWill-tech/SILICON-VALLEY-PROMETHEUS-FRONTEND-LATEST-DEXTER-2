@@ -982,8 +982,9 @@ const PrometheusMessageBubble = React.memo(function PrometheusMessageBubble({
               type="button"
               onClick={() => onPrompt('Continue the plan from where you stopped. Complete the full breakdown.')}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-white/50 transition-all hover:border-[#7ff2d4]/30 hover:bg-[#7ff2d4]/[0.04] hover:text-[#7ff2d4]"
+              aria-label="Expand editorial plan in Editor"
             >
-              <span>Continue plan</span>
+              <span>Expand editorial plan</span>
             </button>
           </div>
         ) : null}

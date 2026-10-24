@@ -22,8 +22,17 @@ export type EditorialCleanupRun = {
 /** Detects broad, explicit requests to autonomously clean up the current edit. */
 export function isAutonomousEditRequest(prompt: string) {
   const normalized = prompt.trim().toLowerCase()
-  return /\b(edit|clean up|tighten|trim)\b[\s\S]*\b(video|footage|timeline|this)\b/.test(normalized)
-    || /\b(edit|clean up|tighten|trim)\b\s+(it|this)\b/.test(normalized)
+  // Reject conversational questions, reference searches, or style inquiries
+  if (
+    /^(?:can\s+you|could\s+you|what|why|how|go\s+fetch|fetch|find|show\s+me|suggest|list|give)\b/i.test(normalized) ||
+    normalized.includes('pinterest') ||
+    normalized.includes('reference') ||
+    normalized.endsWith('?')
+  ) {
+    return false
+  }
+  return /\b(clean up|tighten up|auto-cut|remove pauses|cut pauses|trim silences)\b/i.test(normalized)
+    || (/^(clean up|tighten|trim|auto-cut)\s+(the\s+)?(video|footage|timeline|pauses|silences)\b/i.test(normalized))
 }
 
 /**

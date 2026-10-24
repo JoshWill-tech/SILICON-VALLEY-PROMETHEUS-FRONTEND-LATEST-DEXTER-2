@@ -19,6 +19,8 @@ const GREETING_PATTERN =
   /^(?:hi|hello|hey|hiya|yo|good\s+(?:morning|afternoon|evening)|hi\s+there|hello\s+there)[!,.?\s]*$/i;
 const THANKS_PATTERN = /^(?:thanks?|thank\s+you|much\s+appreciated)[!,.?\s]*$/i;
 const EMOJI_PATTERN = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\s]+$/u;
+const LIVE_DATA_WEATHER_FLIGHT_PATTERN =
+  /\b(?:weather|forecast|temperature|humidity|flight|flights|book\s+(?:a\s+)?flight|airline|tickets?)\b/i;
 const SOCIAL_PATTERN =
   /\b(?:instagram|tiktok|linkedin|youtube|twitter|x\s+thread|caption|hashtags?|social\s+(?:post|content)|content\s+calendar)\b/i;
 const EDITING_PATTERN =
@@ -45,7 +47,8 @@ export function classifyPrometheusChatIntent(
     GREETING_PATTERN.test(normalized) ||
     THANKS_PATTERN.test(normalized) ||
     CONVERSATIONAL_FOLLOW_UP_PATTERN.test(normalized) ||
-    EMOJI_PATTERN.test(normalized)
+    EMOJI_PATTERN.test(normalized) ||
+    LIVE_DATA_WEATHER_FLIGHT_PATTERN.test(normalized)
   ) {
     return {
       kind: "conversation",
@@ -121,8 +124,12 @@ export function createDirectPrometheusReply(
     return "You’re welcome. What should we shape next?";
   }
 
+  if (LIVE_DATA_WEATHER_FLIGHT_PATTERN.test(normalized)) {
+    return "I do not have access to live internet browsing, real-time weather data, or flight booking services. I cannot check the weather or book flights. I am focused on video editing, timeline pacing, sound design, and creative direction for your studio projects.";
+  }
+
   if (EMOJI_PATTERN.test(normalized)) {
-    return "Sounds great! What would you like to explore or refine in this cut?";
+    return "What would you like to explore or refine in this cut?";
   }
 
   return null;

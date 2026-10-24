@@ -252,26 +252,35 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
       return
     }
 
-    // Check if recommendations or creator video catalog has instant verified data (e.g. Neil Patel)
+    // Check if recommendations or creator video catalog has instant verified data (e.g. Gary Vaynerchuk, Neil Patel)
     const recommendations = getCreatorRecommendations(q)
     const matchedCatalogName = Object.keys(CREATOR_VIDEO_CATALOG).find((k) => {
       const kn = k.toLowerCase()
       return kn === lower || kn === cleanLower || kn.includes(cleanLower) || cleanLower.includes(kn)
     })
+    const targetCatalogKey =
+      matchedCatalogName ||
+      (recommendations.matchedCreator && CREATOR_VIDEO_CATALOG[recommendations.matchedCreator]
+        ? recommendations.matchedCreator
+        : null)
 
     setSubmittedBrandQuery(q)
     setIsApplyingBrand(true)
 
-    if (matchedCatalogName && CREATOR_VIDEO_CATALOG[matchedCatalogName]) {
-      const catalogVideos = CREATOR_VIDEO_CATALOG[matchedCatalogName]
-      const topPlatform = recommendations.platformOptions[0]?.handleOrUrl || `https://www.youtube.com/@${matchedCatalogName.toLowerCase().replace(/\s+/g, '')}`
+    if (targetCatalogKey && CREATOR_VIDEO_CATALOG[targetCatalogKey]) {
+      const catalogVideos = CREATOR_VIDEO_CATALOG[targetCatalogKey]
+      const topPlatform =
+        recommendations.platformOptions[0]?.handleOrUrl ||
+        `https://www.youtube.com/@${targetCatalogKey.toLowerCase().replace(/\s+/g, '')}`
       const curatedSpec: ActiveBrandRecord = {
-        brandName: matchedCatalogName,
+        brandName: targetCatalogKey,
         rawInput: q,
         type: 'Verified Creator Spirit',
         url: topPlatform,
         appliedAt: new Date().toISOString(),
-        avatarUrl: recommendations.platformOptions[0]?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+        avatarUrl:
+          recommendations.platformOptions[0]?.avatarUrl ||
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
         videos: catalogVideos.map((v) => ({
           videoId: v.videoId,
           title: v.title,
@@ -281,7 +290,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
         styleDNA: recommendations.suggestedStyleDNA,
       }
       applyBrandSpecification(curatedSpec)
-      setSubmittedBrandQuery(matchedCatalogName)
+      setSubmittedBrandQuery(targetCatalogKey)
       setIsApplyingBrand(false)
       return
     }

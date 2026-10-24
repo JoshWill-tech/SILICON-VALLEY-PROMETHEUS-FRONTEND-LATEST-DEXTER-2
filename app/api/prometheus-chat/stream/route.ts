@@ -727,6 +727,17 @@ function frameRefsFromThumbs(
   });
 }
 
+export function sanitizeChatOutput(text: string, projectId?: string): string {
+  if (!text) return text;
+  let sanitized = text;
+  if (projectId && projectId.length > 4) {
+    sanitized = sanitized.replaceAll(projectId, "[project]");
+  }
+  // Scrub any raw database UUID patterns (8-4-4-4-12 hex)
+  sanitized = sanitized.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "[id]");
+  return sanitized;
+}
+
 function buildStreamSystemPrompt({
   intentInstruction,
   knowledgeContext,

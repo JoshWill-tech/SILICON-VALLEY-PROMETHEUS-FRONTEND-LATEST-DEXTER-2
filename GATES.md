@@ -1,50 +1,40 @@
-# Gates: prometheus-chat-break-rectification
+# Gates: chronos-tactile-optical-scrubber-replacement
 
-OWNS: components/editor/PrometheusChat.tsx, app/editor/[id]/page.tsx, app/api/prometheus-chat/route.ts, app/api/prometheus-chat/stream/route.ts, lib/prometheus-assistant/project-context.ts, lib/prometheus-assistant/chat-intent.ts, scripts/verify-chat-break-fixes.mjs, GATES.md
+OWNS: components/editor/TimelinePanel.tsx, scripts/verify-chronos-scrubber.mjs, GATES.md
 
-Scope: Rectify all 6 ranked chat breakdown areas from the Prometheus Editorial Chat Break Report including workspace-switching lock, grounding and uncertainty labeling, live data boundaries, workspace tab taxonomy, ID hygiene, and emoji handling.
+Scope: Replace the redundant video scrubber bar in TimelinePanel with the Chronos Tactile Optical Scrubber (Image 2 parity, canvas optical ruler, sub-bass swell oscillator, bandpass-filtered brown noise friction, metallic detent clicks, vignette blending, format toggles with "1277" counter, velocity telemetry, and preservation of all autonomous editor test hooks).
 
-- [x] G1: Workspace lock & no autonomous edit hijacking from chat sends
-  CHECK: node scripts/verify-chat-break-fixes.mjs G1
-  EXPECT: G1: workspace lock & no autonomous edit hijacking passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=29a77087e113f85b38dc57a152a675f8cf660ac908894d8300ee89e3b35ed8ed; exit=0; EXPECT=matched; output-sha256=e27124e8032e7ae87b309e7c4bf9f8c75ba69519a8a38ffd46cb1219e245af3d; output-bytes=57; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G1: Component architecture & export verification
+  CHECK: node scripts/verify-chronos-scrubber.mjs G1
+  EXPECT: G1: component architecture & export verification passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=1ce186c7cb039d277872194291facd63966d7528aded18911d244140b52b0e69; exit=0; EXPECT=matched; output-sha256=39dc8e6eb595447b586a947455cdc53cd6c5a9e62b903c048291ddbf8a8fca19; output-bytes=56; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G2: No blind auto-apply or tab switching on action drafts
-  CHECK: node scripts/verify-chat-break-fixes.mjs G2
-  EXPECT: G2: no blind auto-apply or tab switching on action drafts passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=16292e6bbfa497c7d48315cc2eee6bc9f982b452b1e396b0f179eb9ff6c079f6; exit=0; EXPECT=matched; output-sha256=0e59e9817793136c4bd9aa129c65a5d06cb88db22a2b452e67af7bdcb8406184; output-bytes=65; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G2: Optical ruler canvas & reference geometry
+  CHECK: node scripts/verify-chronos-scrubber.mjs G2
+  EXPECT: G2: optical ruler canvas & reference geometry passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=2f55045f377c4b2eee7041525e16f78586c4437be5e9d61b1a66a9fafb901246; exit=0; EXPECT=matched; output-sha256=4187ef3a96be6098792c094a6b6e8d291a234b83570b51d41cba664329fcfc20; output-bytes=53; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G3: Strict edit intent routing without hijacking on conversational words
-  CHECK: node scripts/verify-chat-break-fixes.mjs G3
-  EXPECT: G3: strict edit intent routing passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=1679ee62b0314b88d69f123a1efa97fc63dba14e5993391ce10c15172133f3c4; exit=0; EXPECT=matched; output-sha256=b4d5d74a65c997e45a94abe0988d055326dcbd9384c99a353cfc268d91a18f3e; output-bytes=38; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G3: Procedural luxury sound engine with sub-bass and reel friction
+  CHECK: node scripts/verify-chronos-scrubber.mjs G3
+  EXPECT: G3: procedural luxury sound engine with sub-bass and reel friction passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=b44dbf532a5d686af1b04a2c9f436697ea70d82b45e6926f4f1a9c56bc47badc; exit=0; EXPECT=matched; output-sha256=9bab752bd96f590770ebbce69fd6f6759a7e032fd0ac0adb2bf2a79dd302fd00; output-bytes=74; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G4: Grounding and no live weather/booking hallucination rule
-  CHECK: node scripts/verify-chat-break-fixes.mjs G4
-  EXPECT: G4: grounding and no live weather/booking hallucination rule passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=8e7df036ad2d1c009970dbfa273d3e7388c6c60dc4767f84b0d558dc701596d8; exit=0; EXPECT=matched; output-sha256=ff65b7949623f8993c36c2cf75a60aff8cdbb3f42962e5766a824bf4e44a877a; output-bytes=68; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G4: Vintage vignette and film grain blending
+  CHECK: node scripts/verify-chronos-scrubber.mjs G4
+  EXPECT: G4: vintage vignette and film grain blending passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=28d965c51174ce596b7a83a14965d83ac9e98f8586dafdbfd353331f32e36661; exit=0; EXPECT=matched; output-sha256=87093386be307980e096b85dba63f70032c0f6d499495319f4628badace038f2; output-bytes=52; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G5: Analysis pending disclosure and anti-arithmetic split rule
-  CHECK: node scripts/verify-chat-break-fixes.mjs G5
-  EXPECT: G5: analysis pending disclosure and anti-arithmetic split rule passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=6e6df25c9a693b4f8491db0de5c3f831977108203046a43fde312b3aed09a2d8; exit=0; EXPECT=matched; output-sha256=2f7b88cb4e08d377e4f304da35074533f00d93a9612444555511723231c09ed2; output-bytes=70; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G5: Interactive transport, telemetry and snapping
+  CHECK: node scripts/verify-chronos-scrubber.mjs G5
+  EXPECT: G5: interactive transport, telemetry and snapping passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=6eb4d5131dd35bc23c326635b8731b05125f6edb321e477b6e880df968a9432a; exit=0; EXPECT=matched; output-sha256=7b7d3a2cd06443fbafa8457249b83533dff53efce9ffcab886a69dad78ee65d5; output-bytes=57; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G6: Chat in-feed capability boundary rule
-  CHECK: node scripts/verify-chat-break-fixes.mjs G6
-  EXPECT: G6: chat in-feed capability boundary rule passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=84b87950034b353bafd114c72f9f1da400adf66753587a1c4003efb81ccede07; exit=0; EXPECT=matched; output-sha256=7b7831bb501962b9baddf5c0fb958329682fcab26c12e15fbbac13b64fb03972; output-bytes=49; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G6: Autonomous test target attributes preservation
+  CHECK: node scripts/verify-chronos-scrubber.mjs G6
+  EXPECT: G6: autonomous test target attributes preserved
+  EVIDENCE: automatic-evidence=v1; definition-sha256=ca7a07881fa820bfafdfab03d94c4b5b195beb1d60722373663faa0664fc0da1; exit=0; EXPECT=matched; output-sha256=462150b6d1348d54f2e886e65abdc68ecdccc45a1b4fdff0999e74df5ee2c832; output-bytes=48; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G7: Workspace taxonomy and ID leak protection
-  CHECK: node scripts/verify-chat-break-fixes.mjs G7
-  EXPECT: G7: workspace taxonomy and ID leak protection passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=f15eebbb5892d168e83890f128822c995a358d7ccf8fb42e73aa340dad533207; exit=0; EXPECT=matched; output-sha256=c3baa406a0ab4ca145225c160989fac2c64c84d2ee93953e241756d84421e649; output-bytes=53; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
-
-- [x] G8: Emoji and literal instruction discipline
-  CHECK: node scripts/verify-chat-break-fixes.mjs G8
-  EXPECT: G8: emoji and literal instruction discipline passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=0f92b92383e0b9937ce57845ab994a010e772f05cd4462e8ce794b870abc563f; exit=0; EXPECT=matched; output-sha256=d1979aa44330fdf3605c815d4b1bb44200c7c1c50d9c084e733fbb794a6091f9; output-bytes=52; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
-
-- [x] G9: Full suite verification and TypeScript integrity
-  CHECK: node scripts/verify-chat-break-fixes.mjs --all
-  EXPECT: all break verification checks passed
-  EVIDENCE: automatic-evidence=v1; definition-sha256=ef0b0aab1f39e4cc118278c7d79f3a5b943f082021868bb68119c2a29ffc16a1; exit=0; EXPECT=matched; output-sha256=46638f3d0c6ff8c1be0468895e67a3091c0819ea7aaa0a84eeccf18c19440f2d; output-bytes=489; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G7: Full test suite verification
+  CHECK: node scripts/verify-chronos-scrubber.mjs --all
+  EXPECT: all chronos scrubber verification checks passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=e0317c293b8226c8bf8cb14065f7d0f1cf8ae87537a194a832f6145dcc83f4ce; exit=0; EXPECT=matched; output-sha256=148cb2e765b9ae3af38563d554c704d0a8a72b252a3cdc634ce8700a202a1221; output-bytes=388; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries

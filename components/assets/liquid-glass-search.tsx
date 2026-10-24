@@ -5,6 +5,7 @@ import { AudioWaveform, Mic, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandSearchAutocomplete } from '@/components/assets/brand-search-autocomplete'
 import { JarvisAssistantModal } from '@/components/assets/jarvis-assistant-modal'
+import { useVoiceInput } from '@/hooks/use-voice-input'
 import type {
   CreatorPlatformRecommendation,
   RelatedCreatorRecommendation,
@@ -131,6 +132,33 @@ export function LiquidGlassSearch({
     },
     [isControlled, onChange],
   )
+
+  const handleVoiceTranscript = React.useCallback(
+    (text: string) => {
+      const clean = text.trim()
+      if (clean) {
+        setQuery(clean)
+        setTimeout(() => {
+          onSubmit?.(clean)
+        }, 350)
+      }
+    },
+    [setQuery, onSubmit],
+  )
+
+  const { state: voiceState, start: startVoice, stop: stopVoice } = useVoiceInput({
+    onTranscript: handleVoiceTranscript,
+  })
+
+  const handleMicClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (voiceState === 'recording') {
+      stopVoice()
+    } else {
+      startVoice()
+      inputRef.current?.focus()
+    }
+  }
 
   // Dynamic typing placeholder animation cycling through prompts
   React.useEffect(() => {
@@ -318,7 +346,15 @@ export function LiquidGlassSearch({
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={isFocused && !query ? 'Enter brand URL, @handle, or YouTube...' : placeholder}
+              placeholder={
+                voiceState === 'recording'
+                  ? 'Listening... speak creator, handle, or brand'
+                  : voiceState === 'transcribing'
+                    ? 'Processing voice input...'
+                    : isFocused && !query
+                      ? 'Enter brand URL, @handle, or YouTube...'
+                      : placeholder
+              }
               aria-label="Enter brand URL, website URL, YouTube link, or Instagram handle"
               autoComplete="off"
               spellCheck="false"
@@ -326,7 +362,8 @@ export function LiquidGlassSearch({
               className={cn(
                 'search-input relative z-20 w-full bg-transparent text-sm font-medium text-white outline-none placeholder:text-white/55 sm:text-[15px]',
                 'caret-white/80 select-text cursor-text pointer-events-auto',
-                isTypingAnimation && 'placeholder:text-white/75',
+                (isTypingAnimation || voiceState === 'recording') && 'placeholder:text-white/75',
+                voiceState === 'recording' && 'placeholder:text-[#63ffa4] placeholder:font-mono'
               )}
             />
             {/* Simulated blink cursor when idle */}
@@ -349,15 +386,35 @@ export function LiquidGlassSearch({
           >
             <button
               type="button"
-              aria-label="Voice search"
-              onClick={(e) => {
-                e.stopPropagation()
-                inputRef.current?.focus()
-              }}
+              aria-label={voiceState === 'recording' ? 'Stop voice recording' : 'Voice search'}
+              title={
+                voiceState === 'recording'
+                  ? 'Listening... click to stop'
+                  : voiceState === 'transcribing'
+                    ? 'Transcribing voice input...'
+                    : 'Voice typing / search'
+              }
+              onClick={handleMicClick}
               style={{ pointerEvents: 'auto' }}
-              className="icon-btn flex size-9 cursor-pointer items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
+              className={cn(
+                'icon-btn relative flex size-9 cursor-pointer items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10',
+                voiceState === 'recording' && 'border border-rose-500/80 bg-rose-500/20 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.5)]',
+                voiceState === 'transcribing' && 'border border-[#55ff9b]/60 bg-[#55ff9b]/20 text-[#63ffa4]'
+              )}
             >
-              <Mic className="size-4 sm:size-4.5" aria-hidden="true" />
+              <Mic
+                className={cn(
+                  'size-4 sm:size-4.5 transition-colors',
+                  voiceState === 'recording' && 'animate-pulse text-rose-400'
+                )}
+                aria-hidden="true"
+              />
+              {voiceState === 'recording' && (
+                <span className="absolute -top-0.5 -right-0.5 flex size-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-rose-500" />
+                </span>
+              )}
             </button>
             <button
               type="button"
