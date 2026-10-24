@@ -18,7 +18,7 @@ function SheetOverlay({
   return (
     <DialogPrimitive.Overlay
       className={cn(
-        'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+        'fixed inset-0 z-[500] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className,
       )}
       {...props}
@@ -39,7 +39,7 @@ function SheetContent({
       <SheetOverlay />
       <DialogPrimitive.Content
         className={cn(
-          'fixed z-50 h-full w-full max-w-xl border border-white/10 bg-black/70 text-white shadow-2xl shadow-black/60 backdrop-blur-xl outline-none',
+          'fixed z-[500] h-full w-full max-w-xl border border-white/10 bg-black/70 text-white shadow-2xl shadow-black/60 backdrop-blur-xl outline-none',
           side === 'right' && 'right-0 top-0',
           side === 'left' && 'left-0 top-0',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',

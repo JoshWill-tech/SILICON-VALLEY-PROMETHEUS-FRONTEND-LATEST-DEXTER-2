@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Accessibility, Gauge, Monitor, Palette, X } from 'lucide-react'
 
@@ -58,15 +59,21 @@ export function SettingsPanel({ focusMode, initialTab = 'appearance', onClose, o
     return () => mq.removeEventListener('change', handleChange)
   }, [])
 
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   useEffect(() => {
     document.documentElement.dataset.prometheusReduceMotion = reduceMotion ? 'true' : 'false'
   }, [reduceMotion])
 
-  return (
+  const content = (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -162,6 +169,9 @@ export function SettingsPanel({ focusMode, initialTab = 'appearance', onClose, o
       )}
     </AnimatePresence>
   )
+
+  if (!mounted) return null
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content
 }
 
 function AppearanceTab() {

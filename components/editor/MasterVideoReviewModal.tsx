@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X,
@@ -73,11 +74,17 @@ export function MasterVideoReviewModal({
     a.click()
   }
 
-  if (!isOpen) return null
+  const [mounted, setMounted] = React.useState(false)
 
-  return (
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!isOpen || !mounted) return null
+
+  const modalContent = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
+      <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 md:p-6">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -278,4 +285,6 @@ export function MasterVideoReviewModal({
       </div>
     </AnimatePresence>
   )
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
 }

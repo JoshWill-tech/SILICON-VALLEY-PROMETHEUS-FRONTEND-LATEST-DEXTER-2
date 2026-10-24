@@ -102,12 +102,13 @@ const config: Config = {
         stage: '10',
         toolbar: '30',
         sidebar: '50',
-        toast: '60',
-        /* MAUL-2 M0-1: rail/header overlay order (var tokens live in app/globals.css) */
+        header: 'var(--z-header)',
         'rail-collapsed': 'var(--z-rail-collapsed)',
         'rail-expanded': 'var(--z-rail-expanded)',
-        header: 'var(--z-header)',
+        drawer: 'var(--z-drawer)',
         overlay: 'var(--z-overlay)',
+        modal: 'var(--z-modal)',
+        toast: 'var(--z-toast)',
       },
       transitionDuration: {
         press: 'var(--dur-press)',

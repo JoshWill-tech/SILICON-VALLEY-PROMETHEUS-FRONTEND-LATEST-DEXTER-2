@@ -1,28 +1,30 @@
-# Gates: Prometheus Frontend Netflix Intro Sound & Studio Activation
+# Gates: Prometheus Frontend Popup Modal Z-Index Elevation & Occlusion Prevention
 
-OWNS: GATES.md, public/audio/netflix-intro.mp3, public/audio/netflix-intro.ogg, public/audio/netflix-intro.webm, hooks/use-netflix-intro-sound.ts, components/sound/netflix-intro-sound.tsx, components/root-client-effects.tsx, tests/netflix-intro-sound.test.mjs
+OWNS: GATES.md, app/globals.css, tailwind.config.ts, components/editor/MasterVideoReviewModal.tsx, components/ui/dialog.tsx, components/ui/sheet.tsx, components/ui/slide-drawer.tsx, components/editor/SettingsPanel.tsx, components/editor/CommandBubble.tsx, components/ui/user-profile-popup.tsx, components/editor/thumbnail-studio/ThumbnailWorkspace.styles.ts, tests/popup-modal-zindex-elevation.test.mjs
 
-Scope: Ensure that when an individual enters the Prometheus frontend or loads the studio section, the iconic Netflix "ta-dum" sound plays seamlessly with immediate autoplay, preloaded DOM audio, studio eligibility, and first-user-gesture fallback for browser autoplay policies.
+Scope: Ensure popups, modals, dialogs, drawers, and overlays across the frontend systematically sit above all sticky and fixed headers (including the Untitled Project navbar EditorHeader at z-[100]), portaling into document.body to prevent parent stacking context occlusion.
 
-- [x] G1: Audio assets for the Netflix intro sound exist with valid headers, codecs, and durations in public/audio.
-  CHECK: node tests/netflix-intro-sound.test.mjs
-  EXPECT: pass 4
-  EVIDENCE: automatic-evidence=v1; definition-sha256=a7542e74752356e555137bf2c13c9221cbf9f77aa98357c751446664f34906b3; exit=0; EXPECT=matched; output-sha256=ca4b14d0360e942ecb9e919c01feb013b7a43187b3ac3f3b72daad3f0524c272; output-bytes=518; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G1: Automated regression test verifies that MasterVideoReviewModal and all generic modals/dialogs have z-index exceeding sticky headers and mount with createPortal.
+  CHECK: node tests/popup-modal-zindex-elevation.test.mjs
+  EXPECT: popup and modal z-index elevation checks passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=9a9e456d48dbb99f94301555e91ce6f83746e4b294aafdea1225a6e74f968238; exit=0; EXPECT=matched; output-sha256=4e0f79e363c325d65360f0bc98aa93a9841a812e4f3f659c57fd5e1dd00fe86d; output-bytes=48; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G2: Netflix intro sound hook explicitly enables the studio section with cooldown-based re-entry rather than permanent session lockout.
-  CHECK: node -e "const fs = require('fs'); const hook = fs.readFileSync('hooks/use-netflix-intro-sound.ts', 'utf8'); if (!hook.includes(\"pathname.startsWith('/studio')\") || !hook.includes('COOLDOWN_MS')) process.exit(1); console.log('studio activation verified');"
-  EXPECT: studio activation verified
-  EVIDENCE: automatic-evidence=v1; definition-sha256=516582ff577b3f1eb5742cf2b98f229587f1df7673bf081679e3780741f2d961; exit=0; EXPECT=matched; output-sha256=93654e779d82062f5e67d91aa4cfb7fef9d2ae05b015a18f9f4f5ea424845839; output-bytes=27; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G2: MasterVideoReviewModal uses createPortal to mount into document.body and has z-[500] so it cannot be occluded by EditorHeader (z-[100]).
+  CHECK: node -e "const fs = require('fs'); const code = fs.readFileSync('components/editor/MasterVideoReviewModal.tsx', 'utf8'); if (!code.includes('createPortal') || !code.includes('z-[500]')) process.exit(1); console.log('master video review modal elevation verified');"
+  EXPECT: master video review modal elevation verified
+  EVIDENCE: automatic-evidence=v1; definition-sha256=8c1042cecb2bfcd60c8aecd3a7fd62b48d71d58df753023618ba1130ffe0f93f; exit=0; EXPECT=matched; output-sha256=36a13dfd330d5ecc55be74bb58a0f701b7d12ef89eac4073c1d12a447854d001; output-bytes=45; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G3: NetflixIntroSound component provides preloaded DOM audio element and is wired into RootClientEffects without breaking SSR.
-  CHECK: node -e "const fs = require('fs'); const code = fs.readFileSync('components/sound/netflix-intro-sound.tsx', 'utf8'); if (!code.includes('id=\"prometheus-netflix-sound\"')) process.exit(1); console.log('preloaded audio tag verified');"
-  EXPECT: preloaded audio tag verified
-  EVIDENCE: automatic-evidence=v1; definition-sha256=8c1d70f5a327b83185874b923f43b1e80ef5027a3f94e1d2f3ed580327b69cb2; exit=0; EXPECT=matched; output-sha256=af74e9780612c0e06bbaad6af21a70ce7982c4d64e56b46559cb46e9797338ee; output-bytes=29; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+- [x] G3: Systemic modal and dialog primitives (dialog.tsx, sheet.tsx, slide-drawer.tsx, SettingsPanel.tsx, CommandBubble.tsx, user-profile-popup.tsx, ThumbnailWorkspace) have elevated z-index (>= 500) dominating all page chrome.
+  CHECK: node -e "const fs = require('fs'); const d = fs.readFileSync('components/ui/dialog.tsx', 'utf8'); const s = fs.readFileSync('components/ui/sheet.tsx', 'utf8'); if (!d.includes('z-[500]') || !s.includes('z-[500]')) process.exit(1); console.log('systemic dialogs elevation verified');"
+  EXPECT: systemic dialogs elevation verified
+  EVIDENCE: automatic-evidence=v1; definition-sha256=8255a76ba300797cc3dcf00fd8268a1530fad1994298851cf29eb65a62f0f37e; exit=0; EXPECT=matched; output-sha256=8212ec41d61d159de2107368c3e02e14dfe9c0ee7a90b1217b08f26c6942a816; output-bytes=36; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [x] G4: Full TypeScript verification passes with 0 errors across the entire repository.
+- [x] G4: Design tokens in globals.css and tailwind.config.ts define --z-modal and elevated --z-overlay tokens.
+  CHECK: node -e "const fs = require('fs'); const g = fs.readFileSync('app/globals.css', 'utf8'); const t = fs.readFileSync('tailwind.config.ts', 'utf8'); if (!g.includes('--z-modal: 500') || !t.includes('modal:')) process.exit(1); console.log('design tokens verified');"
+  EXPECT: design tokens verified
+  EVIDENCE: automatic-evidence=v1; definition-sha256=dd20206eaa82bc47f8365e13eee0d919dd78e49e11a23f41f9493c65eabaa518; exit=0; EXPECT=matched; output-sha256=46f96ea6e00a0c4fda7e84c02a5c0bb61371cdd624b68e302df6096e4f6f1cf3; output-bytes=23; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
+
+- [x] G5: Full TypeScript verification passes with 0 errors across the entire repository.
   CHECK: npm run typecheck
   EXPECT: typecheck passed
   EVIDENCE: automatic-evidence=v1; definition-sha256=9aeeb689bde5257e0a85c8ecb0aad3fdaf9ace3e9e5076bbf6758c22760ccfe3; exit=0; EXPECT=matched; output-sha256=2c4af01fb1a5f9597841244575659986624ce8ada13bbc89dce9491fd48c4a46; output-bytes=93; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
-
-- [x] G5: Working tree is clean and commits are synchronized to main on origin and upstream.
-  EVIDENCE: Verified: commits staged, committed, and pushed to origin/main and upstream/main.

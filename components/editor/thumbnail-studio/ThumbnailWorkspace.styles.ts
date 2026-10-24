@@ -123,7 +123,7 @@ export const thumbnailWorkspaceClasses = {
 
 export const thumbnailWorkspaceCss = String.raw`
 .prom-thumbnail-studio, .prom-thumbnail-studio *, .prom-thumbnail-studio *::before, .prom-thumbnail-studio *::after { box-sizing: border-box; }
-.prom-thumbnail-studio { --studio-accent: var(--light-ui-accent, #7ff2d4); --studio-border: var(--light-ui-border, rgba(255,255,255,.09)); --studio-muted: var(--light-ui-muted, #919a9e); position: fixed; inset: 0; z-index: 140; display: grid; place-items: center; padding: 20px; color: var(--light-ui-text, #f0f3f3); font-family: var(--font-ui), 'Segoe UI', sans-serif; }
+.prom-thumbnail-studio { --studio-accent: var(--light-ui-accent, #7ff2d4); --studio-border: var(--light-ui-border, rgba(255,255,255,.09)); --studio-muted: var(--light-ui-muted, #919a9e); position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 20px; color: var(--light-ui-text, #f0f3f3); font-family: var(--font-ui), 'Segoe UI', sans-serif; }
 .prom-thumbnail-backdrop { position: absolute; inset: 0; background: rgba(2,5,7,.88); backdrop-filter: blur(14px); }
 .prom-thumbnail-window { position: relative; width: min(1440px,100%); height: min(940px,94dvh); display: flex; flex-direction: column; overflow: hidden; background: var(--light-ui-surface, #0b1013); border: 1px solid var(--studio-border); border-radius: 16px; box-shadow: var(--light-ui-dialog-shadow, 0 40px 130px #0009); }
 .prom-thumbnail-window button, .prom-thumbnail-window input, .prom-thumbnail-window select, .prom-thumbnail-window textarea { font: inherit; }

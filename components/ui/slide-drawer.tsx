@@ -100,7 +100,7 @@ export function SlideDrawer({
         aria-hidden={!isOpen}
         onClick={onClose}
         className={cn(
-          'fixed inset-0 z-[80] outline-none transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
+          'fixed inset-0 z-[500] outline-none transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         )}
         style={{
@@ -117,7 +117,7 @@ export function SlideDrawer({
         aria-label={ariaLabel}
         aria-hidden={!isOpen}
         className={cn(
-          'fixed inset-y-0 z-[90] flex max-w-[calc(100vw-24px)] flex-col overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.48)] transition-[transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none',
+          'fixed inset-y-0 z-[501] flex max-w-[calc(100vw-24px)] flex-col overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.48)] transition-[transform] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform motion-reduce:transition-none',
           side,
           isOpen ? 'translate-x-0' : closedTransform,
           className

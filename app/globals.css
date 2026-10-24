@@ -111,10 +111,13 @@
   --ease-hover: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-structural: cubic-bezier(0.22, 1, 0.36, 1);
   --z-rail-collapsed: 30;
-  --z-rail-expanded: 120;
   --z-header: 100;
-  --z-overlay: 200;
-  --z-toast: 300;
+  --z-rail-expanded: 120;
+  --z-drawer: 400;
+  --z-overlay: 500;
+  --z-modal: 500;
+  --z-modal-content: 501;
+  --z-toast: 700;
 }
 
 html,
