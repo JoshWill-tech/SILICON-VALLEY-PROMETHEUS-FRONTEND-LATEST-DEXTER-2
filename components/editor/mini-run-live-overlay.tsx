@@ -195,6 +195,33 @@ export function MiniRunLiveOverlay({
     }
   }, [videoRef])
 
+  // Instantaneous playback: ensures the preview plays the moment the page and video load
+  React.useEffect(() => {
+    const vid = videoRef.current
+    if (!vid) return
+
+    const triggerInstantPlay = () => {
+      if (vid.paused) {
+        const promise = vid.play()
+        if (promise !== undefined) {
+          promise.catch(() => {
+            // Autoplay policy fallback: mute and play instantaneously
+            vid.muted = true
+            vid.play().catch(() => {})
+          })
+        }
+      }
+    }
+
+    triggerInstantPlay()
+    vid.addEventListener('canplay', triggerInstantPlay)
+    vid.addEventListener('loadeddata', triggerInstantPlay)
+    return () => {
+      vid.removeEventListener('canplay', triggerInstantPlay)
+      vid.removeEventListener('loadeddata', triggerInstantPlay)
+    }
+  }, [videoRef, sourceUrl])
+
   // Hover into video: transitions image/paused frame into live playback on hover
   const handleMouseEnter = React.useCallback(() => {
     setIsHovered(true)

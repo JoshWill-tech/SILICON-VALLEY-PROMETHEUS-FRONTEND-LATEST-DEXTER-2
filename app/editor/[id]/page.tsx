@@ -8818,6 +8818,14 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       projectId,
       previewUrl,
     })
+    const video = previewVideoRef.current
+    if (video && video.paused) {
+      video.play().catch(() => {
+        // Safe autoplay fallback: browsers permit muted playback
+        video.muted = true
+        video.play().catch(() => {})
+      })
+    }
   }, [handlePreviewMetadataLoaded, previewUrl, projectId])
 
   React.useEffect(() => {

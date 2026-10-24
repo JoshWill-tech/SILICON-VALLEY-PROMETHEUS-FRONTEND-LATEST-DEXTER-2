@@ -7,6 +7,7 @@ import { usePasteDetector } from '@/hooks/usePasteDetector'
 import { useUserPreferencesHydrator } from '@/hooks/use-user-preferences'
 import { useDeferredEnhancementsReady } from '@/hooks/use-deferred-enhancements-ready'
 import { ThemeInjector } from '@/components/theme/theme-injector'
+import { NetflixIntroSound } from '@/components/sound/netflix-intro-sound'
 
 const AppToaster = dynamic(() => import('@/components/ui/app-toaster').then((mod) => mod.AppToaster), {
   ssr: false,
@@ -60,10 +61,6 @@ const AgenticCursorLayer = dynamic(
   { ssr: false },
 )
 
-const NetflixIntroSound = dynamic(
-  () => import('@/components/sound/netflix-intro-sound').then((mod) => mod.NetflixIntroSound),
-  { ssr: false },
-)
 
 const AUTH_ROUTE_REGEX = /^\/(?:login|signup|verify|forgot-password|reset-password|terms|privacy|refund|cookie-policy)(?:\/|$)/
 

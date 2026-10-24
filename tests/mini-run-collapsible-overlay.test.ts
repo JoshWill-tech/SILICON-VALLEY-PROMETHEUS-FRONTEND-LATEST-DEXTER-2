@@ -44,7 +44,7 @@ test('Mini-Run Live Overlay Collapsible Architecture', async () => {
     'Must not have the bloated multi-line uppercase static title banner'
   )
 
-  // Check 6: Check PreviewCanvas hover integration
+  // Check 6: Check PreviewCanvas hover integration and instantaneous autoplay
   const canvasFile = path.resolve('components/editor/PreviewCanvas.tsx')
   assert.ok(fs.existsSync(canvasFile), 'PreviewCanvas.tsx must exist')
   const canvasContent = fs.readFileSync(canvasFile, 'utf8')
@@ -52,6 +52,28 @@ test('Mini-Run Live Overlay Collapsible Architecture', async () => {
     canvasContent,
     /MiniRunLiveOverlay/,
     'PreviewCanvas must embed MiniRunLiveOverlay'
+  )
+  assert.match(
+    canvasContent,
+    /<video[\s\S]*?autoPlay/,
+    'PreviewCanvas video element must have autoPlay attribute for instantaneous playback'
+  )
+
+  // Check 7: Overlay triggers instantaneous playback without delay
+  assert.match(
+    content,
+    /triggerInstantPlay|canplay|loadeddata/,
+    'Overlay must initiate instantaneous playback on mount and media ready'
+  )
+
+  // Check 8: MiniRunStudio video has autoPlay
+  const studioFile = path.resolve('components/mini-run/mini-run-studio.tsx')
+  assert.ok(fs.existsSync(studioFile), 'mini-run-studio.tsx must exist')
+  const studioContent = fs.readFileSync(studioFile, 'utf8')
+  assert.match(
+    studioContent,
+    /<video[\s\S]*?autoPlay/,
+    'MiniRunStudio video element must have autoPlay attribute'
   )
 
   console.log('mini-run collapsible overlay test passed')

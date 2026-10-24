@@ -276,6 +276,7 @@ export function PreviewCanvas({
                               ref={previewVideoRef}
                               crossOrigin="anonymous"
                               src={previewUrl}
+                              autoPlay
                               muted={isPreviewMuted}
                               playsInline
                               controls={false}

@@ -515,7 +515,7 @@ export function MiniRunStudio() {
                 </div>
               ) : asset && sourceUrl ? (
                 <div className="overflow-hidden rounded-[18px] border border-white/10 bg-black relative">
-                  <video ref={sourceVideoRef} src={sourceUrl} controls className="max-h-[420px] w-full bg-black object-contain" style={asset.width && asset.height ? { aspectRatio: `${asset.width} / ${asset.height}` } : undefined} />
+                  <video ref={sourceVideoRef} src={sourceUrl} autoPlay playsInline controls className="max-h-[420px] w-full bg-black object-contain" style={asset.width && asset.height ? { aspectRatio: `${asset.width} / ${asset.height}` } : undefined} />
                   <MiniRunLiveOverlay
                     videoRef={sourceVideoRef}
                     projectId={selectedProjectId ?? undefined}

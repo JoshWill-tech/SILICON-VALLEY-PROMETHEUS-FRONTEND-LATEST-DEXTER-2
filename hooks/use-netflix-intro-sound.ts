@@ -184,6 +184,11 @@ export function useNetflixIntroSound({
           'keydown',
           'touchstart',
           'pointermove',
+          'mousemove',
+          'mouseover',
+          'mouseenter',
+          'pointerenter',
+          'focus',
           'scroll',
           'wheel',
         ]
