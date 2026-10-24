@@ -21,6 +21,8 @@ import { InlineLoadingAnimation } from '@/components/loading-animation'
 import { cn } from '@/lib/utils'
 import { downloadMedia } from '@/lib/editor/browser-download'
 import { normalizeUxError } from '@/lib/ux/errors'
+import { useUserConnections } from '@/hooks/use-user-connections'
+import { isExportProviderConnected } from '@/lib/editor/export-connections'
 import { dispatchCompletionEvent } from '../completion-event'
 
 const resolutions = [
@@ -47,16 +49,72 @@ const socialPlatforms: Array<{
 ]
 
 export function ExportPanel({ mediaUrl }: { mediaUrl?: string | null }) {
+  const { connections } = useUserConnections()
   const [selectedResolution, setSelectedResolution] = useState('1080p')
   const [exportMode, setExportMode] = useState<'cinematic' | 'fast'>('cinematic')
   const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [exportMessage, setExportMessage] = useState('')
   const [selectedPlatformId, setSelectedPlatformId] = useState('')
+
+  const platforms = useMemo(() => {
+    return socialPlatforms.map((platform) => ({
+      ...platform,
+      connected: isExportProviderConnected(connections, platform.id),
+    }))
+  }, [connections])
+
   const selectedPlatform = useMemo(
-    () => socialPlatforms.find((platform) => platform.id === selectedPlatformId) ?? null,
-    [selectedPlatformId],
+    () => platforms.find((platform) => platform.id === selectedPlatformId) ?? null,
+    [platforms, selectedPlatformId],
   )
   const selectedResolutionLabel = resolutions.find((resolution) => resolution.id === selectedResolution)?.label ?? '1080p'
+
+  const handleExportToPlatform = async (platformId: string) => {
+    if (!mediaUrl || exportStatus === 'loading') {
+      if (!mediaUrl) {
+        setExportStatus('error')
+        setExportMessage('Your source is still loading. Keep this panel open and try again when it is ready.')
+      }
+      return
+    }
+
+    const platform = platforms.find((p) => p.id === platformId)
+    const platformLabel = platform?.label ?? platformId
+    setExportStatus('loading')
+    setExportMessage(`Exporting to ${platformLabel}…`)
+
+    try {
+      const res = await fetch(`/api/export/${platformId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: mediaUrl,
+          fileName: `prometheus-${exportMode}-${selectedResolution}.mp4`,
+          title: `Prometheus ${exportMode === 'cinematic' ? 'Cinematic' : 'Fast'} Export`,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || `Export to ${platformLabel} failed.`)
+      }
+
+      setExportStatus('success')
+      setExportMessage(
+        data.webViewLink
+          ? `Successfully exported to ${platformLabel}! File is available in your Drive.`
+          : `Successfully exported to ${platformLabel}!`
+      )
+      dispatchCompletionEvent({
+        process: 'export',
+        title: `Exported to ${platformLabel}`,
+        message: 'Your cut has been delivered to your connected account.',
+      })
+    } catch (error) {
+      setExportStatus('error')
+      setExportMessage(normalizeUxError(error, 'export'))
+    }
+  }
 
   const handleDownload = async () => {
     if (!mediaUrl || exportStatus === 'loading') {
@@ -156,7 +214,7 @@ export function ExportPanel({ mediaUrl }: { mediaUrl?: string | null }) {
           <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/72">Destination</h3>
         </div>
         <div className="grid grid-cols-4 gap-2">
-          {socialPlatforms.map((platform) => {
+          {platforms.map((platform) => {
             const Icon = platform.icon
             const active = selectedPlatformId === platform.id
 
@@ -190,12 +248,24 @@ export function ExportPanel({ mediaUrl }: { mediaUrl?: string | null }) {
                 ? `${selectedPlatform.label} is connected.`
                 : `${selectedPlatform.label} is not connected yet.`}
             </p>
-            <a
-              href={selectedPlatform.connected ? '#' : `/api/oauth/${selectedPlatform.id}/initiate`}
-              className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg border border-prometheus-accent-cyan/25 bg-prometheus-accent-cyan/12 px-3 text-xs font-medium text-prometheus-accent-cyan transition-colors hover:bg-prometheus-accent-cyan/20"
-            >
-              {selectedPlatform.connected ? `Export to ${selectedPlatform.label}` : `Connect ${selectedPlatform.label}`}
-            </a>
+            {selectedPlatform.connected ? (
+              <button
+                type="button"
+                onClick={() => void handleExportToPlatform(selectedPlatform.id)}
+                disabled={exportStatus === 'loading'}
+                className="mt-3 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-prometheus-accent-cyan/25 bg-prometheus-accent-cyan/12 px-3 text-xs font-medium text-prometheus-accent-cyan transition-colors hover:bg-prometheus-accent-cyan/20 disabled:opacity-50"
+              >
+                {exportStatus === 'loading' ? <InlineLoadingAnimation size={12} label="Exporting" /> : null}
+                Export to {selectedPlatform.label}
+              </button>
+            ) : (
+              <a
+                href={`/api/oauth/${selectedPlatform.id}/initiate`}
+                className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg border border-prometheus-accent-cyan/25 bg-prometheus-accent-cyan/12 px-3 text-xs font-medium text-prometheus-accent-cyan transition-colors hover:bg-prometheus-accent-cyan/20"
+              >
+                Connect {selectedPlatform.label}
+              </a>
+            )}
           </div>
         ) : null}
       </div>

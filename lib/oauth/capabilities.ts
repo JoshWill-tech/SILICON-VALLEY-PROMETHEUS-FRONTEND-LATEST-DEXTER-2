@@ -21,6 +21,9 @@ export function providerCredentials(provider: string, env: NodeJS.ProcessEnv = p
 }
 export function configuredOAuthProviders(env: NodeJS.ProcessEnv = process.env) {
   // Explicit opt-in records that the external developer app was registered/tested.
-  const enabled = new Set((env.OAUTH_ENABLED_PROVIDERS ?? '').split(',').map(value => value.trim()))
+  const raw = env.OAUTH_ENABLED_PROVIDERS;
+  const enabled = raw !== undefined
+    ? new Set(raw.split(',').map(value => value.trim()).filter(Boolean))
+    : new Set(Object.keys(PROVIDER_CONFIGS));
   return Object.keys(PROVIDER_CONFIGS).filter(provider => enabled.has(provider) && providerCredentials(provider, env))
 }

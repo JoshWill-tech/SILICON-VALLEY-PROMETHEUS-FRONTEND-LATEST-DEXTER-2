@@ -7,6 +7,13 @@ import type { VoiceEditResult } from './edit-results'
 import type { AppliedReferenceStyle } from '@/lib/editor/reference-style'
 import type { EditorialPlan } from '@/lib/editor/timeline-document'
 
+export interface JarvisVoiceState {
+  status: 'disconnected' | 'connecting' | 'listening' | 'speaking' | 'interrupted' | 'error'
+  isSpeaking: boolean
+  isListening: boolean
+  isActive: boolean
+}
+
 /**
  * Shared registry that lets the editor page expose live state + action handlers
  * to any VoiceCompanion instance (including the global filament, which mounts
@@ -116,6 +123,8 @@ export interface VoiceCompanionBridgeHandlers {
     isSpeaking?: boolean
     getLevel?: () => number | null
   }
+  /** Live Jarvis companion voice state */
+  jarvisVoiceState?: JarvisVoiceState
 }
 
 let currentHandlers: VoiceCompanionBridgeHandlers = {}
@@ -130,18 +139,45 @@ export function registerVoiceCompanionBridge(handlers: VoiceCompanionBridgeHandl
   if (handlers.chatVoiceState === undefined && 'chatVoiceState' in handlers) {
     delete currentHandlers.chatVoiceState
   }
+  if (handlers.jarvisVoiceState === undefined && 'jarvisVoiceState' in handlers) {
+    delete currentHandlers.jarvisVoiceState
+  }
   notify()
 }
 
 export function unregisterVoiceCompanionBridge(): void {
-  // Retain active chat voice state so editor timeline refreshes do not sever chat audio reactivity
+  // Retain active chat voice state and jarvis voice state so editor timeline refreshes do not sever voice reactivity
   const retainedChatVoiceState = currentHandlers.chatVoiceState
-  currentHandlers = retainedChatVoiceState ? { chatVoiceState: retainedChatVoiceState } : {}
+  const retainedJarvisVoiceState = currentHandlers.jarvisVoiceState
+  currentHandlers = {
+    ...(retainedChatVoiceState ? { chatVoiceState: retainedChatVoiceState } : {}),
+    ...(retainedJarvisVoiceState ? { jarvisVoiceState: retainedJarvisVoiceState } : {}),
+  }
   notify()
 }
 
 export function getVoiceCompanionBridge(): VoiceCompanionBridgeHandlers {
   return currentHandlers
+}
+
+export function isVoiceInteractionActive(handlers: VoiceCompanionBridgeHandlers = currentHandlers): boolean {
+  const jarvis = handlers.jarvisVoiceState
+  const chat = handlers.chatVoiceState
+  const isJarvisActive = Boolean(jarvis?.isActive || jarvis?.isSpeaking || jarvis?.isListening)
+  const isChatActive = Boolean(chat?.isRecording || chat?.isSpeaking)
+  return isJarvisActive || isChatActive
+}
+
+export function isVoiceActivelyListening(handlers: VoiceCompanionBridgeHandlers = currentHandlers): boolean {
+  const jarvis = handlers.jarvisVoiceState
+  const chat = handlers.chatVoiceState
+  return Boolean(jarvis?.isListening || chat?.isRecording)
+}
+
+export function isVoiceSpeaking(handlers: VoiceCompanionBridgeHandlers = currentHandlers): boolean {
+  const jarvis = handlers.jarvisVoiceState
+  const chat = handlers.chatVoiceState
+  return Boolean(jarvis?.isSpeaking || chat?.isSpeaking)
 }
 
 export function subscribeVoiceCompanionBridge(listener: () => void): () => void {

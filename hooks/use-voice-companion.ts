@@ -5,6 +5,7 @@ import { GeminiLiveClient, type ToolCallHandler } from '@/lib/voice-companion/ge
 import { AudioPlayer, AudioRecorder, primeAudioContext } from '@/lib/voice-companion/audio-streamer'
 import {
   getVoiceCompanionBridge,
+  registerVoiceCompanionBridge,
   subscribeVoiceCompanionBridge,
   type VoiceCompanionBridgeHandlers,
 } from '@/lib/voice-companion/bridge'
@@ -192,6 +193,24 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
   useEffect(() => {
     handlersRef.current = { ...bridgeSnapshot, ...stripUndefined(options) }
   })
+
+  // Synchronize live Jarvis companion voice state with global bridge
+  useEffect(() => {
+    const isChatRec = Boolean(bridgeSnapshot.chatVoiceState?.isRecording)
+    const isChatSpk = Boolean(bridgeSnapshot.chatVoiceState?.isSpeaking)
+    const isSpeaking = status === 'speaking' || isChatSpk
+    const isListening = status === 'listening' || isChatRec
+    const isActive = (status !== 'disconnected' && status !== 'error') || isChatRec || isChatSpk
+
+    registerVoiceCompanionBridge({
+      jarvisVoiceState: {
+        status,
+        isSpeaking,
+        isListening,
+        isActive,
+      },
+    })
+  }, [status, bridgeSnapshot.chatVoiceState?.isRecording, bridgeSnapshot.chatVoiceState?.isSpeaking])
 
   const getUserVolume = useCallback(() => {
     if (isMutedRef.current || !recorderRef.current) return 0
@@ -961,6 +980,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     setError(null)
     setConnectionNotice(null)
     setUserStatus('connecting')
+    void handlersRef.current.onPause?.()
     // Preserve the browser click gesture when unlocking speaker playback.
     try { primeAudioContext() } catch {}
     try {
@@ -981,6 +1001,9 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             if (prev === 'disconnected' || prev === 'error' || prev === 'connecting') return prev
             return playing ? 'speaking' : 'listening'
           })
+          if (playing) {
+            void handlersRef.current.onPause?.()
+          }
         },
       })
       playerRef.current = player
@@ -1007,6 +1030,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         onAudio: (chunk) => {
           if (!isCurrent()) return
           assistantTurnActiveRef.current = true
+          void handlersRef.current.onPause?.()
           recoveryRef.current.addAudio(chunk)
           syncRecovery()
           if (localInterruptRef.current) return
@@ -1083,6 +1107,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
         shouldCapture: () => !isMutedRef.current,
         onSpeechOnset: () => {
           if (!isCurrent() || isMutedRef.current) return
+          void handlersRef.current.onPause?.()
           if (assistantTurnActiveRef.current || player.getIsPlaying() || player.getPendingMs() > 0) {
             localInterruptRef.current = true
             // This callback is emitted only after sustained speech confirmation.
@@ -1152,6 +1177,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
     const trimmed = text.trim()
     if (!trimmed) return
 
+    void handlersRef.current.onPause?.()
     recoveryRef.current.addUserMessage(text)
     syncRecovery()
     pendingTextMessagesRef.current.push(text)

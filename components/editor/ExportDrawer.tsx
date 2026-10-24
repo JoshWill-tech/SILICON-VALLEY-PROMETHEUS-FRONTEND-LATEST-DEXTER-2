@@ -4,10 +4,13 @@ import { useState } from 'react'
 import { useProjectExportReadiness } from '@/hooks/use-project-export-readiness'
 import { useEditorialTimeline } from '@/hooks/use-editorial-timeline'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import {
+  Check,
   ChevronDown,
   Cloud,
   Download,
+  ExternalLink,
   Facebook,
   FileVideo2,
   HardDrive,
@@ -17,6 +20,7 @@ import {
   Monitor,
   Music2,
   Twitter,
+  Upload,
   Youtube,
   type LucideIcon,
 } from 'lucide-react'
@@ -55,8 +59,47 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
   const configured = useConfiguredProviders()
   const [isRendering, setIsRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [exportingProvider, setExportingProvider] = useState<string | null>(null)
+  const [cloudSuccessLink, setCloudSuccessLink] = useState<{ provider: string; url: string } | null>(null)
   const {readiness, status: readinessStatus, error: readinessError, retry: retryReadiness} = useProjectExportReadiness(showExport ? projectId : null)
   const timelineSync = useEditorialTimeline()
+
+  async function handleCloudExport(provider: string) {
+    if (exportingProvider) return
+    setExportingProvider(provider)
+    setError(null)
+    setCloudSuccessLink(null)
+    const providerName = getProviderMetadata(provider)?.name ?? provider
+    const toastId = toast.loading(`Exporting to ${providerName}…`)
+
+    try {
+      const res = await fetch(`/api/export/${provider}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectId || undefined,
+          fileName: `prometheus-export-${Date.now()}.mp4`,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to export to ${providerName}`)
+      }
+
+      toast.success(`Successfully exported to ${providerName}!`, { id: toastId })
+      if (data.webViewLink) {
+        setCloudSuccessLink({ provider: providerName, url: data.webViewLink })
+      }
+    } catch (cause: any) {
+      console.error(`Export to ${provider} failed:`, cause)
+      const msg = cause instanceof Error ? cause.message : `Failed to export to ${providerName}`
+      setError(msg)
+      toast.error(msg, { id: toastId })
+    } finally {
+      setExportingProvider(null)
+    }
+  }
 
   async function startRender() {
     if (isRendering) return
@@ -104,13 +147,32 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             </div>
           </div>
         </div>
-        <Link
-          href={`/settings/social-accounts${connected ? '' : `?connect=${provider}`}`}
-          onClick={() => setShowExport(false)}
-          className={`inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border px-3 text-[10px] font-medium transition-colors ${connected ? 'border-white/[0.12] bg-white/[0.04] text-white/70 hover:bg-white/[0.08]' : 'border-white/[0.12] bg-white/[0.06] text-white/80 hover:bg-white/[0.11]'}`}
-        >
-          {connected ? 'Manage' : kind === 'storage' ? 'Link' : 'Connect'}
-        </Link>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {connected && kind === 'storage' && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={Boolean(exportingProvider) || isRendering}
+              onClick={() => void handleCloudExport(provider)}
+              className="min-h-8 shrink-0 border-white/[0.18] bg-white/[0.08] px-2.5 text-[10px] font-semibold text-white hover:bg-white/[0.16] hover:text-white"
+            >
+              {exportingProvider === provider ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Upload className="size-3" />
+              )}
+              {exportingProvider === provider ? 'Exporting…' : 'Export'}
+            </Button>
+          )}
+          <Link
+            href={`/settings/social-accounts${connected ? '' : `?connect=${provider}`}`}
+            onClick={() => setShowExport(false)}
+            className={`inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border px-2.5 text-[10px] font-medium transition-colors ${connected ? 'border-white/[0.12] bg-white/[0.04] text-white/70 hover:bg-white/[0.08]' : 'border-white/[0.12] bg-white/[0.06] text-white/80 hover:bg-white/[0.11]'}`}
+          >
+            {connected ? 'Manage' : kind === 'storage' ? 'Link' : 'Connect'}
+          </Link>
+        </div>
       </div>
     )
   }
@@ -147,16 +209,33 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
             <div role="note" aria-label="Source export capabilities" className="mt-3 rounded-lg border border-white/[0.1] bg-white/[0.025] px-4 py-3 text-xs leading-relaxed text-[var(--light-ui-text,#e8e8ed)]">
               <p className="font-semibold">What this export includes</p>
               <p className="mt-1">Original source footage with automatic captions and music. Saved timeline edits, editor captions, and your selected music are not included.</p>
-              <p className="mt-2">The MP4 is saved to project exports. Direct social posting and cloud delivery are unavailable; destination links manage connected accounts.</p>
+              <p className="mt-2">Export directly to connected Google Drive below, or download the MP4 to your device.</p>
             </div>
           </section>
 
-          <details className="group border-t border-white/[0.08] pt-4">
+          {cloudSuccessLink && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-xs text-emerald-200">
+              <div className="flex items-center gap-2">
+                <Check className="size-4 shrink-0 text-emerald-400" />
+                <span>Exported to {cloudSuccessLink.provider}!</span>
+              </div>
+              <a
+                href={cloudSuccessLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 hover:text-white"
+              >
+                Open in Drive <ExternalLink className="size-3" />
+              </a>
+            </div>
+          )}
+
+          <details className="group border-t border-white/[0.08] pt-4" open>
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-white/30 [&::-webkit-details-marker]:hidden">
               <span>Accounts and destinations</span>
               <ChevronDown className="size-3 shrink-0 text-white/40 transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
-            <p className="mb-3 mt-2 text-[11px] text-white/40">Direct social posting is unavailable. The MP4 is saved to project exports. <Link href="/settings/social-accounts" onClick={() => setShowExport(false)} className="text-white/65 underline decoration-white/20 underline-offset-4 hover:text-white">Manage accounts</Link></p>
+            <p className="mb-3 mt-2 text-[11px] text-white/40">Direct cloud storage export is active for connected accounts. <Link href="/settings/social-accounts" onClick={() => setShowExport(false)} className="text-white/65 underline decoration-white/20 underline-offset-4 hover:text-white">Manage accounts</Link></p>
             <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">Social</div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{SOCIAL_TARGETS.map(provider => renderAccountCard(provider, 'social'))}</div>
             <div className="mb-2 mt-4 text-[10px] font-medium uppercase tracking-[0.08em] text-white/35">Cloud storage</div>

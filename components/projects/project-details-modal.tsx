@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUpRight, CalendarDays, Clock3, Copy, Download, Film, Gauge, Trash2, X } from 'lucide-react'
+import { ArrowUpRight, CalendarDays, Clock3, Copy, Download, Film, Gauge, HardDrive, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { InlineLoadingAnimation } from '@/components/loading-animation'
@@ -86,6 +86,35 @@ export function ProjectDetailsModal({
     }
   }, [project])
 
+  const handleExportToDrive = React.useCallback(async () => {
+    if (!project) return
+    const toastId = toast.loading('Exporting to Google Drive…')
+    try {
+      const res = await fetch('/api/export/google_drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          fileName: `${project.title.toLowerCase().replace(/[^a-z0-9]/gi, '-') || 'export'}.mp4`,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 409 || data.error?.includes('connect')) {
+          toast.error('Google Drive is not connected. Opening settings…', { id: toastId })
+          window.location.href = '/settings/social-accounts?connect=google_drive'
+          return
+        }
+        throw new Error(data.error || 'Failed to export to Google Drive')
+      }
+
+      toast.success('Successfully exported to Google Drive!', { id: toastId })
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not export to Google Drive.', { id: toastId })
+    }
+  }, [project])
+
   return (
     <Dialog open onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent
@@ -165,6 +194,14 @@ export function ProjectDetailsModal({
             >
               <Download className="size-3.5" />
               Download
+            </button>
+            <button
+              type="button"
+              onClick={handleExportToDrive}
+              className="inline-flex min-h-10 items-center gap-2 border border-white/25 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/75 transition-colors duration-300 hover:border-[#4285F4]/60 hover:bg-[#4285F4]/15 hover:text-[#4285F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <HardDrive className="size-3.5" />
+              Drive
             </button>
             <button
               type="button"

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { ArrowUpRight, Clock3, Copy, Download, Film, Gauge, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { ArrowUpRight, Clock3, Copy, Download, Film, Gauge, HardDrive, Link2, MoreHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { InlineLoadingAnimation } from '@/components/loading-animation'
@@ -84,8 +84,37 @@ export function ProjectCard({ project, featured = false, onEdit, onDuplicate, on
     }
   }, [project.id, project.title])
 
+  const handleExportToDrive = React.useCallback(async () => {
+    const toastId = toast.loading('Exporting to Google Drive…')
+    try {
+      const res = await fetch('/api/export/google_drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          fileName: `${project.title.toLowerCase().replace(/[^a-z0-9]/gi, '-') || 'export'}.mp4`,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 409 || data.error?.includes('connect')) {
+          toast.error('Google Drive is not connected. Opening settings…', { id: toastId })
+          window.location.href = '/settings/social-accounts?connect=google_drive'
+          return
+        }
+        throw new Error(data.error || 'Failed to export to Google Drive')
+      }
+
+      toast.success('Successfully exported to Google Drive!', { id: toastId })
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not export to Google Drive.', { id: toastId })
+    }
+  }, [project.id, project.title])
+
   const actions = [
     { label: 'Download export', icon: Download, onClick: handleDownload },
+    { label: 'Export to Google Drive', icon: HardDrive, onClick: handleExportToDrive },
     { label: 'Duplicate project', icon: Copy, onClick: () => onDuplicate(project.id) },
     { label: 'Share project', icon: Link2, onClick: () => onShare(project.id) },
     { label: 'Delete project', icon: Trash2, onClick: () => onDelete(project.id), danger: true },

@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Cloud,
   Copy,
   Download,
   ExternalLink,
@@ -22,6 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { downloadMedia } from '@/lib/editor/browser-download'
 
 import { ProjectsPageEditorial } from '@/components/projects/projects-page-editorial'
 import { InlineLoadingAnimation } from '@/components/loading-animation'
@@ -319,6 +321,7 @@ function OriginalProjectsPage() {
   const [isDeletingProjects, setIsDeletingProjects] = React.useState(false)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
   const [exportSettingsProject, setExportSettingsProject] = React.useState<Project | null>(null)
+  const [activeExportProject, setActiveExportProject] = React.useState<Project | null>(null)
   const [actionSheetProject, setActionSheetProject] = React.useState<Project | null>(null)
   const [activityCollapsed, setActivityCollapsed] = React.useState(false)
   const [bulkTagValue, setBulkTagValue] = React.useState('')
@@ -608,10 +611,67 @@ function OriginalProjectsPage() {
         mergeProjectMetadata(current, { lastExportedAt: new Date().toISOString() }),
       )
       setExportSettingsProject(null)
+      setActiveExportProject(project)
       setShowExport(true)
     },
     [optimisticUpdateProject, setShowExport],
   )
+
+  const handleExportToDrive = React.useCallback(async (project: Project, version: VersionRecord) => {
+    const toastId = toast.loading(`Exporting ${version.label} to Google Drive…`)
+    try {
+      const res = await fetch('/api/export/google_drive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          assetId: version.original ? project.sourceAssetId || undefined : undefined,
+          fileName: `${project.title.toLowerCase().replace(/[^a-z0-9-]+/g, '-')}-${version.original ? 'v1-original' : version.id}.mp4`,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 409 || data.error?.includes('connect')) {
+          toast.error('Google Drive is not connected. Opening integrations…', { id: toastId })
+          router.push('/settings/social-accounts?connect=google_drive')
+          return
+        }
+        throw new Error(data.error || 'Failed to export to Google Drive')
+      }
+
+      toast.success('Exported to Google Drive successfully!', { id: toastId })
+    } catch (cause: any) {
+      toast.error(cause instanceof Error ? cause.message : 'Google Drive export failed', { id: toastId })
+    }
+  }, [router])
+
+  const handleDownloadVersion = React.useCallback(async (project: Project, version: VersionRecord) => {
+    const toastId = toast.loading(`Preparing download for ${version.label}…`)
+    try {
+      if (version.original) {
+        const res = await fetch(`/api/projects/${encodeURIComponent(project.id)}/assets`)
+        const data = await res.json().catch(() => ({}))
+        const url = data.source?.url
+        if (!url) throw new Error('Original video file could not be found.')
+        const filename = `${project.title.toLowerCase().replace(/[^a-z0-9-]+/g, '-')}-v1-original.mp4`
+        await downloadMedia(url, filename)
+        toast.success('Download started', { id: toastId })
+      } else {
+        const res = await fetch(`/api/projects/${encodeURIComponent(project.id)}/exports/latest`)
+        const data = await res.json().catch(() => ({}))
+        if (!data.export?.id) throw new Error('Rendered version not ready yet.')
+        const dlRes = await fetch(`/api/exports/${encodeURIComponent(data.export.id)}/download-url`)
+        const dlData = await dlRes.json().catch(() => ({}))
+        const dlUrl = dlData.download?.url || dlData.downloadUrl
+        if (!dlUrl) throw new Error('Download URL could not be generated.')
+        await downloadMedia(dlUrl, dlData.download?.filename || `${project.title}-export.mp4`)
+        toast.success('Download started', { id: toastId })
+      }
+    } catch (cause: any) {
+      toast.error(cause instanceof Error ? cause.message : 'Download failed', { id: toastId })
+    }
+  }, [])
 
   const bulkApplyTag = React.useCallback(() => {
     const tag = bulkTagValue.trim()

@@ -107,7 +107,15 @@ import {
 import { downloadMedia } from '@/lib/editor/browser-download'
 import { useFrameTargeting } from '@/hooks/use-frame-targeting'
 import { parseFrameReference } from '@/lib/editorial-frame/parse-frame-reference'
-import { registerVoiceCompanionBridge, unregisterVoiceCompanionBridge } from '@/lib/voice-companion/bridge'
+import {
+  registerVoiceCompanionBridge,
+  unregisterVoiceCompanionBridge,
+  subscribeVoiceCompanionBridge,
+  getVoiceCompanionBridge,
+  isVoiceInteractionActive,
+  isVoiceActivelyListening,
+  isVoiceSpeaking,
+} from '@/lib/voice-companion/bridge'
 import { fetchVoiceCatalog } from '@/lib/voice-companion/catalog-search'
 import { saveVoiceMusicMix } from '@/lib/voice-companion/music-mix'
 import { saveVoiceCaptionStyle } from '@/lib/voice-companion/video-edit'
@@ -8819,7 +8827,18 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       previewUrl,
     })
     const video = previewVideoRef.current
-    if (video && video.paused) {
+    if (!video) return
+
+    // Never autonomously kickstart playback if user/system intent is paused,
+    // or if Jarvis / voice chat is actively conversing, listening, or speaking.
+    if (previewPlaybackIntentRef.current !== 'playing' || isVoiceInteractionActive()) {
+      if (!video.paused) {
+        video.pause()
+      }
+      return
+    }
+
+    if (video.paused) {
       video.play().then(() => {
         previewPlaybackIntentRef.current = 'playing'
         setPreviewPlaying(true)
@@ -8957,6 +8976,23 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     previousWorkspaceTabRef.current = activeWorkspaceTab
     pausePreviewPlayback()
   }, [activeWorkspaceTab, pausePreviewPlayback])
+
+  // Listen for voice companion / Jarvis speech and listening events.
+  // Whenever voice interaction is active (Jarvis speaking/listening or user conversing),
+  // immediately pause preview video playback so voices do not clobber each other.
+  React.useEffect(() => {
+    const handleVoiceBridgeChange = () => {
+      const bridge = getVoiceCompanionBridge()
+      if (isVoiceSpeaking(bridge) || isVoiceActivelyListening(bridge)) {
+        pausePreviewPlayback()
+      }
+    }
+    handleVoiceBridgeChange()
+    const unsubscribe = subscribeVoiceCompanionBridge(handleVoiceBridgeChange)
+    return () => {
+      unsubscribe()
+    }
+  }, [pausePreviewPlayback])
 
   // Live editor context handed to the Prometheus chat on every send.
   // Kept in a ref so the memoized chat panel does not re-render per playhead tick.

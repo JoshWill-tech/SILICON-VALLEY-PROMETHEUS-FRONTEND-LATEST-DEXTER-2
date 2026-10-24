@@ -35,7 +35,7 @@ export async function distributeContent(
     case "dropbox":
       return postToDropbox(userId, videoUrl, extraMetadata.fileName || `export-${Date.now()}.mp4`);
     case "google_drive":
-      return saveToDrive(userId, videoUrl, extraMetadata.fileName || `export-${Date.now()}.mp4`);
+      return saveToDrive(userId, videoUrl, extraMetadata.fileName || `export-${Date.now()}.mp4`, extraMetadata);
     default:
       throw new Error(`Provider ${provider} not supported for automated distribution yet.`);
   }
