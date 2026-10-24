@@ -239,7 +239,7 @@ export async function loadProjectChatContext(projectId: string, options: Project
 }
 
 export function formatProjectContextForPrompt(context: ProjectChatContext): string {
-  const lines: string[] = [`Project: ${context.title ?? 'Untitled'} (id: ${context.projectId})`]
+  const lines: string[] = [`Project: ${context.title ?? 'Untitled'}`]
   if (context.video) {
     const parts = [context.video.filename ? `file: ${context.video.filename}` : '', context.video.durationMs !== null ? `duration: ${formatTimecode(context.video.durationMs)}` : '', context.video.width && context.video.height ? `resolution: ${context.video.width}x${context.video.height}` : '', context.video.fps ? `fps: ${context.video.fps}` : ''].filter(Boolean)
     lines.push(parts.length ? `Video - ${parts.join(', ')}` : 'Video uploaded.')

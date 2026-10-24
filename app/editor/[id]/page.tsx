@@ -450,35 +450,18 @@ const MUSIC_INTENT_KEYWORDS = [
 ] as const
 
 const EDIT_INTENT_KEYWORDS = [
-  'edit',
   'edit this video',
+  'edit the video',
   'make this video',
   'make this cut',
-  'rough cut',
-  'rough cuts',
-  'refine',
-  'tighten',
-  'trim',
-  'shorten',
-  'extend',
-  'reframe',
-  'caption',
-  'captions',
-  'subtitle',
-  'subtitle',
-  'title card',
-  'motion',
-  'overlay',
-  'overlay text',
-  'timeline',
-  'pacing',
-  'hook',
-  'intro',
-  'outro',
+  'rough cut this',
+  'apply rough cut',
+  'cut out the silence',
   'remove dead air',
-  'cinematic',
-  'polish',
-  'clean up',
+  'cut dead air',
+  'trim dead air',
+  'clean up the timeline',
+  'apply silence cuts',
 ] as const
 
 function chatEntriesStorageKey(projectId: string) {
@@ -541,7 +524,7 @@ function isEditIntent(value: string) {
   const normalized = value.trim().toLowerCase()
   if (!normalized) return false
   if (EDIT_INTENT_KEYWORDS.some((keyword) => normalized.includes(keyword))) return true
-  return /^(?:please\s+)?(?:can you\s+)?(?:make|edit|tighten|trim|reframe|caption|subtitle|refine|polish|cut)\b/.test(normalized)
+  return /^(?:please\s+)?(?:can you\s+)?(?:cut\s+(?:the\s+)?silence|trim\s+(?:the\s+)?dead\s+air|remove\s+dead\s+air)\b/.test(normalized)
 }
 
 function classifyChatTask({
@@ -3613,7 +3596,6 @@ function FloatingChatComposer({
                     onAttachImage={() => attachmentInputRef.current?.click()}
                     contextProvider={chatContextProvider}
                     onApplyActions={onApplyChatActions}
-                    autoApplyActions
                     onSeekToSec={onChatSeekToSec}
                     workspaceTab={workspaceTab}
                     className="min-h-full"
@@ -8032,8 +8014,6 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       text: segment.text,
       isCut: segment.isCut === true,
     }))
-    setActiveWorkspaceTab('Motion')
-    setBottomMode('Original')
     return handleVoiceEditorialPlan(buildEditorialPlan(prompt, {
       durationSec: transportDurationSec,
       transcriptSegments,
@@ -9306,20 +9286,14 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         setActiveWorkspaceTab(draft.tab as HeaderNavMode)
         setBottomMode(draft.tab === 'Music' ? 'Music' : 'Original')
       } else if (draft.kind === 'split_at_playhead' && typeof draft.timeSec === 'number') {
-        setActiveWorkspaceTab('Motion')
-        setBottomMode('Original')
         handlePreviewSeekSeconds(draft.timeSec)
         handleSplitClip(draft.timeSec)
       } else if (draft.kind === 'set_caption_style') {
-        setActiveWorkspaceTab('Motion')
-        setBottomMode('Original')
         const result = await saveVoiceCaptionStyle(getEditorialTimelineController(projectId), project?.sourceAssetId, draft.style)
         if (result.success) setEditorCaptionStyle(draft.style)
         if (result.success) toast.success(result.summary)
         else toast.info(result.summary)
       } else if (draft.kind === 'cut_silence') {
-        setActiveWorkspaceTab('Motion')
-        setBottomMode('Original')
         handleApplySilenceCuts(resolveSilenceCuts(draft.minDurationSec))
       } else if (draft.kind === 'start_render') {
         await handlePrepareExport()

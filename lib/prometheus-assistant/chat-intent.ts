@@ -18,6 +18,7 @@ export type PrometheusChatIntent = {
 const GREETING_PATTERN =
   /^(?:hi|hello|hey|hiya|yo|good\s+(?:morning|afternoon|evening)|hi\s+there|hello\s+there)[!,.?\s]*$/i;
 const THANKS_PATTERN = /^(?:thanks?|thank\s+you|much\s+appreciated)[!,.?\s]*$/i;
+const EMOJI_PATTERN = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\s]+$/u;
 const SOCIAL_PATTERN =
   /\b(?:instagram|tiktok|linkedin|youtube|twitter|x\s+thread|caption|hashtags?|social\s+(?:post|content)|content\s+calendar)\b/i;
 const EDITING_PATTERN =
@@ -43,7 +44,8 @@ export function classifyPrometheusChatIntent(
   if (
     GREETING_PATTERN.test(normalized) ||
     THANKS_PATTERN.test(normalized) ||
-    CONVERSATIONAL_FOLLOW_UP_PATTERN.test(normalized)
+    CONVERSATIONAL_FOLLOW_UP_PATTERN.test(normalized) ||
+    EMOJI_PATTERN.test(normalized)
   ) {
     return {
       kind: "conversation",
@@ -117,6 +119,10 @@ export function createDirectPrometheusReply(
 
   if (THANKS_PATTERN.test(normalized)) {
     return "You’re welcome. What should we shape next?";
+  }
+
+  if (EMOJI_PATTERN.test(normalized)) {
+    return "Sounds great! What would you like to explore or refine in this cut?";
   }
 
   return null;

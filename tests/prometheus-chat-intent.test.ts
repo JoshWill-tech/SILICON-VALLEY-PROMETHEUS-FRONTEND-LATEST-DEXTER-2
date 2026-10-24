@@ -38,3 +38,8 @@ assert.equal(socialRequest.useSocialStrategist, true);
 const followUp = classifyPrometheusChatIntent("Can you explain that more clearly?");
 assert.equal(followUp.kind, "conversation");
 assert.equal(followUp.useKnowledge, false);
+
+const emojiMessage = classifyPrometheusChatIntent("🎬🔥✨");
+assert.equal(emojiMessage.kind, "conversation");
+assert.equal(emojiMessage.allowTools, false);
+assert.match(createDirectPrometheusReply("🎬🔥✨", emojiMessage) ?? "", /Sounds great/i);

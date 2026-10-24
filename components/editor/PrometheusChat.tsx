@@ -372,8 +372,6 @@ export function PrometheusChat({
     if (usesPersistentChat) {
       if (onStartAutonomousEdit) {
         onStartAutonomousEdit(message)
-      } else {
-        window.dispatchEvent(new CustomEvent('prometheus:start-editorial-cleanup', { detail: { prompt: message } }))
       }
       await persistentChat.sendMessage(message, { interrupt: true })
       return
@@ -511,8 +509,6 @@ export function PrometheusChat({
       }
       if (onStartAutonomousEdit) {
         onStartAutonomousEdit(message)
-      } else {
-        window.dispatchEvent(new CustomEvent('prometheus:start-editorial-cleanup', { detail: {prompt: message} }))
       }
       await persistentChat.sendMessage(message)
       return
