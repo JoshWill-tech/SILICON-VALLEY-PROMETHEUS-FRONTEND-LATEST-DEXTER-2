@@ -33,6 +33,10 @@ export const thumbnailWorkspaceClasses = {
   guides: 'prom-thumbnail-guides',
   empty: 'prom-thumbnail-empty',
   generating: 'prom-thumbnail-generating',
+  progressBarTrack: 'prom-thumbnail-progress-track',
+  progressBarFill: 'prom-thumbnail-progress-fill',
+  progressPercentText: 'prom-thumbnail-progress-percent',
+  progressStageText: 'prom-thumbnail-progress-stage',
   spin: 'prom-thumbnail-spin',
   previewMeta: 'prom-thumbnail-previewMeta',
   metaLabel: 'prom-thumbnail-metaLabel',
@@ -165,8 +169,12 @@ export const thumbnailWorkspaceCss = String.raw`
 .prom-thumbnail-empty { padding: 44px 24px; text-align: center; color: color-mix(in srgb, var(--chrome, #e9eef0) 75%, transparent); display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 13px; }
 .prom-thumbnail-empty strong { color: var(--chrome, #e9eef0); font-size: 17px; font-weight: 550; }
 .prom-thumbnail-empty p { max-width: 290px; margin: 0; line-height: 1.7; }
-.prom-thumbnail-generating { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; background: var(--light-ui-surface, #061014d9); backdrop-filter: blur(8px); font-size: 14px; }
+.prom-thumbnail-generating { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; background: var(--light-ui-surface, #061014d9); backdrop-filter: blur(8px); font-size: 14px; z-index: 10; }
 .prom-thumbnail-generating small { color: var(--light-ui-muted, #aab9bd); font-size: 12px; }
+.prom-thumbnail-progress-track { width: 220px; height: 6px; background: rgba(255, 255, 255, 0.14); border-radius: 999px; overflow: hidden; position: relative; margin-top: 4px; }
+.prom-thumbnail-progress-fill { height: 100%; background: linear-gradient(90deg, #00B9F2, #7FF2D4); border-radius: 999px; transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.prom-thumbnail-progress-percent { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; font-weight: 600; color: #7FF2D4; letter-spacing: 0.04em; }
+.prom-thumbnail-progress-stage { color: var(--chrome, #e9eef0); font-size: 13px; font-weight: 500; text-align: center; max-width: 260px; line-height: 1.4; }
 .prom-thumbnail-spin { animation: prom-thumbnail-spin 1s linear infinite; }
 @keyframes prom-thumbnail-spin { to { transform: rotate(360deg); } }
 .prom-thumbnail-previewMeta { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin: 10px 0 21px; font-size: 10px; color: var(--light-ui-muted, #94a0a6); }

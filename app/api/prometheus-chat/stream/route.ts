@@ -727,7 +727,7 @@ function frameRefsFromThumbs(
   });
 }
 
-export function sanitizeChatOutput(text: string, projectId?: string): string {
+function sanitizeChatOutput(text: string, projectId?: string): string {
   if (!text) return text;
   let sanitized = text;
   if (projectId && projectId.length > 4) {

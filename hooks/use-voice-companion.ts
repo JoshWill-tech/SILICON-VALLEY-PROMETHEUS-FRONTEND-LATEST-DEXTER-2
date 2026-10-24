@@ -294,6 +294,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           const liveContext = contextProvider?.()
           const bridge = handlersRef.current
           const hasVideo = bridge.hasVideo ?? false
+          const thumbnailState = bridge.getThumbnailState?.()
           return {
             success: true,
             projectId: bridge.projectId ?? null,
@@ -310,12 +311,44 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             videoDurationSec: hasVideo ? (bridge.videoDurationSec ?? 0) : 0,
             videoMusicContext: bridge.videoMusicContext,
             transcriptAvailable: Boolean(bridge.transcriptText || bridge.transcriptSegments),
+            transcriptSummary: typeof bridge.transcriptText === 'string' && bridge.transcriptText.trim()
+              ? bridge.transcriptText.trim().slice(0, 1500)
+              : null,
             music: bridge.getMusicState?.() ?? null,
             timelineSync: bridge.getTimelineSyncState?.() ?? null,
-            hasThumbnail: Boolean(bridge.activeThumbnailUrl || bridge.videoThumbnailUrl),
-            thumbnailUrl: bridge.activeThumbnailUrl || bridge.videoThumbnailUrl || null,
-            activeThumbnailHeadline: bridge.activeThumbnailHeadline ?? null,
+            hasThumbnail: Boolean(bridge.activeThumbnailUrl || bridge.videoThumbnailUrl || thumbnailState?.thumbnailUrl),
+            thumbnailUrl: thumbnailState?.thumbnailUrl || bridge.activeThumbnailUrl || bridge.videoThumbnailUrl || null,
+            activeThumbnailHeadline: thumbnailState?.headline || bridge.activeThumbnailHeadline || null,
+            thumbnail: bridge.getThumbnailState?.() ?? {
+              isOpen: false,
+              isGenerating: false,
+              percent: 0,
+              stage: 'idle',
+              headline: bridge.activeThumbnailHeadline ?? null,
+              thumbnailUrl: bridge.activeThumbnailUrl || bridge.videoThumbnailUrl || null,
+            },
             brollInsertionAvailable: false,
+          }
+        }
+
+        case 'get_thumbnail_status': {
+          const bridge = handlersRef.current
+          const state = bridge.getThumbnailState?.() ?? {
+            isOpen: false,
+            isGenerating: false,
+            percent: 0,
+            stage: 'idle',
+            headline: bridge.activeThumbnailHeadline ?? null,
+            thumbnailUrl: bridge.activeThumbnailUrl || bridge.videoThumbnailUrl || null,
+          }
+          return {
+            success: true,
+            ...state,
+            message: state.isGenerating
+              ? `Thumbnail generation is currently progressing in Thumbnail Studio (${state.percent}%): ${state.stage}. Headline: "${state.headline || 'Untitled'}".`
+              : state.thumbnailUrl
+                ? `Thumbnail generation complete. Headline: "${state.headline || 'Untitled'}".`
+                : 'Thumbnail Studio is idle.',
           }
         }
 
@@ -496,9 +529,13 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           if (!handlers.hasVideo && !handlers.projectId) return { success: false, error: 'There is no playable source video in this project yet.' }
           if (!onApplyActions) return { success: false, error: 'Thumbnail Studio is not connected to this editor.' }
           const titleHint = handlers.videoTitle || 'Cinematic Video'
-          const headline = typeof args.headline === 'string' && args.headline.trim()
+          let rawHeadline = typeof args.headline === 'string' && args.headline.trim()
             ? args.headline.trim().slice(0, 64)
-            : titleHint.slice(0, 64)
+            : ''
+          if (!rawHeadline || /^(more|basically|the|a|um|uh|yeah)$/i.test(rawHeadline)) {
+            rawHeadline = titleHint.slice(0, 64)
+          }
+          const headline = rawHeadline
           const isIterative = Boolean(args.isIterative || args.changes)
           const changes = typeof args.changes === 'string' && args.changes.trim()
             ? args.changes.trim().slice(0, 500)
@@ -506,6 +543,9 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           const creativeDirection = typeof args.creativeDirection === 'string' && args.creativeDirection.trim()
             ? args.creativeDirection.trim().slice(0, 500)
             : changes || `High-impact cinematic YouTube thumbnail with bold typography for "${titleHint}"`
+          const referenceId = typeof args.referenceId === 'string' && args.referenceId.trim()
+            ? (args.referenceId.trim() as any)
+            : undefined
           const aspectRatio = typeof args.aspectRatio === 'string' && ['16:9', '9:16', '1:1', '3:2', '2:3'].includes(args.aspectRatio)
             ? args.aspectRatio
             : undefined
@@ -513,28 +553,49 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
           await onApplyActions([{
             kind: 'open_thumbnail_studio',
             headline,
+            referenceId,
             creativeDirection,
             generateNow: true,
             isIterative: isIterative || Boolean(changes),
             iterationPrompt: changes || creativeDirection,
             baseThumbnailUrl,
             aspectRatio,
-            summary: isIterative ? `Iteratively modify thumbnail: ${changes || headline}` : 'Generate a thumbnail for this video',
+            summary: isIterative ? `Iteratively modify thumbnail: ${changes || headline}` : `Generate a cinematic thumbnail: ${headline}`,
           }])
-          return { success: true, generationStarted: true, headline, aspectRatio, isIterative: isIterative || Boolean(changes), message: `Thumbnail Studio opened and image generation was started${aspectRatio ? ` in ${aspectRatio} format` : ''} in Thumbnail Studio.` }
+          return {
+            success: true,
+            generationStarted: true,
+            headline,
+            referenceId,
+            aspectRatio,
+            isIterative: isIterative || Boolean(changes),
+            message: `Thumbnail Studio opened and generation started for "${headline}"${referenceId ? ` with reference seed "${referenceId}"` : ''}${aspectRatio ? ` in ${aspectRatio}` : ''}. Progress is tracking live in Thumbnail Studio.`,
+          }
         }
 
         case 'modify_video_thumbnail': {
           const handlers = handlersRef.current
           if (!handlers.hasVideo && !handlers.projectId) return { success: false, error: 'There is no playable source video in this project yet.' }
           if (!onApplyActions) return { success: false, error: 'Thumbnail Studio is not connected to this editor.' }
-          const changes = typeof args.changes === 'string' && args.changes.trim()
+          let changes = typeof args.changes === 'string' && args.changes.trim()
             ? args.changes.trim().slice(0, 500)
             : ''
-          if (!changes) return { success: false, error: 'Specify what you would like to change on the thumbnail.' }
-          const headline = typeof args.headline === 'string' && args.headline.trim()
+          if (!changes || /^(more|basically|um|uh|yeah)$/i.test(changes)) {
+            return { success: false, error: 'Specify what you would like to change on the thumbnail.' }
+          }
+          let headline = typeof args.headline === 'string' && args.headline.trim()
             ? args.headline.trim().slice(0, 64)
             : undefined
+          if (headline && /^(more|basically|um|uh|yeah)$/i.test(headline)) {
+            headline = undefined
+          }
+          // Phonetic rectification (e.g. 'seba crimes' -> 'Cyber Crimes')
+          if (headline && /seba\s+crimes/i.test(headline)) {
+            headline = headline.replace(/seba\s+crimes/gi, 'Cyber Crimes Challenge')
+          }
+          if (changes && /seba\s+crimes/i.test(changes)) {
+            changes = changes.replace(/seba\s+crimes/gi, 'Cyber Crimes Challenge')
+          }
           const aspectRatio = typeof args.aspectRatio === 'string' && ['16:9', '9:16', '1:1', '3:2', '2:3'].includes(args.aspectRatio)
             ? args.aspectRatio
             : undefined
@@ -560,7 +621,7 @@ export function useVoiceCompanion(options: UseVoiceCompanionOptions = {}): UseVo
             changes,
             headline,
             aspectRatio,
-            message: `Thumbnail Studio opened and iterative modification started for: "${changes}". Existing composition and subject are preserved.`,
+            message: `Thumbnail Studio opened and iterative modification started for: "${changes}". Existing composition and subject are preserved. Live progress is tracking in Thumbnail Studio.`,
           }
         }
 

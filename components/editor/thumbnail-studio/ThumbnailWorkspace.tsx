@@ -64,6 +64,8 @@ type Props = {
   selectedVariantId: string | null
   onVariant: (variant: ThumbnailVariant) => void
   isGenerating: boolean
+  progressPercent?: number
+  progressStage?: string
   onGenerate: () => void
   onCancel: () => void
   error: string | null
@@ -245,7 +247,19 @@ export function ThumbnailWorkspace(props: Props) {
               {props.generatedUrl && <div className={styles.stageGlare} aria-hidden="true" />}
               {guides && view !== 'source' && <div className={styles.guides} aria-hidden="true" />}
             </div> : <div className={styles.empty}>{props.isExtracting ? <Loader2 size={25} className={styles.spin} /> : <Camera size={28} />}<strong>{props.isExtracting ? 'Finding your best frames' : 'Start with your subject'}</strong><p>{props.isExtracting ? 'We’re preparing frames from your video.' : 'Load a video in the editor, or add a still image to start creating.'}</p>{!props.isExtracting && <label className={styles.upload}><ImagePlus size={16} /><span>Add a source image</span><input className={styles.hiddenInput} type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload source image" onChange={event => onFileInput(event, props.onUploadFrame)} /></label>}</div>}
-            {props.isGenerating && <div className={styles.generating} role="status"><Sparkles size={27} className={styles.spin} /><strong>Composing your thumbnail</strong><small>Refining the subject, lighting, and headline.</small><button className={styles.secondary} type="button" onClick={props.onCancel}>Cancel generation</button></div>}
+            {(props.isGenerating || props.isExtracting || props.isCurating) && (
+              <div className={styles.generating} role="status">
+                <Sparkles size={27} className={styles.spin} />
+                <strong>{props.isGenerating ? 'Composing cinematic thumbnail' : props.isCurating ? 'Curating high-CTR hook' : 'Extracting candidate frames'}</strong>
+                {props.progressStage && <span className={styles.progressStageText}>{props.progressStage}</span>}
+                <div className={styles.progressBarTrack} aria-label="Thumbnail generation progress">
+                  <div className={styles.progressBarFill} style={{ width: `${Math.max(8, Math.min(100, props.progressPercent ?? (props.isExtracting ? 15 : props.isCurating ? 35 : 75)))}%` }} />
+                </div>
+                <span className={styles.progressPercentText}>{props.progressPercent ? `${props.progressPercent}%` : props.isExtracting ? '15%' : props.isCurating ? '35%' : '75%'}</span>
+                <small>Refining subject likeness, rim lighting, and typographic impact.</small>
+                {props.isGenerating && <button className={styles.secondary} type="button" onClick={props.onCancel}>Cancel generation</button>}
+              </div>
+            )}
           </div>
           <div className={styles.previewMeta}><span className={styles.metaLabel}>{props.generatedUrl ? <Check size={12} /> : <Layers size={12} />}{view === 'source' ? 'Source frame' : generatedLabel}{dimensions && ' · ' + dimensions}</span><div className={styles.viewGroup}>{/* Chat tab removed per request */}{(['artwork','source','feed'] as const).map(mode => <button className={styles.viewButton} type="button" key={mode} aria-pressed={view === mode} disabled={!image && mode !== 'artwork'} onClick={() => setView(mode)}>{mode === 'artwork' ? props.generatedUrl ? 'Artwork' : 'Frame preview' : mode === 'source' ? 'Source' : 'Feed size'}</button>)}<button className={styles.viewButton} type="button" aria-pressed={guides} aria-label="Toggle safe area guides" onClick={() => setGuides(!guides)}><ScanLine size={13} /></button></div></div>
           </div>

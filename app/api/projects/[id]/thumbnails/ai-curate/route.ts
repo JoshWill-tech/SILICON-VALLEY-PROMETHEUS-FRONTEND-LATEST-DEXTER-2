@@ -72,11 +72,16 @@ export async function POST(
       },
       systemInstruction: `You are an elite viral thumbnail art director and click-through-rate (CTR) specialist for YouTube and social video platforms.
 Evaluate candidate video frames and generate viral thumbnail headline hooks.
+CRITICAL CONTENT TRUTH:
+The generated hook titles MUST reflect the authentic subject, core curiosity, and specific highlights of the video.
+Do NOT generate generic or fabricated clickbait (such as 'HE EXPOSED EVERYTHING', 'THEY LIED TO US', or 'WATCH THIS FIRST' when the video is about science, nature, technology, marine biology, business, or education).
+Derive the hooks strictly from the actual subject and spoken transcript context (e.g. for marine biology: 'SECRETS OF THE OCEAN', 'DEEP SEA REVEALED', 'WHAT THEY FOUND BELOW').
+Hooks must be 2 to 5 words, in punchy all-caps or high-impact editorial style.
 Return ONLY valid JSON matching this schema:
 {
   "recommendedFrameIndex": number (0-based index of highest CTR frame),
   "candidateScores": number[] (score 0-100 for each frame in order),
-  "hookTitles": string[] (3-5 short, ultra-punchy 2-5 word thumbnail text hooks in ALL CAPS),
+  "hookTitles": string[] (3-5 short, ultra-punchy 2-5 word thumbnail text hooks grounded in the video's authentic subject),
   "suggestedStyle": "impact" | "editorial" | "neon" | "minimal" | "bold_accent",
   "rationale": string (1-2 sentences explaining why the selected frame and hook will convert viewers)
 }`,
@@ -89,10 +94,10 @@ Return ONLY valid JSON matching this schema:
     const parts: Part[] = [
       {
         text: `Evaluate these ${frames.length} candidate video frames for project: "${projectTitle}".
-Spoken context / hook: "${transcriptSnippet.slice(0, 600)}".
+Spoken context / hook: "${transcriptSnippet.slice(0, 3000)}".
 
 Rank each frame based on facial expression intensity, focal clarity, subject framing, and space for text overlay.
-Generate 4 bold, punchy thumbnail headline hooks.`,
+Generate 4 bold, punchy thumbnail headline hooks strictly grounded in the video's authentic subject and transcript context.`,
       },
     ]
 

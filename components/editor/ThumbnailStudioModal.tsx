@@ -13,6 +13,14 @@ import { ThumbnailWorkspace, type ThumbnailVariant, type ThumbnailChatMessage } 
 interface ThumbnailStudioModalProps {
   isOpen: boolean
   onClose: () => void
+  onProgressUpdate?: (progress: {
+    isGenerating: boolean
+    percent: number
+    stage: string
+    headline?: string
+    thumbnailUrl?: string
+    referenceId?: StudioReferenceId
+  }) => void
   jarvisDraft?: {
     id: number
     creativeDirection?: string
@@ -130,12 +138,14 @@ async function readStudioReference(id: StudioReferenceId): Promise<string | null
   }
 }
 
-export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, projectTitle, videoElement, videoUrl, transcriptSnippet = '', onSaveProjectThumbnail }: ThumbnailStudioModalProps) {
+export function ThumbnailStudioModal({ isOpen, onClose, onProgressUpdate, jarvisDraft, projectId, projectTitle, videoElement, videoUrl, transcriptSnippet = '', onSaveProjectThumbnail }: ThumbnailStudioModalProps) {
   const [candidates, setCandidates] = React.useState<ExtractedFrameCandidate[]>([])
   const [selectedFrameIndex, setSelectedFrameIndex] = React.useState(0)
   const [isExtracting, setIsExtracting] = React.useState(false)
   const [isAiCurating, setIsAiCurating] = React.useState(false)
   const [aiData, setAiData] = React.useState<AiCurationResponse | null>(null)
+  const [progressPercent, setProgressPercent] = React.useState(0)
+  const [progressStage, setProgressStage] = React.useState('')
   const [aspectRatio, setAspectRatio] = React.useState<StudioAspectRatio>('16:9')
   const [design, setDesign] = React.useState<StudioDesign>({ ...DEFAULT_STUDIO_DESIGN })
   const [referenceId, setReferenceId] = React.useState<StudioReferenceId>(STUDIO_REFERENCES[0].id)
@@ -262,6 +272,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
     const controller = new AbortController()
     curationAbortRef.current = controller
     setIsExtracting(true)
+    setProgressPercent(15)
+    setProgressStage('Extracting video candidate frames...')
+    onProgressUpdate?.({ isGenerating: true, percent: 15, stage: 'Extracting video candidate frames', headline, referenceId })
     setNanoErrorMessage(null)
     setCandidates([])
     setAiData(null)
@@ -281,6 +294,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         setIsExtracting(false)
         if (!frames.length) return
         setIsAiCurating(true)
+        setProgressPercent(35)
+        setProgressStage('Analyzing video highlights & authentic hooks...')
+        onProgressUpdate?.({ isGenerating: true, percent: 35, stage: 'Analyzing video highlights & authentic hooks', headline, referenceId })
         const response = await fetch('/api/projects/' + projectId + '/thumbnails/ai-curate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           body: JSON.stringify({ frames: frames.slice(0,6).map(frame => ({ timeSec: frame.timeSec, timecode: frame.timecode, dataUrl: frame.dataUrl })), transcriptSnippet, projectTitle }),
@@ -292,7 +308,12 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         const hookTitles = Array.isArray(data.hookTitles) ? data.hookTitles.filter((hook): hook is string => typeof hook === 'string' && Boolean(hook.trim())).map(hook => hook.slice(0,64)) : []
         setAiData({ recommendedFrameIndex, hookTitles })
         if (!frameTouchedRef.current) setSelectedFrameIndex(recommendedFrameIndex)
-        if (!headlineTouchedRef.current && hookTitles.length) setHeadline(hookTitles[0])
+        if (!headlineTouchedRef.current && !jarvisDraft?.headline && !jarvisDraft?.creativeDirection && hookTitles.length) {
+          setHeadline(hookTitles[0])
+        }
+        setProgressPercent(45)
+        setProgressStage('Candidate frames and hooks ready')
+        onProgressUpdate?.({ isGenerating: false, percent: 45, stage: 'Candidate frames and hooks ready', headline, referenceId })
       } catch (error) {
         if (!cancelled && !controller.signal.aborted && !candidatesRef.current.length) setNanoErrorMessage(error instanceof Error ? error.message : 'Could not extract video frames. Try adding a source image.')
       } finally { if (!cancelled) { setIsExtracting(false); setIsAiCurating(false) } }
@@ -341,7 +362,14 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       setNanoErrorMessage(null)
     } catch (error) { if (epoch === fileReadEpochRef.current) setNanoErrorMessage(error instanceof Error ? error.message : 'Could not load the source image.') }
   }
-  const handleCancelGeneration = () => { generationAbortRef.current?.abort(); setIsGeneratingNano(false); setNanoSuccessMessage('Generation cancelled. Your previous versions are still available.') }
+  const handleCancelGeneration = () => {
+    generationAbortRef.current?.abort()
+    setIsGeneratingNano(false)
+    setProgressPercent(0)
+    setProgressStage('')
+    onProgressUpdate?.({ isGenerating: false, percent: 0, stage: 'Cancelled', headline, referenceId })
+    setNanoSuccessMessage('Generation cancelled. Your previous versions are still available.')
+  }
   const handleGenerateNanoBanana = async (options?: { iterationPrompt?: string; isIterative?: boolean }) => {
     let effectiveHeadline = headline.trim()
     if (!effectiveHeadline && options?.iterationPrompt) {
@@ -352,8 +380,11 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
     generationAbortRef.current?.abort()
     const controller = new AbortController()
     generationAbortRef.current = controller
-    const timeout = setTimeout(() => { if (!controller.signal.aborted) { controller.abort(); setIsGeneratingNano(false); setNanoErrorMessage('The thumbnail service did not respond in time. Your versions are safe. Try again, or choose Fast quality for a quicker render.'); } },THUMBNAIL_CLIENT_TIMEOUT_MS)
+    const timeout = setTimeout(() => { if (!controller.signal.aborted) { controller.abort(); setIsGeneratingNano(false); setProgressPercent(0); setProgressStage(''); onProgressUpdate?.({ isGenerating: false, percent: 0, stage: 'Timed out', headline: effectiveHeadline, referenceId }); setNanoErrorMessage('The thumbnail service did not respond in time. Your versions are safe. Try again, or choose Fast quality for a quicker render.'); } },THUMBNAIL_CLIENT_TIMEOUT_MS)
     setIsGeneratingNano(true)
+    setProgressPercent(55)
+    setProgressStage('Matching visual style DNA & reference seed...')
+    onProgressUpdate?.({ isGenerating: true, percent: 55, stage: 'Matching visual style DNA & reference seed', headline: effectiveHeadline, referenceId })
     setNanoErrorMessage(null)
     setNanoSuccessMessage(null)
     const signature = requestSignature
@@ -402,6 +433,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
         setNanoErrorMessage('The selected image references make this request too large. Remove a reference image or choose a smaller source, then try again.')
         return
       }
+      setProgressPercent(75)
+      setProgressStage('Rendering high-tier cinematic seed...')
+      onProgressUpdate?.({ isGenerating: true, percent: 75, stage: 'Rendering high-tier cinematic seed', headline: effectiveHeadline, referenceId })
       const response = await fetch('/api/projects/' + projectId + '/thumbnails/nano-banana', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
         body: JSON.stringify(requestBody),
@@ -409,6 +443,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       const data = await readThumbnailGenerationResponse(response)
       if (controller.signal.aborted) return
       if (!response.ok || typeof data.dataUrl !== 'string' || !/^data:image\/(png|jpeg|webp);base64,/.test(data.dataUrl)) throw new Error(typeof data.error === 'string' ? data.error : 'Nano Banana did not return an image. Try another frame or direction.')
+      setProgressPercent(90)
+      setProgressStage('Refining details & compacting artwork...')
+      onProgressUpdate?.({ isGenerating: true, percent: 90, stage: 'Refining details & compacting artwork', headline: effectiveHeadline, referenceId })
       const generatedImage = new Image()
       generatedImage.src = data.dataUrl
       await generatedImage.decode()
@@ -418,6 +455,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       setGeneratedDataUrl(data.dataUrl)
       setVariants(previous => [...previous,variant].slice(-8))
       setSelectedVariantId(variant.id)
+      setProgressPercent(100)
+      setProgressStage('Thumbnail ready!')
+      onProgressUpdate?.({ isGenerating: false, percent: 100, stage: 'Thumbnail ready!', headline: effectiveHeadline, thumbnailUrl: data.dataUrl, referenceId })
       setNanoSuccessMessage(effectiveIterativePrompt ? 'Refined thumbnail ready. Saved as a new version.' : 'Thumbnail ready. Save it or create another version.')
       setSavedSuccess(false)
       if (effectiveIterativePrompt) {
@@ -434,6 +474,9 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
       if (!controller.signal.aborted) {
         const errorMsg = error instanceof Error ? error.message : 'Thumbnail generation failed. Try again.'
         setNanoErrorMessage(errorMsg)
+        setProgressPercent(0)
+        setProgressStage('')
+        onProgressUpdate?.({ isGenerating: false, percent: 0, stage: 'Failed', headline: effectiveHeadline, referenceId })
         if (options?.iterationPrompt || jarvisDraft?.isIterative) {
           setChatMessages(prev => [
             ...prev,
@@ -525,5 +568,5 @@ export function ThumbnailStudioModal({ isOpen, onClose, jarvisDraft, projectId, 
   }
 
   if (!isOpen) return null
-  return <ThumbnailWorkspace projectTitle={projectTitle} aspectRatio={aspectRatio} onAspectRatio={setAspectRatio} design={design} onDesign={update => setDesign(previous => ({ ...previous,...update }))} headline={headline} onHeadline={handleHeadline} emphasis={highlightWord} onEmphasis={setHighlightWord} creativeDirection={creativeDirection} onCreativeDirection={setCreativeDirection} recipeId={recipeId} onRecipe={setRecipeId} candidates={candidates} selectedFrameIndex={selectedFrameIndex} onFrame={handleFrame} isExtracting={isExtracting} isCurating={isAiCurating} recommendedFrameIndex={aiData?.recommendedFrameIndex} hookTitles={aiData?.hookTitles ?? []} onCapture={videoElement ? handleCaptureCurrentPlayhead : undefined} onUploadFrame={files => { void handleUploadFrame(files) }} generatedUrl={generatedDataUrl} referenceId={referenceId} onReference={handleSelectReference} references={channelReferences} onReferences={files => { void handleAddReferenceImages(files) }} onRemoveReference={index => setChannelReferences(previous => previous.filter((_,i) => i !== index))} variants={variants} selectedVariantId={selectedVariantId} onVariant={handleRestoreVariant} isGenerating={isGeneratingNano} onGenerate={() => { void handleGenerateNanoBanana() }} onCancel={handleCancelGeneration} error={nanoErrorMessage} success={nanoSuccessMessage} onDownload={handleDownload} onSave={() => { void handleSaveCover() }} isSaving={isExporting} saved={savedSuccess} onClose={onClose} chatMessages={chatMessages} onIterateThumbnail={handleIterateThumbnail} />
+  return <ThumbnailWorkspace projectTitle={projectTitle} aspectRatio={aspectRatio} onAspectRatio={setAspectRatio} design={design} onDesign={update => setDesign(previous => ({ ...previous,...update }))} headline={headline} onHeadline={handleHeadline} emphasis={highlightWord} onEmphasis={setHighlightWord} creativeDirection={creativeDirection} onCreativeDirection={setCreativeDirection} recipeId={recipeId} onRecipe={setRecipeId} candidates={candidates} selectedFrameIndex={selectedFrameIndex} onFrame={handleFrame} isExtracting={isExtracting} isCurating={isAiCurating} recommendedFrameIndex={aiData?.recommendedFrameIndex} hookTitles={aiData?.hookTitles ?? []} onCapture={videoElement ? handleCaptureCurrentPlayhead : undefined} onUploadFrame={files => { void handleUploadFrame(files) }} generatedUrl={generatedDataUrl} referenceId={referenceId} onReference={handleSelectReference} references={channelReferences} onReferences={files => { void handleAddReferenceImages(files) }} onRemoveReference={index => setChannelReferences(previous => previous.filter((_,i) => i !== index))} variants={variants} selectedVariantId={selectedVariantId} onVariant={handleRestoreVariant} isGenerating={isGeneratingNano} progressPercent={isGeneratingNano ? progressPercent : isAiCurating ? 35 : isExtracting ? 15 : 0} progressStage={isGeneratingNano ? progressStage : isAiCurating ? 'Curating high-CTR hook...' : isExtracting ? 'Extracting candidate frames...' : ''} onGenerate={() => { void handleGenerateNanoBanana() }} onCancel={handleCancelGeneration} error={nanoErrorMessage} success={nanoSuccessMessage} onDownload={handleDownload} onSave={() => { void handleSaveCover() }} isSaving={isExporting} saved={savedSuccess} onClose={onClose} chatMessages={chatMessages} onIterateThumbnail={handleIterateThumbnail} />
 }

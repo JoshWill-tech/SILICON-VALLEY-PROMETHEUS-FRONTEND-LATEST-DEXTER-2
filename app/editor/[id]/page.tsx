@@ -6327,6 +6327,23 @@ function OriginalEditorPage() {
     aspectRatio?: string
   } | null>(null)
   const thumbnailJarvisDraftSequenceRef = React.useRef(0)
+  const thumbnailProgressRef = React.useRef<{
+    isOpen: boolean
+    isGenerating: boolean
+    percent: number
+    stage: string
+    headline?: string | null
+    thumbnailUrl?: string | null
+    referenceId?: string | null
+  }>({
+    isOpen: false,
+    isGenerating: false,
+    percent: 0,
+    stage: 'idle',
+    headline: null,
+    thumbnailUrl: null,
+    referenceId: null,
+  })
   const [isMasterReviewOpen, setIsMasterReviewOpen] = React.useState(false)
   const [isEditingTitle, setIsEditingTitle] = React.useState(false)
   const [tempTitle, setTempTitle] = React.useState('')
@@ -9532,6 +9549,12 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       videoThumbnailUrl: project?.thumbnailUrl ?? undefined,
       activeThumbnailUrl: project?.thumbnailUrl ?? undefined,
       activeThumbnailHeadline: project?.title ?? undefined,
+      getThumbnailState: () => ({
+        ...thumbnailProgressRef.current,
+        isOpen: isThumbnailStudioOpen,
+        thumbnailUrl: thumbnailProgressRef.current.thumbnailUrl || project?.thumbnailUrl || null,
+        headline: thumbnailProgressRef.current.headline || project?.title || null,
+      }),
       videoMusicContext: videoContext,
       captureVideoFrame: captureVoiceVideoFrame,
       getMusicCatalog: () => [...voiceMusicCatalogRef.current.values()],
@@ -10528,7 +10551,30 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
       <EditorNewProjectUploadDialog open={isNewProjectUploadOpen} onOpenChange={setIsNewProjectUploadOpen} />
       <ThumbnailStudioModal
         isOpen={isThumbnailStudioOpen}
-        onClose={() => { setIsThumbnailStudioOpen(false); setThumbnailJarvisDraft(null) }}
+        onClose={() => {
+          setIsThumbnailStudioOpen(false)
+          setThumbnailJarvisDraft(null)
+          thumbnailProgressRef.current = {
+            isOpen: false,
+            isGenerating: false,
+            percent: 0,
+            stage: 'idle',
+            headline: null,
+            thumbnailUrl: project?.thumbnailUrl ?? null,
+            referenceId: null,
+          }
+        }}
+        onProgressUpdate={(p) => {
+          thumbnailProgressRef.current = {
+            isOpen: isThumbnailStudioOpen,
+            isGenerating: p.isGenerating,
+            percent: p.percent,
+            stage: p.stage,
+            headline: p.headline ?? thumbnailProgressRef.current.headline,
+            thumbnailUrl: p.thumbnailUrl ?? thumbnailProgressRef.current.thumbnailUrl,
+            referenceId: p.referenceId ?? thumbnailProgressRef.current.referenceId,
+          }
+        }}
         jarvisDraft={thumbnailJarvisDraft}
         projectId={projectId}
         projectTitle={project?.title ?? 'Untitled Project'}
@@ -10536,7 +10582,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         videoUrl={previewUrl}
         transcriptSnippet={
           Array.isArray(job?.artifacts?.transcript)
-            ? job.artifacts.transcript.map((t: any) => t?.text || '').join(' ').slice(0, 500)
+            ? job.artifacts.transcript.map((t: any) => t?.text || '').join(' ').slice(0, 3000)
             : ''
         }
         onSaveProjectThumbnail={(thumbnailUrl) => {

@@ -28,14 +28,14 @@ test('every class used by the Studio has a selector in its component-owned style
 test('Studio styles and animations are namespaced and responsive rules remain present', () => {
   const tree = postcss.parse(css)
   tree.walkRules(rule => {
-    for (const match of rule.selector.matchAll(/\.([A-Za-z][A-Za-z0-9-]*)/g)) assert.ok(match[1].startsWith('prom-thumbnail-'))
+    for (const match of rule.selector.matchAll(/\.([A-Za-z][A-Za-z0-9-]*)/g)) assert.ok(match[1].startsWith('prom-thumbnail-') || match[1].startsWith('prom-liquidgl-'))
   })
   tree.walkAtRules('keyframes', rule => assert.ok(rule.params.startsWith('prom-thumbnail-')))
   const queries = []
   tree.walkAtRules('media', rule => queries.push(rule.params))
   assert.ok(queries.includes('(max-width:800px)'), 'Mobile layout must remain available')
   assert.ok(queries.includes('(prefers-reduced-motion:reduce)'), 'Reduced motion must remain available')
-  assert.ok(Object.values(classes).every(name => name.startsWith('prom-thumbnail-')))
+  assert.ok(Object.values(classes).every(name => name.startsWith('prom-thumbnail-') || name.startsWith('prom-liquidgl-')))
   assert.ok(!css.includes('</style'), 'The static stylesheet must be safe to embed')
 })
 

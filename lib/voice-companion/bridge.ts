@@ -93,6 +93,16 @@ export interface VoiceCompanionBridgeHandlers {
   activeThumbnailUrl?: string
   activeThumbnailHeadline?: string
   onModifyThumbnail?: (args: { changes: string; headline?: string; referenceId?: string }) => Promise<VoiceActionResult> | VoiceActionResult
+  /** Live thumbnail studio state and progress percentage (0-100%) */
+  getThumbnailState?: () => {
+    isOpen: boolean
+    isGenerating: boolean
+    percent: number
+    stage: string
+    headline?: string | null
+    thumbnailUrl?: string | null
+    referenceId?: string | null
+  }
   /** Timeline inspection & autonomous manipulation */
   getTimelineState?: () => {
     duration: number

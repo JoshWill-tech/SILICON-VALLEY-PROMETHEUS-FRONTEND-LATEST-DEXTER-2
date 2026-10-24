@@ -146,6 +146,7 @@ export class AudioRecorder {
   private onSpeechOnset?: () => void
   private currentVolume = 0
   private bargeFrames = 0
+  private userSpeechFrames = 0
   private lastSpeechTimestamp = 0
   private startGeneration = 0
   private preRoll: string[] = []
@@ -251,8 +252,13 @@ export class AudioRecorder {
         this.bargeFrames = 0
         this.preRoll = []
         if (rms > BARGE_IN_RMS_THRESHOLD) {
+          this.userSpeechFrames += 1
           this.lastSpeechTimestamp = Date.now()
-          this.onSpeechOnset?.()
+          if (this.userSpeechFrames >= 2) {
+            this.onSpeechOnset?.()
+          }
+        } else {
+          this.userSpeechFrames = 0
         }
       }
 
@@ -270,6 +276,7 @@ export class AudioRecorder {
     this.startGeneration += 1
     this.isRecording = false
     this.bargeFrames = 0
+    this.userSpeechFrames = 0
     this.preRoll = []
     this.lastSpeechTimestamp = 0
     this.processor?.disconnect()
