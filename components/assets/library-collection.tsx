@@ -327,13 +327,10 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
     }
   }
 
-  const handleSelectRecommendation = React.useCallback(
-    (brandName: string, queryOrUrl: string) => {
-      handleSearchChange(brandName)
-      handleSearchSubmit(queryOrUrl)
-    },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
-  )
+  const handleSelectRecommendation = (brandName: string, queryOrUrl: string) => {
+    handleSearchChange(brandName)
+    handleSearchSubmit(queryOrUrl)
+  }
 
   return (
     <section data-creator-library className="relative min-h-full snap-start snap-normal overflow-hidden bg-black text-white" aria-labelledby="creator-library-title">
