@@ -24,16 +24,17 @@ test('netflix sound assets exist in public/audio with valid headers and sizes', 
   assert.equal(oggBuf.subarray(0, 4).toString('ascii'), 'OggS', 'netflix-intro.ogg has valid OggS header')
 })
 
-test('useNetflixIntroSound hook triggers on every reload and entry without single-play restriction', () => {
+test('useNetflixIntroSound hook triggers only upon site/page reload and avoids acoustic fatigue on page switches', () => {
   const hookSource = fs.readFileSync(
     path.resolve(process.cwd(), 'hooks/use-netflix-intro-sound.ts'),
     'utf8',
   )
 
-  // Must not have single-play or session lockouts
-  assert.ok(!hookSource.includes('hasPlayedInSession'), 'no session-level play-once restriction')
+  // Must mount-gate so client-side page navigation doesn't blare repeatedly
+  assert.match(hookSource, /hasTriggeredOnMountRef/, 'guards with mount ref to stay quiet across page transitions')
+  assert.match(hookSource, /attemptPlay\(\)/, 'initiates playback attempt on mount')
   assert.match(hookSource, /playPromise !== undefined/, 'handles modern play() promise')
-  assert.match(hookSource, /pointerdown|pointermove|wheel|keydown|click/, 'listens for gesture fallback')
+  assert.match(hookSource, /pointerdown|keydown|click/, 'listens for gesture fallback')
   assert.match(hookSource, /prometheus-netflix-sound/, 'binds to preloaded DOM audio element')
   assert.match(hookSource, /prometheus:intro-sound-played/, 'dispatches event when intro sound plays')
   assert.match(hookSource, /prometheus:replay-intro-sound/, 'supports manual replay event')

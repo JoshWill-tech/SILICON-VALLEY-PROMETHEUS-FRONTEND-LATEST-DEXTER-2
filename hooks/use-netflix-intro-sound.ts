@@ -11,10 +11,6 @@ export interface UseNetflixIntroSoundOptions {
    * If true, intro sound is enabled (default: true).
    */
   enabled?: boolean
-  /**
-   * Current pathname if routing check is needed.
-   */
-  pathname?: string
 }
 
 export interface UseNetflixIntroSoundResult {
@@ -120,13 +116,19 @@ function playSynthesizedNetflixChime(volume: number = 0.75): void {
   }
 }
 
+/**
+ * useNetflixIntroSound
+ * 
+ * Plays the iconic Netflix "ta-dum" sound strictly upon initial site/page reload.
+ * Does NOT replay on client-side route transitions/page switches to prevent acoustic fatigue.
+ */
 export function useNetflixIntroSound({
   volume = 0.75,
   enabled = true,
-  pathname = '/',
 }: UseNetflixIntroSoundOptions = {}): UseNetflixIntroSoundResult {
   const [isPlaying, setIsPlaying] = useState(false)
   const isPlayingRef = useRef(false)
+  const hasTriggeredOnMountRef = useRef(false)
 
   const play = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined') return false
@@ -155,9 +157,12 @@ export function useNetflixIntroSound({
     }
   }, [play])
 
-  // Trigger on every reload and route entry
+  // Trigger ONLY upon initial page reload / site load.
+  // By omitting route/pathname dependencies and gating with a lifecycle mount ref,
+  // client-side page switches remain quiet, preventing acoustic fatigue.
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || hasTriggeredOnMountRef.current) return
+    hasTriggeredOnMountRef.current = true
 
     let cleanupListeners: (() => void) | null = null
 
@@ -165,7 +170,7 @@ export function useNetflixIntroSound({
       const ok = await play()
       if (!ok) {
         // Modern browser autoplay policy prevented unmuted sound without user gesture on reload.
-        // Listen for any gesture (pointer, click, keydown, scroll, wheel) to immediately trigger audio.
+        // Listen for any user gesture (pointer, click, keydown, scroll, wheel) to immediately trigger audio.
         const onGesture = () => {
           cleanupListeners?.()
           cleanupListeners = null
@@ -184,11 +189,6 @@ export function useNetflixIntroSound({
           'keydown',
           'touchstart',
           'pointermove',
-          'mousemove',
-          'mouseover',
-          'mouseenter',
-          'pointerenter',
-          'focus',
           'scroll',
           'wheel',
         ]
@@ -223,7 +223,7 @@ export function useNetflixIntroSound({
       // effect cleanup runs immediately after initial mount. Pausing here
       // would kill the audio before the user hears it on reload.
     }
-  }, [enabled, pathname, play, volume])
+  }, [enabled, play, volume])
 
   return {
     isPlaying,

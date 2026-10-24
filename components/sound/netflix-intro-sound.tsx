@@ -1,6 +1,5 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import { useNetflixIntroSound } from '@/hooks/use-netflix-intro-sound'
 
 export interface NetflixIntroSoundProps {
@@ -11,18 +10,16 @@ export interface NetflixIntroSoundProps {
 /**
  * NetflixIntroSound
  * 
- * Plays the iconic Netflix "ta-dum" sound when an individual enters
- * Prometheus or reloads. Replays on every reload and surface entry.
+ * Plays the iconic Netflix "ta-dum" sound upon initial site/page reload.
+ * Remains quiet across client-side page navigation to prevent acoustic fatigue.
  */
 export function NetflixIntroSound({
   volume = 0.75,
   enabled = true,
 }: NetflixIntroSoundProps) {
-  const pathname = usePathname()
   useNetflixIntroSound({
     volume,
     enabled,
-    pathname,
   })
 
   return (
