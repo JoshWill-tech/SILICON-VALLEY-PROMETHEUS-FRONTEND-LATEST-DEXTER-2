@@ -1,4 +1,4 @@
-import { extractYouTubeVideoId } from '@/lib/media/youtube-clip-service'
+import { extractYouTubeVideoId } from '../media/youtube-clip-service'
 
 export interface BrandVideoItem {
   videoId: string
