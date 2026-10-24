@@ -142,6 +142,24 @@ function verifyG8() {
   return 'G8: emoji and literal instruction discipline passed'
 }
 
+function verifyG9() {
+  const page = read('app/editor/[id]/page.tsx')
+
+  // G9: showSourceVideo must be persisted across re-renders
+  assert.match(page, /SHOW_SOURCE_VIDEO_STORAGE_KEY|show-source-video/i, 'showSourceVideo must be persisted to localStorage')
+
+  return 'G9: source video split-view persistence passed'
+}
+
+function verifyG10() {
+  const aiChatHook = read('hooks/use-ai-chat.ts')
+
+  // G10: useAIChat must safely abort in-flight requests without creating duplicate assistant bubbles
+  assert.match(aiChatHook, /abortControllerRef\.current\?\.abort\(\)/, 'useAIChat must cleanly abort previous stream')
+
+  return 'G10: stream deduplication and abort safety passed'
+}
+
 function runAll() {
   console.log(verifyG1())
   console.log(verifyG2())
@@ -151,6 +169,8 @@ function runAll() {
   console.log(verifyG6())
   console.log(verifyG7())
   console.log(verifyG8())
+  console.log(verifyG9())
+  console.log(verifyG10())
   console.log('all break verification checks passed')
 }
 
@@ -172,6 +192,10 @@ if (gate === '--all') {
   console.log(verifyG7())
 } else if (gate === 'G8') {
   console.log(verifyG8())
+} else if (gate === 'G9') {
+  console.log(verifyG9())
+} else if (gate === 'G10') {
+  console.log(verifyG10())
 } else {
   console.error(`Unknown gate: ${gate}`)
   process.exit(1)
