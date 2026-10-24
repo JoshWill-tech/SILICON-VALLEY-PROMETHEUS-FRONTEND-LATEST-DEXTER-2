@@ -296,6 +296,19 @@ export async function POST(request: Request, {params}: RouteContext) {
         canvas: '1080x1920',
       },
     }, supabase)
+    const requestedQuality = (typeof body.quality === 'string' ? body.quality : typeof body.exportQuality === 'string' ? body.exportQuality : undefined) as 'draft' | 'standard' | 'maximum' | undefined
+    const requestedFormat = (typeof body.format === 'string' ? body.format : typeof body.exportFormat === 'string' ? body.exportFormat : undefined) as 'mp4' | 'mov' | 'prores' | undefined
+    const requestedSafeMode = typeof body.safeMode === 'boolean' ? body.safeMode : undefined
+    const requestedTextLayers = Array.isArray(body.textLayers)
+      ? body.textLayers
+      : Array.isArray((editorState as any).textCues)
+        ? (editorState as any).textCues
+        : Array.isArray((editorState as any).editorialTimeline?.cues)
+          ? (editorState as any).editorialTimeline.cues
+          : Array.isArray((editorState as any).cues)
+            ? (editorState as any).cues
+            : undefined
+
     const directives = extractExportDirectives(editorState)
     const dispatched = await dispatchMiniRunRender({
       request: {
@@ -316,6 +329,10 @@ export async function POST(request: Request, {params}: RouteContext) {
         ...(typeof body.brollPreference === 'string' ? { brollPreference: body.brollPreference } : {}),
         draftManifest,
         prompt: prompt || (typeof body.spokenPrompt === 'string' ? body.spokenPrompt : undefined),
+        quality: requestedQuality,
+        format: requestedFormat,
+        safeMode: requestedSafeMode,
+        textLayers: requestedTextLayers,
         words: (Array.isArray((editorState as any).words) && (editorState as any).words.length > 0)
           ? (editorState as any).words
           : (Array.isArray((editorState as any).transcriptWords) && (editorState as any).transcriptWords.length > 0)

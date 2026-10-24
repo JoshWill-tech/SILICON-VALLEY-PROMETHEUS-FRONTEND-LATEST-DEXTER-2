@@ -8412,7 +8412,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     setShowExport(true)
   }, [setShowExport])
 
-  const startProjectRender = React.useCallback(async (spokenPrompt?: string) => {
+  const startProjectRender = React.useCallback(async (spokenPrompt?: string, exportOpts?: { quality?: string; format?: string; safeMode?: boolean }) => {
     const activeSourceUrl =
       (typeof urlClippingState !== 'undefined' ? urlClippingState?.sourceUrl : null) ||
       (typeof project?.editorState?.sourceUrl === 'string' ? project.editorState.sourceUrl : null) ||
@@ -8502,19 +8502,28 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
         // Fall back gracefully if session cannot be retrieved directly
       }
 
+        const textLayersToPass = Array.isArray((project?.editorState as any)?.textCues)
+          ? (project?.editorState as any).textCues
+          : Array.isArray((project?.editorState as any)?.editorialTimeline?.cues)
+            ? (project?.editorState as any).editorialTimeline.cues
+            : undefined
       const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/exports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(userToken ? { 'Authorization': `Bearer ${userToken}` } : {}),
         },
-        // This worker consumes source media, independently of editor timeline sync.
+
         body: JSON.stringify({
           preset: 'mini-run-maul-portrait',
           sourceAssetId: sourceAssetId || 'source_video_direct',
           ...(activeSourceUrl ? { sourceUrl: activeSourceUrl } : {}),
           ...(spokenPrompt ? { prompt: spokenPrompt } : {}),
           ...(draftManifest ? { draftManifest } : {}),
+          ...(exportOpts?.quality ? { quality: exportOpts.quality, exportQuality: exportOpts.quality } : {}),
+          ...(exportOpts?.format ? { format: exportOpts.format, exportFormat: exportOpts.format } : {}),
+          ...(typeof exportOpts?.safeMode === 'boolean' ? { safeMode: exportOpts.safeMode } : {}),
+          ...(textLayersToPass ? { textLayers: textLayersToPass } : {}),
         }),
         signal: AbortSignal.timeout(60_000),
       })

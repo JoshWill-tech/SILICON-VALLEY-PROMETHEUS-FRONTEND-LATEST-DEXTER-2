@@ -1090,3 +1090,51 @@ export const CREATOR_VIDEO_CATALOG: Record<string, CreatorVideoItem[]> = {
 export function getCreatorVideos(creatorName: string): CreatorVideoItem[] {
   return CREATOR_VIDEO_CATALOG[creatorName] ?? CREATOR_VIDEO_CATALOG['Alex Hormozi']
 }
+
+export interface CreatorFallbackVideoItem {
+  videoId: string
+  title: string
+  thumbnailUrl: string
+  url: string
+}
+
+export function buildCreatorFallbackVideos(
+  brandName: string,
+  queryOrUrl?: string,
+): CreatorFallbackVideoItem[] {
+  const safeHandle = brandName.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const safeQuery = encodeURIComponent(brandName)
+  const isChannelOrHandle = queryOrUrl && (queryOrUrl.includes('youtube.com') || queryOrUrl.startsWith('@'))
+  const baseChannelUrl = isChannelOrHandle
+    ? queryOrUrl.startsWith('@')
+      ? `https://www.youtube.com/${queryOrUrl}`
+      : queryOrUrl
+    : `https://www.youtube.com/results?search_query=${safeQuery}`
+
+  return [
+    {
+      videoId: `${safeHandle}_arch_1`,
+      title: `${brandName} // Signature Visual Identity & Core Brand Spirit`,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=640&auto=format&fit=crop&q=80',
+      url: `${baseChannelUrl}`,
+    },
+    {
+      videoId: `${safeHandle}_arch_2`,
+      title: `${brandName} // High-Retention Pacing & Kinetic Visual Hooks`,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=640&auto=format&fit=crop&q=80',
+      url: `https://www.youtube.com/results?search_query=${safeQuery}+visual+breakdown`,
+    },
+    {
+      videoId: `${safeHandle}_arch_3`,
+      title: `${brandName} // Creative Direction, Soundscape & Retention Dynamics`,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=640&auto=format&fit=crop&q=80',
+      url: `https://www.youtube.com/results?search_query=${safeQuery}+documentary`,
+    },
+    {
+      videoId: `${safeHandle}_arch_4`,
+      title: `${brandName} // Modern Typography, Color Grade & Framing Standards`,
+      thumbnailUrl: 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=640&auto=format&fit=crop&q=80',
+      url: `https://www.youtube.com/results?search_query=${safeQuery}+cinematic`,
+    },
+  ]
+}

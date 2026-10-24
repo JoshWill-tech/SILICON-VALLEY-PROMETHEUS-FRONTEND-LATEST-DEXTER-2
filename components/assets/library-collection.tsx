@@ -6,6 +6,14 @@ import { ArrowUpRight, Check, Film, LibraryBig, Play, Sparkles, X, ExternalLink 
 import Image from 'next/image'
 import { toast } from 'sonner'
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { extractYouTubeVideoId } from '@/lib/media/youtube-clip-service'
 import { LIBRARY_CREATOR_CARDS } from '@/components/assets/cinematic-library'
 import { LiquidGlassSearch } from '@/components/assets/liquid-glass-search'
 import { BrandVoicePathAnimation } from '@/components/assets/brand-voice-path-animation'
@@ -13,7 +21,9 @@ import { BRAND_DNA_STORAGE_KEY } from '@/components/assets/brand-dna-studio'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { saveJarvisMemory } from '@/lib/voice-companion/memory'
 import { getCreatorRecommendations } from '@/lib/creators/creator-recommendations'
-import { CREATOR_VIDEO_CATALOG } from '@/lib/creators/video-catalog'
+import { CREATOR_VIDEO_CATALOG, buildCreatorFallbackVideos } from '@/lib/creators/video-catalog'
+
+export { buildCreatorFallbackVideos } from '@/lib/creators/video-catalog'
 
 export const ACTIVE_BRAND_STORAGE_KEY = 'prometheus.active-brand.v1'
 
@@ -143,6 +153,17 @@ function parseBrandInput(raw: string): ActiveBrandRecord | null {
   }
 }
 
+function formatVideoTitle(title: string): string {
+  if (!title) return ''
+  return title
+    .replace(/\\u0026/g, '&')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
 const CREATOR_IMAGE_POSITIONS = ['62% 24%', '50% 16%', '50% 18%', '50% 18%', '50% 18%', '50% 18%', '50% 16%']
 
 export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string) => void }) {
@@ -151,6 +172,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
   const [activeBrand, setActiveBrand] = React.useState<ActiveBrandRecord | null>(null)
   const [isApplyingBrand, setIsApplyingBrand] = React.useState(false)
   const [submittedBrandQuery, setSubmittedBrandQuery] = React.useState('')
+  const [playingVideo, setPlayingVideo] = React.useState<NonNullable<ActiveBrandRecord['videos']>[number] | null>(null)
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query)
@@ -295,10 +317,40 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
       return
     }
 
-    const spec = parseBrandInput(q)
-    if (spec) {
-      applyBrandSpecification(spec)
+    const parsed = parseBrandInput(q)
+    const brandName = recommendations.matchedCreator || parsed?.brandName || (q.charAt(0).toUpperCase() + q.slice(1))
+    const topPlatform =
+      recommendations.platformOptions[0]?.handleOrUrl ||
+      parsed?.url ||
+      (q.startsWith('http') ? q : `https://www.youtube.com/@${brandName.toLowerCase().replace(/[^a-z0-9]/g, '')}`)
+
+    const fallbackVideos = buildCreatorFallbackVideos(brandName, q)
+    const fallbackSpec: ActiveBrandRecord = {
+      brandName,
+      rawInput: q,
+      type: parsed?.type || 'Verified Creator Spirit',
+      url: topPlatform,
+      appliedAt: new Date().toISOString(),
+      avatarUrl:
+        recommendations.platformOptions[0]?.avatarUrl ||
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      videos: fallbackVideos,
+      styleDNA: recommendations.suggestedStyleDNA || {
+        tone: 'Curated & Audience-Calibrated',
+        typography: 'Modern Grotesk with High-Contrast kinetic accents',
+        colorAccent: '#55ff9b',
+        pacing: 'Dynamic Micro-Cuts with 2-Second Retention Hooks',
+        aestheticDescription: `Video outputs and AI cuts calibrated to reflect the brand spirit of ${brandName}.`,
+        insights: [
+          `Calibrated video pacing to match ${brandName}'s delivery style`,
+          'Configured kinetic typography and color highlights',
+          'Video generation suite tuned to creator aesthetic standards',
+        ],
+      },
     }
+
+    applyBrandSpecification(fallbackSpec)
+    setSubmittedBrandQuery(brandName)
 
     // Call backend to resolve detailed brand identity (YouTube oEmbed channel name, website title, etc.)
     if (typeof window !== 'undefined' && typeof fetch === 'function') {
@@ -314,12 +366,12 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
             const resolvedSpec: ActiveBrandRecord = {
               brandName: data.brand.brandName,
               rawInput: q,
-              type: data.brand.type,
-              url: data.brand.url || (spec?.url ?? ''),
+              type: data.brand.type || fallbackSpec.type,
+              url: data.brand.url || fallbackSpec.url,
               appliedAt: new Date().toISOString(),
-              avatarUrl: data.brand.avatarUrl,
-              videos: data.brand.videos,
-              styleDNA: data.brand.styleDNA,
+              avatarUrl: data.brand.avatarUrl || fallbackSpec.avatarUrl,
+              videos: data.brand.videos && data.brand.videos.length > 0 ? data.brand.videos : fallbackSpec.videos,
+              styleDNA: data.brand.styleDNA || fallbackSpec.styleDNA,
             }
             applyBrandSpecification(resolvedSpec)
             setSubmittedBrandQuery(data.brand.brandName)
@@ -517,28 +569,41 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
                       className="group relative flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d09] shadow-lg transition-all duration-300 hover:border-[#55ff9b]/60 hover:shadow-[0_10px_30px_rgba(85,255,155,0.15)] hover:scale-[1.02]"
                     >
                       {/* Thumbnail Container */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-black/60">
+                      <button
+                        type="button"
+                        onClick={() => setPlayingVideo(video)}
+                        className="group/thumb relative aspect-video w-full overflow-hidden bg-black/60 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#55ff9b]"
+                        aria-label={`Play ${formatVideoTitle(video.title)}`}
+                      >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={video.thumbnailUrl}
-                          alt={video.title}
-                          className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          alt={formatVideoTitle(video.title)}
+                          className="size-full object-cover transition-transform duration-500 group-hover/thumb:scale-105"
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-60 group-hover:opacity-40 transition-opacity" />
-                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-mono text-[#63ffa4] backdrop-blur-md">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-60 group-hover/thumb:opacity-35 transition-opacity" />
+
+                        {/* Centered play button on hover */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-all duration-200">
+                          <div className="grid size-11 place-items-center rounded-full border border-[#55ff9b]/70 bg-black/75 text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.35)] backdrop-blur-md transition-transform group-hover/thumb:scale-110">
+                            <Play className="size-4 fill-current ml-0.5" />
+                          </div>
+                        </div>
+
+                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-mono text-[#63ffa4] backdrop-blur-md border border-[#55ff9b]/20">
                           <Play className="size-2.5 fill-[#63ffa4]" />
                           <span>Video #{idx + 1}</span>
                         </div>
-                      </div>
+                      </button>
 
                       {/* Video Title & Actions */}
                       <div className="flex flex-1 flex-col justify-between p-3.5">
                         <h4
                           className="line-clamp-2 text-xs font-medium text-white/90 group-hover:text-white"
-                          title={video.title}
+                          title={formatVideoTitle(video.title)}
                         >
-                          {video.title}
+                          {formatVideoTitle(video.title)}
                         </h4>
 
                         <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-2.5">
@@ -546,22 +611,22 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
                             type="button"
                             onClick={() => {
                               onSelect(`custom_ref_${video.videoId}`)
-                              toast.success(`Selected "${video.title}" as active style reference!`)
+                              toast.success(`Selected "${formatVideoTitle(video.title)}" as active style reference!`)
                             }}
                             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#55ff9b]/40 bg-[#55ff9b]/15 px-2.5 py-1.5 text-[11px] font-semibold text-[#63ffa4] transition hover:bg-[#55ff9b]/30"
                           >
                             <Check className="size-3" />
                             <span>Use Style</span>
                           </button>
-                          <a
-                            href={video.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex size-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/40 transition hover:bg-white/10 hover:text-white"
-                            title="Open on YouTube"
+                          <button
+                            type="button"
+                            onClick={() => setPlayingVideo(video)}
+                            className="inline-flex size-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/50 transition hover:border-[#55ff9b]/50 hover:bg-[#55ff9b]/15 hover:text-[#63ffa4]"
+                            title="Play ad-free video preview"
+                            aria-label={`Play preview of ${formatVideoTitle(video.title)}`}
                           >
                             <ExternalLink className="size-3.5" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -649,15 +714,10 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
                 <button
                   type="button"
                   onClick={() => {
-                    setIsApplyingBrand(true)
-                    const spec = parseBrandInput(searchQuery)
-                    if (spec) applyBrandSpecification(spec)
-                    setTimeout(() => {
-                      setIsApplyingBrand(false)
-                    }, 600)
+                    handleSearchSubmit(searchQuery)
                   }}
                   disabled={isApplyingBrand}
-                  className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02] disabled:opacity-60"
+                  className="flex cursor-pointer items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02] disabled:opacity-60"
                 >
                   <Check className="size-3.5" />
                   {isApplyingBrand ? 'Calibrating Brand Spirit...' : `Apply "${searchQuery}" to Video Suite`}
@@ -762,6 +822,120 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
           Select a creator to enter the archive
         </div>
       </div>
+
+      {/* Ad-Free Video Player Popup Modal with Backdrop */}
+      <Dialog
+        open={playingVideo !== null}
+        onOpenChange={(open) => {
+          if (!open) setPlayingVideo(null)
+        }}
+      >
+        <DialogContent
+          overlayClassName="bg-black/85 backdrop-blur-md"
+          className="w-[calc(100vw-1.5rem)] max-w-4xl gap-0 overflow-hidden rounded-2xl border border-[#55ff9b]/30 bg-[#070d08] p-0 text-white shadow-[0_30px_100px_rgba(0,0,0,0.95),0_0_40px_rgba(85,255,155,0.15)] sm:w-[calc(100vw-3rem)]"
+        >
+          <DialogHeader className="border-b border-[#55ff9b]/15 bg-black/40 px-5 py-4 pr-14 text-left">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#55ff9b]/40 bg-[#55ff9b]/15 px-2.5 py-0.5 font-mono text-[10px] text-[#63ffa4]">
+                Ad-Free Preview
+              </span>
+              {activeBrand?.brandName ? (
+                <span className="text-xs text-white/50">
+                  {activeBrand.brandName}
+                </span>
+              ) : null}
+            </div>
+            <DialogTitle className="line-clamp-1 text-base font-semibold text-white sm:text-lg">
+              {playingVideo ? formatVideoTitle(playingVideo.title) : 'Video Preview'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/50">
+              Clean cinematic playback • No ads or interruptions
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Video Player Frame */}
+          <div className="relative aspect-video w-full bg-black">
+            {playingVideo ? (() => {
+              const videoId =
+                extractYouTubeVideoId(playingVideo.videoId) ||
+                extractYouTubeVideoId(playingVideo.url)
+
+              if (videoId) {
+                return (
+                  <iframe
+                    key={videoId}
+                    className="size-full border-0 bg-black"
+                    src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&playsinline=1`}
+                    title={formatVideoTitle(playingVideo.title)}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                )
+              }
+
+              if (playingVideo.url) {
+                return (
+                  <video
+                    key={playingVideo.url}
+                    src={playingVideo.url}
+                    className="size-full bg-black object-contain"
+                    controls
+                    autoPlay
+                    playsInline
+                  />
+                )
+              }
+
+              return (
+                <div className="flex size-full items-center justify-center text-sm text-white/50">
+                  Video source unavailable
+                </div>
+              )
+            })() : null}
+          </div>
+
+          {/* Modal Footer Controls */}
+          {playingVideo ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#55ff9b]/15 bg-black/50 px-5 py-3.5">
+              <div className="flex items-center gap-2 text-xs text-white/60">
+                <Sparkles className="size-3.5 text-[#63ffa4]" />
+                <span className="line-clamp-1">
+                  Style reference for AI video generation & editing
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                {playingVideo.url ? (
+                  <a
+                    href={playingVideo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+                    title="Open on YouTube in new tab"
+                  >
+                    <span>Open YouTube</span>
+                    <ArrowUpRight className="size-3.5" />
+                  </a>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(`custom_ref_${playingVideo.videoId}`)
+                    toast.success(`Selected "${formatVideoTitle(playingVideo.title)}" as active style reference!`)
+                    setPlayingVideo(null)
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-[#55ff9b]/50 bg-[#55ff9b]/20 px-3.5 py-1.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_15px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30"
+                >
+                  <Check className="size-3.5" />
+                  <span>Use Style</span>
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   )
 }

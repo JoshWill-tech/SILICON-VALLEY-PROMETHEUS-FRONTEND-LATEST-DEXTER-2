@@ -118,3 +118,34 @@ test('G5: AWS Lambda Remotion init for Mini-Runs binds soundtrack, audioTrackSrc
 
   console.log('G5 passed: AWS Lambda Remotion init binds soundtrack and orchestration')
 })
+
+test('G7: buildMiniRunRenderPayload forwards quality, format, safeMode, and textLayers', () => {
+  const payload = buildMiniRunRenderPayload({
+    sourceUrl: 'https://example.com/source.mp4',
+    source: { durationMs: 60_000, width: 1080, height: 1920 },
+    shot: { preferredDurationSec: 45 },
+    jobId: 'job_user_prefs_001',
+    quality: 'maximum',
+    format: 'prores',
+    safeMode: true,
+    textLayers: [
+      { id: 'cue_1', text: 'Custom Overlay', fontFamily: 'Inter', fontSizePx: 48, xPct: 50, yPct: 50 },
+    ],
+  })
+
+  assert.equal(payload.quality, 'maximum')
+  assert.equal(payload.exportQuality, 'maximum')
+  assert.equal(payload.format, 'prores')
+  assert.equal(payload.exportFormat, 'prores')
+  assert.equal(payload.safeMode, true)
+  assert.ok(Array.isArray(payload.textLayers))
+  assert.equal((payload.textLayers as any[])[0].text, 'Custom Overlay')
+
+  const metadata = payload.metadata as Record<string, unknown>
+  assert.equal(metadata.quality, 'maximum')
+  assert.equal(metadata.format, 'prores')
+  assert.equal(metadata.safeMode, true)
+  assert.ok(Array.isArray(metadata.textLayers))
+
+  console.log('G7 passed: quality, format, safeMode, and textLayers are forwarded')
+})

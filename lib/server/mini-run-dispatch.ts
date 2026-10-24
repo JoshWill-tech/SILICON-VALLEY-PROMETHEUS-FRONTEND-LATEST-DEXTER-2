@@ -45,6 +45,10 @@ export type MiniRunRenderDispatchRequest = {
   transcriptSegments?: unknown[]
   words?: unknown[]
   prompt?: string
+  quality?: 'draft' | 'standard' | 'maximum'
+  format?: 'mp4' | 'mov' | 'prores'
+  safeMode?: boolean
+  textLayers?: unknown[]
 }
 
 /**
@@ -136,6 +140,10 @@ export async function dispatchMiniRunRender({
     transcriptSegments: request.transcriptSegments,
     words: request.words,
     prompt: request.prompt,
+    quality: request.quality,
+    format: request.format,
+    safeMode: request.safeMode,
+    textLayers: request.textLayers,
   })
   const metadata = body.metadata as Record<string, unknown>
   metadata.pipeline = 'maul'

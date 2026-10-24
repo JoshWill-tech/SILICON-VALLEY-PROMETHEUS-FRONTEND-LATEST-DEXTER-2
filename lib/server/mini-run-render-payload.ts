@@ -19,6 +19,10 @@ type BuildMiniRunRenderPayloadInput = {
   transcriptSegments?: unknown[]
   words?: unknown[]
   prompt?: string
+  quality?: string
+  format?: string
+  safeMode?: boolean
+  textLayers?: unknown[]
 }
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -40,6 +44,10 @@ export function buildMiniRunRenderPayload({
   transcriptSegments,
   words,
   prompt,
+  quality,
+  format,
+  safeMode,
+  textLayers,
 }: BuildMiniRunRenderPayloadInput): Record<string, unknown> {
   const sourceDurationMs = isFiniteNumber(source.durationMs) && source.durationMs > 0
     ? Math.round(source.durationMs)
@@ -71,16 +79,32 @@ export function buildMiniRunRenderPayload({
     ? clamp(Math.round(shot.maxChunkWords), targetChunkWords, 30)
     : Math.max(targetChunkWords, 5)
 
+  const resolvedQuality = quality || (shot as any)?.quality || (shot as any)?.exportQuality
+  const resolvedFormat = format || (shot as any)?.format || (shot as any)?.exportFormat
+  const resolvedSafeMode = typeof safeMode === 'boolean' ? safeMode : (shot as any)?.safeMode
+  const resolvedTextLayers = Array.isArray(textLayers) ? textLayers : (shot as any)?.textLayers
+
   return {
     source: { url: sourceUrl },
+    ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
+    ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
+    ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
+    ...(Array.isArray(resolvedTextLayers) && resolvedTextLayers.length > 0 ? { textLayers: resolvedTextLayers } : {}),
     metadata: {
       pipeline: 'maul',
       durationSec: durationMs / 1_000,
       durationMs,
       width: source.width,
       height: source.height,
+      ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
+      ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
+      ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
+      ...(Array.isArray(resolvedTextLayers) && resolvedTextLayers.length > 0 ? { textLayers: resolvedTextLayers } : {}),
     },
     design: {
+      ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
+      ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
+      ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
       canvasWidth: 1080,
       canvasHeight: 1920,
       ...(shot.brollPreference ? { brollPreference: shot.brollPreference, preferredKind: shot.brollPreference } : {}),

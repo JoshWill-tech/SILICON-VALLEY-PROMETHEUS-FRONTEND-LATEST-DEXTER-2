@@ -59,6 +59,9 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
   const configured = useConfiguredProviders()
   const [isRendering, setIsRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [exportQuality, setExportQuality] = useState<'draft' | 'standard' | 'maximum'>('standard')
+  const [exportFormat, setExportFormat] = useState<'mp4' | 'mov' | 'prores'>('mp4')
+  const [safeMode, setSafeMode] = useState<boolean>(true)
   const [exportingProvider, setExportingProvider] = useState<string | null>(null)
   const [cloudSuccessLink, setCloudSuccessLink] = useState<{ provider: string; url: string } | null>(null)
   const {readiness, status: readinessStatus, error: readinessError, retry: retryReadiness} = useProjectExportReadiness(showExport ? projectId : null)
@@ -114,7 +117,7 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
     setIsRendering(true)
     setError(null)
     try {
-      const result = await onStartRender()
+      const result = await (onStartRender as any)({ quality: exportQuality, format: exportFormat, safeMode })
       if (result.success) setShowExport(false)
       else setError(result.summary)
     } catch (caught) {
@@ -194,22 +197,60 @@ export function ExportDrawer({ onStartRender, onDownloadFinished, hasFinishedRen
                 <p className="mt-0.5 text-[11px] text-white/45">Fixed profile for this source render.</p>
               </div>
             </div>
-            <div className="rounded-lg border border-white/[0.1] bg-white/[0.025] px-4 py-3.5">
+            <div className="rounded-lg border border-white/[0.1] bg-white/[0.025] px-4 py-3.5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="grid size-9 place-items-center rounded-md bg-white/[0.06] text-white/65"><FileVideo2 className="size-4" aria-hidden="true" /></span>
                   <div>
-                    <div className="text-sm font-medium">MP4 · 1080p Portrait</div>
-                    <div className="mt-0.5 text-[11px] text-white/45">9:16 aspect ratio · up to 30 seconds</div>
+                    <div className="text-sm font-medium">Mini-Run Master Export</div>
+                    <div className="mt-0.5 text-[11px] text-white/45">9:16 Portrait · Custom Pacing & Audio Ducking</div>
                   </div>
                 </div>
-                <span className="text-[10px] text-white/40">Fixed profile</span>
+                <span className="text-[10px] text-[#b4fb60] font-medium border border-[#b4fb60]/30 bg-[#b4fb60]/10 px-2 py-0.5 rounded">Adaptive Studio</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/[0.06]">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Quality</label>
+                  <select
+                    value={exportQuality}
+                    onChange={(e) => setExportQuality(e.target.value as any)}
+                    className="w-full bg-[#121614] border border-white/15 rounded px-2 py-1 text-xs text-white outline-none focus:border-[#b4fb60]/60"
+                  >
+                    <option value="draft">Draft (Fast)</option>
+                    <option value="standard">Standard (Balanced)</option>
+                    <option value="maximum">Maximum (Slow / Master)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Format</label>
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value as any)}
+                    className="w-full bg-[#121614] border border-white/15 rounded px-2 py-1 text-xs text-white outline-none focus:border-[#b4fb60]/60"
+                  >
+                    <option value="mp4">MP4 (Universal)</option>
+                    <option value="mov">MOV (QuickTime)</option>
+                    <option value="prores">ProRes (Master Quality)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-white/70">Safe mode (conservative pacing & captions)</span>
+                <input
+                  type="checkbox"
+                  checked={safeMode}
+                  onChange={(e) => setSafeMode(e.target.checked)}
+                  className="accent-[#b4fb60] size-4 rounded"
+                />
               </div>
             </div>
+
             <div role="note" aria-label="Source export capabilities" className="mt-3 rounded-lg border border-white/[0.1] bg-white/[0.025] px-4 py-3 text-xs leading-relaxed text-[var(--light-ui-text,#e8e8ed)]">
-              <p className="font-semibold">What this export includes</p>
-              <p className="mt-1">Original source footage with automatic captions and music. Saved timeline edits, editor captions, and your selected music are not included.</p>
-              <p className="mt-2">Export directly to connected Google Drive below, or download the MP4 to your device.</p>
+              <p className="font-semibold text-white/90">What this export includes</p>
+              <p className="mt-1 text-white/60">Selected soundtrack, speech-synchronized typography, project text layers, B-roll orchestration, and editorial bias directives composited autonomously on AWS Lambda.</p>
+              <p className="mt-2 text-white/45">Export directly to connected Google Drive below, or download the MP4 to your device.</p>
             </div>
           </section>
 

@@ -1,0 +1,41 @@
+name: Editor hook regression
+
+on:
+  pull_request:
+    paths:
+      - 'components/editor/mini-run-live-overlay.tsx'
+      - 'hooks/use-video-frame-scale.ts'
+      - 'lib/editor/mini-run-draft-store.ts'
+      - 'lib/editor/video-frame-scaling.ts'
+      - 'tests/mini-run-overlay-hook-order.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/editor-hook-regression.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'components/editor/mini-run-live-overlay.tsx'
+      - 'hooks/use-video-frame-scale.ts'
+      - 'lib/editor/mini-run-draft-store.ts'
+      - 'lib/editor/video-frame-scaling.ts'
+      - 'tests/mini-run-overlay-hook-order.test.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/editor-hook-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  editor-hooks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test tests/mini-run-overlay-hook-order.test.mjs

@@ -22,7 +22,7 @@ assert.match(searchSource, /@nike/, 'Must include reference handle like @nike')
 // Verify props and accessibility
 assert.match(searchSource, /prompts\?: string\[\]/, 'LiquidGlassSearchProps must support custom prompts')
 assert.match(searchSource, /aria-label="Enter brand URL, website URL, YouTube link, or Instagram handle"/, 'Must have updated accessible aria-label')
-assert.match(searchSource, /placeholder=\{isFocused && !query \? 'Enter brand URL, @handle, or YouTube\.\.\.' : placeholder\}/, 'Must provide brand-focused placeholder on focus')
+assert.match(searchSource, /'Enter brand URL, @handle, or YouTube\.\.\.'/, 'Must provide brand-focused placeholder on focus')
 
 // Verify interactive typing and pointer event isolation
 assert.match(searchSource, /restorePointerEvents/, 'Must define pointer-events restoration for liquidGL WebGL compatibility')

@@ -501,9 +501,82 @@ export function PreviewCanvas({
           }}
         >
           <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="relative flex h-full w-full items-center justify-center">
-            <button type="button" onClick={() => setIsFullscreen(false)} className="absolute right-0 top-0 z-10 grid size-11 place-items-center rounded-full border border-white/15 bg-black/62 text-white/76 backdrop-blur-xl transition-colors hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label="Exit expanded preview" title="Exit expanded preview"><Minimize2 className="size-4" /></button>
-            <div className="relative flex max-h-full max-w-full items-center justify-center overflow-hidden rounded-lg bg-black shadow-[0_36px_100px_rgba(0,0,0,0.7)]">
-              {previewKind === 'image' ? <img src={previewUrl} alt={project?.title ?? 'Project preview'} className="max-h-[calc(100svh-4rem)] max-w-[calc(100vw-2rem)] object-contain" /> : <video ref={fullscreenVideoRef} src={previewUrl} muted={isPreviewMuted} controls playsInline className="max-h-[calc(100svh-4rem)] max-w-[calc(100vw-2rem)] object-contain" onPlay={onPreviewVideoPlay} onPause={onPreviewVideoPause} onTimeUpdate={(event) => onSeekPreview(event.currentTarget.currentTime)} />}
+            <button type="button" onClick={() => setIsFullscreen(false)} className="absolute right-0 top-0 z-30 grid size-11 place-items-center rounded-full border border-white/15 bg-black/62 text-white/76 backdrop-blur-xl transition-colors hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label="Exit expanded preview" title="Exit expanded preview"><Minimize2 className="size-4" /></button>
+            <div
+              className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black shadow-[0_36px_100px_rgba(0,0,0,0.7)]"
+              style={{
+                aspectRatio: visiblePreviewAspectRatio > 0 ? visiblePreviewAspectRatio : 9 / 16,
+                width: `min(calc(100vw - 2rem), calc((100svh - 4rem) * ${visiblePreviewAspectRatio > 0 ? visiblePreviewAspectRatio : 9 / 16}))`,
+                height: `min(calc(100svh - 4rem), calc((100vw - 2rem) / ${visiblePreviewAspectRatio > 0 ? visiblePreviewAspectRatio : 9 / 16}))`,
+              }}
+            >
+              <CinematicPreviewRuntime
+                animationPlan={previewOverlayPlan}
+                currentTimeMs={previewCurrentTimeSec * 1000}
+                aspectRatio={visiblePreviewAspectRatio > 0 ? visiblePreviewAspectRatio : 9 / 16}
+                showSafeZones={Boolean(previewOverlayPlan)}
+                className="absolute inset-0"
+              >
+                {showViralClipSplitPreview ? (
+                  <ViralClipSplitPreview
+                    key={`viral-split-fs-${viralClipSplitAnimationKey}-${previewUrl}`}
+                    active={showViralClipSplitPreview}
+                    animationKey={viralClipSplitAnimationKey}
+                    previewUrl={previewUrl}
+                    previewKind={previewKind}
+                    title={sourceAssetLabel ?? project?.title ?? 'Source video'}
+                    isPlaying={previewPlaying}
+                    currentTimeSec={previewCurrentTimeSec}
+                    mediaTransformStyle={
+                      shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle
+                    }
+                    objectFit={fitMode === 'fill' ? 'cover' : 'contain'}
+                    splitVideoSources={currentSplitPreviewAssets}
+                    highlightRestore={isLockedViralClipTriggerHovered}
+                    onRestoreLandscape={onRestoreLandscape}
+                  />
+                ) : previewKind === 'image' ? (
+                  <div className="absolute inset-0 overflow-hidden bg-black">
+                    <div
+                      className="absolute inset-0"
+                      style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                    >
+                      <img
+                        src={previewUrl}
+                        alt={project?.title ?? 'Project preview'}
+                        className="block h-full w-full bg-black object-contain"
+                        onLoad={onPreviewImageLoaded}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black">
+                    <div
+                      className="relative h-full w-full"
+                      style={shouldUseLegacySessionPreviewSurface ? undefined : previewFrameTransformStyle}
+                    >
+                      <video
+                        ref={fullscreenVideoRef}
+                        src={previewUrl}
+                        muted={isPreviewMuted}
+                        controls
+                        playsInline
+                        className="block h-full w-full select-none bg-black object-contain"
+                        onPlay={onPreviewVideoPlay}
+                        onPause={onPreviewVideoPause}
+                        onTimeUpdate={(event) => onSeekPreview(event.currentTarget.currentTime)}
+                      />
+                      <MiniRunLiveOverlay
+                        videoRef={fullscreenVideoRef}
+                        projectId={projectId}
+                        sourceAssetId={project?.sourceAssetId ?? undefined}
+                        aspectRatio={visiblePreviewAspectRatio}
+                        subtitlesOnly={true}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CinematicPreviewRuntime>
             </div>
           </motion.div>
         </motion.div>

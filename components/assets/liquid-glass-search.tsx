@@ -120,11 +120,31 @@ export function LiquidGlassSearch({
   const isControlled = value !== undefined
   const query = isControlled ? value : internalValue
 
-  const setQuery = React.useCallback(
-    (next: string) => {
+  const dismissSearchFocusAndAutocomplete = React.useCallback(() => {
+    setIsAutocompleteOpen(false)
+    setIsFocused(false)
+    inputRef.current?.blur()
+  }, [])
+
+  const handleInputChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const next = e.target.value
       if (!isControlled) setInternalValue(next)
       onChange?.(next)
       if (next.trim().length >= 2) {
+        setIsAutocompleteOpen(true)
+      } else {
+        setIsAutocompleteOpen(false)
+      }
+    },
+    [isControlled, onChange],
+  )
+
+  const setQuery = React.useCallback(
+    (next: string, openAutocomplete = false) => {
+      if (!isControlled) setInternalValue(next)
+      onChange?.(next)
+      if (openAutocomplete && next.trim().length >= 2) {
         setIsAutocompleteOpen(true)
       } else {
         setIsAutocompleteOpen(false)
@@ -137,13 +157,14 @@ export function LiquidGlassSearch({
     (text: string) => {
       const clean = text.trim()
       if (clean) {
-        setQuery(clean)
+        setQuery(clean, false)
         setTimeout(() => {
+          dismissSearchFocusAndAutocomplete()
           onSubmit?.(clean)
         }, 350)
       }
     },
-    [setQuery, onSubmit],
+    [setQuery, dismissSearchFocusAndAutocomplete, onSubmit],
   )
 
   const { state: voiceState, start: startVoice, stop: stopVoice } = useVoiceInput({
@@ -287,6 +308,7 @@ export function LiquidGlassSearch({
 
   const handleSubmit = (event?: React.FormEvent) => {
     event?.preventDefault()
+    dismissSearchFocusAndAutocomplete()
     const targetQuery = query.trim()
     if (!targetQuery) return
     onSubmit?.(targetQuery)
@@ -343,9 +365,22 @@ export function LiquidGlassSearch({
               type="text"
               autoFocus={autoFocus}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setIsFocused(true)}
+              onChange={handleInputChange}
+              onFocus={() => {
+                setIsFocused(true)
+                if (query.trim().length >= 2) {
+                  setIsAutocompleteOpen(true)
+                }
+              }}
               onBlur={() => setIsFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  dismissSearchFocusAndAutocomplete()
+                  handleSubmit()
+                } else if (e.key === 'Escape') {
+                  dismissSearchFocusAndAutocomplete()
+                }
+              }}
               placeholder={
                 voiceState === 'recording'
                   ? 'Listening... speak creator, handle, or brand'
@@ -437,10 +472,10 @@ export function LiquidGlassSearch({
         <BrandSearchAutocomplete
           query={query}
           isOpen={isAutocompleteOpen && Boolean(query.trim().length >= 2)}
-          onClose={() => setIsAutocompleteOpen(false)}
+          onClose={dismissSearchFocusAndAutocomplete}
           onSelectPlatform={(platform: CreatorPlatformRecommendation) => {
-            setIsAutocompleteOpen(false)
-            setQuery(platform.title)
+            dismissSearchFocusAndAutocomplete()
+            setQuery(platform.brandName || platform.title, false)
             if (onSelectRecommendation) {
               onSelectRecommendation(platform.brandName, platform.handleOrUrl)
             } else {
@@ -448,8 +483,8 @@ export function LiquidGlassSearch({
             }
           }}
           onSelectRelated={(creator: RelatedCreatorRecommendation) => {
-            setIsAutocompleteOpen(false)
-            setQuery(creator.name)
+            dismissSearchFocusAndAutocomplete()
+            setQuery(creator.name, false)
             if (onSelectRecommendation) {
               onSelectRecommendation(creator.name, creator.handle)
             } else {
@@ -457,7 +492,7 @@ export function LiquidGlassSearch({
             }
           }}
           onOpenJarvis={(subject) => {
-            setIsAutocompleteOpen(false)
+            dismissSearchFocusAndAutocomplete()
             setIsJarvisOpen(true)
             onOpenJarvis?.(subject)
           }}
@@ -484,7 +519,8 @@ export function LiquidGlassSearch({
         onClose={() => setIsJarvisOpen(false)}
         currentQuery={query}
         onApplyBrandSpirit={(brandName, queryOrUrl) => {
-          setQuery(brandName)
+          dismissSearchFocusAndAutocomplete()
+          setQuery(brandName, false)
           if (onSelectRecommendation) {
             onSelectRecommendation(brandName, queryOrUrl)
           } else {
@@ -492,7 +528,8 @@ export function LiquidGlassSearch({
           }
         }}
         onSelectRelatedCreator={(creatorName) => {
-          setQuery(creatorName)
+          dismissSearchFocusAndAutocomplete()
+          setQuery(creatorName, false)
           if (onSelectRecommendation) {
             onSelectRecommendation(creatorName, creatorName)
           } else {

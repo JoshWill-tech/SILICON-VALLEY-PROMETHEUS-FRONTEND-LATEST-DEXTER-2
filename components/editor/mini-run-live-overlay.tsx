@@ -346,6 +346,7 @@ export function MiniRunLiveOverlay({
 
   // Instantaneous playback: ensures the preview plays the moment the page and video load
   React.useEffect(() => {
+    if (subtitlesOnly) return
     const vid = videoRef.current
     if (!vid) return
     let triggered = false
@@ -410,6 +411,36 @@ export function MiniRunLiveOverlay({
       setIsPlanning(false)
     }
   }
+
+  // Keep this hook above the empty-draft returns: plans can load or reset while mounted.
+  // Pre-warm all font combinations declared in chunks to eliminate font swap latency.
+  React.useEffect(() => {
+    if (chunks.length === 0 || typeof document === 'undefined' || !document.fonts) return
+    const families = new Set<string>()
+    chunks.forEach((c) => {
+      if (c.layers) {
+        c.layers.forEach((l) => {
+          if (l.fontFamily) families.add(l.fontFamily)
+          if (l.accentFont) families.add(l.accentFont)
+        })
+      }
+      if (c.typography?.fontFamily) families.add(c.typography.fontFamily)
+    })
+    TYPOGRAPHY_PRESETS.forEach((p) => {
+      if (p.styling.fontFamily) families.add(p.styling.fontFamily)
+      if (p.layersTemplate?.secondary?.fontFamily) families.add(p.layersTemplate.secondary.fontFamily)
+      if (p.layersTemplate?.hero?.fontFamily) families.add(p.layersTemplate.hero.fontFamily)
+    })
+
+    families.forEach((fam) => {
+      const resolved = resolveFontFamily(fam)
+      try {
+        void document.fonts.load(`48px ${resolved}`)
+        void document.fonts.load(`italic 48px ${resolved}`)
+        void document.fonts.load(`800 48px ${resolved}`)
+      } catch {}
+    })
+  }, [chunks])
 
   // If there are no planned chunks loaded, display an unobtrusive, minimalist Apple glass pill (unless in subtitles-only mode)
   if (chunks.length === 0) {
@@ -535,35 +566,6 @@ export function MiniRunLiveOverlay({
       setIsBaking(false)
     }
   }
-
-  // Pre-warm all font combinations declared in chunks to eliminate font swap latency
-  React.useEffect(() => {
-    if (typeof document === 'undefined' || !document.fonts) return
-    const families = new Set<string>()
-    chunks.forEach((c) => {
-      if (c.layers) {
-        c.layers.forEach((l) => {
-          if (l.fontFamily) families.add(l.fontFamily)
-          if (l.accentFont) families.add(l.accentFont)
-        })
-      }
-      if (c.typography?.fontFamily) families.add(c.typography.fontFamily)
-    })
-    TYPOGRAPHY_PRESETS.forEach((p) => {
-      if (p.styling.fontFamily) families.add(p.styling.fontFamily)
-      if (p.layersTemplate?.secondary?.fontFamily) families.add(p.layersTemplate.secondary.fontFamily)
-      if (p.layersTemplate?.hero?.fontFamily) families.add(p.layersTemplate.hero.fontFamily)
-    })
-
-    families.forEach((fam) => {
-      const resolved = resolveFontFamily(fam)
-      try {
-        void document.fonts.load(`48px ${resolved}`)
-        void document.fonts.load(`italic 48px ${resolved}`)
-        void document.fonts.load(`800 48px ${resolved}`)
-      } catch {}
-    })
-  }, [chunks])
 
   const typography: DraftTypography = activeChunk?.typography || {}
   const scaledStyle = getScaledTypography(

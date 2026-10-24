@@ -84,10 +84,12 @@ export function BrandSearchAutocomplete({
         e.preventDefault()
         if (selectedIndex < recommendations.platformOptions.length) {
           onSelectPlatform(recommendations.platformOptions[selectedIndex])
+          onClose()
         } else {
           const relIdx = selectedIndex - recommendations.platformOptions.length
           if (recommendations.relatedCreators[relIdx]) {
             onSelectRelated(recommendations.relatedCreators[relIdx])
+            onClose()
           }
         }
       } else if (e.key === 'Escape') {
@@ -166,10 +168,13 @@ export function BrandSearchAutocomplete({
                 type="button"
                 role="option"
                 aria-selected={isHighlighted}
-                onClick={() => onSelectPlatform(opt)}
+                onClick={() => {
+                  onSelectPlatform(opt)
+                  onClose()
+                }}
                 onMouseEnter={() => setSelectedIndex(idx)}
                 className={cn(
-                  'group flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-all',
+                  'group flex w-full cursor-pointer select-none items-center justify-between rounded-xl px-3 py-2 text-left transition-all',
                   isHighlighted
                     ? 'border border-[#55ff9b]/40 bg-[#55ff9b]/[0.12] shadow-[0_0_20px_rgba(85,255,155,0.1)]'
                     : 'border border-transparent bg-white/[0.02] hover:bg-white/[0.05]'
@@ -200,7 +205,7 @@ export function BrandSearchAutocomplete({
                 </div>
 
                 <div className="shrink-0 pl-2 text-right">
-                  <span className="inline-block rounded-md border border-[#55ff9b]/30 bg-[#55ff9b]/10 px-2 py-0.5 text-[10px] font-medium text-[#63ffa4] opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="inline-block rounded-md border border-[#55ff9b]/30 bg-[#55ff9b]/10 px-2 py-0.5 text-[10px] font-medium text-[#63ffa4] opacity-80 transition-all group-hover:opacity-100 group-hover:bg-[#55ff9b]/20 group-hover:border-[#55ff9b]/50">
                     Apply Spirit →
                   </span>
                 </div>
@@ -226,10 +231,13 @@ export function BrandSearchAutocomplete({
                     type="button"
                     role="option"
                     aria-selected={isHighlighted}
-                    onClick={() => onSelectRelated(rel)}
+                    onClick={() => {
+                      onSelectRelated(rel)
+                      onClose()
+                    }}
                     onMouseEnter={() => setSelectedIndex(itemIdx)}
                     className={cn(
-                      'group flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-all',
+                      'group flex cursor-pointer select-none items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-all',
                       isHighlighted
                         ? 'border-[#55ff9b]/40 bg-[#55ff9b]/[0.10]'
                         : 'border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]'
