@@ -61,7 +61,8 @@ try {
         '@/components/editor/preview-generation-state': 'export const PreviewGenerationState=()=>null;',
         '@/components/editor/preview-feedback-shell': 'export const PreviewFeedbackShell=()=>null;',
         '@/components/editor/source-stage-placeholder': 'export const SourceStagePlaceholder=()=>null;',
-        '@/components/editor/mini-run-live-overlay': 'export const MiniRunLiveOverlay=()=>null;',
+        '@/components/editor/mini-run-live-overlay': 'export const MiniRunLiveOverlay=()=>null; export const TYPOGRAPHY_PRESETS=[];',
+        '@/components/editor/mini-run-outside-hud': 'export const MiniRunOutsideHud=()=>null;',
         '@/hooks/use-editorial-timeline': 'export const useEditorialTimeline=()=>({timeline:null,status:"idle"});',
       }
       bundler.onResolve({ filter: /^@\// }, args => args.path in mocks ? { path: args.path, namespace: 'preview-service' } : undefined)

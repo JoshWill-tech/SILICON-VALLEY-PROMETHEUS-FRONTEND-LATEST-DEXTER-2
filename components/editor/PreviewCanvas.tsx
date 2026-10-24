@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertCircle, Film, Play, Pause, Maximize2, Minimize2, X } from 'lucide-react'
+import { AlertCircle, Film, Play, Pause, Maximize2, Minimize2, X, GripVertical } from 'lucide-react'
 import { InlineLoadingAnimation } from '@/components/loading-animation'
 import { CinematicPreviewRuntime } from '@/components/editor/cinematic-preview-runtime'
 import { ViralClipSplitPreview } from '@/components/editor/viral-clip-split-preview'
@@ -142,6 +142,16 @@ export function PreviewCanvas({
 }: PreviewCanvasProps) {
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const fullscreenVideoRef = React.useRef<HTMLVideoElement | null>(null)
+  const previewCanvasRef = React.useRef<HTMLDivElement | null>(null)
+  const [isDraggingControls, setIsDraggingControls] = React.useState(false)
+  const [isControlsHovered, setIsControlsHovered] = React.useState(false)
+  const [controlsKey, setControlsKey] = React.useState(0)
+  const [hasRepositionedControls, setHasRepositionedControls] = React.useState(false)
+
+  const handleResetControlsPosition = React.useCallback(() => {
+    setControlsKey((k) => k + 1)
+    setHasRepositionedControls(false)
+  }, [])
 
   React.useEffect(() => {
     if (!isFullscreen) return
@@ -168,7 +178,7 @@ export function PreviewCanvas({
   return (
     <>
     <div className="flex w-full flex-col items-center">
-      <div className="group relative w-full max-w-[min(100%,54rem)] self-center">
+      <div ref={previewCanvasRef} className="group relative w-full max-w-[min(100%,54rem)] self-center">
         <div
           className={cn(
             'relative w-full',
@@ -357,10 +367,54 @@ export function PreviewCanvas({
           <AnimatePresence>
             {hasPreviewMedia && (
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-6 z-30 flex translate-y-2 items-center justify-center px-6 opacity-0 transition-[opacity,transform] duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100"
+                className={cn(
+                  'pointer-events-none absolute inset-x-0 bottom-6 z-30 flex items-center justify-center px-6 transition-opacity duration-300 ease-out',
+                  isDraggingControls || isControlsHovered
+                    ? 'pointer-events-auto opacity-100'
+                    : 'opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
+                )}
               >
-                <div data-preview-controls className="glass-panel flex items-center gap-4 rounded-full border border-white/10 bg-void/60 px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
-                  <div className="flex items-center gap-3 px-3 py-1">
+                <motion.div
+                  key={controlsKey}
+                  data-preview-controls
+                  data-draggable="true"
+                  data-dragging={isDraggingControls ? 'true' : 'false'}
+                  drag
+                  dragConstraints={previewCanvasRef}
+                  dragElastic={0.08}
+                  dragMomentum={false}
+                  whileDrag={{
+                    scale: 1.02,
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.2)',
+                  }}
+                  onDragStart={() => setIsDraggingControls(true)}
+                  onDragEnd={(_, info) => {
+                    setIsDraggingControls(false)
+                    if (Math.hypot(info.offset.x, info.offset.y) > 4) {
+                      setHasRepositionedControls(true)
+                    }
+                  }}
+                  onMouseEnter={() => setIsControlsHovered(true)}
+                  onMouseLeave={() => setIsControlsHovered(false)}
+                  className={cn(
+                    'glass-panel pointer-events-auto flex items-center gap-3.5 rounded-full border border-white/10 bg-void/60 px-2.5 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-[border-color,background-color] duration-200 select-none cursor-grab active:cursor-grabbing',
+                    isDraggingControls && 'cursor-grabbing border-white/30 bg-void/80 shadow-[0_16px_40px_rgba(0,0,0,0.6)]'
+                  )}
+                >
+                  <div
+                    className="flex items-center pl-1 text-white/35 transition-colors hover:text-white/80 cursor-grab active:cursor-grabbing"
+                    title="Drag to reposition (Double-click to reset)"
+                    aria-label="Drag controls to reposition"
+                    onDoubleClick={handleResetControlsPosition}
+                  >
+                    <GripVertical className="size-4 shrink-0" />
+                  </div>
+
+                  <div
+                    className="flex items-center gap-3 px-2 py-1 cursor-grab active:cursor-grabbing"
+                    onDoubleClick={handleResetControlsPosition}
+                    title="Double-click to reset position"
+                  >
                     <span className="font-mono text-[11px] font-medium tracking-wide text-white/80">
                       {transportCurrentTime}
                     </span>
@@ -373,24 +427,28 @@ export function PreviewCanvas({
                     type="button"
                     data-preview-playback
                     onClick={onTogglePreviewPlayback}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-cyan text-void transition-transform active:scale-95"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-cyan text-void transition-transform active:scale-95 cursor-pointer"
                     aria-label={previewPlaying ? 'Pause preview' : 'Play preview'}
                   >
                     {previewPlaying ? <Pause className="size-5 fill-current" /> : <Play className="size-5 fill-current ml-1" />}
                   </button>
 
-                  {comparisonControl}
+                  <div onPointerDown={(e) => e.stopPropagation()} className="cursor-pointer">
+                    {comparisonControl}
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => setIsFullscreen(true)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-white"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/5 hover:text-white cursor-pointer"
                     aria-label="Expand preview"
                     title="Expand preview"
                   >
                     <Maximize2 className="size-4" />
                   </button>
-                </div>
+                </motion.div>
               </div>
             )}
           </AnimatePresence>
