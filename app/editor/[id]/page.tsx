@@ -8820,10 +8820,16 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     })
     const video = previewVideoRef.current
     if (video && video.paused) {
-      video.play().catch(() => {
+      video.play().then(() => {
+        previewPlaybackIntentRef.current = 'playing'
+        setPreviewPlaying(true)
+      }).catch(() => {
         // Safe autoplay fallback: browsers permit muted playback
         video.muted = true
-        video.play().catch(() => {})
+        video.play().then(() => {
+          previewPlaybackIntentRef.current = 'playing'
+          setPreviewPlaying(true)
+        }).catch(() => {})
       })
     }
   }, [handlePreviewMetadataLoaded, previewUrl, projectId])
@@ -8872,7 +8878,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [previewUrl, projectId])
 
   const handlePreviewVideoPlay = React.useCallback(() => {
-    if (previewPlaybackIntentRef.current !== 'playing') return
+    previewPlaybackIntentRef.current = 'playing'
     debugEditorPreview('video-play', {
       projectId,
       previewUrl,
@@ -8881,8 +8887,6 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
   }, [previewUrl, projectId])
 
   const handlePreviewVideoPause = React.useCallback(() => {
-    const video = previewVideoRef.current
-    if (previewPlaybackIntentRef.current === 'playing' && video && !video.paused) return
     previewPlaybackIntentRef.current = 'paused'
     previewPlaybackCommandRef.current += 1
     soundtrackAudioRef.current?.pause()
@@ -9592,12 +9596,14 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
     if (previewKind !== 'video' || !previewUrl) return
     if (previewToggleCooldownRef.current !== null) return
     armPreviewToggleCooldown()
-    if (previewPlaybackIntentRef.current === 'paused') {
-      startPreviewPlayback()
+    const video = previewVideoRef.current
+    const isPlaying = video ? !video.paused : previewPlaybackIntentRef.current === 'playing'
+    if (isPlaying) {
+      pausePreviewPlayback()
       return
     }
 
-    pausePreviewPlayback()
+    startPreviewPlayback()
   }, [armPreviewToggleCooldown, pausePreviewPlayback, previewKind, previewUrl, startPreviewPlayback])
 
   const handlePreviewPlayRequest = React.useCallback(() => {

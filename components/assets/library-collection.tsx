@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArrowUpRight, Check, LibraryBig, Sparkles, X } from 'lucide-react'
+import { ArrowUpRight, Check, Film, LibraryBig, Play, Sparkles, X, ExternalLink } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 
@@ -21,6 +21,21 @@ export type ActiveBrandRecord = {
   type: string
   url: string
   appliedAt: string
+  avatarUrl?: string
+  videos?: Array<{
+    videoId: string
+    title: string
+    thumbnailUrl: string
+    url: string
+  }>
+  styleDNA?: {
+    tone?: string
+    typography?: string
+    colorAccent?: string
+    aestheticDescription?: string
+    pacing?: string
+    insights?: string[]
+  }
 }
 
 function parseBrandInput(raw: string): ActiveBrandRecord | null {
@@ -152,10 +167,10 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
         {
           brandProfile: {
             brandName: spec.brandName,
-            tone: `Aligned with ${spec.type}: ${spec.rawInput}`,
+            tone: spec.styleDNA?.tone || `Aligned with ${spec.type}: ${spec.rawInput}`,
             preferredCaptionStyle: 'clean_bold',
             pacing: 'cinematic_deliberate',
-            visualGuidelines: `Brand Identity: ${spec.rawInput} (${spec.type}). Apply brand typography, pacing, color accents, and aesthetic spirit across all generated video outputs and AI edits.`,
+            visualGuidelines: spec.styleDNA?.aestheticDescription || `Brand Identity: ${spec.rawInput} (${spec.type}). Apply brand typography, pacing, color accents, and aesthetic spirit across all generated video outputs and AI edits.`,
           },
         },
         'global_creator',
@@ -174,7 +189,9 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
         brandName: spec.brandName,
         url: spec.url || `https://${spec.rawInput.replace(/^@/, '')}`,
         tagline: `Brand spirit from ${spec.rawInput}`,
-        valueProposition: `Custom brand identity reflecting ${spec.rawInput} in video outputs.`,
+        valueProposition: spec.styleDNA?.aestheticDescription || `Custom brand identity reflecting ${spec.rawInput} in video outputs.`,
+        avatarUrl: spec.avatarUrl,
+        videos: spec.videos,
       })
     } catch {
       // safe fallback
@@ -183,7 +200,9 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
     setActiveBrand(spec)
 
     toast.success(`Brand identity applied: "${spec.brandName}"`, {
-      description: `Video outputs will reflect the spirit and specifications of ${spec.rawInput}.`,
+      description: spec.videos?.length
+        ? `Ingested ${spec.videos.length} reference videos. Outputs calibrated to ${spec.brandName}'s visual spirit.`
+        : `Video outputs will reflect the spirit and specifications of ${spec.rawInput}.`,
     })
   }, [])
 
@@ -256,6 +275,9 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
               type: data.brand.type,
               url: data.brand.url || (spec?.url ?? ''),
               appliedAt: new Date().toISOString(),
+              avatarUrl: data.brand.avatarUrl,
+              videos: data.brand.videos,
+              styleDNA: data.brand.styleDNA,
             }
             applyBrandSpecification(resolvedSpec)
             setSubmittedBrandQuery(data.brand.brandName)
@@ -343,50 +365,208 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
         ) : null}
 
         {visibleCreators.length === 0 ? (
-          <div className="my-10 flex flex-col items-center justify-center rounded-2xl border border-[#55ff9b]/25 bg-[#030503]/85 p-6 sm:p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
-            {/* Animated Voice-to-Text Path when getting requisite brand info */}
-            {submittedBrandQuery ? (
-              <div className="w-full max-w-[920px] mb-6">
-                <BrandVoicePathAnimation key={submittedBrandQuery} brandQuery={submittedBrandQuery} isAnalyzing={isApplyingBrand} visible />
-              </div>
-            ) : null}
+          activeBrand?.videos && activeBrand.videos.length > 0 ? (
+            <div className="my-8 flex w-full flex-col items-center">
+              {/* Animated Voice-to-Text Path with real extracted insights */}
+              {submittedBrandQuery ? (
+                <div className="mb-8 w-full max-w-[920px]">
+                  <BrandVoicePathAnimation
+                    key={submittedBrandQuery}
+                    brandQuery={submittedBrandQuery}
+                    isAnalyzing={isApplyingBrand}
+                    customInsights={activeBrand.styleDNA?.insights}
+                    visible
+                  />
+                </div>
+              ) : null}
 
-            <div className="grid size-12 place-items-center rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 text-[#63ffa4]">
-              <Sparkles className="size-6" aria-hidden="true" />
+              {/* Ingested Creator Spotlight Header */}
+              <div className="mb-8 w-full max-w-[1100px] rounded-2xl border border-[#55ff9b]/30 bg-[#030503]/90 p-6 sm:p-8 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                    {activeBrand.avatarUrl ? (
+                      <div className="relative size-20 shrink-0 overflow-hidden rounded-full border-2 border-[#55ff9b]/70 shadow-[0_0_25px_rgba(85,255,155,0.35)]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={activeBrand.avatarUrl}
+                          alt={activeBrand.brandName}
+                          className="size-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid size-20 shrink-0 place-items-center rounded-full border-2 border-[#55ff9b]/60 bg-[#55ff9b]/15 text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.25)]">
+                        <Sparkles className="size-8" aria-hidden="true" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                          {activeBrand.brandName}
+                        </h3>
+                        <span className="rounded-full border border-[#55ff9b]/40 bg-[#55ff9b]/10 px-2.5 py-0.5 font-mono text-[11px] text-[#63ffa4]">
+                          Active Spirit
+                        </span>
+                      </div>
+                      <p className="mt-1.5 max-w-xl text-xs sm:text-sm text-white/70 leading-relaxed">
+                        {activeBrand.styleDNA?.aestheticDescription ||
+                          `Ingested channel archives from ${activeBrand.rawInput}. Video pacing, color grade, and typography calibrated to creator DNA.`}
+                      </p>
+
+                      {/* Style DNA tags */}
+                      {activeBrand.styleDNA ? (
+                        <div className="mt-3.5 flex flex-wrap items-center justify-center sm:justify-start gap-2 text-[11px]">
+                          {activeBrand.styleDNA.tone ? (
+                            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/80">
+                              <span className="text-white/40">Tone:</span> {activeBrand.styleDNA.tone}
+                            </span>
+                          ) : null}
+                          {activeBrand.styleDNA.typography ? (
+                            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/80">
+                              <span className="text-white/40">Type:</span> {activeBrand.styleDNA.typography}
+                            </span>
+                          ) : null}
+                          {activeBrand.styleDNA.pacing ? (
+                            <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/80">
+                              <span className="text-white/40">Pacing:</span> {activeBrand.styleDNA.pacing}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center sm:items-end gap-2.5 shrink-0">
+                    <span className="rounded-full border border-[#55ff9b]/30 bg-[#55ff9b]/[0.08] px-3 py-1 font-mono text-xs text-[#63ffa4]">
+                      {activeBrand.videos.length} Verified Archetypes
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSearchChange('')}
+                      className="rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instantaneous Video Archetype / Thumbnail Collection */}
+              <div className="w-full max-w-[1100px]">
+                <div className="mb-4 flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/70">
+                    <Film className="size-4 text-[#63ffa4]" />
+                    <span>Instantaneous Video Ingestion Collection</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-white/40">
+                    Click to select reference video
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {activeBrand.videos.map((video, idx) => (
+                    <div
+                      key={video.videoId || idx}
+                      className="group relative flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#080d09] shadow-lg transition-all duration-300 hover:border-[#55ff9b]/60 hover:shadow-[0_10px_30px_rgba(85,255,155,0.15)] hover:scale-[1.02]"
+                    >
+                      {/* Thumbnail Container */}
+                      <div className="relative aspect-video w-full overflow-hidden bg-black/60">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={video.thumbnailUrl}
+                          alt={video.title}
+                          className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-60 group-hover:opacity-40 transition-opacity" />
+                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-mono text-[#63ffa4] backdrop-blur-md">
+                          <Play className="size-2.5 fill-[#63ffa4]" />
+                          <span>Video #{idx + 1}</span>
+                        </div>
+                      </div>
+
+                      {/* Video Title & Actions */}
+                      <div className="flex flex-1 flex-col justify-between p-3.5">
+                        <h4
+                          className="line-clamp-2 text-xs font-medium text-white/90 group-hover:text-white"
+                          title={video.title}
+                        >
+                          {video.title}
+                        </h4>
+
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/5 pt-2.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSelect(`custom_ref_${video.videoId}`)
+                              toast.success(`Selected "${video.title}" as active style reference!`)
+                            }}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#55ff9b]/40 bg-[#55ff9b]/15 px-2.5 py-1.5 text-[11px] font-semibold text-[#63ffa4] transition hover:bg-[#55ff9b]/30"
+                          >
+                            <Check className="size-3" />
+                            <span>Use Style</span>
+                          </button>
+                          <a
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex size-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white/40 transition hover:bg-white/10 hover:text-white"
+                            title="Open on YouTube"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <h3 className="mt-4 text-base font-semibold text-white sm:text-lg">
-              Set Brand Spirit for Video Outputs
-            </h3>
-            <p className="mt-2 max-w-md text-xs leading-relaxed text-white/60 sm:text-sm">
-              Reflect <span className="font-mono text-[#63ffa4]">{searchQuery}</span> across your video outputs.
-              Prometheus will calibrate video pacing, typography, color accents, and AI generation to match this brand identity.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsApplyingBrand(true)
-                  const spec = parseBrandInput(searchQuery)
-                  if (spec) applyBrandSpecification(spec)
-                  setTimeout(() => {
-                    setIsApplyingBrand(false)
-                  }, 600)
-                }}
-                disabled={isApplyingBrand}
-                className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02] disabled:opacity-60"
-              >
-                <Check className="size-3.5" />
-                {isApplyingBrand ? 'Calibrating Brand Spirit...' : `Apply "${searchQuery}" to Video Suite`}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSearchChange('')}
-                className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
-              >
-                Clear search
-              </button>
+          ) : (
+            <div className="my-10 flex flex-col items-center justify-center rounded-2xl border border-[#55ff9b]/25 bg-[#030503]/85 p-6 sm:p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+              {/* Animated Voice-to-Text Path when getting requisite brand info */}
+              {submittedBrandQuery ? (
+                <div className="w-full max-w-[920px] mb-6">
+                  <BrandVoicePathAnimation key={submittedBrandQuery} brandQuery={submittedBrandQuery} isAnalyzing={isApplyingBrand} visible />
+                </div>
+              ) : null}
+
+              <div className="grid size-12 place-items-center rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 text-[#63ffa4]">
+                <Sparkles className="size-6" aria-hidden="true" />
+              </div>
+              <h3 className="mt-4 text-base font-semibold text-white sm:text-lg">
+                Set Brand Spirit for Video Outputs
+              </h3>
+              <p className="mt-2 max-w-md text-xs leading-relaxed text-white/60 sm:text-sm">
+                Reflect <span className="font-mono text-[#63ffa4]">{searchQuery}</span> across your video outputs.
+                Prometheus will calibrate video pacing, typography, color accents, and AI generation to match this brand identity.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsApplyingBrand(true)
+                    const spec = parseBrandInput(searchQuery)
+                    if (spec) applyBrandSpecification(spec)
+                    setTimeout(() => {
+                      setIsApplyingBrand(false)
+                    }, 600)
+                  }}
+                  disabled={isApplyingBrand}
+                  className="flex items-center gap-2 rounded-full border border-[#55ff9b]/60 bg-[#55ff9b]/20 px-5 py-2.5 text-xs font-semibold text-[#63ffa4] shadow-[0_0_20px_rgba(85,255,155,0.2)] transition hover:bg-[#55ff9b]/30 hover:scale-[1.02] disabled:opacity-60"
+                >
+                  <Check className="size-3.5" />
+                  {isApplyingBrand ? 'Calibrating Brand Spirit...' : `Apply "${searchQuery}" to Video Suite`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSearchChange('')}
+                  className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
+                >
+                  Clear search
+                </button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
             {visibleCreators.map(({ creator, index }) => (

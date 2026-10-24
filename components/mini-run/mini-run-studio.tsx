@@ -520,6 +520,7 @@ export function MiniRunStudio() {
                     videoRef={sourceVideoRef}
                     projectId={selectedProjectId ?? undefined}
                     sourceAssetId={asset.id}
+                    aspectRatio={asset.width && asset.height ? asset.width / asset.height : undefined}
                   />
                 </div>
               ) : (

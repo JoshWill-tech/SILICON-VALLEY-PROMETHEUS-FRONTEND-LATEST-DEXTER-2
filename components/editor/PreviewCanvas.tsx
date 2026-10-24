@@ -11,6 +11,7 @@ import { PreviewGenerationState } from '@/components/editor/preview-generation-s
 import { PreviewFeedbackShell } from '@/components/editor/preview-feedback-shell'
 import { SourceStagePlaceholder } from '@/components/editor/source-stage-placeholder'
 import { MiniRunLiveOverlay } from '@/components/editor/mini-run-live-overlay'
+import { MiniRunOutsideHud } from '@/components/editor/mini-run-outside-hud'
 import { cn } from '@/lib/utils'
 import type {
   Project,
@@ -178,23 +179,24 @@ export function PreviewCanvas({
           style={hasPreviewMedia ? { aspectRatio: visiblePreviewAspectRatio } : undefined}
         >
           <div className="relative flex h-full w-full items-center justify-center">
-            <motion.div
-              data-theme-independent="media"
-              layout
-              className="relative overflow-hidden"
-              style={{
-                aspectRatio: visiblePreviewAspectRatio,
-                width: previewFrameWidth,
-                height: 'auto',
-                willChange: 'width, height, transform',
-              }}
-              transition={{
-                layout: {
-                  duration: 0.72,
-                  ease: [0.645, 0.045, 0.355, 1],
-                },
-              }}
-            >
+            <div className="relative flex items-center justify-center">
+              <motion.div
+                data-theme-independent="media"
+                layout
+                className="relative overflow-hidden"
+                style={{
+                  aspectRatio: visiblePreviewAspectRatio,
+                  width: previewFrameWidth,
+                  height: 'auto',
+                  willChange: 'width, height, transform',
+                }}
+                transition={{
+                  layout: {
+                    duration: 0.72,
+                    ease: [0.645, 0.045, 0.355, 1],
+                  },
+                }}
+              >
               <div className="relative h-full w-full">
                 {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
                   <motion.div
@@ -298,6 +300,8 @@ export function PreviewCanvas({
                               videoRef={previewVideoRef}
                               projectId={projectId}
                               sourceAssetId={project?.sourceAssetId ?? undefined}
+                              aspectRatio={visiblePreviewAspectRatio}
+                              subtitlesOnly={true}
                             />
                           </div>
                         </div>
@@ -338,7 +342,18 @@ export function PreviewCanvas({
                 )}
               </div>
             </motion.div>
+
+            {/* Outside Morphing HUD on the right side of the video */}
+            {previewKind === 'video' && hasPreviewMedia && (
+              <MiniRunOutsideHud
+                videoRef={previewVideoRef}
+                projectId={projectId}
+                sourceAssetId={project?.sourceAssetId ?? undefined}
+                currentTimeMs={previewCurrentTimeSec * 1000}
+              />
+            )}
           </div>
+        </div>
 
           {/* Floating Controls Overlay — appears only while hovering the video */}
           <AnimatePresence>

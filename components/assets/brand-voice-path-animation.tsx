@@ -11,6 +11,8 @@ export interface BrandVoicePathAnimationProps {
   onComplete?: () => void
   /** When false (default) the component is hidden; set to true after the search button is clicked with a URL */
   visible?: boolean
+  /** Optional custom extracted insights from the agentic brand resolution engine */
+  customInsights?: string[]
 }
 
 /**
@@ -118,10 +120,23 @@ export function BrandVoicePathAnimation({
   className,
   onComplete,
   visible = false,
+  customInsights,
 }: BrandVoicePathAnimationProps) {
   const reduceMotion = useReducedMotion()
   const textPathRef = React.useRef<SVGTextPathElement | null>(null)
-  const [currentText, setCurrentText] = React.useState<string>(() => getRandomWittyPun(brandQuery))
+  const [insightIndex, setInsightIndex] = React.useState(0)
+
+  const getTextForCycle = React.useCallback(
+    (index: number, exclude?: string) => {
+      if (customInsights && customInsights.length > 0) {
+        return customInsights[index % customInsights.length]
+      }
+      return getRandomWittyPun(brandQuery, exclude)
+    },
+    [brandQuery, customInsights]
+  )
+
+  const [currentText, setCurrentText] = React.useState<string>(() => getTextForCycle(0))
   const [cycleCount, setCycleCount] = React.useState(0)
 
   // Unique SVG IDs to avoid collisions
@@ -130,15 +145,20 @@ export function BrandVoicePathAnimation({
   const gradientId = `edgeFadeGradient-${reactId}`
   const maskId = `edgeFadeMask-${reactId}`
 
-  // Update text when brandQuery changes significantly
+  // Update text when brandQuery or customInsights changes significantly
   React.useEffect(() => {
-    setCurrentText(getRandomWittyPun(brandQuery))
-  }, [brandQuery])
+    setInsightIndex(0)
+    setCurrentText(getTextForCycle(0))
+  }, [brandQuery, customInsights, getTextForCycle])
 
   const nextWittyPun = React.useCallback(() => {
-    setCurrentText((prev) => getRandomWittyPun(brandQuery, prev))
+    setInsightIndex((i) => {
+      const nextIdx = i + 1
+      setCurrentText(getTextForCycle(nextIdx, currentText))
+      return nextIdx
+    })
     setCycleCount((c) => c + 1)
-  }, [brandQuery])
+  }, [currentText, getTextForCycle])
 
   // Stream out of the waveform, then hold the complete loop like the reference.
   React.useEffect(() => {
@@ -165,7 +185,7 @@ export function BrandVoicePathAnimation({
       const cycle = Math.floor(elapsed / loopDuration)
       if (cycle > lastCycle) {
         lastCycle = cycle
-        setCurrentText((previous) => getRandomWittyPun(brandQuery, previous))
+        setCurrentText((previous) => getTextForCycle(cycle, previous))
       }
       const cycleTime = elapsed % loopDuration
       const progress = 1 - Math.pow(1 - Math.min(cycleTime / streamDuration, 1), 3)

@@ -26,6 +26,14 @@ import {
 import { dispatchMiniRunFromProject, planMiniRunFromProject } from '@/lib/api/mini-run-console'
 import { miniRun } from '@/lib/api/mini-run'
 import { toast } from 'sonner'
+import { useVideoFrameScale } from '@/hooks/use-video-frame-scale'
+import {
+  REFERENCE_FRAME_HEIGHT,
+  REFERENCE_FRAME_WIDTH,
+  type ScaledTypographyStyles,
+} from '@/lib/editor/video-frame-scaling'
+
+export { REFERENCE_FRAME_HEIGHT, REFERENCE_FRAME_WIDTH }
 
 export const TYPOGRAPHY_PRESETS: Array<{
   id: string
@@ -43,6 +51,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
       textColor: '#FFFFFF',
       shadow: '0 4px 15px rgba(0,0,0,0.9), 0 0 25px rgba(250,204,21,0.3)',
       strokeWidth: 0,
+      fontSize: 40,
     },
   },
   {
@@ -56,6 +65,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
       shadow: '0 4px 20px rgba(0,0,0,0.95)',
       strokeColor: '#000000',
       strokeWidth: 2,
+      fontSize: 42,
     },
   },
   {
@@ -68,6 +78,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
       textColor: '#FFFFFF',
       shadow: '0 2px 10px rgba(0,0,0,0.8)',
       strokeWidth: 0,
+      fontSize: 38,
     },
   },
   {
@@ -80,6 +91,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
       textColor: '#F8FAFC',
       shadow: '0 2px 12px rgba(0,0,0,0.7), 0 0 15px rgba(255,255,255,0.4)',
       strokeWidth: 0,
+      fontSize: 38,
     },
   },
 ]
@@ -91,6 +103,8 @@ export interface MiniRunLiveOverlayProps {
   defaultCollapsed?: boolean
   onHoverChange?: (isHovered: boolean) => void
   hoverPlayEnabled?: boolean
+  aspectRatio?: number
+  subtitlesOnly?: boolean
 }
 
 export function MiniRunLiveOverlay({
@@ -100,7 +114,10 @@ export function MiniRunLiveOverlay({
   defaultCollapsed = true,
   onHoverChange,
   hoverPlayEnabled = true,
+  aspectRatio,
+  subtitlesOnly = false,
 }: MiniRunLiveOverlayProps) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null)
   const chunks = useMiniRunDraftStore((s) => s.chunks)
   const isDirty = useMiniRunDraftStore((s) => s.isDirty)
   const status = useMiniRunDraftStore((s) => s.status)
@@ -112,7 +129,16 @@ export function MiniRunLiveOverlay({
   const setStatus = useMiniRunDraftStore((s) => s.setStatus)
   const reset = useMiniRunDraftStore((s) => s.reset)
   const sourceUrl = useMiniRunDraftStore((s) => s.sourceUrl)
+  const sourceMeta = useMiniRunDraftStore((s) => s.sourceMeta)
   const [renderedOutputUrl, setRenderedOutputUrl] = React.useState<string | null>(null)
+
+  // Canonical 960 reference frame proportional scaling engine
+  const { scale, getScaledTypography, referenceFrameHeight } = useVideoFrameScale({
+    videoRef,
+    containerRef,
+    sourceMeta,
+    aspectRatio,
+  })
 
   // Sleek Apple Collapsible State
   const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed)
@@ -199,8 +225,11 @@ export function MiniRunLiveOverlay({
   React.useEffect(() => {
     const vid = videoRef.current
     if (!vid) return
+    let triggered = false
 
     const triggerInstantPlay = () => {
+      if (triggered) return
+      triggered = true
       if (vid.paused) {
         const promise = vid.play()
         if (promise !== undefined) {
@@ -214,28 +243,19 @@ export function MiniRunLiveOverlay({
     }
 
     triggerInstantPlay()
-    vid.addEventListener('canplay', triggerInstantPlay)
-    vid.addEventListener('loadeddata', triggerInstantPlay)
+    vid.addEventListener('canplay', triggerInstantPlay, { once: true })
+    vid.addEventListener('loadeddata', triggerInstantPlay, { once: true })
     return () => {
       vid.removeEventListener('canplay', triggerInstantPlay)
       vid.removeEventListener('loadeddata', triggerInstantPlay)
     }
   }, [videoRef, sourceUrl])
 
-  // Hover into video: transitions image/paused frame into live playback on hover
+  // Hover into video: tracks hover state without overriding user pause intent
   const handleMouseEnter = React.useCallback(() => {
     setIsHovered(true)
     onHoverChange?.(true)
-
-    if (hoverPlayEnabled) {
-      const vid = videoRef.current
-      if (vid && vid.paused && vid.readyState >= 2) {
-        vid.play().catch(() => {
-          // Browser autoplay guard handled gracefully
-        })
-      }
-    }
-  }, [hoverPlayEnabled, onHoverChange, videoRef])
+  }, [onHoverChange])
 
   const handleMouseLeave = React.useCallback(() => {
     setIsHovered(false)
@@ -268,9 +288,9 @@ export function MiniRunLiveOverlay({
     }
   }
 
-  // If there are no planned chunks loaded, display an unobtrusive, minimalist Apple glass pill
+  // If there are no planned chunks loaded, display an unobtrusive, minimalist Apple glass pill (unless in subtitles-only mode)
   if (chunks.length === 0) {
-    if (!projectId) return null
+    if (subtitlesOnly || !projectId) return null
     return (
       <div
         className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center p-3"
@@ -394,174 +414,189 @@ export function MiniRunLiveOverlay({
   }
 
   const typography: DraftTypography = activeChunk?.typography || {}
-  const positionYPercent = typography.positionY !== undefined ? typography.positionY * 100 : 72
+  const scaledStyle = getScaledTypography(typography)
+  const positionYPercent = scaledStyle.positionYPercent
 
   return (
     <div
+      ref={containerRef}
       className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between overflow-hidden select-none"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-collapsible="true"
       data-collapsed={isCollapsed}
+      data-video-scale={scale.toFixed(4)}
+      data-reference-frame={referenceFrameHeight}
     >
-      {/* Top Apple Dynamic Island Capsule: Collapsible & Minimalist */}
-      <div className="pointer-events-auto mx-auto mt-2.5 flex items-center justify-center px-2">
-        <motion.div
-          layout
-          transition={{ type: 'spring', damping: 26, stiffness: 320 }}
-          className={`flex items-center gap-2 rounded-full border border-white/12 bg-black/60 px-3 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-200 ${
-            !isHovered && isCollapsed ? 'opacity-70 hover:opacity-100' : 'opacity-100'
-          }`}
-        >
-          {/* Status Indicator */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsCollapsed(!isCollapsed)
-            }}
-            className="flex items-center gap-2 focus:outline-none text-left"
-            aria-expanded={!isCollapsed}
-            aria-label="Toggle preview controls collapse"
+      {/* Top Apple Dynamic Island Capsule: Collapsible & Minimalist (suppressed in subtitles-only mode) */}
+      {!subtitlesOnly && (
+        <div className="pointer-events-auto mx-auto mt-2.5 flex items-center justify-center px-2">
+          <motion.div
+            layout
+            transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+            className={`flex items-center gap-2 rounded-full border border-white/12 bg-black/60 px-3 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-200 ${
+              !isHovered && isCollapsed ? 'opacity-70 hover:opacity-100' : 'opacity-100'
+            }`}
           >
-            <span
-              className={`flex h-2 w-2 rounded-full ${
-                status === 'rendered' ? 'bg-emerald-400' : 'bg-accent-cyan'
-              } animate-pulse`}
-            />
-            <span className="text-xs font-medium text-white/90 whitespace-nowrap">
-              {status === 'rendered' ? 'Rendered MP4' : 'Live Draft'}
-            </span>
-            {status !== 'rendered' && isDirty && (
-              <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-amber-300 border border-amber-500/30 whitespace-nowrap">
-                Edited
+            {/* Status Indicator */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsCollapsed(!isCollapsed)
+              }}
+              className="flex items-center gap-2 focus:outline-none text-left"
+              aria-expanded={!isCollapsed}
+              aria-label="Toggle preview controls collapse"
+            >
+              <span
+                className={`flex h-2 w-2 rounded-full ${
+                  status === 'rendered' ? 'bg-emerald-400' : 'bg-accent-cyan'
+                } animate-pulse`}
+              />
+              <span className="text-xs font-medium text-white/90 whitespace-nowrap">
+                {status === 'rendered' ? 'Rendered MP4' : 'Live Draft'}
               </span>
-            )}
-          </button>
+              {status !== 'rendered' && isDirty && (
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                  Edited
+                </span>
+              )}
+            </button>
 
-          {/* Expanded Actions: Reset & Bake & Mode Switching */}
-          <AnimatePresence>
-            {!isCollapsed && (
-              <motion.div
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.18 }}
-                className="flex items-center gap-1.5 overflow-hidden pl-1 border-l border-white/10"
-              >
-                {status === 'rendered' ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (sourceUrl && videoRef.current) {
-                          videoRef.current.src = sourceUrl
-                          videoRef.current.load()
-                        }
-                        setStatus('planned')
-                      }}
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
-                      title="Switch back to live editable draft"
-                    >
-                      <RotateCcw className="size-3" />
-                      <span>Re-edit</span>
-                    </button>
-                    {(renderedOutputUrl || videoRef.current?.src) && (
-                      <a
-                        href={`${renderedOutputUrl || videoRef.current?.src}${
-                          String(renderedOutputUrl || videoRef.current?.src).includes('?') ? '&' : '?'
-                        }download=1`}
-                        download="prometheus_short.mp4"
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+            {/* Expanded Actions: Reset & Bake & Mode Switching */}
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.div
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="flex items-center gap-1.5 overflow-hidden pl-1 border-l border-white/10"
+                >
+                  {status === 'rendered' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (sourceUrl && videoRef.current) {
+                            videoRef.current.src = sourceUrl
+                            videoRef.current.load()
+                          }
+                          setStatus('planned')
+                        }}
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+                        title="Switch back to live editable draft"
                       >
-                        <Download className="size-3" />
-                        <span>Download</span>
-                      </a>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        reset()
-                      }}
-                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
-                      title="Exit interactive preview mode"
-                    >
-                      <RotateCcw className="size-3" />
-                      <span>Reset</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleBakeFinal()
-                      }}
-                      disabled={isBaking}
-                      className="flex items-center gap-1 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {isBaking ? (
-                        <>
-                          <Loader2 className="size-3 animate-spin" />
-                          <span>Rendering...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="size-3 fill-current" />
-                          <span>Bake Video</span>
-                        </>
+                        <RotateCcw className="size-3" />
+                        <span>Re-edit</span>
+                      </button>
+                      {(renderedOutputUrl || videoRef.current?.src) && (
+                        <a
+                          href={`${renderedOutputUrl || videoRef.current?.src}${
+                            String(renderedOutputUrl || videoRef.current?.src).includes('?') ? '&' : '?'
+                          }download=1`}
+                          download="prometheus_short.mp4"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                        >
+                          <Download className="size-3" />
+                          <span>Download</span>
+                        </a>
                       )}
-                    </button>
-                  </>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          reset()
+                        }}
+                        className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+                        title="Exit interactive preview mode"
+                      >
+                        <RotateCcw className="size-3" />
+                        <span>Reset</span>
+                      </button>
 
-          {/* Collapsible Toggle Chevron */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsCollapsed(!isCollapsed)
-            }}
-            className="flex items-center justify-center rounded-full p-1 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-            title={isCollapsed ? 'Expand controls' : 'Collapse controls'}
-            aria-label={isCollapsed ? 'Expand controls' : 'Collapse controls'}
-          >
-            {isCollapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
-          </button>
-        </motion.div>
-      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleBakeFinal()
+                        }}
+                        disabled={isBaking}
+                        className="flex items-center gap-1 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isBaking ? (
+                          <>
+                            <Loader2 className="size-3 animate-spin" />
+                            <span>Rendering...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="size-3 fill-current" />
+                            <span>Bake Video</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      {/* Center/Lower: Kinetic Live Typography Subtitles */}
+            {/* Collapsible Toggle Chevron */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsCollapsed(!isCollapsed)
+              }}
+              className="flex items-center justify-center rounded-full p-1 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              title={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+              aria-label={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+            >
+              {isCollapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+            </button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Center/Lower: Kinetic Live Typography Subtitles with 960 Reference Frame Proportional Scaling */}
       {status !== 'rendered' && (
         <div
-          className="pointer-events-auto absolute inset-x-0 flex justify-center px-4 transition-all duration-150"
-          style={{ top: `${positionYPercent}%`, transform: 'translateY(-50%)' }}
+          className="pointer-events-auto absolute inset-x-0 flex justify-center transition-all duration-150"
+          style={{
+            top: `${positionYPercent}%`,
+            transform: 'translateY(-50%)',
+            paddingLeft: `${scaledStyle.paddingX}px`,
+            paddingRight: `${scaledStyle.paddingX}px`,
+          }}
         >
           <AnimatePresence mode="wait">
             {activeChunk && (
               <motion.div
                 key={activeChunk.chunkIndex}
-                initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                initial={{ opacity: 0, y: Math.max(2, Math.round(4 * scale)), scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                exit={{ opacity: 0, y: -Math.max(2, Math.round(4 * scale)), scale: 0.98 }}
                 transition={{ duration: 0.1, ease: 'easeOut' }}
-                className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center select-none"
+                className="flex flex-wrap items-center justify-center text-center select-none"
                 style={{
+                  maxWidth: `${scaledStyle.maxWidthPercent}%`,
+                  columnGap: `${scaledStyle.gapX}px`,
+                  rowGap: `${scaledStyle.gapY}px`,
                   fontFamily: typography.fontFamily || 'system-ui, sans-serif',
-                  fontSize: typography.fontSize ? `${typography.fontSize * 0.45}px` : '26px',
+                  fontSize: `${scaledStyle.fontSize}px`,
+                  lineHeight: scaledStyle.lineHeight,
                   fontWeight: typography.fontWeight || 800,
                   color: typography.textColor || '#FFFFFF',
-                  textShadow: typography.shadow || '0 2px 10px rgba(0,0,0,0.85), 0 0 20px rgba(0,0,0,0.6)',
-                  WebkitTextStroke: typography.strokeWidth
-                    ? `${typography.strokeWidth}px ${typography.strokeColor || '#000000'}`
+                  textShadow: scaledStyle.textShadow,
+                  WebkitTextStroke: scaledStyle.strokeWidth
+                    ? `${scaledStyle.strokeWidth}px ${typography.strokeColor || '#000000'}`
                     : undefined,
                 }}
               >
@@ -581,7 +616,11 @@ export function MiniRunLiveOverlay({
                         })
                       }}
                       title="Click to edit text or cut word"
-                      className={`cursor-pointer rounded px-1 py-0.5 transition-all duration-75 relative group ${
+                      style={{
+                        padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
+                        borderRadius: `${scaledStyle.wordRadius}px`,
+                      }}
+                      className={`cursor-pointer transition-all duration-75 relative group ${
                         isCut
                           ? 'line-through text-red-400 opacity-40 hover:opacity-80'
                           : isWordActive
@@ -667,53 +706,55 @@ export function MiniRunLiveOverlay({
         )}
       </AnimatePresence>
 
-      {/* Bottom Floating Control Dock: Apple Segmented Pill Track (Non-wrapping, Collapsible) */}
-      <AnimatePresence>
-        {!isCollapsed && status !== 'rendered' && (
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 15 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="pointer-events-auto mx-auto mb-3 max-w-[95%]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-1.5 rounded-full border border-white/12 bg-black/65 px-2 py-1 shadow-2xl backdrop-blur-2xl">
-              <div className="flex items-center gap-1 pl-1 pr-1.5 text-neutral-400">
-                <Type className="size-3 text-accent-cyan" />
-              </div>
+      {/* Bottom Floating Control Dock: Apple Segmented Pill Track (Non-wrapping, Collapsible, suppressed in subtitles-only mode) */}
+      {!subtitlesOnly && (
+        <AnimatePresence>
+          {!isCollapsed && status !== 'rendered' && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="pointer-events-auto mx-auto mb-3 max-w-[95%]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1.5 rounded-full border border-white/12 bg-black/65 px-2 py-1 shadow-2xl backdrop-blur-2xl">
+                <div className="flex items-center gap-1 pl-1 pr-1.5 text-neutral-400">
+                  <Type className="size-3 text-accent-cyan" />
+                </div>
 
-              {/* Non-wrapping, horizontally scrollable segmented style track */}
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
-                {TYPOGRAPHY_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPreset(preset.id)
-                      setGlobalTypography(preset.styling)
-                      toast.success(`Applied ${preset.label}!`)
-                    }}
-                    title={preset.label}
-                    className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all ${
-                      selectedPreset === preset.id
-                        ? 'bg-accent-cyan text-black font-semibold shadow-sm'
-                        : 'text-neutral-300 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    {preset.shortLabel || preset.label}
-                  </button>
-                ))}
-              </div>
+                {/* Non-wrapping, horizontally scrollable segmented style track */}
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+                  {TYPOGRAPHY_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPreset(preset.id)
+                        setGlobalTypography(preset.styling)
+                        toast.success(`Applied ${preset.label}!`)
+                      }}
+                      title={preset.label}
+                      className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                        selectedPreset === preset.id
+                          ? 'bg-accent-cyan text-black font-semibold shadow-sm'
+                          : 'text-neutral-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {preset.shortLabel || preset.label}
+                    </button>
+                  ))}
+                </div>
 
-              {/* Chunk Count Stats */}
-              <div className="hidden sm:block pl-1.5 pr-1 border-l border-white/10 text-[10px] text-neutral-400 whitespace-nowrap">
-                {chunks.length} ch
+                {/* Chunk Count Stats */}
+                <div className="hidden sm:block pl-1.5 pr-1 border-l border-white/10 text-[10px] text-neutral-400 whitespace-nowrap">
+                  {chunks.length} ch
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
 
       {/* Bottom spacer for clean margin */}
       <div className="h-1 pointer-events-none" />

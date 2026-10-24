@@ -25,13 +25,28 @@ test('resolveBrand - YouTube handle and channels', async () => {
 
   const channelResult = await resolveBrand('https://www.youtube.com/@mkbhd')
   assert.equal(channelResult.category, 'youtube')
-  assert.equal(channelResult.brandName, 'Mkbhd')
+  // Real fetch yields "Marques Brownlee", fallback yields "Mkbhd"
+  assert.ok(
+    channelResult.brandName === 'Marques Brownlee' || channelResult.brandName === 'Mkbhd',
+    `Expected 'Marques Brownlee' or 'Mkbhd', got: ${channelResult.brandName}`
+  )
 
   const directHandle = await resolveBrand('youtube.com/@veritasium')
   assert.equal(directHandle.category, 'youtube')
-  assert.equal(directHandle.brandName, 'Veritasium')
+  assert.ok(
+    directHandle.brandName.includes('Veritasium'),
+    `Expected brandName to contain 'Veritasium', got: ${directHandle.brandName}`
+  )
 
-  console.log('resolveBrand YouTube channel handle test passed')
+  // Test the user's exact YouTube channel
+  const josephResult = await resolveBrand('https://www.youtube.com/@josephvideoediting')
+  assert.equal(josephResult.category, 'youtube')
+  assert.ok(josephResult.brandName.includes('Joseph'), `Expected 'Joseph' in brand name, got: ${josephResult.brandName}`)
+  assert.ok(josephResult.videos && josephResult.videos.length > 0, 'Must extract real video collection with thumbnails')
+  assert.ok(josephResult.avatarUrl, 'Must extract real channel avatar')
+  assert.ok(josephResult.styleDNA, 'Must extract real style DNA')
+
+  console.log('resolveBrand YouTube channel handle test passed:', josephResult.brandName, 'Videos:', josephResult.videos.length)
 })
 
 test('resolveBrand - Social handles', async () => {
