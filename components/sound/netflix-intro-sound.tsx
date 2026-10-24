@@ -13,13 +13,13 @@ export interface NetflixIntroSoundProps {
  * NetflixIntroSound
  * 
  * Plays the iconic Netflix "ta-dum" sound when an individual enters
- * the Prometheus frontend. Handles modern browser autoplay policies
- * with automatic first-interaction fallback (click, pointer, keydown).
+ * the Prometheus frontend or Studio surfaces. Handles modern browser
+ * autoplay policies with automatic first-interaction fallback (click, pointer, keydown).
  */
 export function NetflixIntroSound({
   volume = 0.75,
   enabled = true,
-  landingOnly = true,
+  landingOnly = false,
 }: NetflixIntroSoundProps) {
   const pathname = usePathname()
   useNetflixIntroSound({
@@ -34,7 +34,7 @@ export function NetflixIntroSound({
       aria-hidden="true"
       style={{ display: 'none', position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
     >
-      <audio preload="auto" tabIndex={-1}>
+      <audio id="prometheus-netflix-sound" preload="auto" tabIndex={-1}>
         <source src="/audio/netflix-intro.mp3" type="audio/mpeg" />
         <source src="/audio/netflix-intro.ogg" type="audio/ogg" />
         <source src="/audio/netflix-intro.webm" type="audio/webm" />
