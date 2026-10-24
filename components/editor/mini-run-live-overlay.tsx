@@ -2,7 +2,21 @@
 
 import * as React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Scissors, Check, X, Sparkles, Loader2, Type, RotateCcw, Download } from 'lucide-react'
+import {
+  Scissors,
+  Check,
+  X,
+  Sparkles,
+  Loader2,
+  Type,
+  RotateCcw,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  Pause,
+  SlidersHorizontal,
+} from 'lucide-react'
 import {
   useMiniRunDraftStore,
   type DraftChunk,
@@ -16,11 +30,13 @@ import { toast } from 'sonner'
 export const TYPOGRAPHY_PRESETS: Array<{
   id: string
   label: string
+  shortLabel?: string
   styling: Partial<DraftTypography>
 }> = [
   {
     id: 'editorial_serif',
     label: 'Editorial Serif',
+    shortLabel: 'Editorial',
     styling: {
       fontFamily: 'Georgia, "Times New Roman", serif',
       fontWeight: 700,
@@ -32,6 +48,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
   {
     id: 'bold_grotesque',
     label: 'Bold Grotesque',
+    shortLabel: 'Grotesque',
     styling: {
       fontFamily: 'Impact, "Arial Black", sans-serif',
       fontWeight: 900,
@@ -44,6 +61,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
   {
     id: 'clean_modern',
     label: 'Clean Modern',
+    shortLabel: 'Modern',
     styling: {
       fontFamily: 'system-ui, -apple-system, sans-serif',
       fontWeight: 800,
@@ -55,6 +73,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
   {
     id: 'luxury_vogue',
     label: 'Luxury Vogue',
+    shortLabel: 'Luxury',
     styling: {
       fontFamily: '"Didot", "Bodoni MT", serif',
       fontWeight: 600,
@@ -69,9 +88,19 @@ export interface MiniRunLiveOverlayProps {
   videoRef: React.RefObject<HTMLVideoElement | null>
   projectId?: string | null
   sourceAssetId?: string | null
+  defaultCollapsed?: boolean
+  onHoverChange?: (isHovered: boolean) => void
+  hoverPlayEnabled?: boolean
 }
 
-export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniRunLiveOverlayProps) {
+export function MiniRunLiveOverlay({
+  videoRef,
+  projectId,
+  sourceAssetId,
+  defaultCollapsed = true,
+  onHoverChange,
+  hoverPlayEnabled = true,
+}: MiniRunLiveOverlayProps) {
   const chunks = useMiniRunDraftStore((s) => s.chunks)
   const isDirty = useMiniRunDraftStore((s) => s.isDirty)
   const status = useMiniRunDraftStore((s) => s.status)
@@ -84,6 +113,11 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
   const reset = useMiniRunDraftStore((s) => s.reset)
   const sourceUrl = useMiniRunDraftStore((s) => s.sourceUrl)
   const [renderedOutputUrl, setRenderedOutputUrl] = React.useState<string | null>(null)
+
+  // Sleek Apple Collapsible State
+  const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed)
+  const [isHovered, setIsHovered] = React.useState(false)
+  const [isPlaying, setIsPlaying] = React.useState(false)
 
   const [currentTimeMs, setCurrentTimeMs] = React.useState(0)
   const [editingWord, setEditingWord] = React.useState<{
@@ -101,6 +135,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
     const syncTime = () => {
       const vid = videoRef.current
       if (vid && !vid.paused) {
+        setIsPlaying(true)
         const ms = Math.round(vid.currentTime * 1000)
         setCurrentTimeMs(ms)
 
@@ -130,6 +165,8 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
             }
           }
         }
+      } else {
+        setIsPlaying(false)
       }
       animId = requestAnimationFrame(syncTime)
     }
@@ -143,13 +180,40 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
     const vid = videoRef.current
     if (!vid) return
     const onTimeUpdate = () => setCurrentTimeMs(Math.round(vid.currentTime * 1000))
+    const onPlay = () => setIsPlaying(true)
+    const onPause = () => setIsPlaying(false)
+
     vid.addEventListener('timeupdate', onTimeUpdate)
     vid.addEventListener('seeked', onTimeUpdate)
+    vid.addEventListener('play', onPlay)
+    vid.addEventListener('pause', onPause)
     return () => {
       vid.removeEventListener('timeupdate', onTimeUpdate)
       vid.removeEventListener('seeked', onTimeUpdate)
+      vid.removeEventListener('play', onPlay)
+      vid.removeEventListener('pause', onPause)
     }
   }, [videoRef])
+
+  // Hover into video: transitions image/paused frame into live playback on hover
+  const handleMouseEnter = React.useCallback(() => {
+    setIsHovered(true)
+    onHoverChange?.(true)
+
+    if (hoverPlayEnabled) {
+      const vid = videoRef.current
+      if (vid && vid.paused && vid.readyState >= 2) {
+        vid.play().catch(() => {
+          // Browser autoplay guard handled gracefully
+        })
+      }
+    }
+  }, [hoverPlayEnabled, onHoverChange, videoRef])
+
+  const handleMouseLeave = React.useCallback(() => {
+    setIsHovered(false)
+    onHoverChange?.(false)
+  }, [onHoverChange])
 
   const handleLoadDraftPlan = async () => {
     if (!projectId) {
@@ -167,6 +231,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
         sourceUrl: videoSrc,
       })
       useMiniRunDraftStore.getState().setPlan(result.manifest, (result.source?.url as string) || videoSrc || undefined)
+      setIsCollapsed(false) // Open controls for user customization
       toast.success('Live preview active! Click any word to edit or cut, or switch font profiles.')
     } catch (err) {
       console.error('[MiniRunLiveOverlay] Failed to load draft plan:', err)
@@ -176,28 +241,32 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
     }
   }
 
-  // If there are no planned chunks loaded, display an unobtrusive trigger button
+  // If there are no planned chunks loaded, display an unobtrusive, minimalist Apple glass pill
   if (chunks.length === 0) {
     if (!projectId) return null
     return (
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-start justify-end p-3">
+      <div
+        className="pointer-events-none absolute inset-0 z-20 flex items-start justify-center p-3"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <button
           onClick={(e) => {
             e.stopPropagation()
             handleLoadDraftPlan()
           }}
           disabled={isPlanning}
-          className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/20 bg-neutral-900/90 px-3 py-1.5 text-xs font-semibold text-white shadow-xl backdrop-blur-md transition-all hover:bg-neutral-800 hover:border-accent-cyan active:scale-95 disabled:opacity-50"
+          className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 text-xs font-medium text-white shadow-xl backdrop-blur-xl transition-all hover:bg-black/80 hover:border-accent-cyan/60 active:scale-95 disabled:opacity-50"
         >
           {isPlanning ? (
             <>
               <Loader2 className="size-3.5 animate-spin text-accent-cyan" />
-              <span>Planning Draft (3s)...</span>
+              <span>Planning Draft...</span>
             </>
           ) : (
             <>
               <Sparkles className="size-3.5 text-accent-cyan" />
-              <span>Interactive Mini-Run Preview</span>
+              <span>Interactive Draft</span>
             </>
           )}
         </button>
@@ -227,14 +296,14 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
       setStatus('rendering')
       const draftManifest = getDraftManifest()
 
-      toast.info('Dispatching deterministic cloud render with your draft manifest...')
+      toast.info('Dispatching cloud render with draft manifest...')
       const result = await dispatchMiniRunFromProject({
         projectId,
         sourceAssetId: sourceAssetId || '',
         draftManifest,
       })
 
-      const toastId = toast.loading(`Cloud render started (Job ID: ${result.jobId.slice(0, 8)}). Processing video...`)
+      const toastId = toast.loading(`Cloud render started (Job ID: ${result.jobId.slice(0, 8)})...`)
 
       // Poll until completion or terminal failure (up to 450s)
       const maxAttempts = 180
@@ -278,7 +347,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
 
       setRenderedOutputUrl(completedOutputUrl)
 
-      // Swap the active video player element to the rendered output MP4!
+      // Swap the active video player element to the rendered output MP4
       if (videoRef.current) {
         videoRef.current.src = completedOutputUrl
         videoRef.current.load()
@@ -286,6 +355,7 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
       }
 
       setStatus('rendered')
+      setIsCollapsed(true) // Auto-collapse to showcase clean rendered result
       toast.success('Final edited video rendered and loaded!', { id: toastId })
     } catch (err) {
       console.error('[MiniRunLiveOverlay] Bake failed:', err)
@@ -297,164 +367,234 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
   }
 
   const typography: DraftTypography = activeChunk?.typography || {}
-  const positionYPercent = typography.positionY !== undefined ? typography.positionY * 100 : 75
+  const positionYPercent = typography.positionY !== undefined ? typography.positionY * 100 : 72
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between overflow-hidden">
-      {/* Top Banner: Mode Indicator & Cloud Bake Trigger */}
-      <div className="pointer-events-auto flex items-center justify-between p-3 bg-gradient-to-b from-black/80 via-black/40 to-transparent">
-        <div className="flex items-center gap-2">
-          <span className={`flex h-2 w-2 rounded-full ${status === 'rendered' ? 'bg-emerald-400' : 'bg-accent-cyan'} animate-pulse`} />
-          <span className="text-xs font-semibold text-white tracking-wide uppercase">
-            {status === 'rendered' ? 'Rendered Short (Edited MP4)' : 'Mini-Run Live Preview'}
-          </span>
-          {status !== 'rendered' && isDirty && (
-            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300 border border-amber-500/30">
-              User Modified
+    <div
+      className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between overflow-hidden select-none"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      data-collapsible="true"
+      data-collapsed={isCollapsed}
+    >
+      {/* Top Apple Dynamic Island Capsule: Collapsible & Minimalist */}
+      <div className="pointer-events-auto mx-auto mt-2.5 flex items-center justify-center px-2">
+        <motion.div
+          layout
+          transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+          className={`flex items-center gap-2 rounded-full border border-white/12 bg-black/60 px-3 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all duration-200 ${
+            !isHovered && isCollapsed ? 'opacity-70 hover:opacity-100' : 'opacity-100'
+          }`}
+        >
+          {/* Status Indicator */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsCollapsed(!isCollapsed)
+            }}
+            className="flex items-center gap-2 focus:outline-none text-left"
+            aria-expanded={!isCollapsed}
+            aria-label="Toggle preview controls collapse"
+          >
+            <span
+              className={`flex h-2 w-2 rounded-full ${
+                status === 'rendered' ? 'bg-emerald-400' : 'bg-accent-cyan'
+              } animate-pulse`}
+            />
+            <span className="text-xs font-medium text-white/90 whitespace-nowrap">
+              {status === 'rendered' ? 'Rendered MP4' : 'Live Draft'}
             </span>
-          )}
-        </div>
+            {status !== 'rendered' && isDirty && (
+              <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                Edited
+              </span>
+            )}
+          </button>
 
-        <div className="flex items-center gap-2">
-          {status === 'rendered' ? (
-            <>
-              <button
-                onClick={() => {
-                  if (sourceUrl && videoRef.current) {
-                    videoRef.current.src = sourceUrl
-                    videoRef.current.load()
-                  }
-                  setStatus('planned')
-                }}
-                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
-                title="Switch back to live editable draft"
+          {/* Expanded Actions: Reset & Bake & Mode Switching */}
+          <AnimatePresence>
+            {!isCollapsed && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.18 }}
+                className="flex items-center gap-1.5 overflow-hidden pl-1 border-l border-white/10"
               >
-                <RotateCcw className="size-3" />
-                <span>Re-edit Draft</span>
-              </button>
-              {(renderedOutputUrl || videoRef.current?.src) && (
-                <a
-                  href={`${renderedOutputUrl || videoRef.current?.src}${String(renderedOutputUrl || videoRef.current?.src).includes('?') ? '&' : '?'}download=1`}
-                  download="prometheus_short.mp4"
-                  className="flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:brightness-110 active:scale-95 transition-all"
-                >
-                  <Download className="size-3.5" />
-                  <span>Download MP4</span>
-                </a>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => reset()}
-                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
-                title="Exit interactive preview mode"
-              >
-                <RotateCcw className="size-3" />
-                <span>Reset</span>
-              </button>
-
-              <button
-                onClick={handleBakeFinal}
-                disabled={isBaking}
-                className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-              >
-                {isBaking ? (
+                {status === 'rendered' ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    <span>Rendering on AWS...</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (sourceUrl && videoRef.current) {
+                          videoRef.current.src = sourceUrl
+                          videoRef.current.load()
+                        }
+                        setStatus('planned')
+                      }}
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+                      title="Switch back to live editable draft"
+                    >
+                      <RotateCcw className="size-3" />
+                      <span>Re-edit</span>
+                    </button>
+                    {(renderedOutputUrl || videoRef.current?.src) && (
+                      <a
+                        href={`${renderedOutputUrl || videoRef.current?.src}${
+                          String(renderedOutputUrl || videoRef.current?.src).includes('?') ? '&' : '?'
+                        }download=1`}
+                        download="prometheus_short.mp4"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+                      >
+                        <Download className="size-3" />
+                        <span>Download</span>
+                      </a>
+                    )}
                   </>
                 ) : (
                   <>
-                    <Sparkles className="size-3.5 fill-current" />
-                    <span>Bake Final Video</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        reset()
+                      }}
+                      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-neutral-300 hover:text-white hover:bg-white/10 transition-colors whitespace-nowrap"
+                      title="Exit interactive preview mode"
+                    >
+                      <RotateCcw className="size-3" />
+                      <span>Reset</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleBakeFinal()
+                      }}
+                      disabled={isBaking}
+                      className="flex items-center gap-1 rounded-full bg-gradient-to-r from-accent-cyan to-blue-500 px-2.5 py-0.5 text-xs font-semibold text-black shadow-md hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isBaking ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" />
+                          <span>Rendering...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="size-3 fill-current" />
+                          <span>Bake Video</span>
+                        </>
+                      )}
+                    </button>
                   </>
                 )}
-              </button>
-            </>
-          )}
-        </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Collapsible Toggle Chevron */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsCollapsed(!isCollapsed)
+            }}
+            className="flex items-center justify-center rounded-full p-1 text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+            title={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+            aria-label={isCollapsed ? 'Expand controls' : 'Collapse controls'}
+          >
+            {isCollapsed ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+          </button>
+        </motion.div>
       </div>
 
-      {/* Center/Lower: Kinetic Live Typography Overlay */}
+      {/* Center/Lower: Kinetic Live Typography Subtitles */}
       {status !== 'rendered' && (
-      <div
-        className="pointer-events-auto absolute inset-x-0 flex justify-center px-4 transition-all duration-150"
-        style={{ top: `${positionYPercent}%`, transform: 'translateY(-50%)' }}
-      >
-        <AnimatePresence mode="wait">
-          {activeChunk && (
-            <motion.div
-              key={activeChunk.chunkIndex}
-              initial={{ opacity: 0, y: 6, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -6, scale: 0.98 }}
-              transition={{ duration: 0.12, ease: 'easeOut' }}
-              className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center select-none"
-              style={{
-                fontFamily: typography.fontFamily || 'system-ui, sans-serif',
-                fontSize: typography.fontSize ? `${typography.fontSize * 0.45}px` : '28px',
-                fontWeight: typography.fontWeight || 800,
-                color: typography.textColor || '#FFFFFF',
-                textShadow: typography.shadow || '0 2px 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)',
-                WebkitTextStroke: typography.strokeWidth ? `${typography.strokeWidth}px ${typography.strokeColor || '#000000'}` : undefined,
-              }}
-            >
-              {activeChunk.words.map((word: DraftWord, wIdx: number) => {
-                const isWordActive =
-                  currentTimeMs >= word.startMs && currentTimeMs <= word.endMs
-                const isCut = Boolean(word.cut)
+        <div
+          className="pointer-events-auto absolute inset-x-0 flex justify-center px-4 transition-all duration-150"
+          style={{ top: `${positionYPercent}%`, transform: 'translateY(-50%)' }}
+        >
+          <AnimatePresence mode="wait">
+            {activeChunk && (
+              <motion.div
+                key={activeChunk.chunkIndex}
+                initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                transition={{ duration: 0.1, ease: 'easeOut' }}
+                className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center select-none"
+                style={{
+                  fontFamily: typography.fontFamily || 'system-ui, sans-serif',
+                  fontSize: typography.fontSize ? `${typography.fontSize * 0.45}px` : '26px',
+                  fontWeight: typography.fontWeight || 800,
+                  color: typography.textColor || '#FFFFFF',
+                  textShadow: typography.shadow || '0 2px 10px rgba(0,0,0,0.85), 0 0 20px rgba(0,0,0,0.6)',
+                  WebkitTextStroke: typography.strokeWidth
+                    ? `${typography.strokeWidth}px ${typography.strokeColor || '#000000'}`
+                    : undefined,
+                }}
+              >
+                {activeChunk.words.map((word: DraftWord, wIdx: number) => {
+                  const isWordActive = currentTimeMs >= word.startMs && currentTimeMs <= word.endMs
+                  const isCut = Boolean(word.cut)
 
-                return (
-                  <span
-                    key={`${activeChunk.chunkIndex}-${wIdx}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setEditingWord({
-                        chunkIndex: activeChunkIdx,
-                        wordIndex: wIdx,
-                        text: word.text,
-                      })
-                    }}
-                    title="Click to edit or cut word"
-                    className={`cursor-pointer rounded px-1 py-0.5 transition-all duration-75 relative group ${
-                      isCut
-                        ? 'line-through text-red-400 opacity-40 hover:opacity-80'
-                        : isWordActive
-                        ? 'scale-110 text-yellow-300 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
-                        : 'hover:scale-105 hover:bg-white/10'
-                    }`}
-                  >
-                    {word.text}
-                  </span>
-                )
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+                  return (
+                    <span
+                      key={`${activeChunk?.chunkIndex}-${wIdx}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingWord({
+                          chunkIndex: activeChunkIdx,
+                          wordIndex: wIdx,
+                          text: word.text,
+                        })
+                      }}
+                      title="Click to edit text or cut word"
+                      className={`cursor-pointer rounded px-1 py-0.5 transition-all duration-75 relative group ${
+                        isCut
+                          ? 'line-through text-red-400 opacity-40 hover:opacity-80'
+                          : isWordActive
+                          ? 'scale-110 text-yellow-300 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+                          : 'hover:scale-105 hover:bg-white/10'
+                      }`}
+                    >
+                      {word.text}
+                    </span>
+                  )
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
-      {/* Word Quick Edit / Cut Modal Popover */}
+      {/* Word Quick Edit / Cut Minimalist Popover */}
       <AnimatePresence>
         {editingWord && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="pointer-events-auto absolute inset-x-4 bottom-20 z-40 mx-auto max-w-sm rounded-xl border border-white/20 bg-neutral-900/95 p-3 shadow-2xl backdrop-blur-xl text-white"
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="pointer-events-auto absolute inset-x-3 bottom-16 z-40 mx-auto max-w-[280px] rounded-2xl border border-white/20 bg-black/85 p-2.5 shadow-2xl backdrop-blur-2xl text-white"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-              <span className="text-xs font-semibold text-neutral-300">Edit Word / Phrase</span>
+            <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10">
+              <span className="text-[11px] font-semibold text-neutral-300">Edit Word</span>
               <button
+                type="button"
                 onClick={() => setEditingWord(null)}
                 className="text-neutral-400 hover:text-white"
+                aria-label="Close word editor"
               >
-                <X className="size-4" />
+                <X className="size-3.5" />
               </button>
             </div>
 
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 mb-2">
               <input
                 type="text"
                 value={editingWord.text}
@@ -463,74 +603,93 @@ export function MiniRunLiveOverlay({ videoRef, projectId, sourceAssetId }: MiniR
                   if (e.key === 'Enter') {
                     updateWordText(editingWord.chunkIndex, editingWord.wordIndex, editingWord.text)
                     setEditingWord(null)
+                  } else if (e.key === 'Escape') {
+                    setEditingWord(null)
                   }
                 }}
-                className="flex-1 rounded bg-black/60 border border-white/20 px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-accent-cyan"
+                className="flex-1 rounded-lg bg-white/5 border border-white/15 px-2 py-1 text-xs text-white focus:outline-none focus:border-accent-cyan"
                 autoFocus
               />
               <button
+                type="button"
                 onClick={() => {
                   updateWordText(editingWord.chunkIndex, editingWord.wordIndex, editingWord.text)
                   setEditingWord(null)
                 }}
-                className="flex items-center justify-center rounded bg-accent-cyan px-2.5 py-1.5 text-black hover:brightness-110"
+                className="flex items-center justify-center rounded-lg bg-accent-cyan px-2 py-1 text-black hover:brightness-110 active:scale-95"
+                title="Save changes"
               >
-                <Check className="size-4" />
+                <Check className="size-3.5" />
               </button>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-[11px]">
               <button
+                type="button"
                 onClick={() => {
                   toggleWordCut(editingWord.chunkIndex, editingWord.wordIndex)
                   setEditingWord(null)
                 }}
-                className="flex items-center gap-1.5 rounded bg-red-500/20 px-2 py-1 text-red-300 hover:bg-red-500/30 transition-colors"
+                className="flex items-center gap-1 rounded-lg bg-red-500/20 px-2 py-1 text-red-300 hover:bg-red-500/30 transition-colors w-full justify-center"
               >
-                <Scissors className="size-3.5" />
-                <span>Toggle Cut (Skip during playback)</span>
+                <Scissors className="size-3" />
+                <span>Toggle Cut (Jump Skip)</span>
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Bottom Floating Control Dock: Typography Presets & Stats */}
-      {status !== 'rendered' && (
-      <div className="pointer-events-auto mx-auto mb-3 flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/15 bg-neutral-900/90 px-3.5 py-1.5 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-1 pr-2 border-r border-white/15">
-          <Type className="size-3.5 text-accent-cyan" />
-          <span className="text-[11px] font-medium text-neutral-300">Style:</span>
-        </div>
+      {/* Bottom Floating Control Dock: Apple Segmented Pill Track (Non-wrapping, Collapsible) */}
+      <AnimatePresence>
+        {!isCollapsed && status !== 'rendered' && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="pointer-events-auto mx-auto mb-3 max-w-[95%]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1.5 rounded-full border border-white/12 bg-black/65 px-2 py-1 shadow-2xl backdrop-blur-2xl">
+              <div className="flex items-center gap-1 pl-1 pr-1.5 text-neutral-400">
+                <Type className="size-3 text-accent-cyan" />
+              </div>
 
-        <div className="flex items-center gap-1">
-          {TYPOGRAPHY_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => {
-                setSelectedPreset(preset.id)
-                setGlobalTypography(preset.styling)
-                toast.success(`Applied ${preset.label} style!`)
-              }}
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all ${
-                selectedPreset === preset.id
-                  ? 'bg-accent-cyan text-black font-semibold'
-                  : 'text-neutral-300 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
+              {/* Non-wrapping, horizontally scrollable segmented style track */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+                {TYPOGRAPHY_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPreset(preset.id)
+                      setGlobalTypography(preset.styling)
+                      toast.success(`Applied ${preset.label}!`)
+                    }}
+                    title={preset.label}
+                    className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-all ${
+                      selectedPreset === preset.id
+                        ? 'bg-accent-cyan text-black font-semibold shadow-sm'
+                        : 'text-neutral-300 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {preset.shortLabel || preset.label}
+                  </button>
+                ))}
+              </div>
 
-        <div className="pl-2 border-l border-white/15 text-[10px] text-neutral-400">
-          {chunks.length} chunks • {chunks.reduce((acc, c) => acc + c.words.filter((w) => !w.cut).length, 0)} words
-        </div>
-      </div>
-      )}
+              {/* Chunk Count Stats */}
+              <div className="hidden sm:block pl-1.5 pr-1 border-l border-white/10 text-[10px] text-neutral-400 whitespace-nowrap">
+                {chunks.length} ch
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Bottom Spacer */}
-      <div className="h-4" />
+      {/* Bottom spacer for clean margin */}
+      <div className="h-1 pointer-events-none" />
     </div>
   )
 }
