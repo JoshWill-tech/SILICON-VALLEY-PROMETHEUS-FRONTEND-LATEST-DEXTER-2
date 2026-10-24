@@ -87,6 +87,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="preload" href="/audio/netflix-intro.mp3" as="audio" type="audio/mpeg" />
+      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${geist.variable} ${spaceGrotesk.variable} ${vogueDisplay.variable} ${blackDelights.variable} ${migraDisplay.variable} ${elegistDisplay.variable} ${ztOtezItalic.variable} bg-background font-sans text-foreground antialiased`}>
         <CookieConsentProvider>
           <LoadingProvider>

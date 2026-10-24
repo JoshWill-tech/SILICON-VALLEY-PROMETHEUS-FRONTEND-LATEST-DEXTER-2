@@ -24,23 +24,39 @@ export interface UseNetflixIntroSoundResult {
 function playAudioElement(volume: number): Promise<boolean> {
   return new Promise((resolve) => {
     try {
+      if (typeof window === 'undefined') {
+        resolve(false)
+        return
+      }
+
       const domAudio = document.getElementById('prometheus-netflix-sound') as HTMLAudioElement | null
       const audio = domAudio || new Audio('/audio/netflix-intro.mp3')
 
       audio.volume = Math.max(0, Math.min(1, volume))
-      audio.currentTime = 0
+      try {
+        audio.currentTime = 0
+      } catch {
+        // Safe ignore if audio has not buffered yet
+      }
 
       const playPromise = audio.play()
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'))
+            if (typeof window !== 'undefined') {
+              ;(window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__ = true
+              window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'))
+            }
             resolve(true)
           })
           .catch(() => {
             resolve(false)
           })
       } else {
+        if (typeof window !== 'undefined') {
+          ;(window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__ = true
+          window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'))
+        }
         resolve(true)
       }
     } catch {
@@ -111,6 +127,11 @@ function playSynthesizedNetflixChime(volume: number = 0.75): void {
     subGain.connect(masterGain)
     subOsc.start(now + 0.14)
     subOsc.stop(now + 2.1)
+
+    if (typeof window !== 'undefined') {
+      ;(window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__ = true
+      window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'))
+    }
   } catch {
     // Graceful no-op if Web Audio is unsupported or blocked
   }
@@ -136,8 +157,34 @@ export function useNetflixIntroSound({
     isPlayingRef.current = true
     setIsPlaying(true)
 
-    const success = await playAudioElement(volume)
+    let success = await playAudioElement(volume)
+
+    // Standalone Audio fallback if DOM audio element failed or was missing
+    if (!success) {
+      try {
+        const standalone = new Audio('/audio/netflix-intro.mp3')
+        standalone.volume = Math.max(0, Math.min(1, volume))
+        try {
+          standalone.currentTime = 0
+        } catch {}
+        const p = standalone.play()
+        if (p !== undefined) {
+          await p
+          if (typeof window !== 'undefined') {
+            ;(window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__ = true
+            window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'))
+          }
+          success = true
+        }
+      } catch {
+        success = false
+      }
+    }
+
     if (success) {
+      if (typeof window !== 'undefined') {
+        ;(window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__ = true
+      }
       setTimeout(() => {
         isPlayingRef.current = false
         setIsPlaying(false)
@@ -161,51 +208,76 @@ export function useNetflixIntroSound({
   // By omitting route/pathname dependencies and gating with a lifecycle mount ref,
   // client-side page switches remain quiet, preventing acoustic fatigue.
   useEffect(() => {
-    if (!enabled || hasTriggeredOnMountRef.current) return
-    hasTriggeredOnMountRef.current = true
+    if (!enabled) return
 
+    // If intro sound has already successfully played during this page lifecycle,
+    // stay quiet across client-side page transitions.
+    if (typeof window !== 'undefined' && (window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__) {
+      return
+    }
+
+    let isCleanedUp = false
     let cleanupListeners: (() => void) | null = null
 
-    const attemptPlay = async () => {
-      const ok = await play()
-      if (!ok) {
-        // Modern browser autoplay policy prevented unmuted sound without user gesture on reload.
-        // Listen for any user gesture (pointer, click, keydown, scroll, wheel) to immediately trigger audio.
-        const onGesture = () => {
+    const attachGestureFallback = () => {
+      if (cleanupListeners || isCleanedUp) return
+
+      const onGesture = () => {
+        play().then((started) => {
+          if (started) {
+            cleanupListeners?.()
+            cleanupListeners = null
+          } else {
+            // Modern browser autoplay policy prevented unmuted sound without user gesture on reload.
+            // If media element was blocked, synthesize the iconic cinematic chime
+            playSynthesizedNetflixChime(volume)
+            cleanupListeners?.()
+            cleanupListeners = null
+          }
+        }).catch(() => {
+          playSynthesizedNetflixChime(volume)
           cleanupListeners?.()
           cleanupListeners = null
-          play().then((started) => {
-            if (!started) {
-              playSynthesizedNetflixChime(volume)
-            }
-          }).catch(() => {
-            playSynthesizedNetflixChime(volume)
-          })
-        }
-
-        const events: (keyof WindowEventMap)[] = [
-          'pointerdown',
-          'click',
-          'keydown',
-          'touchstart',
-          'pointermove',
-          'scroll',
-          'wheel',
-        ]
-
-        events.forEach((evt) => {
-          window.addEventListener(evt, onGesture, {
-            once: true,
-            passive: true,
-            capture: true,
-          })
         })
+      }
 
-        cleanupListeners = () => {
-          events.forEach((evt) => {
-            window.removeEventListener(evt, onGesture, { capture: true })
-          })
-        }
+      // Valid user activations ONLY.
+      // Pointer move, scroll, and wheel are excluded because they are NOT user activation gestures
+      // under browser autoplay policy and would prematurely consume and destroy gesture listeners.
+      const events: (keyof WindowEventMap)[] = [
+        'pointerdown',
+        'mousedown',
+        'keydown',
+        'touchstart',
+        'click',
+      ]
+
+      events.forEach((evt) => {
+        window.addEventListener(evt, onGesture, {
+          passive: true,
+          capture: true,
+        })
+      })
+
+      cleanupListeners = () => {
+        events.forEach((evt) => {
+          window.removeEventListener(evt, onGesture, { capture: true })
+        })
+      }
+    }
+
+    const attemptPlay = async () => {
+      if (hasTriggeredOnMountRef.current && (window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__) {
+        return
+      }
+      hasTriggeredOnMountRef.current = true
+
+      // Attempt immediate zero-click playback at the first moment of initial refresh
+      const ok = await play()
+      if (!ok && !isCleanedUp) {
+        // Modern browser autoplay policy prevented unmuted sound without user gesture on reload.
+        // Listen for any user gesture (pointerdown, click, keydown, touchstart) to immediately trigger audio.
+        attachGestureFallback()
       }
     }
 
@@ -217,6 +289,7 @@ export function useNetflixIntroSound({
     window.addEventListener('prometheus:replay-intro-sound', handleReplay)
 
     return () => {
+      isCleanedUp = true
       cleanupListeners?.()
       window.removeEventListener('prometheus:replay-intro-sound', handleReplay)
       // Do NOT pause audio in cleanup! In React Strict Mode (dev),

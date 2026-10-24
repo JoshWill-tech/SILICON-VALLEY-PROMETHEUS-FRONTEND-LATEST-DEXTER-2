@@ -40,6 +40,20 @@ test('useNetflixIntroSound hook triggers only upon site/page reload and avoids a
   assert.match(hookSource, /prometheus:replay-intro-sound/, 'supports manual replay event')
   assert.match(hookSource, /__playPrometheusIntroSound/, 'attaches global window helper')
   assert.match(hookSource, /playSynthesizedNetflixChime/, 'includes Web Audio API synthesized fallback')
+  assert.match(hookSource, /__PROMETHEUS_INTRO_PLAYED__/, 'tracks play state per document lifecycle to distinguish reload from route switch')
+  assert.ok(!hookSource.includes("'pointermove'"), 'excludes pointermove from gesture listeners so mouse hover does not kill playback')
+  assert.ok(!hookSource.includes("'scroll'"), 'excludes scroll from gesture listeners')
+  assert.ok(!hookSource.includes("'wheel'"), 'excludes wheel from gesture listeners')
+})
+
+test('RootLayout preloads netflix audio asset for instantaneous zero-latency playback on reload', () => {
+  const layoutSource = fs.readFileSync(
+    path.resolve(process.cwd(), 'app/layout.tsx'),
+    'utf8',
+  )
+
+  assert.match(layoutSource, /rel="preload"/, 'layout preloads audio asset')
+  assert.match(layoutSource, /href="\/audio\/netflix-intro\.mp3"/, 'layout links netflix-intro.mp3')
 })
 
 test('NetflixIntroSound component is wired into RootClientEffects', () => {

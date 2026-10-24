@@ -3093,6 +3093,7 @@ function FloatingChatComposer({
   onChatSeekToSec,
   workspaceTab = null,
   focusPulse = 0,
+  isExportRendering = false,
 }: {
   projectId: string
   hasSourceMedia?: boolean
@@ -3140,6 +3141,7 @@ function FloatingChatComposer({
   onChatSeekToSec?: (seconds: number) => void
   workspaceTab?: string | null
   focusPulse?: number
+  isExportRendering?: boolean
 }) {
   const isMobile = useMediaQuery('(max-width: 767px)')
   const [showSourceVideo, setShowSourceVideo] = React.useState(false)
@@ -3423,9 +3425,11 @@ function FloatingChatComposer({
     <div
       data-editorial-chat={isThreadOpen ? 'moon-expanded' : 'launcher'}
       className={cn(
-      'pointer-events-none fixed inset-0 z-[120] flex overflow-visible transition-[transform,opacity] duration-300 ease-out',
-      isThreadOpen ? 'items-stretch justify-stretch p-2 sm:p-3 md:p-4' : 'items-end justify-end p-6',
-    )}
+        'pointer-events-none fixed inset-0 z-[120] flex overflow-visible transition-[transform,opacity,padding] duration-300 ease-out',
+        isThreadOpen
+          ? 'items-stretch justify-stretch p-2 sm:p-3 md:p-4'
+          : cn('items-end justify-end px-6 pt-6', isExportRendering ? 'pb-[5.5rem]' : 'pb-6'),
+      )}
     >
       <AnimatePresence initial={false}>
         {isThreadOpen ? (
@@ -3836,6 +3840,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   onApplyChatActions,
   onChatSeekToSec,
   workspaceTab = null,
+  isExportRendering = false,
 }: {
   projectId: string
   hasSourceMedia?: boolean
@@ -3861,6 +3866,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
   onApplyChatActions?: (drafts: EditorActionDraft[], messageId: string) => void
   onChatSeekToSec?: (seconds: number) => void
   workspaceTab?: string | null
+  isExportRendering?: boolean
 }) {
   const reduceMotion = useStableReducedMotion()
   const [entries, setEntries] = React.useState<ChatEntry[]>(() => [])
@@ -5774,6 +5780,7 @@ const ChatWorkspacePanel = React.memo(function ChatWorkspacePanel({
                   onApplyChatActions={onApplyChatActions}
                   onChatSeekToSec={onChatSeekToSec}
                   workspaceTab={workspaceTab}
+                  isExportRendering={isExportRendering}
                   draft={draft}
                   onDraftChange={setDraft}
                   onSubmit={handleSubmit}
@@ -6047,6 +6054,7 @@ function MobileEditorView({
               onApplyChatActions={onApplyChatActions}
               onChatSeekToSec={onChatSeekToSec}
               workspaceTab={workspaceTab}
+              isExportRendering={isExportRendering}
             />
             <div ref={setChatComposerPortal} className="absolute inset-x-3 bottom-3 z-40" />
           </div>
@@ -10358,7 +10366,10 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
                       <button
                         type="button"
                         onClick={() => setIsUrlClippingActive(true)}
-                        className="fixed bottom-24 right-6 z-40 flex items-center gap-2 rounded-full border border-[#ecff49]/30 bg-black/85 px-4 py-2 text-xs font-semibold text-[#ecff49] shadow-2xl backdrop-blur-md transition-all hover:scale-105 hover:bg-black"
+                        className={cn(
+                          'fixed right-6 z-40 flex items-center gap-2 rounded-full border border-[#ecff49]/30 bg-black/85 px-4 py-2 text-xs font-semibold text-[#ecff49] shadow-2xl backdrop-blur-md transition-all hover:scale-105 hover:bg-black',
+                          isExportRendering ? 'bottom-40' : 'bottom-24',
+                        )}
                       >
                         <Sparkles className="size-3.5" />
                         SupoClip Matrix
@@ -10516,6 +10527,7 @@ const requestAssemblyAITranscription = React.useCallback(async (): Promise<boole
           onApplyChatActions={handleApplyChatActions}
           onChatSeekToSec={handlePreviewSeekSeconds}
           workspaceTab={activeWorkspaceTab}
+          isExportRendering={isExportRendering}
         />
       </div>
       <EditorNewProjectUploadDialog open={isNewProjectUploadOpen} onOpenChange={setIsNewProjectUploadOpen} />
