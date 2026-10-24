@@ -1,6 +1,7 @@
 import { extractYouTubeVideoId } from '../media/youtube-clip-service'
 import { getCreatorRecommendations, KNOWN_CREATOR_PROFILES } from '../creators/creator-recommendations'
 import { CREATOR_VIDEO_CATALOG } from '../creators/video-catalog'
+import { resolveAgenticCreatorEntity } from './agentic-creator-service'
 
 export interface BrandVideoItem {
   videoId: string
@@ -324,130 +325,58 @@ export async function resolveWebsiteBrand(rawUrl: string): Promise<ResolvedBrand
  * Agentic Creator & Entity Harness:
  * Automatically infers canonical YouTube channel and Instagram URLs from a creator/character name,
  * extracts video collections, avatars, and style DNA, expressing them straight up as if a reference URL was provided.
+ * Backed by multi-tier resolution: <1ms in-memory/fast-path cache + bounded agentic LLM routing.
  */
 export async function resolveAgenticCreator(query: string): Promise<ResolvedBrand | null> {
   const trimmed = query.trim()
   if (!trimmed) return null
 
-  // 1. Check known creator profiles (Gary Vaynerchuk, MrBeast, Neil Patel, Alex Hormozi, etc.)
-  const recs = getCreatorRecommendations(trimmed)
-  const matchedProfileName = recs.matchedCreator
-  const profile = matchedProfileName ? KNOWN_CREATOR_PROFILES[matchedProfileName] : null
+  // 1. Multi-tier agentic entity inference (Instant cache/fast-path -> bounded LLM -> procedural)
+  const entity = await resolveAgenticCreatorEntity(trimmed)
+  if (!entity) return null
 
-  if (profile) {
-    const ytPlatform = profile.platforms.find((p) => p.platform === 'youtube')
-    const igPlatform = profile.platforms.find((p) => p.platform === 'instagram')
-    const targetYtUrl = ytPlatform?.handleOrUrl || `https://www.youtube.com/@${profile.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`
-
-    // Attempt live channel scrape to extract latest videos & avatar
-    let liveResult: ResolvedBrand | null = null
+  // 2. Fetch live YouTube channel metadata if available
+  let liveResult: ResolvedBrand | null = null
+  if (entity.youtubeUrl) {
     try {
-      liveResult = await resolveYouTubeChannel(targetYtUrl)
+      liveResult = await resolveYouTubeChannel(entity.youtubeUrl)
     } catch {
       // Fallback below
     }
+  }
 
-    // Curated catalog videos as reliable fallback or base
-    const catalogVideos = CREATOR_VIDEO_CATALOG[profile.name] || []
-    const fallbackVideos: BrandVideoItem[] = catalogVideos.map((v) => ({
-      videoId: v.videoId,
-      title: v.title,
-      thumbnailUrl: v.image,
-      url: `https://www.youtube.com/watch?v=${v.videoId}`,
-    }))
+  // 3. Fallback videos from catalog or entity
+  const catalogMatch = CREATOR_VIDEO_CATALOG[entity.canonicalName] || []
+  const catalogFallbackVideos: BrandVideoItem[] = catalogMatch.map((v) => ({
+    videoId: v.videoId,
+    title: v.title,
+    thumbnailUrl: v.image,
+    url: `https://www.youtube.com/watch?v=${v.videoId}`,
+  }))
 
-    const finalVideos: BrandVideoItem[] = (liveResult?.videos && liveResult.videos.length > 0)
+  const finalVideos: BrandVideoItem[] =
+    liveResult?.videos && liveResult.videos.length > 0
       ? liveResult.videos
-      : fallbackVideos
+      : entity.videos && entity.videos.length > 0
+        ? entity.videos
+        : catalogFallbackVideos
 
-    const avatarUrl = liveResult?.avatarUrl || ytPlatform?.avatarUrl || igPlatform?.avatarUrl
+  const avatarUrl = liveResult?.avatarUrl || entity.avatarUrl
+  const brandName = entity.canonicalName
 
-    return {
-      brandName: profile.name,
-      rawInput: trimmed,
-      type: 'Verified Creator Spirit',
-      url: targetYtUrl,
-      category: 'youtube',
-      title: liveResult?.title || profile.name,
-      avatarUrl,
-      thumbnailUrl: finalVideos[0]?.thumbnailUrl || avatarUrl,
-      description: profile.jarvisInsight,
-      videos: finalVideos,
-      styleDNA: liveResult?.styleDNA || profile.styleDNA,
-    }
+  return {
+    brandName,
+    rawInput: trimmed,
+    type: 'Verified Creator Spirit',
+    url: entity.youtubeUrl,
+    category: 'youtube',
+    title: liveResult?.title || brandName,
+    avatarUrl,
+    thumbnailUrl: finalVideos[0]?.thumbnailUrl || avatarUrl,
+    description: entity.styleDNA?.aestheticDescription || `Ingested brand spirit and signature videos from ${brandName}.`,
+    videos: finalVideos,
+    styleDNA: liveResult?.styleDNA || entity.styleDNA,
   }
-
-  // 2. Check CREATOR_VIDEO_CATALOG for direct name match
-  const catalogMatchKey = Object.keys(CREATOR_VIDEO_CATALOG).find((k) => {
-    const kn = k.toLowerCase()
-    const tn = trimmed.toLowerCase()
-    return kn === tn || kn.includes(tn) || tn.includes(kn)
-  })
-
-  if (catalogMatchKey && CREATOR_VIDEO_CATALOG[catalogMatchKey]) {
-    const catalogVideos = CREATOR_VIDEO_CATALOG[catalogMatchKey]
-    const fallbackVideos: BrandVideoItem[] = catalogVideos.map((v) => ({
-      videoId: v.videoId,
-      title: v.title,
-      thumbnailUrl: v.image,
-      url: `https://www.youtube.com/watch?v=${v.videoId}`,
-    }))
-    const safeHandle = catalogMatchKey.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const targetYtUrl = `https://www.youtube.com/@${safeHandle}`
-
-    let liveResult: ResolvedBrand | null = null
-    try {
-      liveResult = await resolveYouTubeChannel(targetYtUrl)
-    } catch {
-      // Fallback
-    }
-
-    const finalVideos = (liveResult?.videos && liveResult.videos.length > 0) ? liveResult.videos : fallbackVideos
-
-    return {
-      brandName: catalogMatchKey,
-      rawInput: trimmed,
-      type: 'Verified Creator Spirit',
-      url: targetYtUrl,
-      category: 'youtube',
-      title: liveResult?.title || catalogMatchKey,
-      avatarUrl: liveResult?.avatarUrl,
-      thumbnailUrl: finalVideos[0]?.thumbnailUrl,
-      videos: finalVideos,
-      styleDNA: liveResult?.styleDNA || {
-        tone: 'Authoritative & Audience-Calibrated',
-        typography: 'Kinetic Grotesk with High-Contrast Highlights',
-        colorAccent: '#55ff9b',
-        pacing: 'Dynamic Micro-Cuts (<2s Retention Hooks)',
-        aestheticDescription: `Video outputs and AI cuts calibrated to reflect the brand spirit of ${catalogMatchKey}.`,
-        insights: [
-          `Ingested signature video archetypes from ${catalogMatchKey}`,
-          'Calibrated pacing, typography, and visual hooks to creator DNA',
-          'Active Brand Spirit calibrated for video generation suite',
-        ],
-      },
-    }
-  }
-
-  // 3. Dynamic Agentic Lookup for custom creator / character names
-  const sanitizedHandle = trimmed.toLowerCase().replace(/[^a-z0-9]/g, '')
-  if (sanitizedHandle.length >= 2) {
-    try {
-      const candidateUrl = `https://www.youtube.com/@${sanitizedHandle}`
-      const candidateResult = await resolveYouTubeChannel(candidateUrl)
-      if (candidateResult && candidateResult.videos && candidateResult.videos.length > 0) {
-        return {
-          ...candidateResult,
-          rawInput: trimmed,
-          category: 'youtube',
-        }
-      }
-    } catch {
-      // Ignore
-    }
-  }
-
-  return null
 }
 
 /**

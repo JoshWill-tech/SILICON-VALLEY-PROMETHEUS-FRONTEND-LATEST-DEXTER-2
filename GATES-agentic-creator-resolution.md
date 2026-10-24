@@ -23,3 +23,8 @@ Scope: Implement agentic entity harness resolving spoken/typed creator names (e.
   CHECK: npm run typecheck
   EXPECT: typecheck passed
   EVIDENCE: verified exit 0, typecheck passed
+
+- [x] G5: Fast-path benchmark executes in <50ms without blocking on LLM latency
+  CHECK: node --import tsx --test tests/agentic-fast-harness.test.mjs
+  EXPECT: pass 2
+  EVIDENCE: verified exit 0, pass 2 (Gary V in 1.7ms)
