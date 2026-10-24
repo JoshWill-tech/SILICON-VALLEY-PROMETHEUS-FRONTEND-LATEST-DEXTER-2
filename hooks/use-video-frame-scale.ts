@@ -9,7 +9,7 @@ import {
   type VideoScaleMetrics,
   type ScaledTypographyStyles,
 } from '@/lib/editor/video-frame-scaling'
-import type { DraftTypography } from '@/lib/editor/mini-run-draft-store'
+import type { DraftTypography, DraftPlacement, DraftTypographyLayer } from '@/lib/editor/mini-run-draft-store'
 
 export interface UseVideoFrameScaleOptions {
   videoRef?: React.RefObject<HTMLVideoElement | null>
@@ -21,7 +21,11 @@ export interface UseVideoFrameScaleOptions {
 export interface UseVideoFrameScaleReturn {
   metrics: VideoScaleMetrics
   scale: number
-  getScaledTypography: (typography?: DraftTypography | null) => ScaledTypographyStyles
+  getScaledTypography: (
+    typography?: DraftTypography | null,
+    placement?: DraftPlacement | null,
+    layers?: DraftTypographyLayer[] | null
+  ) => ScaledTypographyStyles
   referenceFrameHeight: number
   referenceFrameWidth: number
 }
@@ -140,11 +144,17 @@ export function useVideoFrameScale({
   }, [dimensions, explicitAspectRatio])
 
   const getScaledTypography = React.useCallback(
-    (typography?: DraftTypography | null): ScaledTypographyStyles => {
+    (
+      typography?: DraftTypography | null,
+      placement?: DraftPlacement | null,
+      layers?: DraftTypographyLayer[] | null
+    ): ScaledTypographyStyles => {
       return calculateScaledTypography({
         metrics,
         typography,
         canvasHeight: dimensions.intrinsicHeight,
+        placement,
+        layers,
       })
     },
     [metrics, dimensions.intrinsicHeight]

@@ -142,6 +142,57 @@ test('Video Frame Scaling Engine', async (t) => {
     // Pixel in 1920 frame (1382.4px / 1920 -> ~72%)
     const pixel1920 = calculateScaledTypography({ metrics, typography: { positionY: 1382.4 } })
     assert.equal(Math.round(pixel1920.positionYPercent), 72)
+
+    // Placement object from backend manifest (e.g. "56%" yPercent)
+    const placementManifest = calculateScaledTypography({
+      metrics,
+      placement: { xPercent: '50%', yPercent: '56%', anchor: 'center' },
+    })
+    assert.equal(placementManifest.positionYPercent, 56)
+    assert.equal(placementManifest.positionXPercent, 50)
+    assert.equal(placementManifest.anchor, 'center')
+  })
+
+  await t.test('calculateScaledTypography correctly scales multi-tier authored layers relative to frame resolution', () => {
+    const fhdMetrics = calculateVideoFrameScale({ renderedWidth: 1080, renderedHeight: 1920 })
+    const previewMetrics = calculateVideoFrameScale({ renderedWidth: 270, renderedHeight: 480 })
+
+    const sampleLayers = [
+      {
+        layerIndex: 0,
+        role: 'secondary_clause',
+        text: 'having to',
+        fontFamily: 'Playfair Display',
+        fontSizePx: 68,
+        fontWeight: 600,
+        fontStyle: 'italic',
+        color: '#FFFFFF',
+      },
+      {
+        layerIndex: 1,
+        role: 'primary_focus_word',
+        text: 'calculate',
+        fontFamily: 'Bodoni Moda',
+        fontSizePx: 130,
+        fontWeight: 800,
+        fontStyle: 'italic',
+        color: '#F5E6C4',
+        isHero: true,
+      },
+    ]
+
+    // FHD Canvas (1920 height): secondary should be 68px, hero 130px
+    const fhd = calculateScaledTypography({ metrics: fhdMetrics, layers: sampleLayers })
+    assert.ok(fhd.layers && fhd.layers.length === 2)
+    assert.equal(fhd.layers[0].fontSize, 68)
+    assert.equal(fhd.layers[1].fontSize, 130)
+    assert.equal(fhd.layers[1].color, '#F5E6C4')
+
+    // Preview Canvas (480 height = 1920 / 4): secondary should be 17px, hero 32.5px
+    const preview = calculateScaledTypography({ metrics: previewMetrics, layers: sampleLayers })
+    assert.ok(preview.layers && preview.layers.length === 2)
+    assert.equal(preview.layers[0].fontSize, 17)
+    assert.equal(preview.layers[1].fontSize, 32.5)
   })
 
   console.log('video frame scaling tests passed')

@@ -9,7 +9,7 @@
  * across all display devices, preview viewport dimensions, and source video resolutions.
  */
 
-import type { DraftTypography } from '@/lib/editor/mini-run-draft-store'
+import type { DraftTypography, DraftTypographyLayer, DraftPlacement } from '@/lib/editor/mini-run-draft-store'
 
 export const REFERENCE_FRAME_HEIGHT = 960
 export const DEFAULT_ASPECT_RATIO = 9 / 16
@@ -36,6 +36,27 @@ export interface VideoScaleMetrics {
   aspectRatio: number
 }
 
+export interface ScaledLayerStyles {
+  fontSize: number
+  lineHeight: number
+  paddingX: number
+  gapX: number
+  gapY: number
+  wordPaddingX: number
+  wordPaddingY: number
+  wordRadius: number
+  strokeWidth?: string
+  strokeColor?: string
+  textShadow?: string
+  fontFamily?: string
+  fontWeight?: number | string
+  fontStyle?: string
+  color?: string
+  casing?: string
+  letterSpacingEm?: number
+  isHero?: boolean
+}
+
 export interface ScaledTypographyStyles {
   fontSize: number
   lineHeight: number
@@ -49,7 +70,10 @@ export interface ScaledTypographyStyles {
   strokeColor?: string
   textShadow?: string
   positionYPercent: number
+  positionXPercent: number
+  anchor: 'center' | 'left' | 'right'
   maxWidthPercent: number
+  layers?: ScaledLayerStyles[]
 }
 
 /**
@@ -166,10 +190,14 @@ export function calculateScaledTypography({
   metrics,
   typography,
   canvasHeight,
+  placement,
+  layers,
 }: {
   metrics: VideoScaleMetrics
   typography?: DraftTypography | null
   canvasHeight?: number | null
+  placement?: DraftPlacement | null
+  layers?: DraftTypographyLayer[] | null
 }): ScaledTypographyStyles {
   const { scale } = metrics
   const baseFontSize960 = normalizeBaseFontSize(typography?.fontSize, canvasHeight)
@@ -198,21 +226,81 @@ export function calculateScaledTypography({
   // Shadow
   const textShadow = scaleTextShadow(typography?.shadow, scale)
 
-  // Vertical position
-  let positionYPercent = 72
-  const rawY = typography?.positionY
-  if (typeof rawY === 'number' && Number.isFinite(rawY)) {
-    if (rawY > 1) {
-      // Pixel coordinate in canvas
-      if (rawY > 960) {
-        positionYPercent = (rawY / 1920) * 100
+  // Coordinate Placement calculation
+  // 1. Check placement.yPercent from backend font manifest (e.g. "56%" or 0.56 or 56)
+  let positionYPercent: number = 56 // Default to 56% cinematic center-lower third
+  if (placement?.yPercent !== undefined && placement.yPercent !== null) {
+    const parsedY = typeof placement.yPercent === 'string'
+      ? parseFloat(placement.yPercent.replace('%', ''))
+      : Number(placement.yPercent)
+    if (Number.isFinite(parsedY)) {
+      positionYPercent = parsedY <= 1 && parsedY > 0 ? parsedY * 100 : parsedY
+    }
+  } else {
+    const rawY = typography?.positionY
+    if (typeof rawY === 'number' && Number.isFinite(rawY)) {
+      if (rawY > 1) {
+        if (rawY > 960) {
+          positionYPercent = (rawY / 1920) * 100
+        } else {
+          positionYPercent = (rawY / REFERENCE_FRAME_HEIGHT) * 100
+        }
       } else {
-        positionYPercent = (rawY / REFERENCE_FRAME_HEIGHT) * 100
+        positionYPercent = rawY * 100
       }
-    } else {
-      positionYPercent = rawY * 100
     }
   }
+
+  // Horizontal position
+  let positionXPercent: number = 50
+  if (placement?.xPercent !== undefined && placement.xPercent !== null) {
+    const parsedX = typeof placement.xPercent === 'string'
+      ? parseFloat(placement.xPercent.replace('%', ''))
+      : Number(placement.xPercent)
+    if (Number.isFinite(parsedX)) {
+      positionXPercent = parsedX <= 1 && parsedX > 0 ? parsedX * 100 : parsedX
+    }
+  }
+
+  const anchor = (placement?.anchor as 'center' | 'left' | 'right') || 'center'
+
+  // Proportional scale factor for 1080x1920 authored layers
+  const scale1920 = metrics.renderedHeight > 0
+    ? metrics.renderedHeight / 1920
+    : metrics.scale * 0.5
+
+  const scaledLayers: ScaledLayerStyles[] | undefined = Array.isArray(layers) && layers.length > 0
+    ? layers.map((layer) => {
+        const baseLayerSize = typeof layer.fontSizePx === 'number' && layer.fontSizePx > 0
+          ? layer.fontSizePx
+          : layer.isHero
+          ? 130
+          : 68
+        const layerFontSize = Math.max(9, Math.round(baseLayerSize * scale1920 * 10) / 10)
+        const layerShadow = scaleTextShadow(layer.shadow || typography?.shadow, scale)
+
+        return {
+          fontSize: layerFontSize,
+          lineHeight: layer.lineHeight || (layer.isHero ? 1.0 : 1.18),
+          paddingX,
+          gapX,
+          gapY,
+          wordPaddingX,
+          wordPaddingY,
+          wordRadius,
+          strokeWidth,
+          strokeColor: typography?.strokeColor,
+          textShadow: layerShadow,
+          fontFamily: layer.fontFamily,
+          fontWeight: layer.fontWeight,
+          fontStyle: layer.fontStyle,
+          color: layer.color || (layer.isHero ? '#F5E6C4' : '#FFFFFF'),
+          casing: layer.casing,
+          letterSpacingEm: layer.letterSpacingEm,
+          isHero: layer.isHero,
+        }
+      })
+    : undefined
 
   return {
     fontSize,
@@ -227,6 +315,9 @@ export function calculateScaledTypography({
     strokeColor: typography?.strokeColor,
     textShadow,
     positionYPercent,
+    positionXPercent,
+    anchor,
     maxWidthPercent: 92,
+    layers: scaledLayers,
   }
 }
