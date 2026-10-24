@@ -22,6 +22,7 @@ import {
   type DraftChunk,
   type DraftWord,
   type DraftTypography,
+  type DraftTypographyLayer,
 } from '@/lib/editor/mini-run-draft-store'
 import { dispatchMiniRunFromProject, planMiniRunFromProject } from '@/lib/api/mini-run-console'
 import { miniRun } from '@/lib/api/mini-run'
@@ -40,18 +41,96 @@ export const TYPOGRAPHY_PRESETS: Array<{
   label: string
   shortLabel?: string
   styling: Partial<DraftTypography>
+  layersTemplate?: {
+    secondary?: Partial<DraftTypographyLayer>
+    hero?: Partial<DraftTypographyLayer>
+  }
 }> = [
   {
-    id: 'editorial_serif',
-    label: 'Editorial Serif',
-    shortLabel: 'Editorial',
+    id: 'didone_luxury',
+    label: 'Because Your Brain (Didone)',
+    shortLabel: 'Didone',
     styling: {
-      fontFamily: 'Georgia, "Times New Roman", serif',
-      fontWeight: 700,
+      fontFamily: "'Playfair Display', 'Bodoni Moda', serif",
+      fontWeight: 800,
+      textColor: '#F5E6C4',
+      shadow: '0 4px 20px rgba(0,0,0,0.9), 0 0 16px rgba(245,230,196,0.45)',
+      strokeWidth: 0,
+      fontSize: 42,
+    },
+    layersTemplate: {
+      secondary: {
+        fontFamily: "'Playfair Display', serif",
+        fontWeight: 600,
+        fontStyle: 'italic',
+        fontSizePx: 68,
+        color: '#FFFFFF',
+      },
+      hero: {
+        fontFamily: "'Playfair Display', 'Bodoni Moda', serif",
+        fontWeight: 800,
+        fontStyle: 'italic',
+        fontSizePx: 130,
+        color: '#F5E6C4',
+      },
+    },
+  },
+  {
+    id: 'editorial_migra',
+    label: 'High-Fashion Migra',
+    shortLabel: 'Migra',
+    styling: {
+      fontFamily: "var(--font-migra), 'Playfair Display', serif",
+      fontWeight: 800,
       textColor: '#FFFFFF',
-      shadow: '0 4px 15px rgba(0,0,0,0.9), 0 0 25px rgba(250,204,21,0.3)',
+      shadow: '0 4px 18px rgba(0,0,0,0.85)',
       strokeWidth: 0,
       fontSize: 40,
+    },
+    layersTemplate: {
+      secondary: {
+        fontFamily: "var(--font-migra), serif",
+        fontWeight: 400,
+        fontStyle: 'normal',
+        fontSizePx: 64,
+        color: '#FFFFFF',
+      },
+      hero: {
+        fontFamily: "var(--font-migra), serif",
+        fontWeight: 800,
+        fontStyle: 'italic',
+        fontSizePx: 124,
+        color: '#FEE199',
+      },
+    },
+  },
+  {
+    id: 'expressive_zt_otez',
+    label: 'Expressive ZT Otez',
+    shortLabel: 'ZT Otez',
+    styling: {
+      fontFamily: "var(--font-zt-otez), var(--font-elegist), serif",
+      fontWeight: 700,
+      textColor: '#FFFFFF',
+      shadow: '0 4px 15px rgba(0,0,0,0.9), 0 0 20px rgba(250,204,21,0.3)',
+      strokeWidth: 0,
+      fontSize: 40,
+    },
+    layersTemplate: {
+      secondary: {
+        fontFamily: "var(--font-elegist), serif",
+        fontWeight: 600,
+        fontStyle: 'normal',
+        fontSizePx: 60,
+        color: '#E2E8F0',
+      },
+      hero: {
+        fontFamily: "var(--font-zt-otez), serif",
+        fontWeight: 800,
+        fontStyle: 'italic',
+        fontSizePx: 120,
+        color: '#FACC15',
+      },
     },
   },
   {
@@ -59,7 +138,7 @@ export const TYPOGRAPHY_PRESETS: Array<{
     label: 'Bold Grotesque',
     shortLabel: 'Grotesque',
     styling: {
-      fontFamily: 'Impact, "Arial Black", sans-serif',
+      fontFamily: "'Montserrat', 'Bebas Neue', 'Impact', sans-serif",
       fontWeight: 900,
       textColor: '#FACC15',
       shadow: '0 4px 20px rgba(0,0,0,0.95)',
@@ -67,34 +146,78 @@ export const TYPOGRAPHY_PRESETS: Array<{
       strokeWidth: 2,
       fontSize: 42,
     },
-  },
-  {
-    id: 'clean_modern',
-    label: 'Clean Modern',
-    shortLabel: 'Modern',
-    styling: {
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      fontWeight: 800,
-      textColor: '#FFFFFF',
-      shadow: '0 2px 10px rgba(0,0,0,0.8)',
-      strokeWidth: 0,
-      fontSize: 38,
+    layersTemplate: {
+      secondary: {
+        fontFamily: "'Montserrat', sans-serif",
+        fontWeight: 800,
+        fontStyle: 'normal',
+        fontSizePx: 64,
+        color: '#FFFFFF',
+      },
+      hero: {
+        fontFamily: "'Montserrat', 'Bebas Neue', sans-serif",
+        fontWeight: 900,
+        fontStyle: 'normal',
+        fontSizePx: 126,
+        color: '#FACC15',
+      },
     },
   },
   {
-    id: 'luxury_vogue',
-    label: 'Luxury Vogue',
-    shortLabel: 'Luxury',
+    id: 'cinematic_cinzel',
+    label: 'Old-Money Cinzel',
+    shortLabel: 'Cinzel',
     styling: {
-      fontFamily: '"Didot", "Bodoni MT", serif',
-      fontWeight: 600,
+      fontFamily: "'Cinzel', 'Cormorant Garamond', serif",
+      fontWeight: 700,
       textColor: '#F8FAFC',
-      shadow: '0 2px 12px rgba(0,0,0,0.7), 0 0 15px rgba(255,255,255,0.4)',
+      shadow: '0 2px 14px rgba(0,0,0,0.85), 0 0 15px rgba(255,255,255,0.3)',
       strokeWidth: 0,
       fontSize: 38,
+    },
+    layersTemplate: {
+      secondary: {
+        fontFamily: "'Cormorant Garamond', serif",
+        fontWeight: 600,
+        fontStyle: 'italic',
+        fontSizePx: 64,
+        color: '#E2E8F0',
+      },
+      hero: {
+        fontFamily: "'Cinzel', serif",
+        fontWeight: 800,
+        fontStyle: 'normal',
+        fontSizePx: 118,
+        color: '#FFFFFF',
+      },
     },
   },
 ]
+
+export function resolveFontFamily(family?: string): string {
+  if (!family) return "'Playfair Display', Georgia, serif"
+  const clean = family.trim().replace(/^['"]|['"]$/g, '')
+  const lower = clean.toLowerCase()
+
+  if (lower.includes('playfair')) return "'Playfair Display', Georgia, serif"
+  if (lower.includes('bodoni')) return "'Bodoni Moda', 'Didot', 'Bodoni MT', serif"
+  if (lower.includes('migra')) return "var(--font-migra), 'Playfair Display', serif"
+  if (lower.includes('vogue')) return "var(--font-vogue-display), 'Didot', serif"
+  if (lower.includes('zt otez') || lower.includes('ztotez')) return "var(--font-zt-otez), serif"
+  if (lower.includes('black delights')) return "var(--font-black-delights), cursive, serif"
+  if (lower.includes('elegist')) return "var(--font-elegist), serif"
+  if (lower.includes('montserrat')) return "'Montserrat', -apple-system, sans-serif"
+  if (lower.includes('cinzel')) return "'Cinzel', 'Times New Roman', serif"
+  if (lower.includes('cormorant')) return "'Cormorant Garamond', Georgia, serif"
+  if (lower.includes('bebas') || lower.includes('anton') || lower.includes('impact')) return "'Bebas Neue', 'Impact', sans-serif"
+  if (lower.includes('italiana')) return "'Italiana', serif"
+  if (lower.includes('lora')) return "'Lora', serif"
+  if (lower.includes('oswald')) return "'Oswald', sans-serif"
+  if (lower.includes('abril')) return "'Abril Fatface', serif"
+  if (lower.includes('alex brush') || lower.includes('great vibes') || lower.includes('pinyon')) return "'Alex Brush', cursive"
+
+  return `"${clean}", system-ui, sans-serif`
+}
 
 export interface MiniRunLiveOverlayProps {
   videoRef: React.RefObject<HTMLVideoElement | null>
@@ -413,9 +536,44 @@ export function MiniRunLiveOverlay({
     }
   }
 
+  // Pre-warm all font combinations declared in chunks to eliminate font swap latency
+  React.useEffect(() => {
+    if (typeof document === 'undefined' || !document.fonts) return
+    const families = new Set<string>()
+    chunks.forEach((c) => {
+      if (c.layers) {
+        c.layers.forEach((l) => {
+          if (l.fontFamily) families.add(l.fontFamily)
+          if (l.accentFont) families.add(l.accentFont)
+        })
+      }
+      if (c.typography?.fontFamily) families.add(c.typography.fontFamily)
+    })
+    TYPOGRAPHY_PRESETS.forEach((p) => {
+      if (p.styling.fontFamily) families.add(p.styling.fontFamily)
+      if (p.layersTemplate?.secondary?.fontFamily) families.add(p.layersTemplate.secondary.fontFamily)
+      if (p.layersTemplate?.hero?.fontFamily) families.add(p.layersTemplate.hero.fontFamily)
+    })
+
+    families.forEach((fam) => {
+      const resolved = resolveFontFamily(fam)
+      try {
+        void document.fonts.load(`48px ${resolved}`)
+        void document.fonts.load(`italic 48px ${resolved}`)
+        void document.fonts.load(`800 48px ${resolved}`)
+      } catch {}
+    })
+  }, [chunks])
+
   const typography: DraftTypography = activeChunk?.typography || {}
-  const scaledStyle = getScaledTypography(typography)
+  const scaledStyle = getScaledTypography(
+    typography,
+    activeChunk?.placement,
+    activeChunk?.layers
+  )
   const positionYPercent = scaledStyle.positionYPercent
+  const positionXPercent = scaledStyle.positionXPercent ?? 50
+  const anchor = scaledStyle.anchor || 'center'
 
   return (
     <div
@@ -568,10 +726,13 @@ export function MiniRunLiveOverlay({
       {/* Center/Lower: Kinetic Live Typography Subtitles with 960 Reference Frame Proportional Scaling */}
       {status !== 'rendered' && (
         <div
-          className="pointer-events-auto absolute inset-x-0 flex justify-center transition-all duration-150"
+          className="pointer-events-auto absolute flex justify-center transition-all duration-150"
           style={{
             top: `${positionYPercent}%`,
-            transform: 'translateY(-50%)',
+            left: `${positionXPercent}%`,
+            transform: `translate(${anchor === 'left' ? '0%' : anchor === 'right' ? '-100%' : '-50%'}, -50%)`,
+            width: '100%',
+            maxWidth: `${scaledStyle.maxWidthPercent}%`,
             paddingLeft: `${scaledStyle.paddingX}px`,
             paddingRight: `${scaledStyle.paddingX}px`,
           }}
@@ -584,54 +745,149 @@ export function MiniRunLiveOverlay({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -Math.max(2, Math.round(4 * scale)), scale: 0.98 }}
                 transition={{ duration: 0.1, ease: 'easeOut' }}
-                className="flex flex-wrap items-center justify-center text-center select-none"
-                style={{
-                  maxWidth: `${scaledStyle.maxWidthPercent}%`,
-                  columnGap: `${scaledStyle.gapX}px`,
-                  rowGap: `${scaledStyle.gapY}px`,
-                  fontFamily: typography.fontFamily || 'system-ui, sans-serif',
-                  fontSize: `${scaledStyle.fontSize}px`,
-                  lineHeight: scaledStyle.lineHeight,
-                  fontWeight: typography.fontWeight || 800,
-                  color: typography.textColor || '#FFFFFF',
-                  textShadow: scaledStyle.textShadow,
-                  WebkitTextStroke: scaledStyle.strokeWidth
-                    ? `${scaledStyle.strokeWidth}px ${typography.strokeColor || '#000000'}`
-                    : undefined,
-                }}
+                className="w-full flex flex-col items-center justify-center text-center select-none"
               >
-                {activeChunk.words.map((word: DraftWord, wIdx: number) => {
-                  const isWordActive = currentTimeMs >= word.startMs && currentTimeMs <= word.endMs
-                  const isCut = Boolean(word.cut)
+                {activeChunk.layers && activeChunk.layers.length > 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center gap-1 w-full">
+                    {activeChunk.layers.map((layer, lIdx) => {
+                      const scaledLayer = scaledStyle.layers?.[lIdx]
+                      const isHero = Boolean(layer.isHero)
+                      const layerFontSize =
+                        scaledLayer?.fontSize ??
+                        (isHero ? Math.round(scaledStyle.fontSize * 1.5) : scaledStyle.fontSize)
+                      const layerFontFamily = resolveFontFamily(layer.fontFamily)
+                      const layerColor = layer.color || (isHero ? '#F5E6C4' : '#FFFFFF')
 
-                  return (
-                    <span
-                      key={`${activeChunk?.chunkIndex}-${wIdx}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingWord({
-                          chunkIndex: activeChunkIdx,
-                          wordIndex: wIdx,
-                          text: word.text,
-                        })
-                      }}
-                      title="Click to edit text or cut word"
-                      style={{
-                        padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
-                        borderRadius: `${scaledStyle.wordRadius}px`,
-                      }}
-                      className={`cursor-pointer transition-all duration-75 relative group ${
-                        isCut
-                          ? 'line-through text-red-400 opacity-40 hover:opacity-80'
-                          : isWordActive
-                          ? 'scale-110 text-yellow-300 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
-                          : 'hover:scale-105 hover:bg-white/10'
-                      }`}
-                    >
-                      {word.text}
-                    </span>
-                  )
-                })}
+                      const layerWords: DraftWord[] =
+                        layer.words && layer.words.length > 0
+                          ? layer.words
+                          : layer.text.split(' ').map((t, idx, arr) => ({
+                              text: t,
+                              startMs:
+                                activeChunk.startMs +
+                                Math.round((idx / Math.max(1, arr.length)) * (activeChunk.endMs - activeChunk.startMs)),
+                              endMs: activeChunk.endMs,
+                              cut: false,
+                            }))
+
+                      return (
+                        <div
+                          key={`layer-${lIdx}`}
+                          className="flex flex-wrap items-baseline justify-center text-center select-none"
+                          style={{
+                            fontFamily: layerFontFamily,
+                            fontSize: `${layerFontSize}px`,
+                            lineHeight: layer.lineHeight || (isHero ? 1.0 : 1.15),
+                            fontWeight: layer.fontWeight || (isHero ? 800 : 600),
+                            fontStyle: layer.fontStyle || (isHero ? 'italic' : 'normal'),
+                            color: layerColor,
+                            textShadow:
+                              scaledLayer?.textShadow ||
+                              (isHero
+                                ? '0 2px 14px rgba(0,0,0,0.9), 0 0 16px rgba(245,230,196,0.45)'
+                                : scaledStyle.textShadow),
+                            letterSpacing:
+                              typeof layer.letterSpacingEm === 'number'
+                                ? `${layer.letterSpacingEm}em`
+                                : undefined,
+                            textTransform: layer.casing === 'uppercase' ? 'uppercase' : undefined,
+                            columnGap: `${scaledStyle.gapX}px`,
+                            rowGap: `${scaledStyle.gapY}px`,
+                          }}
+                        >
+                          {layerWords.map((word, wIdx) => {
+                            const isWordActive = currentTimeMs >= word.startMs && currentTimeMs <= word.endMs
+                            const isCut = Boolean(word.cut)
+
+                            return (
+                              <span
+                                key={`lw-${lIdx}-${wIdx}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const overallWIdx = activeChunk.words.findIndex(
+                                    (cw) => cw.startMs === word.startMs && cw.text === word.text
+                                  )
+                                  setEditingWord({
+                                    chunkIndex: activeChunkIdx,
+                                    wordIndex: overallWIdx >= 0 ? overallWIdx : wIdx,
+                                    text: word.text,
+                                  })
+                                }}
+                                title="Click to edit text or cut word"
+                                style={{
+                                  padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
+                                  borderRadius: `${scaledStyle.wordRadius}px`,
+                                }}
+                                className={`cursor-pointer transition-all duration-75 relative group ${
+                                  isCut
+                                    ? 'line-through text-red-400 opacity-40 hover:opacity-80'
+                                    : isWordActive
+                                    ? isHero
+                                      ? 'scale-110 text-[#F5E6C4] drop-shadow-[0_0_16px_rgba(245,230,196,0.95)]'
+                                      : 'scale-110 text-yellow-300 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+                                    : 'hover:scale-105 hover:bg-white/10'
+                                }`}
+                              >
+                                {word.text}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    className="flex flex-wrap items-center justify-center text-center select-none"
+                    style={{
+                      maxWidth: `${scaledStyle.maxWidthPercent}%`,
+                      columnGap: `${scaledStyle.gapX}px`,
+                      rowGap: `${scaledStyle.gapY}px`,
+                      fontFamily: resolveFontFamily(typography.fontFamily),
+                      fontSize: `${scaledStyle.fontSize}px`,
+                      lineHeight: scaledStyle.lineHeight,
+                      fontWeight: typography.fontWeight || 800,
+                      color: typography.textColor || '#FFFFFF',
+                      textShadow: scaledStyle.textShadow,
+                      WebkitTextStroke: scaledStyle.strokeWidth
+                        ? `${scaledStyle.strokeWidth}px ${typography.strokeColor || '#000000'}`
+                        : undefined,
+                    }}
+                  >
+                    {activeChunk.words.map((word: DraftWord, wIdx: number) => {
+                      const isWordActive = currentTimeMs >= word.startMs && currentTimeMs <= word.endMs
+                      const isCut = Boolean(word.cut)
+
+                      return (
+                        <span
+                          key={`${activeChunk?.chunkIndex}-${wIdx}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingWord({
+                              chunkIndex: activeChunkIdx,
+                              wordIndex: wIdx,
+                              text: word.text,
+                            })
+                          }}
+                          title="Click to edit text or cut word"
+                          style={{
+                            padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
+                            borderRadius: `${scaledStyle.wordRadius}px`,
+                          }}
+                          className={`cursor-pointer transition-all duration-75 relative group ${
+                            isCut
+                              ? 'line-through text-red-400 opacity-40 hover:opacity-80'
+                              : isWordActive
+                              ? 'scale-110 text-yellow-300 drop-shadow-[0_0_12px_rgba(234,179,8,0.8)]'
+                              : 'hover:scale-105 hover:bg-white/10'
+                          }`}
+                        >
+                          {word.text}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -731,7 +987,7 @@ export function MiniRunLiveOverlay({
                       type="button"
                       onClick={() => {
                         setSelectedPreset(preset.id)
-                        setGlobalTypography(preset.styling)
+                        setGlobalTypography(preset.styling, preset.layersTemplate)
                         toast.success(`Applied ${preset.label}!`)
                       }}
                       title={preset.label}

@@ -178,7 +178,7 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       null
 
     const chunks: DraftChunk[] = rawChunks.map((c: any, idx: number) => {
-      const words: DraftWord[] = Array.isArray(c.words)
+      let words: DraftWord[] = Array.isArray(c.words)
         ? c.words.map((w: any) => ({
             text: String(w.text || w.word || ''),
             startMs: Number(w.startMs || w.start_ms || 0),
@@ -189,6 +189,25 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
             confidence: typeof w.confidence === 'number' ? w.confidence : undefined,
           }))
         : []
+
+      // If root words array is empty but layers have words, populate chunk words from layers
+      if (words.length === 0 && Array.isArray(c.layers)) {
+        for (const l of c.layers) {
+          if (Array.isArray(l.words)) {
+            for (const lw of l.words) {
+              words.push({
+                text: String(lw.text || lw.word || ''),
+                startMs: Number(lw.start_ms || lw.startMs || 0),
+                endMs: Number(lw.end_ms || lw.endMs || 0),
+                startSec: Number(lw.start_sec || lw.startSec || (lw.start_ms || 0) / 1000),
+                endSec: Number(lw.end_sec || lw.endSec || (lw.end_ms || 0) / 1000),
+                cut: Boolean(lw.cut),
+                confidence: typeof lw.confidence === 'number' ? lw.confidence : undefined,
+              })
+            }
+          }
+        }
+      }
 
       const rawPlacement = c.placement && typeof c.placement === 'object' ? c.placement : {}
       const placement: DraftPlacement = {

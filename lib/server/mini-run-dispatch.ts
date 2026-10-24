@@ -31,11 +31,65 @@ export type MiniRunRenderDispatchRequest = {
   jobId?: string
   editorialRevision?: number
   songPolicy?: 'auto' | 'disabled'
+  songTrackId?: string
+  songTitle?: string
+  songArtist?: string
+  songGenre?: string
+  songMood?: string
+  songUrl?: string
+  brollPreference?: string
+  motionGraphicsPreference?: string
+  brandPreferences?: Record<string, unknown>
   shot?: Partial<MiniRunShotSpec>
   draftManifest?: Record<string, unknown>
   transcriptSegments?: unknown[]
   words?: unknown[]
   prompt?: string
+}
+
+/**
+ * Extracts authoritatively saved song selection and editorial directives from editor state
+ * so that background and export pipelines receive the user\'s explicit choices.
+ */
+export function extractExportDirectives(editorState: Record<string, unknown> | null | undefined): {
+  songTrackId?: string
+  songTitle?: string
+  songArtist?: string
+  songGenre?: string
+  songMood?: string
+  songUrl?: string
+  brollPreference?: string
+  motionGraphicsPreference?: string
+  brandPreferences?: Record<string, unknown>
+} {
+  if (!editorState || typeof editorState !== 'object') return {}
+  const timeline = (editorState.editorialTimeline as Record<string, unknown>) || {}
+  const music = (timeline.music as Record<string, unknown>) || (editorState.music as Record<string, unknown>) || {}
+  const track = (music.track as Record<string, unknown>) || (editorState.selectedMusicTrack as Record<string, unknown>) || {}
+  const songProgram = (editorState.songProgram as Record<string, unknown>) || {}
+
+  const songTrackId = (track.id || track.trackId || songProgram.trackId || editorState.songTrackId) as string | undefined
+  const songTitle = (track.title || track.name || songProgram.title || editorState.songTitle) as string | undefined
+  const songArtist = (track.artist || songProgram.artist || editorState.songArtist) as string | undefined
+  const songGenre = (track.category || track.genre || songProgram.category || editorState.songGenre) as string | undefined
+  const songMood = (track.mood || songProgram.mood || editorState.songMood) as string | undefined
+  const songUrl = (track.audioSrc || track.previewUrl || track.src || songProgram.audioUrl || editorState.songUrl) as string | undefined
+
+  const brollPreference = (editorState.brollPreference || (editorState.brandPreferences as any)?.preferredKind) as string | undefined
+  const motionGraphicsPreference = (editorState.motionGraphicsPreference || (editorState.design as any)?.motionGraphicsPreference) as string | undefined
+  const brandPreferences = (editorState.brandPreferences || (editorState.design as any)?.brandPreferences) as Record<string, unknown> | undefined
+
+  return {
+    ...(songTrackId ? { songTrackId } : {}),
+    ...(songTitle ? { songTitle } : {}),
+    ...(songArtist ? { songArtist } : {}),
+    ...(songGenre ? { songGenre } : {}),
+    ...(songMood ? { songMood } : {}),
+    ...(songUrl ? { songUrl } : {}),
+    ...(brollPreference ? { brollPreference } : {}),
+    ...(motionGraphicsPreference ? { motionGraphicsPreference } : {}),
+    ...(brandPreferences ? { brandPreferences } : {}),
+  }
 }
 
 export type MiniRunRenderDispatchEnvironment = MiniRunEnvironment
@@ -64,7 +118,19 @@ export async function dispatchMiniRunRender({
   const body = buildMiniRunRenderPayload({
     sourceUrl,
     source: {durationMs: request.durationMs, width: request.width, height: request.height},
-    shot: {...request.shot, songPolicy: request.songPolicy ?? request.shot?.songPolicy},
+    shot: {
+      ...request.shot,
+      songPolicy: request.songPolicy ?? request.shot?.songPolicy,
+      ...(request.songTrackId ? { songTrackId: request.songTrackId } : {}),
+      ...(request.songTitle ? { songTitle: request.songTitle } : {}),
+      ...(request.songArtist ? { songArtist: request.songArtist } : {}),
+      ...(request.songGenre ? { songGenre: request.songGenre } : {}),
+      ...(request.songMood ? { songMood: request.songMood } : {}),
+      ...(request.songUrl ? { songUrl: request.songUrl } : {}),
+      ...(request.brollPreference ? { brollPreference: request.brollPreference } : {}),
+      ...(request.motionGraphicsPreference ? { motionGraphicsPreference: request.motionGraphicsPreference } : {}),
+      ...(request.brandPreferences ? { brandPreferences: request.brandPreferences } : {}),
+    },
     jobId: request.jobId ?? crypto.randomUUID(),
     draftManifest: request.draftManifest,
     transcriptSegments: request.transcriptSegments,

@@ -390,7 +390,7 @@ export function MiniRunOutsideHud({
                       onClick={(e) => {
                         e.stopPropagation()
                         setSelectedPreset(preset.id)
-                        setGlobalTypography(preset.styling)
+                        setGlobalTypography(preset.styling, preset.layersTemplate)
                         toast.success(`Applied ${preset.label}!`)
                       }}
                       title={preset.label}

@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server'
 import {cookies} from 'next/headers'
 import {createClient} from '@/lib/supabase/server'
 import {ExportService} from '@/lib/exports/service'
-import {dispatchMiniRunRender} from '@/lib/server/mini-run-dispatch'
+import {dispatchMiniRunRender, extractExportDirectives} from '@/lib/server/mini-run-dispatch'
 import {getMiniRunEnvironment, resolveMiniRunConfig} from '@/lib/server/mini-run-proxy'
 import {resolveSavedProjectSource, type SavedProjectSource} from '@/lib/projects/source-asset'
 
@@ -296,6 +296,7 @@ export async function POST(request: Request, {params}: RouteContext) {
         canvas: '1080x1920',
       },
     }, supabase)
+    const directives = extractExportDirectives(editorState)
     const dispatched = await dispatchMiniRunRender({
       request: {
         projectId,
@@ -308,9 +309,13 @@ export async function POST(request: Request, {params}: RouteContext) {
         height: asset.height ?? undefined,
         jobId: miniRunJobId,
         editorialRevision: currentRevision,
-        songPolicy: 'auto',
+        songPolicy: (body.songPolicy as any) || 'auto',
+        ...directives,
+        ...(typeof body.songTrackId === 'string' ? { songTrackId: body.songTrackId } : {}),
+        ...(typeof body.songTitle === 'string' ? { songTitle: body.songTitle } : {}),
+        ...(typeof body.brollPreference === 'string' ? { brollPreference: body.brollPreference } : {}),
         draftManifest,
-        prompt,
+        prompt: prompt || (typeof body.spokenPrompt === 'string' ? body.spokenPrompt : undefined),
         words: (Array.isArray((editorState as any).words) && (editorState as any).words.length > 0)
           ? (editorState as any).words
           : (Array.isArray((editorState as any).transcriptWords) && (editorState as any).transcriptWords.length > 0)

@@ -27,6 +27,26 @@ export type MiniRunShotSpec = {
   canvasHeight: number
   /** `disabled` skips the soundtrack/SFX pass, otherwise auto-selected music. */
   songPolicy?: 'auto' | 'disabled'
+  /** Explicit user song selection (track ID, title, artist, genre, mood, intensity, custom URL). */
+  songTrackId?: string
+  songId?: string
+  trackId?: string
+  songTitle?: string
+  songName?: string
+  songArtist?: string
+  artist?: string
+  songGenre?: string
+  songCategory?: string
+  songMood?: string
+  mood?: string
+  songIntensity?: 'soft' | 'medium' | 'hard'
+  songUrl?: string
+  songSource?: string
+  audio?: Record<string, unknown>
+  /** Editorial directives (B-rolls, motion graphics, brand preferences). */
+  brollPreference?: string
+  motionGraphicsPreference?: string
+  brandPreferences?: Record<string, unknown>
 }
 
 export type MiniRunDispatchFromProjectInput = {

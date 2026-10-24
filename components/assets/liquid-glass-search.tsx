@@ -3,6 +3,12 @@
 import * as React from 'react'
 import { AudioWaveform, Mic, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BrandSearchAutocomplete } from '@/components/assets/brand-search-autocomplete'
+import { JarvisAssistantModal } from '@/components/assets/jarvis-assistant-modal'
+import type {
+  CreatorPlatformRecommendation,
+  RelatedCreatorRecommendation,
+} from '@/lib/creators/creator-recommendations'
 
 export interface LiquidGLLens {
   destroy: () => void
@@ -66,6 +72,8 @@ export interface LiquidGlassSearchProps {
   className?: string
   autoFocus?: boolean
   prompts?: string[]
+  onOpenJarvis?: (subject?: string) => void
+  onSelectRecommendation?: (brandName: string, queryOrUrl: string) => void
 }
 
 export function LiquidGlassSearch({
@@ -75,6 +83,8 @@ export function LiquidGlassSearch({
   className,
   autoFocus = false,
   prompts,
+  onOpenJarvis,
+  onSelectRecommendation,
 }: LiquidGlassSearchProps) {
   const activePrompts = React.useMemo(
     () => (prompts && prompts.length > 0 ? prompts : DEFAULT_BRAND_PROMPTS),
@@ -84,6 +94,8 @@ export function LiquidGlassSearch({
   const [isFocused, setIsFocused] = React.useState(false)
   const [placeholder, setPlaceholder] = React.useState(activePrompts[0])
   const [isTypingAnimation, setIsTypingAnimation] = React.useState(true)
+  const [isJarvisOpen, setIsJarvisOpen] = React.useState(false)
+  const [isAutocompleteOpen, setIsAutocompleteOpen] = React.useState(false)
 
   const searchBarRef = React.useRef<HTMLDivElement>(null)
   const searchGoRef = React.useRef<HTMLButtonElement>(null)
@@ -111,6 +123,11 @@ export function LiquidGlassSearch({
     (next: string) => {
       if (!isControlled) setInternalValue(next)
       onChange?.(next)
+      if (next.trim().length >= 2) {
+        setIsAutocompleteOpen(true)
+      } else {
+        setIsAutocompleteOpen(false)
+      }
     },
     [isControlled, onChange],
   )

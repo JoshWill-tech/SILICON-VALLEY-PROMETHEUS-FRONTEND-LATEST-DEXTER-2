@@ -83,12 +83,25 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   // A per-request CSP nonce requires Next to render bootstrap scripts per request.
-  await headers()
+  const headersList = await headers()
+  const nonce = headersList.get('x-nonce') ?? undefined
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="preload" href="/audio/netflix-intro.mp3" as="audio" type="audio/mpeg" />
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(typeof window==='undefined'||window.__PROMETHEUS_INTRO_PLAYED__)return;var audio=new Audio('/audio/netflix-intro.mp3');audio.preload='auto';audio.volume=0.75;window.__prometheus_intro_audio=audio;function tryPlay(){if(window.__PROMETHEUS_INTRO_PLAYED__)return;try{var p=audio.play();if(p!==undefined){p.then(function(){window.__PROMETHEUS_INTRO_PLAYED__=true;window.dispatchEvent(new CustomEvent('prometheus:intro-sound-played'));cleanup();}).catch(function(){});}else{window.__PROMETHEUS_INTRO_PLAYED__=true;cleanup();}}catch(e){}}function onAct(){tryPlay();}function cleanup(){window.removeEventListener('pointerdown',onAct,true);window.removeEventListener('mousedown',onAct,true);window.removeEventListener('keydown',onAct,true);window.removeEventListener('touchstart',onAct,true);window.removeEventListener('click',onAct,true);}window.addEventListener('pointerdown',onAct,{capture:true,passive:true});window.addEventListener('mousedown',onAct,{capture:true,passive:true});window.addEventListener('keydown',onAct,{capture:true,passive:true});window.addEventListener('touchstart',onAct,{capture:true,passive:true});window.addEventListener('click',onAct,{capture:true,passive:true});tryPlay();}catch(e){}})();`,
+          }}
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Bebas+Neue&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Italiana&family=Lora:ital,wght@0,400..700;1,400..700&family=Montserrat:ital,wght@0,400..900;1,400..900&family=Oswald:wght@400..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} ${geist.variable} ${spaceGrotesk.variable} ${vogueDisplay.variable} ${blackDelights.variable} ${migraDisplay.variable} ${elegistDisplay.variable} ${ztOtezItalic.variable} bg-background font-sans text-foreground antialiased`}>
         <CookieConsentProvider>

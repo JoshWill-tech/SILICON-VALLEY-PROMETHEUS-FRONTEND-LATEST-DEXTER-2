@@ -83,6 +83,23 @@ export function buildMiniRunRenderPayload({
     design: {
       canvasWidth: 1080,
       canvasHeight: 1920,
+      ...(shot.brollPreference ? { brollPreference: shot.brollPreference, preferredKind: shot.brollPreference } : {}),
+      ...(shot.motionGraphicsPreference ? { motionGraphicsPreference: shot.motionGraphicsPreference } : {}),
+      ...(shot.brandPreferences ? { brandPreferences: shot.brandPreferences } : {}),
+      ...(shot.songTrackId ? { songTrackId: shot.songTrackId, trackId: shot.songTrackId } : {}),
+      ...(shot.trackId ? { trackId: shot.trackId, songTrackId: shot.trackId } : {}),
+      ...(shot.songId ? { songId: shot.songId, songTrackId: shot.songId } : {}),
+      ...(shot.songTitle ? { songTitle: shot.songTitle, songName: shot.songTitle } : {}),
+      ...(shot.songName ? { songName: shot.songName, songTitle: shot.songName } : {}),
+      ...(shot.songArtist ? { songArtist: shot.songArtist, artist: shot.songArtist } : {}),
+      ...(shot.artist ? { artist: shot.artist, songArtist: shot.artist } : {}),
+      ...(shot.songGenre ? { songGenre: shot.songGenre, songCategory: shot.songGenre } : {}),
+      ...(shot.songCategory ? { songCategory: shot.songCategory, songGenre: shot.songCategory } : {}),
+      ...(shot.songMood ? { songMood: shot.songMood, mood: shot.songMood } : {}),
+      ...(shot.mood ? { mood: shot.mood, songMood: shot.mood } : {}),
+      ...(shot.songIntensity ? { songIntensity: shot.songIntensity, songEnergy: shot.songIntensity } : {}),
+      ...(shot.songUrl ? { songUrl: shot.songUrl, songSource: shot.songUrl } : {}),
+      ...(shot.songSource ? { songSource: shot.songSource, songUrl: shot.songSource } : {}),
     },
     selectedWindow: {
       sourceStartMs,
@@ -90,11 +107,53 @@ export function buildMiniRunRenderPayload({
     },
     targetChunkWords,
     maxChunkWords,
-    ...(shot.songPolicy === 'disabled' ? { audio: { songPolicy: 'disabled' } } : {}),
-    ...(prompt?.trim() ? { prompt: prompt.trim() } : {}),
+    audio: {
+      ...(shot.audio && typeof shot.audio === 'object' ? shot.audio : {}),
+      ...(shot.songPolicy ? { songPolicy: shot.songPolicy } : {}),
+      ...(shot.songTrackId ? { songTrackId: shot.songTrackId, trackId: shot.songTrackId } : {}),
+      ...(shot.trackId ? { trackId: shot.trackId, songTrackId: shot.trackId } : {}),
+      ...(shot.songId ? { songId: shot.songId, songTrackId: shot.songId } : {}),
+      ...(shot.songTitle ? { songTitle: shot.songTitle, songName: shot.songTitle } : {}),
+      ...(shot.songName ? { songName: shot.songName, songTitle: shot.songName } : {}),
+      ...(shot.songArtist ? { songArtist: shot.songArtist, artist: shot.songArtist } : {}),
+      ...(shot.artist ? { artist: shot.artist, songArtist: shot.artist } : {}),
+      ...(shot.songGenre ? { songGenre: shot.songGenre, songCategory: shot.songGenre } : {}),
+      ...(shot.songCategory ? { songCategory: shot.songCategory, songGenre: shot.songCategory } : {}),
+      ...(shot.songMood ? { songMood: shot.songMood, mood: shot.songMood } : {}),
+      ...(shot.mood ? { mood: shot.mood, songMood: shot.mood } : {}),
+      ...(shot.songIntensity ? { songIntensity: shot.songIntensity, songEnergy: shot.songIntensity } : {}),
+      ...(shot.songUrl ? { songUrl: shot.songUrl, songSource: shot.songUrl } : {}),
+      ...(shot.songSource ? { songSource: shot.songSource, songUrl: shot.songSource } : {}),
+      ...(prompt?.trim() ? { prompt: prompt.trim(), userPrompt: prompt.trim() } : {}),
+    },
+    ...(prompt?.trim() ? { prompt: prompt.trim(), userPrompt: prompt.trim() } : {}),
     ...(draftManifest ? { draftManifest } : {}),
     ...(Array.isArray(transcriptSegments) && transcriptSegments.length > 0 ? { transcriptSegments } : {}),
     ...(Array.isArray(words) && words.length > 0 ? { words } : {}),
     jobId,
+  }
+}
+
+/**
+ * Transforms an analytical draft manifest into the PrometheusMinRun props contract
+ * for distributed rendering on AWS Remotion Lambda.
+ */
+export function buildPrometheusMinRunProps(manifest: Record<string, unknown>): Record<string, unknown> {
+  const chunks = (manifest.chunks as unknown[]) || []
+  const timeline = (manifest.timeline as Record<string, unknown>) || {}
+  const durationMs = Number(manifest.effectiveDurationMs || timeline.outputDurationMs || 30000)
+  const orchestration = (manifest.orchestrationManifest || manifest.orchestration) as Record<string, unknown> | undefined
+  const songProgram = (manifest.songProgram as Record<string, unknown>) || undefined
+  const firstEvent = (songProgram?.events as Array<Record<string, unknown>>)?.[0]
+  const soundtrackSrc = (firstEvent?.localPath || firstEvent?.audioPath || firstEvent?.audioUrl) as string | undefined
+
+  return {
+    videoSrc: (manifest.sourcePath || 'source/source.mp4') as string,
+    chunks,
+    durationMs,
+    orchestration,
+    soundtrackSrc,
+    audioTrackSrc: (manifest.audioPath || undefined) as string | undefined,
+    profile: ((chunks[0] as any)?.profile || undefined),
   }
 }

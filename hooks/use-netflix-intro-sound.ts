@@ -29,8 +29,14 @@ function playAudioElement(volume: number): Promise<boolean> {
         return
       }
 
+      if ((window as unknown as { __PROMETHEUS_INTRO_PLAYED__?: boolean }).__PROMETHEUS_INTRO_PLAYED__) {
+        resolve(true)
+        return
+      }
+
+      const earlyAudio = (window as unknown as { __prometheus_intro_audio?: HTMLAudioElement }).__prometheus_intro_audio
       const domAudio = document.getElementById('prometheus-netflix-sound') as HTMLAudioElement | null
-      const audio = domAudio || new Audio('/audio/netflix-intro.mp3')
+      const audio = earlyAudio || domAudio || new Audio('/audio/netflix-intro.mp3')
 
       audio.volume = Math.max(0, Math.min(1, volume))
       try {
