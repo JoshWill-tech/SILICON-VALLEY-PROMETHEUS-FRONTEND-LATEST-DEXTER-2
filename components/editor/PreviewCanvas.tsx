@@ -179,25 +179,24 @@ export function PreviewCanvas({
           style={hasPreviewMedia ? { aspectRatio: visiblePreviewAspectRatio } : undefined}
         >
           <div className="relative flex h-full w-full items-center justify-center">
-            <div className="relative flex items-center justify-center">
-              <motion.div
-                data-theme-independent="media"
-                layout
-                className="relative overflow-hidden"
-                style={{
-                  aspectRatio: visiblePreviewAspectRatio,
-                  width: previewFrameWidth,
-                  height: 'auto',
-                  willChange: 'width, height, transform',
-                }}
-                transition={{
-                  layout: {
-                    duration: 0.72,
-                    ease: [0.645, 0.045, 0.355, 1],
-                  },
-                }}
-              >
-              <div className="relative h-full w-full">
+            <motion.div
+              data-theme-independent="media"
+              layout
+              className="relative overflow-visible"
+              style={{
+                aspectRatio: visiblePreviewAspectRatio,
+                width: previewFrameWidth,
+                height: 'auto',
+                willChange: 'width, height, transform',
+              }}
+              transition={{
+                layout: {
+                  duration: 0.72,
+                  ease: [0.645, 0.045, 0.355, 1],
+                },
+              }}
+            >
+              <div className="relative h-full w-full overflow-hidden rounded-xl">
                 {hasSourceAsset && hasPreviewMedia && !clipModeActive ? (
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
@@ -341,19 +340,18 @@ export function PreviewCanvas({
                   />
                 )}
               </div>
-            </motion.div>
 
-            {/* Outside Morphing HUD on the right side of the video */}
-            {previewKind === 'video' && hasPreviewMedia && (
-              <MiniRunOutsideHud
-                videoRef={previewVideoRef}
-                projectId={projectId}
-                sourceAssetId={project?.sourceAssetId ?? undefined}
-                currentTimeMs={previewCurrentTimeSec * 1000}
-              />
-            )}
+              {/* Outside Morphing HUD on the right side of the video */}
+              {previewKind === 'video' && hasPreviewMedia && (
+                <MiniRunOutsideHud
+                  videoRef={previewVideoRef}
+                  projectId={projectId}
+                  sourceAssetId={project?.sourceAssetId ?? undefined}
+                  currentTimeMs={previewCurrentTimeSec * 1000}
+                />
+              )}
+            </motion.div>
           </div>
-        </div>
 
           {/* Floating Controls Overlay — appears only while hovering the video */}
           <AnimatePresence>
