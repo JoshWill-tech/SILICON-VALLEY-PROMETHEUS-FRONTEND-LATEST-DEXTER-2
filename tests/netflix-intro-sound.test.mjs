@@ -24,17 +24,16 @@ test('netflix sound assets exist in public/audio with valid headers and sizes', 
   assert.equal(oggBuf.subarray(0, 4).toString('ascii'), 'OggS', 'netflix-intro.ogg has valid OggS header')
 })
 
-test('useNetflixIntroSound hook implementation contains autoplay policy handling, studio eligibility, and gesture fallback', () => {
+test('useNetflixIntroSound hook triggers on every reload and entry without single-play restriction', () => {
   const hookSource = fs.readFileSync(
     path.resolve(process.cwd(), 'hooks/use-netflix-intro-sound.ts'),
     'utf8',
   )
 
-  // Must handle autoplay rejection gracefully
+  // Must not have single-play or session lockouts
+  assert.ok(!hookSource.includes('hasPlayedInSession'), 'no session-level play-once restriction')
   assert.match(hookSource, /playPromise !== undefined/, 'handles modern play() promise')
-  assert.match(hookSource, /pointerdown|touchstart|keydown|click/, 'listens for user gesture fallback')
-  assert.match(hookSource, /pathname\.startsWith\('\/studio'\)/, 'studio surface is explicitly eligible')
-  assert.match(hookSource, /COOLDOWN_MS/, 'throttles with cooldown rather than permanently locking session')
+  assert.match(hookSource, /pointerdown|pointermove|wheel|keydown|click/, 'listens for gesture fallback')
   assert.match(hookSource, /prometheus-netflix-sound/, 'binds to preloaded DOM audio element')
   assert.match(hookSource, /prometheus:intro-sound-played/, 'dispatches event when intro sound plays')
   assert.match(hookSource, /prometheus:replay-intro-sound/, 'supports manual replay event')
@@ -52,7 +51,7 @@ test('NetflixIntroSound component is wired into RootClientEffects', () => {
   assert.match(rootEffectsSource, /<NetflixIntroSound \/>/, 'RootClientEffects renders <NetflixIntroSound />')
 })
 
-test('NetflixIntroSound component exposes accessible hidden audio tag with multiple sources and DOM id', () => {
+test('NetflixIntroSound component exposes accessible offscreen audio tag without display none', () => {
   const componentSource = fs.readFileSync(
     path.resolve(process.cwd(), 'components/sound/netflix-intro-sound.tsx'),
     'utf8',
@@ -60,6 +59,7 @@ test('NetflixIntroSound component exposes accessible hidden audio tag with multi
 
   assert.match(componentSource, /aria-hidden="true"/, 'sound component is aria-hidden')
   assert.match(componentSource, /id="prometheus-netflix-sound"/, 'exposes DOM id for preloaded instant play')
+  assert.ok(!componentSource.includes("display: 'none'"), 'does not use display none which suspends media pipeline')
   assert.match(componentSource, /\/audio\/netflix-intro\.mp3/, 'references mp3 source')
   assert.match(componentSource, /\/audio\/netflix-intro\.ogg/, 'references ogg source')
   assert.match(componentSource, /\/audio\/netflix-intro\.webm/, 'references webm source')
