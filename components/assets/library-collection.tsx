@@ -229,6 +229,14 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
     )
   }, [searchQuery])
 
+  const handleSelectRecommendation = React.useCallback(
+    (brandName: string, queryOrUrl: string) => {
+      handleSearchChange(brandName)
+      handleSearchSubmit(queryOrUrl)
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
   const handleSearchSubmit = (submittedQuery?: string) => {
     const q = (submittedQuery ?? searchQuery).trim()
     if (!q) return
@@ -252,9 +260,40 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
       return
     }
 
-    // Custom brand URL, Instagram handle, or YouTube channel — show animation then apply
+    // Check if recommendations or creator video catalog has instant verified data (e.g. Neil Patel)
+    const recommendations = getCreatorRecommendations(q)
+    const matchedCatalogName = Object.keys(CREATOR_VIDEO_CATALOG).find((k) => {
+      const kn = k.toLowerCase()
+      return kn === lower || kn === cleanLower || kn.includes(cleanLower) || cleanLower.includes(kn)
+    })
+
     setSubmittedBrandQuery(q)
     setIsApplyingBrand(true)
+
+    if (matchedCatalogName && CREATOR_VIDEO_CATALOG[matchedCatalogName]) {
+      const catalogVideos = CREATOR_VIDEO_CATALOG[matchedCatalogName]
+      const topPlatform = recommendations.platformOptions[0]?.handleOrUrl || `https://www.youtube.com/@${matchedCatalogName.toLowerCase().replace(/\s+/g, '')}`
+      const curatedSpec: ActiveBrandRecord = {
+        brandName: matchedCatalogName,
+        rawInput: q,
+        type: 'Verified Creator Spirit',
+        url: topPlatform,
+        appliedAt: new Date().toISOString(),
+        avatarUrl: recommendations.platformOptions[0]?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+        videos: catalogVideos.map((v) => ({
+          videoId: v.videoId,
+          title: v.title,
+          thumbnailUrl: v.image,
+          url: `https://www.youtube.com/watch?v=${v.videoId}`,
+        })),
+        styleDNA: recommendations.suggestedStyleDNA,
+      }
+      applyBrandSpecification(curatedSpec)
+      setSubmittedBrandQuery(matchedCatalogName)
+      setIsApplyingBrand(false)
+      return
+    }
+
     const spec = parseBrandInput(q)
     if (spec) {
       applyBrandSpecification(spec)
@@ -334,6 +373,7 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
             value={searchQuery}
             onChange={handleSearchChange}
             onSubmit={handleSearchSubmit}
+            onSelectRecommendation={handleSelectRecommendation}
           />
         </div>
 
@@ -522,6 +562,63 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
                   ))}
                 </div>
               </div>
+
+              {/* Inspiration Network: Related Creators Carousel / Grid */}
+              {(() => {
+                const recs = getCreatorRecommendations(activeBrand.brandName)
+                if (!recs.relatedCreators || recs.relatedCreators.length === 0) return null
+                return (
+                  <div className="mt-10 w-full max-w-[1100px] border-t border-white/10 pt-8">
+                    <div className="mb-4 flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#63ffa4]">
+                        <Sparkles className="size-4" />
+                        <span>{activeBrand.brandName}&apos;s Inspiration Network & Related Creators</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-white/40">
+                        Click creator to ingest spirit into video suite
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                      {recs.relatedCreators.map((rel) => (
+                        <button
+                          key={rel.id}
+                          type="button"
+                          onClick={() => handleSelectRecommendation(rel.name, rel.handle)}
+                          className="group relative flex flex-col items-center rounded-xl border border-white/10 bg-[#060c07] p-4 text-center transition-all duration-300 hover:border-[#55ff9b]/60 hover:bg-[#55ff9b]/[0.08] hover:scale-[1.02]"
+                        >
+                          {rel.avatar ? (
+                            <div className="relative mb-3 size-14 shrink-0 overflow-hidden rounded-full border border-white/20 shadow-md group-hover:border-[#55ff9b]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={rel.avatar}
+                                alt={rel.name}
+                                className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                          ) : (
+                            <div className="mb-3 grid size-14 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10 text-base font-bold text-white group-hover:border-[#55ff9b]">
+                              {rel.name.charAt(0)}
+                            </div>
+                          )}
+                          <div className="text-xs font-semibold text-white group-hover:text-[#63ffa4]">
+                            {rel.name}
+                          </div>
+                          <div className="mt-0.5 text-[10px] uppercase tracking-wider text-white/40">
+                            {rel.designation}
+                          </div>
+                          <div className="mt-1 text-[10px] text-white/60 line-clamp-1">
+                            {rel.relation}
+                          </div>
+                          <span className="mt-3 inline-flex items-center gap-1 rounded-full border border-[#55ff9b]/30 bg-[#55ff9b]/10 px-2.5 py-1 text-[10px] font-medium text-[#63ffa4] opacity-80 group-hover:opacity-100">
+                            Ingest Spirit →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           ) : (
             <div className="my-10 flex flex-col items-center justify-center rounded-2xl border border-[#55ff9b]/25 bg-[#030503]/85 p-6 sm:p-8 text-center shadow-[0_20px_50px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl">
@@ -567,6 +664,40 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
                   Clear search
                 </button>
               </div>
+
+              {/* On-the-go Related Creators & Inspiration Network for current search */}
+              {(() => {
+                const recs = getCreatorRecommendations(searchQuery)
+                if (!recs.relatedCreators || recs.relatedCreators.length === 0) return null
+                return (
+                  <div className="mt-8 w-full max-w-[840px] border-t border-white/10 pt-6 text-center sm:text-left">
+                    <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#63ffa4]">
+                      Explore Inspiration Network for &quot;{searchQuery}&quot;
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {recs.relatedCreators.slice(0, 3).map((rel) => (
+                        <button
+                          key={rel.id}
+                          type="button"
+                          onClick={() => handleSelectRecommendation(rel.name, rel.handle)}
+                          className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-[#060c07] p-2.5 text-left transition hover:border-[#55ff9b]/60 hover:bg-[#55ff9b]/10"
+                        >
+                          {rel.avatar ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={rel.avatar} alt={rel.name} className="size-8 rounded-full object-cover" />
+                          ) : (
+                            <div className="grid size-8 place-items-center rounded-full bg-white/10 text-xs font-bold text-white">{rel.name.charAt(0)}</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-xs font-semibold text-white">{rel.name}</div>
+                            <div className="truncate text-[10px] text-white/50">{rel.relation}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )
         ) : (
