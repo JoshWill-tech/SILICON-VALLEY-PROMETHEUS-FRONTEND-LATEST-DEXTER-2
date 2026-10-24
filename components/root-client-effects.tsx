@@ -60,6 +60,11 @@ const AgenticCursorLayer = dynamic(
   { ssr: false },
 )
 
+const NetflixIntroSound = dynamic(
+  () => import('@/components/sound/netflix-intro-sound').then((mod) => mod.NetflixIntroSound),
+  { ssr: false },
+)
+
 const AUTH_ROUTE_REGEX = /^\/(?:login|signup|verify|forgot-password|reset-password|terms|privacy|refund|cookie-policy)(?:\/|$)/
 
 function UserPreferencesHydrator() {
@@ -82,6 +87,7 @@ export function RootClientEffects() {
     <>
       <DevToolsShield />
       <ThemeInjector />
+      <NetflixIntroSound />
       {enhancementsReady ? <JarvisTopNavFilament /> : null}
       {isEditorRoute ? <AgenticCursorLayer /> : null}
       {enhancementsReady && (
