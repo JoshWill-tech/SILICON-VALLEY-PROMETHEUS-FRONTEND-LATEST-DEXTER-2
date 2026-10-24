@@ -39,6 +39,48 @@ export type DraftTypography = {
   depth?: number
 }
 
+export type DraftTypographyLayer = {
+  layerIndex: number
+  layerName?: string
+  role?: string
+  rawText?: string
+  text: string
+  words?: DraftWord[]
+  fontFamily: string
+  accentFont?: string
+  fontWeight?: number | string
+  fontStyle?: string
+  fontSizePx?: number
+  color?: string
+  casing?: string
+  letterSpacingEm?: number
+  lineHeight?: number
+  isHero?: boolean
+  fxPreset?: string
+  glow?: string
+  shadow?: string
+  textFillColor?: string
+  gradient?: string
+  hasGradient?: boolean
+  doubleUnderline?: boolean
+}
+
+export type DraftPlacement = {
+  xPercent?: string | number
+  yPercent?: string | number
+  anchor?: 'center' | 'left' | 'right'
+  [key: string]: unknown
+}
+
+export type DraftBrandPalette = {
+  hero_color?: string
+  companion_color?: string
+  glow?: string
+  shadow?: string
+  accent_border?: string
+  [key: string]: unknown
+}
+
 export type DraftChunk = {
   chunkIndex: number
   startMs: number
@@ -49,8 +91,16 @@ export type DraftChunk = {
   text: string
   words: DraftWord[]
   typography?: DraftTypography
-  placement?: Record<string, unknown>
+  placement?: DraftPlacement
+  layers?: DraftTypographyLayer[]
+  brandPalette?: DraftBrandPalette
+  profileName?: string
+  profileId?: string
+  profileFilename?: string
+  pairedImage?: string
+  fxPreset?: string
   behindSubject?: boolean
+  [key: string]: unknown
 }
 
 export type MiniRunDraftState = {
@@ -63,6 +113,7 @@ export type MiniRunDraftState = {
   chunks: DraftChunk[]
   look: Record<string, unknown> | null
   fontManifest: Record<string, unknown> | null
+  brandPalette: DraftBrandPalette | null
   orchestrationPlan: Record<string, unknown> | null
   songPlan: Record<string, unknown> | null
   silenceTimeline: Array<{ startMs: number; endMs: number }> | null
@@ -82,7 +133,13 @@ export type MiniRunDraftState = {
   toggleWordCut: (chunkIndex: number, wordIndex: number, forceCut?: boolean) => void
   updateChunkTiming: (chunkIndex: number, startMs: number, endMs: number) => void
   updateChunkTypography: (chunkIndex: number, styling: Partial<DraftTypography>) => void
-  setGlobalTypography: (styling: Partial<DraftTypography>) => void
+  setGlobalTypography: (
+    styling: Partial<DraftTypography>,
+    layersTemplate?: {
+      secondary?: Partial<DraftTypographyLayer>
+      hero?: Partial<DraftTypographyLayer>
+    }
+  ) => void
   cutPhrase: (phrase: string) => boolean
   replacePhrase: (targetPhrase: string, replacementPhrase: string) => boolean
   getDraftManifest: () => Record<string, unknown>
@@ -99,6 +156,7 @@ const initialState = {
   chunks: [],
   look: null,
   fontManifest: null,
+  brandPalette: null,
   orchestrationPlan: null,
   songPlan: null,
   silenceTimeline: null,
@@ -114,10 +172,15 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
 
   setPlan: (manifest: Record<string, unknown>, sourceUrl?: string) => {
     const rawChunks = Array.isArray(manifest.chunks) ? manifest.chunks : []
+    const manifestPalette: DraftBrandPalette | null =
+      (manifest.brandPalette as DraftBrandPalette) ||
+      (manifest.brand_palette as DraftBrandPalette) ||
+      null
+
     const chunks: DraftChunk[] = rawChunks.map((c: any, idx: number) => {
       const words: DraftWord[] = Array.isArray(c.words)
         ? c.words.map((w: any) => ({
-            text: String(w.text || ''),
+            text: String(w.text || w.word || ''),
             startMs: Number(w.startMs || w.start_ms || 0),
             endMs: Number(w.endMs || w.end_ms || 0),
             startSec: Number(w.startSec || w.start_sec || 0),
@@ -126,6 +189,132 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
             confidence: typeof w.confidence === 'number' ? w.confidence : undefined,
           }))
         : []
+
+      const rawPlacement = c.placement && typeof c.placement === 'object' ? c.placement : {}
+      const placement: DraftPlacement = {
+        xPercent: rawPlacement.xPercent ?? '50%',
+        yPercent: rawPlacement.yPercent ?? '56%',
+        anchor: rawPlacement.anchor ?? 'center',
+        ...rawPlacement,
+      }
+
+      const chunkPalette: DraftBrandPalette | undefined =
+        c.brandPalette || manifestPalette || undefined
+
+      // Parse or synthesize high-fidelity multi-tier layers
+      const rawLayers = Array.isArray(c.layers) ? c.layers : []
+      let layers: DraftTypographyLayer[] = rawLayers.map((l: any, lIdx: number) => {
+        const layerWords: DraftWord[] = Array.isArray(l.words)
+          ? l.words.map((w: any) => ({
+              text: String(w.text || w.word || ''),
+              startMs: Number(w.start_ms || w.startMs || 0),
+              endMs: Number(w.end_ms || w.endMs || 0),
+              startSec: Number(w.start_sec || w.startSec || (w.start_ms || 0) / 1000),
+              endSec: Number(w.end_sec || w.endSec || (w.end_ms || 0) / 1000),
+              cut: Boolean(w.cut),
+              confidence: typeof w.confidence === 'number' ? w.confidence : undefined,
+            }))
+          : []
+
+        const isHero = Boolean(l.isHero || l.role === 'primary_focus_word')
+        const heroColor = chunkPalette?.hero_color || '#F5E6C4'
+        const companionColor = chunkPalette?.companion_color || '#FFFFFF'
+
+        return {
+          layerIndex: typeof l.layerIndex === 'number' ? l.layerIndex : lIdx,
+          layerName: l.layerName,
+          role: l.role,
+          rawText: l.rawText,
+          text: String(l.text || layerWords.map((w) => w.text).join(' ')),
+          words: layerWords,
+          fontFamily: l.fontFamily || 'Playfair Display',
+          accentFont: l.accentFont,
+          fontWeight: l.fontWeight || (isHero ? 800 : 600),
+          fontStyle: l.fontStyle || (isHero ? 'italic' : 'normal'),
+          fontSizePx: typeof l.fontSizePx === 'number' ? l.fontSizePx : isHero ? 130 : 68,
+          color: l.color || l.textFillColor || (isHero ? heroColor : companionColor),
+          casing: l.casing || 'normal',
+          letterSpacingEm: typeof l.letterSpacingEm === 'number' ? l.letterSpacingEm : isHero ? -0.01 : 0.02,
+          lineHeight: typeof l.lineHeight === 'number' ? l.lineHeight : isHero ? 1.0 : 1.2,
+          isHero,
+          fxPreset: l.fxPreset,
+          glow: l.glow || (isHero ? chunkPalette?.glow : undefined),
+          shadow: l.shadow || chunkPalette?.shadow || '0 2px 10px rgba(0, 0, 0, 0.45)',
+          textFillColor: l.textFillColor,
+          gradient: l.gradient,
+          hasGradient: Boolean(l.hasGradient),
+          doubleUnderline: Boolean(l.doubleUnderline),
+        }
+      })
+
+      // Fallback synthesis: if no explicit layers are passed, structure into secondary clause + hero word
+      if (layers.length === 0 && words.length > 0) {
+        const heroColor = chunkPalette?.hero_color || '#F5E6C4'
+        const companionColor = chunkPalette?.companion_color || '#FFFFFF'
+
+        if (words.length > 1) {
+          const secondaryWords = words.slice(0, -1)
+          const heroWords = words.slice(-1)
+          layers = [
+            {
+              layerIndex: 0,
+              role: 'secondary_clause',
+              rawText: secondaryWords.map((w) => w.text).join(' '),
+              text: secondaryWords.map((w) => w.text).join(' '),
+              words: secondaryWords,
+              fontFamily: 'Playfair Display',
+              accentFont: 'Bodoni Moda',
+              fontWeight: 600,
+              fontStyle: 'italic',
+              fontSizePx: 68,
+              color: companionColor,
+              letterSpacingEm: 0.02,
+              lineHeight: 1.2,
+              isHero: false,
+              shadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25)',
+            },
+            {
+              layerIndex: 1,
+              role: 'primary_focus_word',
+              rawText: heroWords.map((w) => w.text).join(' '),
+              text: heroWords.map((w) => w.text).join(' '),
+              words: heroWords,
+              fontFamily: 'Playfair Display',
+              accentFont: 'Bodoni Moda',
+              fontWeight: 800,
+              fontStyle: 'italic',
+              fontSizePx: 130,
+              color: heroColor,
+              letterSpacingEm: -0.01,
+              lineHeight: 1.0,
+              isHero: true,
+              glow: chunkPalette?.glow || '0 0 16px rgba(245, 230, 196, 0.45)',
+              shadow: chunkPalette?.shadow || '0 2px 10px rgba(0, 0, 0, 0.45)',
+            },
+          ]
+        } else {
+          layers = [
+            {
+              layerIndex: 0,
+              role: 'primary_focus_word',
+              rawText: words[0].text,
+              text: words[0].text,
+              words: [words[0]],
+              fontFamily: 'Playfair Display',
+              accentFont: 'Bodoni Moda',
+              fontWeight: 800,
+              fontStyle: 'italic',
+              fontSizePx: 124,
+              color: heroColor,
+              letterSpacingEm: -0.01,
+              lineHeight: 1.0,
+              isHero: true,
+              glow: chunkPalette?.glow || '0 0 16px rgba(245, 230, 196, 0.45)',
+              shadow: chunkPalette?.shadow || '0 2px 10px rgba(0, 0, 0, 0.45)',
+            },
+          ]
+        }
+      }
 
       return {
         chunkIndex: typeof c.chunkIndex === 'number' ? c.chunkIndex : idx,
@@ -137,7 +326,14 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
         text: String(c.text || words.map((w) => w.text).join(' ')),
         words,
         typography: c.typography || undefined,
-        placement: c.placement || undefined,
+        placement,
+        layers,
+        brandPalette: chunkPalette,
+        profileName: c.profileName,
+        profileId: c.profileId,
+        profileFilename: c.profileFilename,
+        pairedImage: c.pairedImage,
+        fxPreset: c.fxPreset,
         behindSubject: Boolean(c.behindSubject || c.behind_subject),
       }
     })
@@ -164,6 +360,7 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       chunks,
       look: (manifest.look as Record<string, unknown>) || null,
       fontManifest: (manifest.font_manifest as Record<string, unknown>) || null,
+      brandPalette: manifestPalette,
       orchestrationPlan: (manifest.orchestration_plan as Record<string, unknown>) || null,
       songPlan: (manifest.song_plan as Record<string, unknown>) || null,
       silenceTimeline: Array.isArray(manifest.silence_timeline) ? manifest.silence_timeline : null,
@@ -200,6 +397,7 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
     const chunk = chunks[chunkIndex]
     if (!chunk || !chunk.words[wordIndex]) return
 
+    const oldText = chunk.words[wordIndex].text
     const newWords = [...chunk.words]
     newWords[wordIndex] = { ...newWords[wordIndex], text: newText }
     const updatedChunkText = newWords
@@ -207,10 +405,33 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       .map((w) => w.text)
       .join(' ')
 
+    // Also sync words within multi-tier layers if present
+    let updatedLayers = chunk.layers
+    if (Array.isArray(updatedLayers) && updatedLayers.length > 0) {
+      let replaced = false
+      updatedLayers = updatedLayers.map((layer) => {
+        if (!layer.words || replaced) return layer
+        const lWords = [...layer.words]
+        for (let i = 0; i < lWords.length; i++) {
+          if (lWords[i].text === oldText) {
+            lWords[i] = { ...lWords[i], text: newText }
+            replaced = true
+            break
+          }
+        }
+        return {
+          ...layer,
+          words: lWords,
+          text: lWords.map((w) => w.text).join(' '),
+        }
+      })
+    }
+
     chunks[chunkIndex] = {
       ...chunk,
       words: newWords,
       text: updatedChunkText,
+      layers: updatedLayers,
     }
 
     set({ chunks, isDirty: true })
@@ -231,10 +452,26 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
       .map((w) => w.text)
       .join(' ')
 
+    // Also sync cut flag within layers
+    let updatedLayers = chunk.layers
+    if (Array.isArray(updatedLayers) && updatedLayers.length > 0) {
+      updatedLayers = updatedLayers.map((layer) => {
+        if (!layer.words) return layer
+        const lWords = layer.words.map((w) => {
+          if (w.startMs === targetWord.startMs && w.text === targetWord.text) {
+            return { ...w, cut: nextCutState }
+          }
+          return w
+        })
+        return { ...layer, words: lWords }
+      })
+    }
+
     chunks[chunkIndex] = {
       ...chunk,
       words: newWords,
       text: updatedChunkText,
+      layers: updatedLayers,
     }
 
     set({ chunks, isDirty: true })
@@ -272,14 +509,35 @@ export const useMiniRunDraftStore = create<MiniRunDraftState>((set, get) => ({
     set({ chunks, isDirty: true })
   },
 
-  setGlobalTypography: (styling: Partial<DraftTypography>) => {
-    const chunks = get().chunks.map((chunk) => ({
-      ...chunk,
-      typography: {
-        ...(chunk.typography || {}),
-        ...styling,
-      },
-    }))
+  setGlobalTypography: (
+    styling: Partial<DraftTypography>,
+    layersTemplate?: {
+      secondary?: Partial<DraftTypographyLayer>
+      hero?: Partial<DraftTypographyLayer>
+    }
+  ) => {
+    const chunks = get().chunks.map((chunk) => {
+      let updatedLayers = chunk.layers ? [...chunk.layers] : undefined
+      if (layersTemplate && updatedLayers && updatedLayers.length > 0) {
+        updatedLayers = updatedLayers.map((layer) => {
+          if (layer.isHero && layersTemplate.hero) {
+            return { ...layer, ...layersTemplate.hero }
+          } else if (!layer.isHero && layersTemplate.secondary) {
+            return { ...layer, ...layersTemplate.secondary }
+          }
+          return layer
+        })
+      }
+
+      return {
+        ...chunk,
+        typography: {
+          ...(chunk.typography || {}),
+          ...styling,
+        },
+        layers: updatedLayers,
+      }
+    })
     set({ chunks, isDirty: true })
   },
 
