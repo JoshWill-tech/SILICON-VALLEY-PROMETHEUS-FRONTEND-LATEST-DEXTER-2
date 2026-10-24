@@ -361,18 +361,50 @@ export function LiquidGlassSearch({
             </button>
             <button
               type="button"
-              aria-label="Start audio"
+              aria-label="Ask Jarvis AI assistant"
+              title="Launch Jarvis Creative Intelligence Director"
               onClick={(e) => {
                 e.stopPropagation()
-                inputRef.current?.focus()
+                setIsJarvisOpen(true)
+                onOpenJarvis?.(query || placeholder)
               }}
               style={{ pointerEvents: 'auto' }}
-              className="icon-btn flex size-9 cursor-pointer items-center justify-center rounded-full text-white/75 transition hover:bg-white/12 hover:text-white sm:size-10"
+              className="icon-btn relative flex size-9 cursor-pointer items-center justify-center rounded-full text-[#63ffa4] transition hover:bg-[#55ff9b]/20 hover:text-white sm:size-10 shadow-[0_0_12px_rgba(85,255,155,0.2)]"
             >
-              <AudioWaveform className="size-4 sm:size-4.5" aria-hidden="true" />
+              <AudioWaveform className="size-4 sm:size-4.5 animate-pulse" aria-hidden="true" />
             </button>
           </div>
         </div>
+
+        {/* Autocomplete & On-the-Go Recommendations Pop-Up */}
+        <BrandSearchAutocomplete
+          query={query}
+          isOpen={isAutocompleteOpen && Boolean(query.trim().length >= 2)}
+          onClose={() => setIsAutocompleteOpen(false)}
+          onSelectPlatform={(platform: CreatorPlatformRecommendation) => {
+            setIsAutocompleteOpen(false)
+            setQuery(platform.title)
+            if (onSelectRecommendation) {
+              onSelectRecommendation(platform.brandName, platform.handleOrUrl)
+            } else {
+              onSubmit?.(platform.handleOrUrl)
+            }
+          }}
+          onSelectRelated={(creator: RelatedCreatorRecommendation) => {
+            setIsAutocompleteOpen(false)
+            setQuery(creator.name)
+            if (onSelectRecommendation) {
+              onSelectRecommendation(creator.name, creator.handle)
+            } else {
+              onSubmit?.(creator.name)
+            }
+          }}
+          onOpenJarvis={(subject) => {
+            setIsAutocompleteOpen(false)
+            setIsJarvisOpen(true)
+            onOpenJarvis?.(subject)
+          }}
+        />
 
         {/* Circular Glass Search Submit Button */}
         <button
@@ -388,6 +420,29 @@ export function LiquidGlassSearch({
           <Search className="size-5 sm:size-5.5" aria-hidden="true" />
         </button>
       </form>
+
+      {/* Jarvis Assistant Modal */}
+      <JarvisAssistantModal
+        isOpen={isJarvisOpen}
+        onClose={() => setIsJarvisOpen(false)}
+        currentQuery={query}
+        onApplyBrandSpirit={(brandName, queryOrUrl) => {
+          setQuery(brandName)
+          if (onSelectRecommendation) {
+            onSelectRecommendation(brandName, queryOrUrl)
+          } else {
+            onSubmit?.(queryOrUrl)
+          }
+        }}
+        onSelectRelatedCreator={(creatorName) => {
+          setQuery(creatorName)
+          if (onSelectRecommendation) {
+            onSelectRecommendation(creatorName, creatorName)
+          } else {
+            onSubmit?.(creatorName)
+          }
+        }}
+      />
     </div>
   )
 }
