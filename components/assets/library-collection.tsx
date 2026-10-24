@@ -12,6 +12,8 @@ import { BrandVoicePathAnimation } from '@/components/assets/brand-voice-path-an
 import { BRAND_DNA_STORAGE_KEY } from '@/components/assets/brand-dna-studio'
 import { readLocalStorageJSON, writeLocalStorageJSON } from '@/lib/storage'
 import { saveJarvisMemory } from '@/lib/voice-companion/memory'
+import { getCreatorRecommendations } from '@/lib/creators/creator-recommendations'
+import { CREATOR_VIDEO_CATALOG } from '@/lib/creators/video-catalog'
 
 export const ACTIVE_BRAND_STORAGE_KEY = 'prometheus.active-brand.v1'
 
