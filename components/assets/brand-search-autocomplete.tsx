@@ -9,7 +9,7 @@ import {
   Sparkles,
   Users,
   Video,
-  Waveform,
+  AudioWaveform,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -148,7 +148,7 @@ export function BrandSearchAutocomplete({
             className="flex items-center gap-1.5 rounded-full border border-[#55ff9b]/35 bg-[#55ff9b]/10 px-2.5 py-1 text-[11px] font-semibold text-[#63ffa4] transition hover:bg-[#55ff9b]/20"
             title="Ask Jarvis to calibrate video outputs"
           >
-            <Waveform className="size-3 animate-pulse" />
+            <AudioWaveform className="size-3 animate-pulse" />
             <span>Ask Jarvis</span>
           </button>
         </div>

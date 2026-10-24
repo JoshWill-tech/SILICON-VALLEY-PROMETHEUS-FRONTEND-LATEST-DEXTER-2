@@ -29,6 +29,7 @@ Scope: Diagnose and ensure that frontend song selection (via UI or JARVIS), B-ro
   EXPECT: G5 passed
   EVIDENCE: automatic-evidence=v1; definition-sha256=69262316d251158c6618cf46f2b13c177b374fd2189beed28362734bddc13a6d; exit=0; EXPECT=matched; output-sha256=f14862937304d8f4eb2656779c85ab22e8af1d7a500d7f32b6f5d0e40f45b189; output-bytes=361; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries
 
-- [ ] G6: Complete frontend typecheck passes cleanly.
+- [x] G6: Complete frontend typecheck passes cleanly.
   CHECK: npm run typecheck
   EXPECT: typecheck passed
+  EVIDENCE: automatic-evidence=v1; definition-sha256=9aeeb689bde5257e0a85c8ecb0aad3fdaf9ace3e9e5076bbf6758c22760ccfe3; exit=0; EXPECT=matched; output-sha256=2c4af01fb1a5f9597841244575659986624ce8ada13bbc89dce9491fd48c4a46; output-bytes=93; shell=C:\Windows\system32\cmd.exe; cwd=C:\Users\HomePC\Documents\THE FRONT END, PROMETHEUS; path=6148c563d008/34 entries

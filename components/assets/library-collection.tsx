@@ -229,14 +229,6 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
     )
   }, [searchQuery])
 
-  const handleSelectRecommendation = React.useCallback(
-    (brandName: string, queryOrUrl: string) => {
-      handleSearchChange(brandName)
-      handleSearchSubmit(queryOrUrl)
-    },
-    [], // eslint-disable-line react-hooks/exhaustive-deps
-  )
-
   const handleSearchSubmit = (submittedQuery?: string) => {
     const q = (submittedQuery ?? searchQuery).trim()
     if (!q) return
@@ -334,6 +326,14 @@ export function LibraryCollection({ onSelect }: { onSelect: (showcaseId: string)
       setIsApplyingBrand(false)
     }
   }
+
+  const handleSelectRecommendation = React.useCallback(
+    (brandName: string, queryOrUrl: string) => {
+      handleSearchChange(brandName)
+      handleSearchSubmit(queryOrUrl)
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  )
 
   return (
     <section data-creator-library className="relative min-h-full snap-start snap-normal overflow-hidden bg-black text-white" aria-labelledby="creator-library-title">
