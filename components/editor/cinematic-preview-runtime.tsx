@@ -108,7 +108,7 @@ export function CinematicPreviewRuntime({
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         {activeHeading ? (
           <motion.div
             key={activeHeading.id}
@@ -124,7 +124,7 @@ export function CinematicPreviewRuntime({
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         {activeCaption ? (
           <motion.div
             key={activeCaption.id}

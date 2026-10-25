@@ -153,25 +153,69 @@ export function PreviewCanvas({
     setHasRepositionedControls(false)
   }, [])
 
+  const handleExitFullscreen = React.useCallback(() => {
+    const fsVideo = fullscreenVideoRef.current
+    const inlineVideo = previewVideoRef.current
+    if (fsVideo && inlineVideo) {
+      inlineVideo.currentTime = fsVideo.currentTime
+      if (!fsVideo.paused) {
+        void inlineVideo.play().catch(() => undefined)
+      } else {
+        inlineVideo.pause()
+      }
+      fsVideo.pause()
+    }
+    setIsFullscreen(false)
+  }, [previewVideoRef])
+
   React.useEffect(() => {
     if (!isFullscreen) return
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsFullscreen(false)
+      if (event.key === 'Escape') handleExitFullscreen()
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isFullscreen])
+  }, [isFullscreen, handleExitFullscreen])
 
+  // Handle fullscreen video mounting, initial synchronization, and inline video pausing
   React.useEffect(() => {
     if (!isFullscreen || previewKind !== 'video') return
-    const video = fullscreenVideoRef.current
-    if (!video) return
-    if (Math.abs(video.currentTime - previewCurrentTimeSec) > 0.5) video.currentTime = previewCurrentTimeSec
-    if (previewPlaying) void video.play().catch(() => undefined)
-    else video.pause()
-  }, [isFullscreen, previewCurrentTimeSec, previewKind, previewPlaying])
+    const fsVideo = fullscreenVideoRef.current
+    const inlineVideo = previewVideoRef.current
+
+    // Pause and silence inline video while expanded to eliminate overlapping desynced playback
+    if (inlineVideo && !inlineVideo.paused) {
+      inlineVideo.pause()
+    }
+
+    if (fsVideo) {
+      const startSec = inlineVideo && Number.isFinite(inlineVideo.currentTime) && inlineVideo.currentTime > 0
+        ? inlineVideo.currentTime
+        : previewCurrentTimeSec
+      if (Math.abs(fsVideo.currentTime - startSec) > 0.05) {
+        fsVideo.currentTime = startSec
+      }
+      if (previewPlaying) {
+        void fsVideo.play().catch(() => undefined)
+      } else {
+        fsVideo.pause()
+      }
+    }
+  }, [isFullscreen, previewKind])
+
+  // Synchronize play/pause state when changed without re-seeking or seek loops
+  React.useEffect(() => {
+    if (!isFullscreen || previewKind !== 'video') return
+    const fsVideo = fullscreenVideoRef.current
+    if (!fsVideo) return
+    if (previewPlaying) {
+      if (fsVideo.paused) void fsVideo.play().catch(() => undefined)
+    } else {
+      if (!fsVideo.paused) fsVideo.pause()
+    }
+  }, [isFullscreen, previewPlaying, previewKind])
 
   if (activeWorkspaceTab === 'Music') return null
 
@@ -287,8 +331,8 @@ export function PreviewCanvas({
                               ref={previewVideoRef}
                               crossOrigin="anonymous"
                               src={previewUrl}
-                              autoPlay
-                              muted={isPreviewMuted}
+                              autoPlay={!isFullscreen}
+                              muted={isFullscreen ? true : isPreviewMuted}
                               playsInline
                               controls={false}
                               preload="auto"
@@ -311,6 +355,7 @@ export function PreviewCanvas({
                               sourceAssetId={project?.sourceAssetId ?? undefined}
                               aspectRatio={visiblePreviewAspectRatio}
                               subtitlesOnly={true}
+                              active={!isFullscreen}
                             />
                           </div>
                         </div>
@@ -497,11 +542,11 @@ export function PreviewCanvas({
           aria-modal="true"
           aria-label="Expanded preview"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setIsFullscreen(false)
+            if (event.target === event.currentTarget) handleExitFullscreen()
           }}
         >
           <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }} className="relative flex h-full w-full items-center justify-center">
-            <button type="button" onClick={() => setIsFullscreen(false)} className="absolute right-0 top-0 z-30 grid size-11 place-items-center rounded-full border border-white/15 bg-black/62 text-white/76 backdrop-blur-xl transition-colors hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label="Exit expanded preview" title="Exit expanded preview"><Minimize2 className="size-4" /></button>
+            <button type="button" onClick={handleExitFullscreen} className="absolute right-0 top-0 z-30 grid size-11 place-items-center rounded-full border border-white/15 bg-black/62 text-white/76 backdrop-blur-xl transition-colors hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label="Exit expanded preview" title="Exit expanded preview"><Minimize2 className="size-4" /></button>
             <div
               className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black shadow-[0_36px_100px_rgba(0,0,0,0.7)]"
               style={{
@@ -564,7 +609,10 @@ export function PreviewCanvas({
                         className="block h-full w-full select-none bg-black object-contain"
                         onPlay={onPreviewVideoPlay}
                         onPause={onPreviewVideoPause}
-                        onTimeUpdate={(event) => onSeekPreview(event.currentTarget.currentTime)}
+                        onEnded={onPreviewEnded}
+                        onTimeUpdate={() => {
+                          onPreviewTimeUpdate?.()
+                        }}
                       />
                       <MiniRunLiveOverlay
                         videoRef={fullscreenVideoRef}
@@ -572,6 +620,7 @@ export function PreviewCanvas({
                         sourceAssetId={project?.sourceAssetId ?? undefined}
                         aspectRatio={visiblePreviewAspectRatio}
                         subtitlesOnly={true}
+                        active={isFullscreen}
                       />
                     </div>
                   </div>

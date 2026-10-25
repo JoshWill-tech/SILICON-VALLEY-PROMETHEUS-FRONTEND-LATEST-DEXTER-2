@@ -228,6 +228,7 @@ export interface MiniRunLiveOverlayProps {
   hoverPlayEnabled?: boolean
   aspectRatio?: number
   subtitlesOnly?: boolean
+  active?: boolean
 }
 
 export function MiniRunLiveOverlay({
@@ -239,6 +240,7 @@ export function MiniRunLiveOverlay({
   hoverPlayEnabled = true,
   aspectRatio,
   subtitlesOnly = false,
+  active = true,
 }: MiniRunLiveOverlayProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
   const chunks = useMiniRunDraftStore((s) => s.chunks)
@@ -280,6 +282,7 @@ export function MiniRunLiveOverlay({
 
   // Track playback time at 60fps for crisp kinetic subtitle synchronization
   React.useEffect(() => {
+    if (!active) return
     let animId: number
     const syncTime = () => {
       const vid = videoRef.current
@@ -322,10 +325,11 @@ export function MiniRunLiveOverlay({
 
     animId = requestAnimationFrame(syncTime)
     return () => cancelAnimationFrame(animId)
-  }, [chunks, videoRef])
+  }, [chunks, videoRef, active])
 
   // Also listen to explicit video seek/timeupdate events
   React.useEffect(() => {
+    if (!active) return
     const vid = videoRef.current
     if (!vid) return
     const onTimeUpdate = () => setCurrentTimeMs(Math.round(vid.currentTime * 1000))
@@ -342,7 +346,7 @@ export function MiniRunLiveOverlay({
       vid.removeEventListener('play', onPlay)
       vid.removeEventListener('pause', onPause)
     }
-  }, [videoRef])
+  }, [videoRef, active])
 
   // Instantaneous playback: ensures the preview plays the moment the page and video load
   React.useEffect(() => {
@@ -577,6 +581,8 @@ export function MiniRunLiveOverlay({
   const positionXPercent = scaledStyle.positionXPercent ?? 50
   const anchor = scaledStyle.anchor || 'center'
 
+  if (!active) return null
+
   return (
     <div
       ref={containerRef}
@@ -728,7 +734,7 @@ export function MiniRunLiveOverlay({
       {/* Center/Lower: Kinetic Live Typography Subtitles with 960 Reference Frame Proportional Scaling */}
       {status !== 'rendered' && (
         <div
-          className="pointer-events-auto absolute flex justify-center transition-all duration-150"
+          className="pointer-events-auto absolute flex justify-center transition-[top,left,transform] duration-150 ease-out"
           style={{
             top: `${positionYPercent}%`,
             left: `${positionXPercent}%`,
@@ -739,7 +745,7 @@ export function MiniRunLiveOverlay({
             paddingRight: `${scaledStyle.paddingX}px`,
           }}
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             {activeChunk && (
               <motion.div
                 key={activeChunk.chunkIndex}
@@ -820,7 +826,7 @@ export function MiniRunLiveOverlay({
                                   padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
                                   borderRadius: `${scaledStyle.wordRadius}px`,
                                 }}
-                                className={`cursor-pointer transition-all duration-75 relative group ${
+                                className={`cursor-pointer transition-[transform,color,opacity] duration-75 relative group ${
                                   isCut
                                     ? 'line-through text-red-400 opacity-40 hover:opacity-80'
                                     : isWordActive
@@ -876,7 +882,7 @@ export function MiniRunLiveOverlay({
                             padding: `${scaledStyle.wordPaddingY}px ${scaledStyle.wordPaddingX}px`,
                             borderRadius: `${scaledStyle.wordRadius}px`,
                           }}
-                          className={`cursor-pointer transition-all duration-75 relative group ${
+                          className={`cursor-pointer transition-[transform,color,opacity] duration-75 relative group ${
                             isCut
                               ? 'line-through text-red-400 opacity-40 hover:opacity-80'
                               : isWordActive
