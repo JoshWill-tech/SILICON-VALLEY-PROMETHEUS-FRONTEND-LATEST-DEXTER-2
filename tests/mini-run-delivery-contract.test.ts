@@ -23,10 +23,10 @@ async function run() {
     jobId: 'render-123',
   })
 
-  assert.equal((payload.metadata as { pipeline: string }).pipeline, 'maul')
-  assert.equal((payload.metadata as { durationMs: number }).durationMs, MINI_RUN_MAX_DURATION_MS)
-  assert.deepEqual(payload.design, { canvasWidth: 1080, canvasHeight: 1920 })
-  assert.deepEqual(payload.selectedWindow, { sourceStartMs: 15_000, sourceEndMs: 195_000 })
+  assert.deepEqual(Object.keys(payload).sort(), ['prompt', 'source'])
+  assert.equal(payload.source, 'https://example.test/source.mp4')
+  assert.match(String(payload.prompt), /Create a portrait 9:16 output\./)
+  assert.ok(String(payload.prompt).includes(`Use source window from 15000 ms through ${15000 + MINI_RUN_MAX_DURATION_MS} ms.`))
 
   const preferredPayload = buildMiniRunRenderPayload({
     sourceUrl: 'https://example.test/long-source.mp4',
@@ -41,7 +41,7 @@ async function run() {
     },
     jobId: 'preferred-length',
   })
-  assert.equal((preferredPayload.metadata as { durationMs: number }).durationMs, 45_000)
+  assert.match(String(preferredPayload.prompt), /Use source window from 0 ms through 45000 ms\./)
 
   const minimumPayload = buildMiniRunRenderPayload({
     sourceUrl: 'https://example.test/short-source.mp4',
@@ -55,7 +55,7 @@ async function run() {
     },
     jobId: 'minimum-length',
   })
-  assert.equal((minimumPayload.metadata as { durationMs: number }).durationMs, MINI_RUN_MIN_DURATION_MS)
+  assert.ok(String(minimumPayload.prompt).includes(`Use source window from 0 ms through ${MINI_RUN_MIN_DURATION_MS} ms.`))
 
   const endOfSourcePayload = buildMiniRunRenderPayload({
     sourceUrl: 'https://example.test/short-source.mp4',
@@ -63,8 +63,8 @@ async function run() {
     shot: { sourceStartMs: 10_000, sourceEndMs: 90_000 },
     jobId: 'render-456',
   })
-  assert.equal((endOfSourcePayload.metadata as { durationMs: number }).durationMs, 8_000)
-  assert.deepEqual(endOfSourcePayload.selectedWindow, { sourceStartMs: 10_000, sourceEndMs: 18_000 })
+  assert.match(String(endOfSourcePayload.prompt), /Use source window from 10000 ms through 18000 ms\./)
+  assert.deepEqual(Object.keys(endOfSourcePayload).sort(), ['prompt', 'source'])
 
   const client = createMiniRunClient(async () =>
     new Response(JSON.stringify({

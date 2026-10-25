@@ -5,7 +5,8 @@ import * as React from 'react'
 import {miniRun, type MiniRunRenderStatus} from '@/lib/api/mini-run'
 
 const DEFAULT_POLL_INTERVAL_MS = 2000
-const DEFAULT_MAX_ATTEMPTS = 300
+// Allow 15 minutes of Lambda execution, 3 minutes queued, and delivery overhead.
+const DEFAULT_POLL_BUDGET_MS = 20 * 60 * 1000
 
 const COMPLETED_STATES = ['completed', 'success', 'finished']
 const FAILED_STATES = ['failed', 'error']
@@ -55,8 +56,10 @@ export function useMiniRunJob(
   }, [options.onComplete, options.onError])
 
   const enabled = options.enabled !== false
-  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
-  const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS
+  const pollIntervalMs = Number.isFinite(options.pollIntervalMs) && Number(options.pollIntervalMs) > 0
+    ? Number(options.pollIntervalMs) : DEFAULT_POLL_INTERVAL_MS
+  // The initial status request is immediate, so retain the request at the deadline.
+  const maxAttempts = options.maxAttempts ?? Math.ceil(DEFAULT_POLL_BUDGET_MS / pollIntervalMs) + 1
 
   React.useEffect(() => {
     if (!jobId || !enabled) {
