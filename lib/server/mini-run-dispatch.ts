@@ -119,6 +119,7 @@ export async function dispatchMiniRunRender({
   const config = resolveMiniRunConfig(env)
   const sourceUrl = await buildMiniRunSourceUrl(request.bucket, request.storagePath)
 
+  const frontendJobId = request.jobId ?? crypto.randomUUID()
   const body = buildMiniRunRenderPayload({
     sourceUrl,
     source: {durationMs: request.durationMs, width: request.width, height: request.height},
@@ -135,7 +136,7 @@ export async function dispatchMiniRunRender({
       ...(request.motionGraphicsPreference ? { motionGraphicsPreference: request.motionGraphicsPreference } : {}),
       ...(request.brandPreferences ? { brandPreferences: request.brandPreferences } : {}),
     },
-    jobId: request.jobId ?? crypto.randomUUID(),
+    jobId: frontendJobId,
     draftManifest: request.draftManifest,
     transcriptSegments: request.transcriptSegments,
     words: request.words,
@@ -145,16 +146,11 @@ export async function dispatchMiniRunRender({
     safeMode: request.safeMode,
     textLayers: request.textLayers,
   })
-  const metadata = body.metadata as Record<string, unknown>
-  metadata.pipeline = 'maul'
 
   const response = await fetchImpl(`${config.baseUrl}/api/pipeline/render`, {
     method: 'POST',
-    headers: miniRunUserHeaders(accessToken, {'Content-Type': 'application/json'}),
-    body: JSON.stringify({
-      ...body,
-      metadata: {...metadata, editorialRevision: request.editorialRevision},
-    }),
+    headers: miniRunUserHeaders(accessToken, {'Content-Type': 'application/json', 'Idempotency-Key': frontendJobId}),
+    body: JSON.stringify(body),
     cache: 'no-store',
   })
 

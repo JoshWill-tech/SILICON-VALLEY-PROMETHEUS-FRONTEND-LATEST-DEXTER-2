@@ -31,23 +31,11 @@ const isFiniteNumber = (value: unknown): value is number =>
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 /**
- * Creates the only payload accepted by the Mini-Runs dispatch route. The
- * source can be arbitrarily long, but a Mini-Run is always a Maul 9:16
- * deliverable with a user-selected short-form source window.
+ * Creates the raw cloud intake contract. User preferences become prompt
+ * directives; cloud execution owns the editorial plan and fresh transcript.
  */
 export function buildMiniRunRenderPayload({
-  sourceUrl,
-  source,
-  shot,
-  jobId,
-  draftManifest,
-  transcriptSegments,
-  words,
-  prompt,
-  quality,
-  format,
-  safeMode,
-  textLayers,
+  sourceUrl, source, shot, prompt, quality, format, safeMode,
 }: BuildMiniRunRenderPayloadInput): Record<string, unknown> {
   const sourceDurationMs = isFiniteNumber(source.durationMs) && source.durationMs > 0
     ? Math.round(source.durationMs)
@@ -70,92 +58,42 @@ export function buildMiniRunRenderPayload({
     sourceStartMs + requestedDurationMs,
     sourceDurationMs ?? Number.MAX_SAFE_INTEGER,
   )
-  const durationMs = Math.max(1_000, sourceEndMs - sourceStartMs)
 
-  const targetChunkWords = isFiniteNumber(shot.targetChunkWords)
-    ? clamp(Math.round(shot.targetChunkWords), 1, 15)
-    : 3
-  const maxChunkWords = isFiniteNumber(shot.maxChunkWords)
-    ? clamp(Math.round(shot.maxChunkWords), targetChunkWords, 30)
-    : Math.max(targetChunkWords, 5)
 
-  const resolvedQuality = quality || (shot as any)?.quality || (shot as any)?.exportQuality
-  const resolvedFormat = format || (shot as any)?.format || (shot as any)?.exportFormat
-  const resolvedSafeMode = typeof safeMode === 'boolean' ? safeMode : (shot as any)?.safeMode
-  const resolvedTextLayers = Array.isArray(textLayers) ? textLayers : (shot as any)?.textLayers
-
-  return {
-    source: { url: sourceUrl },
-    ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
-    ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
-    ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
-    ...(Array.isArray(resolvedTextLayers) && resolvedTextLayers.length > 0 ? { textLayers: resolvedTextLayers } : {}),
-    metadata: {
-      pipeline: 'maul',
-      durationSec: durationMs / 1_000,
-      durationMs,
-      width: source.width,
-      height: source.height,
-      ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
-      ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
-      ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
-      ...(Array.isArray(resolvedTextLayers) && resolvedTextLayers.length > 0 ? { textLayers: resolvedTextLayers } : {}),
-    },
-    design: {
-      ...(resolvedQuality ? { quality: resolvedQuality, exportQuality: resolvedQuality } : {}),
-      ...(resolvedFormat ? { format: resolvedFormat, exportFormat: resolvedFormat } : {}),
-      ...(typeof resolvedSafeMode === 'boolean' ? { safeMode: resolvedSafeMode } : {}),
-      canvasWidth: 1080,
-      canvasHeight: 1920,
-      ...(shot.brollPreference ? { brollPreference: shot.brollPreference, preferredKind: shot.brollPreference } : {}),
-      ...(shot.motionGraphicsPreference ? { motionGraphicsPreference: shot.motionGraphicsPreference } : {}),
-      ...(shot.brandPreferences ? { brandPreferences: shot.brandPreferences } : {}),
-      ...(shot.songTrackId ? { songTrackId: shot.songTrackId, trackId: shot.songTrackId } : {}),
-      ...(shot.trackId ? { trackId: shot.trackId, songTrackId: shot.trackId } : {}),
-      ...(shot.songId ? { songId: shot.songId, songTrackId: shot.songId } : {}),
-      ...(shot.songTitle ? { songTitle: shot.songTitle, songName: shot.songTitle } : {}),
-      ...(shot.songName ? { songName: shot.songName, songTitle: shot.songName } : {}),
-      ...(shot.songArtist ? { songArtist: shot.songArtist, artist: shot.songArtist } : {}),
-      ...(shot.artist ? { artist: shot.artist, songArtist: shot.artist } : {}),
-      ...(shot.songGenre ? { songGenre: shot.songGenre, songCategory: shot.songGenre } : {}),
-      ...(shot.songCategory ? { songCategory: shot.songCategory, songGenre: shot.songCategory } : {}),
-      ...(shot.songMood ? { songMood: shot.songMood, mood: shot.songMood } : {}),
-      ...(shot.mood ? { mood: shot.mood, songMood: shot.mood } : {}),
-      ...(shot.songIntensity ? { songIntensity: shot.songIntensity, songEnergy: shot.songIntensity } : {}),
-      ...(shot.songUrl ? { songUrl: shot.songUrl, songSource: shot.songUrl } : {}),
-      ...(shot.songSource ? { songSource: shot.songSource, songUrl: shot.songSource } : {}),
-    },
-    selectedWindow: {
-      sourceStartMs,
-      sourceEndMs,
-    },
-    targetChunkWords,
-    maxChunkWords,
-    audio: {
-      ...(shot.audio && typeof shot.audio === 'object' ? shot.audio : {}),
-      ...(shot.songPolicy ? { songPolicy: shot.songPolicy } : {}),
-      ...(shot.songTrackId ? { songTrackId: shot.songTrackId, trackId: shot.songTrackId } : {}),
-      ...(shot.trackId ? { trackId: shot.trackId, songTrackId: shot.trackId } : {}),
-      ...(shot.songId ? { songId: shot.songId, songTrackId: shot.songId } : {}),
-      ...(shot.songTitle ? { songTitle: shot.songTitle, songName: shot.songTitle } : {}),
-      ...(shot.songName ? { songName: shot.songName, songTitle: shot.songName } : {}),
-      ...(shot.songArtist ? { songArtist: shot.songArtist, artist: shot.songArtist } : {}),
-      ...(shot.artist ? { artist: shot.artist, songArtist: shot.artist } : {}),
-      ...(shot.songGenre ? { songGenre: shot.songGenre, songCategory: shot.songGenre } : {}),
-      ...(shot.songCategory ? { songCategory: shot.songCategory, songGenre: shot.songCategory } : {}),
-      ...(shot.songMood ? { songMood: shot.songMood, mood: shot.songMood } : {}),
-      ...(shot.mood ? { mood: shot.mood, songMood: shot.mood } : {}),
-      ...(shot.songIntensity ? { songIntensity: shot.songIntensity, songEnergy: shot.songIntensity } : {}),
-      ...(shot.songUrl ? { songUrl: shot.songUrl, songSource: shot.songUrl } : {}),
-      ...(shot.songSource ? { songSource: shot.songSource, songUrl: shot.songSource } : {}),
-      ...(prompt?.trim() ? { prompt: prompt.trim(), userPrompt: prompt.trim() } : {}),
-    },
-    ...(prompt?.trim() ? { prompt: prompt.trim(), userPrompt: prompt.trim() } : {}),
-    ...(draftManifest ? { draftManifest } : {}),
-    ...(Array.isArray(transcriptSegments) && transcriptSegments.length > 0 ? { transcriptSegments } : {}),
-    ...(Array.isArray(words) && words.length > 0 ? { words } : {}),
-    jobId,
+  // Raw cloud intake owns transcription, planning, assets and caption geometry.
+  // Only human creative intent crosses this boundary; preview manifests stay local.
+  const directives = [
+    prompt?.trim() || 'Create a polished editorial mini-run from the raw source.',
+    `Use source window from ${sourceStartMs} ms through ${sourceEndMs} ms.`,
+    'Create a portrait 9:16 output.',
+  ]
+  const preference = (label: string, value: unknown) => {
+    if (typeof value === 'string' && value.trim()) directives.push(`${label}: ${value.trim()}.`)
+    else if (typeof value === 'number' && Number.isFinite(value)) directives.push(`${label}: ${value}.`)
+    else if (typeof value === 'boolean') directives.push(`${label}: ${value}.`)
   }
+  preference('B-roll preference', shot.brollPreference)
+  preference('Motion graphics preference', shot.motionGraphicsPreference)
+  preference('Music policy', shot.songPolicy)
+  preference('Music track ID', shot.songTrackId || shot.trackId || shot.songId)
+  preference('Music title', shot.songTitle || shot.songName)
+  preference('Music artist', shot.songArtist || shot.artist)
+  preference('Music genre', shot.songGenre || shot.songCategory)
+  preference('Music mood', shot.songMood || shot.mood)
+  preference('Music intensity', shot.songIntensity)
+  preference('Music source URL', shot.songUrl || shot.songSource)
+  preference('Caption words per phrase preference', shot.targetChunkWords)
+  preference('Maximum caption words per phrase preference', shot.maxChunkWords)
+  preference('Export quality preference', quality || (shot as any).quality || (shot as any).exportQuality)
+  preference('Export format preference', format || (shot as any).format || (shot as any).exportFormat)
+  preference('Safe mode preference', safeMode ?? (shot as any).safeMode)
+  if (shot.brandPreferences && typeof shot.brandPreferences === 'object') {
+    directives.push(`Brand preferences: ${JSON.stringify(shot.brandPreferences)}.`)
+  }
+  for (const key of ['musicVolume', 'sfxVolume', 'voiceVolume', 'duckingEnabled']) {
+    preference(`Audio ${key} preference`, shot.audio?.[key])
+  }
+  return {source: sourceUrl, prompt: directives.join('\n')}
 }
 
 /**

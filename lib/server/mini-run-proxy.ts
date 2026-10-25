@@ -16,15 +16,15 @@ function requiredEnvironmentValue(env: MiniRunEnvironment, name: keyof MiniRunEn
   return value
 }
 
-export const PRODUCTION_MINI_RUN_AWS_API_URL = 'https://fb2ehi5jgjh6tue43q5vfwvmxy0rspjd.lambda-url.us-east-1.on.aws'
+// Published runtime identity for diagnostics; execution still requires server configuration.
+export const PRODUCTION_MINI_RUN_AWS_API_URL = 'https://54btlp4pvsd4j6geilvc6ltncq0wljrp.lambda-url.us-east-1.on.aws'
 
 export function getMiniRunEnvironment(override?: MiniRunEnvironment): MiniRunEnvironment {
   const configured =
     override?.MINI_RUN_AWS_API_URL?.trim() ||
     override?.MINI_RUN_BACKEND_URL?.trim() ||
     process.env.MINI_RUN_AWS_API_URL?.trim() ||
-    process.env.MINI_RUN_BACKEND_URL?.trim() ||
-    PRODUCTION_MINI_RUN_AWS_API_URL
+    process.env.MINI_RUN_BACKEND_URL?.trim()
 
   return {
     MINI_RUN_AWS_API_URL: configured,
@@ -124,7 +124,7 @@ export async function buildMiniRunRequest({
   if (!isHealthCheck && !headers.has('X-Mini-Run-User-Token')) {
     throw new Error('A signed-in Mini-Run user session is required.')
   }
-  for (const name of ['accept', 'content-type', 'range']) {
+  for (const name of ['accept', 'content-type', 'range', 'idempotency-key']) {
     const value = request.headers.get(name)
     if (value) headers.set(name, value)
   }
