@@ -19,13 +19,18 @@ export function AIChatSessionItem({
   onDelete,
   onSelect,
   session,
+  currentProjectId,
 }: {
   active: boolean;
   disabled?: boolean;
   onDelete: (session: ChatSession) => void;
   onSelect: (session: ChatSession) => void;
   session: ChatSession;
+  currentProjectId?: string | null;
 }) {
+  const isCurrentProject = currentProjectId && session.project_id === currentProjectId;
+  const messageCount = session.message_count ?? 0;
+
   return (
     <div
       className={cn(
@@ -41,7 +46,22 @@ export function AIChatSessionItem({
         className="min-w-0 flex-1 text-left disabled:cursor-wait"
       >
         <p className="truncate text-sm font-medium text-white">{session.title}</p>
-        <p className="mt-1 text-xs text-white/40">{formatSessionTimestamp(session.updated_at)}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+          <span
+            data-session-project={session.project_id || 'account'}
+            className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-white/70"
+          >
+            {isCurrentProject ? 'This Project' : session.project_title || (session.project_id ? `Project ${session.project_id.slice(0, 8)}` : 'Account Scope')}
+          </span>
+          <span
+            data-session-message-count={messageCount}
+            className="text-[11px] text-white/45"
+          >
+            {messageCount} {messageCount === 1 ? 'message' : 'messages'}
+          </span>
+          <span className="text-white/20">•</span>
+          <span className="text-[11px] text-white/40">{formatSessionTimestamp(session.updated_at)}</span>
+        </div>
       </button>
       <button
         type="button"

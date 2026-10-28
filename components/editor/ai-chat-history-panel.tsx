@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Plus, Search, X } from "lucide-react";
+import { useState, useMemo } from "react";
 
 import type { ChatSession } from "@/lib/supabase/chat-sessions";
 
@@ -16,6 +16,7 @@ export function AIChatHistoryPanel({
   onNewSession,
   onSelectSession,
   sessions,
+  currentProjectId,
 }: {
   currentSessionId: string | null;
   isLoading: boolean;
@@ -24,8 +25,16 @@ export function AIChatHistoryPanel({
   onNewSession: () => void;
   onSelectSession: (sessionId: string) => void;
   sessions: ChatSession[];
+  currentProjectId?: string | null;
 }) {
   const [pendingDelete, setPendingDelete] = useState<ChatSession | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSessions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((s) => s.title.toLowerCase().includes(q));
+  }, [searchQuery, sessions]);
 
   return (
     <motion.aside
@@ -57,26 +66,53 @@ export function AIChatHistoryPanel({
         </button>
       </header>
 
+      <div className="border-b border-white/[0.06] px-3 py-2">
+        <div className="relative flex items-center">
+          <Search className="pointer-events-none absolute left-3 size-3.5 text-white/40" />
+          <input
+            data-history-search="true"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search conversations…"
+            aria-label="Search conversation history"
+            className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-7 text-xs text-white placeholder:text-white/35 outline-none focus:border-white/25"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 text-white/40 hover:text-white"
+            >
+              <X className="size-3" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {isLoading ? (
           <div className="space-y-2" aria-label="Loading chat history" role="status">
             {[0, 1, 2, 3].map((index) => <div key={index} className="h-[68px] animate-pulse rounded-xl bg-white/[0.04]" />)}
           </div>
-        ) : sessions.length ? (
+        ) : filteredSessions.length ? (
           <div className="space-y-2">
-            {sessions.map((session) => (
+            {filteredSessions.map((session) => (
               <AIChatSessionItem
                 key={session.id}
                 active={session.id === currentSessionId}
                 disabled={isLoading}
                 session={session}
+                currentProjectId={currentProjectId}
                 onSelect={(selectedSession) => onSelectSession(selectedSession.id)}
                 onDelete={setPendingDelete}
               />
             ))}
           </div>
         ) : (
-          <p className="px-3 py-8 text-center text-sm text-white/40">No chats yet. Start a new conversation!</p>
+          <p className="px-3 py-8 text-center text-sm text-white/40">
+            {searchQuery ? "No matching chats found." : "No chats yet. Start a new conversation!"}
+          </p>
         )}
       </div>
 

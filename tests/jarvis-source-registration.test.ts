@@ -83,7 +83,7 @@ function scenario({pointer = null, assets = [savedAsset()], assetError = false}:
     '@/lib/server/mini-run-dispatch': {dispatchMiniRunRender: async (input: Row) => {
       dispatches.push(input)
       return {jobId: 'job', pipelineJobId: 'pipeline', status: 'queued'}
-    }},
+    }, extractExportDirectives: () => ({})},
   }
   function load(path: string): Row {
     const exports = {}

@@ -34,10 +34,19 @@ function readSource(value: unknown): SavedProjectSource | null {
  */
 export async function resolveSavedProjectSource(
   supabase: SupabaseClient,
-  {projectId, userId, sourceAssetId}: {projectId: string; userId: string; sourceAssetId?: string | null},
+  {projectId, userId, sourceAssetId}: {projectId: string; userId?: string | string[] | null; sourceAssetId?: string | null},
 ): Promise<SavedProjectSource | null> {
-  const ownedAssets = (columns = '*') => supabase.from('source_assets').select(columns)
-    .eq('project_id', projectId).eq('user_id', userId)
+  const ownedAssets = (columns = '*') => {
+    const query = supabase.from('source_assets').select(columns).eq('project_id', projectId)
+    if (Array.isArray(userId)) {
+      if (typeof (query as any).in === 'function') {
+        return (query as any).in('user_id', userId)
+      }
+      return query.eq('user_id', userId[0])
+    }
+    if (userId) return query.eq('user_id', userId)
+    return query
+  }
 
   if (sourceAssetId) {
     const {data, error} = await ownedAssets().eq('id', sourceAssetId).maybeSingle()

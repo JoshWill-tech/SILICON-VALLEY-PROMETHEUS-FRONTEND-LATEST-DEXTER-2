@@ -16,6 +16,7 @@ import {
   deleteChatSession,
   getProjectChatSessions,
   getUserChatSessions,
+  searchChatHistory,
   type ChatSession,
   updateChatSessionTitle,
 } from "@/lib/supabase/chat-sessions";
@@ -114,6 +115,10 @@ export type AIChatVideoContext = {
 const SOCIAL_STRATEGIST_CONTEXT =
   "Act as a social media content strategist for video creators. Tailor posts, hooks, calls to action, and hashtags to the requested platform.";
 
+// Module-level in-memory cache to preserve thread messages across workspace tab switching
+const sessionMessagesCache = new Map<string, AIChatMessage[]>();
+const projectActiveSessionCache = new Map<string, string>();
+
 export function useAIChat({
   projectId,
   enabled = true,
@@ -123,14 +128,21 @@ export function useAIChat({
   enabled?: boolean;
   contextProvider?: AIChatContextProvider;
 }) {
+  const initialSessionId = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("chat_session") || (projectId ? projectActiveSessionCache.get(projectId) : null) || null
+    : null;
+  const initialCachedMessages = initialSessionId ? sessionMessagesCache.get(initialSessionId) ?? [] : [];
+
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState<AIChatMessage[]>([]);
+  const [messages, setMessages] = useState<AIChatMessage[]>(initialCachedMessages);
   const [isSending, setIsSending] = useState(false);
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId);
+  const [isHistoryLoading, setIsHistoryLoading] = useState<boolean>(
+    () => Boolean(enabled && (projectId || initialSessionId) && initialCachedMessages.length === 0),
+  );
   const [historyLoadError, setHistoryLoadError] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const [streamIntent, setStreamIntent] = useState<string | null>(null);
@@ -153,7 +165,11 @@ export function useAIChat({
 
   useEffect(() => {
     messagesRef.current = messages;
-  }, [messages]);
+    if (currentSessionId && messages.length > 0) {
+      sessionMessagesCache.set(currentSessionId, messages);
+      if (projectId) projectActiveSessionCache.set(projectId, currentSessionId);
+    }
+  }, [messages, currentSessionId, projectId]);
 
   useEffect(() => {
     contextProviderRef.current = contextProvider;
@@ -291,6 +307,8 @@ export function useAIChat({
       // thread is populated but the next request is sent with stale history.
       messagesRef.current = restoredMessages;
       memorySessionIdRef.current = sessionId;
+      sessionMessagesCache.set(sessionId, restoredMessages);
+      if (projectId) projectActiveSessionCache.set(projectId, sessionId);
       setMessages(restoredMessages);
       setHistoryLoadError(null);
     } catch (err) {
@@ -792,6 +810,13 @@ export function useAIChat({
       void loadSessionMessages(sessionId);
       return;
     }
+    const cached = sessionMessagesCache.get(sessionId);
+    if (cached) {
+      messagesRef.current = cached;
+      setMessages(cached);
+    } else {
+      setIsHistoryLoading(true);
+    }
     setActiveSessionId(sessionId);
   }, [loadSessionMessages, setActiveSessionId]);
 
@@ -802,11 +827,20 @@ export function useAIChat({
     void loadSessionMessages(sessionId);
   }, [loadSessionMessages]);
 
+  const searchHistory = useCallback(
+    async (query: string) => {
+      return searchChatHistory(query, projectId);
+    },
+    [projectId],
+  );
+
   const createNewSession = useCallback(async () => {
     setIsHistoryLoading(true);
     try {
       const session = await createChatSession(projectId);
       setActiveSessionId(session.id);
+      sessionMessagesCache.set(session.id, []);
+      if (projectId) projectActiveSessionCache.set(projectId, session.id);
       setSessions((current) => [session, ...current.filter((entry) => entry.id !== session.id)]);
       messagesRef.current = [];
       memorySessionIdRef.current = session.id;
@@ -889,6 +923,7 @@ export function useAIChat({
     sendMessage,
     stopStreaming,
     selectSession,
+    searchHistory,
     setDraft,
     sessions,
     streamActivity,

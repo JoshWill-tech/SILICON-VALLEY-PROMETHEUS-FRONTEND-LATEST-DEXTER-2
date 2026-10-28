@@ -252,6 +252,7 @@ export type ProjectStatus = 'draft' | 'processing' | 'ready' | 'exported'
 
 export interface Project {
   id: Id
+  userId?: Id
   title: string
   status: ProjectStatus
   createdAt: string

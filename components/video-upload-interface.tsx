@@ -2402,7 +2402,7 @@ export function VideoUploadInterface() {
                             </span>
                         </motion.h1>
                         <p className="max-w-xl text-[15px] leading-7 text-white/58">
-                            Upload a source, choose a visual lane, and send the next edit into motion.
+                            New Project Inception: Upload footage, choose a visual lane, and shape your initial cut. Existing project chats remain separate inside each project workspace.
                         </p>
                     </motion.div>
 

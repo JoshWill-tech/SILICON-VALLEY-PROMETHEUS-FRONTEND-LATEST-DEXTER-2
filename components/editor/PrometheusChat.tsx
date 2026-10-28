@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowDown, ArrowUp, Brain, ChevronDown, LoaderCircle, Mic, Volume2, X } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, Brain, ChevronDown, LoaderCircle, Mic, Volume2, X } from 'lucide-react'
 import { MetalFx, setCursorLightConfig, useMetalBend } from 'metal-fx'
 
 import { useAuth } from '@/components/auth/auth-provider'
@@ -431,7 +431,7 @@ export function PrometheusChat({
   }, [renderedMessages])
 
   const suggestionsHidden = usesPersistentChat
-    ? persistentChat.isSending || persistentChat.isAwaitingResponse
+    ? persistentChat.isSending || persistentChat.isAwaitingResponse || persistentChat.isHistoryLoading
     : thinking
 
   const handleSuggestionSelect = React.useCallback(
@@ -545,6 +545,7 @@ export function PrometheusChat({
           }))}
           filename={`jarvis-${persistentChat.currentSessionId ?? 'chat'}`}
           className="size-9"
+          disabled={persistentChat.isHistoryLoading || renderedMessages.length === 0}
         />
       </div>
 
@@ -606,37 +607,73 @@ export function PrometheusChat({
               )}
             </div>
           ) : null}
-          {renderedMessages.length === 0 && !showingThinking ? (
-            <div className="flex min-h-full items-center justify-center px-4 pb-24 text-center">
+          {renderedMessages.length === 0 && (persistentChat.isHistoryLoading || !persistentChat.currentSessionId) ? (
+            <div data-chat-history-loading="true" className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-12 md:py-16">
+              <div className="flex items-center gap-3.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-300 shadow-[0_0_16px_rgba(56,189,248,0.2)]">
+                  <LoaderCircle className="size-5 animate-spin" strokeWidth={1.5} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium tracking-wide text-white/90">
+                    {persistentChat.currentSessionId ? 'Loading conversation history…' : 'Connecting to editorial session…'}
+                  </p>
+                  <p className="mt-0.5 truncate font-mono text-[11px] text-white/45">
+                    {persistentChat.currentSessionId ? `Session ${persistentChat.currentSessionId}` : 'Retrieving saved session context'}
+                  </p>
+                </div>
+              </div>
+              <PrometheusChatLoadingSkeleton
+                label="Restoring editorial transcript and context..."
+                sublabel="Retrieving speech-synced frames, recommendations, and timeline actions"
+              />
+            </div>
+          ) : renderedMessages.length === 0 && !showingThinking && !persistentChat.isHistoryLoading ? (
+            <div className="flex min-h-full flex-col items-center justify-center px-4 pb-24 text-center">
               <ElegistChatGreeting
                 greeting={getChatGreeting(session?.user, profile)}
                 className="max-w-[52rem] text-balance text-[clamp(2.4rem,4.8vw,5.2rem)] font-normal leading-[0.9] tracking-normal text-white/92 [overflow-wrap:anywhere]"
               />
+              <div
+                data-chat-role-notice="true"
+                className="mx-auto mt-6 max-w-lg rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-2.5 text-center text-xs text-white/55 backdrop-blur-md"
+              >
+                <span className="font-medium text-white/80">Planning & Editorial Advice:</span> Stages timeline cuts, pacing recommendations, and prompt guidance. Final MP4 generation is processed in the <span className="font-medium text-cyan-300">Export</span> workspace.
+              </div>
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-7 py-8 md:py-12">
-              {renderedMessages.map((message) => (
-                <PrometheusMessageBubble
-                  key={message.id}
-                  message={message}
-                  live={usesPersistentChat}
-                  isLatestAssistant={message.id === latestSpeakableMessage?.id}
-                  onPrompt={handleSuggestionSelect}
-                  actionOutcome={actionOutcomes[message.id]}
-                  onApplyActions={onApplyActions ? handleApplyActions : undefined}
-                  onDismissActions={handleDismissActions}
-                  onSeekToSec={onSeekToSec}
-                  onCarouselSelect={handleCarouselSelect}
-                  onMediaSelect={handleMediaSelect}
-                  carouselDisabled={persistentChat.isSending || persistentChat.isAwaitingResponse}
-                  onStreamingComplete={() => {
-                    if (usesPersistentChat) persistentChat.completeAssistantMessage(message.id)
-                  }}
-                  onStreamingProgress={() => {
-                    if (pinnedToBottomRef.current) scrollToLatest('auto')
-                  }}
-                />
-              ))}
+              {renderedMessages.map((message, index) => {
+                const isOrphan =
+                  message.role === 'user' &&
+                  (renderedMessages[index + 1]?.role === 'user' ||
+                    (index === renderedMessages.length - 1 &&
+                      !showingThinking &&
+                      !persistentChat.isAwaitingResponse &&
+                      !persistentChat.isSending))
+                return (
+                  <PrometheusMessageBubble
+                    key={message.id}
+                    message={message}
+                    isOrphan={isOrphan}
+                    live={usesPersistentChat}
+                    isLatestAssistant={message.id === latestSpeakableMessage?.id}
+                    onPrompt={handleSuggestionSelect}
+                    actionOutcome={actionOutcomes[message.id]}
+                    onApplyActions={onApplyActions ? handleApplyActions : undefined}
+                    onDismissActions={handleDismissActions}
+                    onSeekToSec={onSeekToSec}
+                    onCarouselSelect={handleCarouselSelect}
+                    onMediaSelect={handleMediaSelect}
+                    carouselDisabled={persistentChat.isSending || persistentChat.isAwaitingResponse}
+                    onStreamingComplete={() => {
+                      if (usesPersistentChat) persistentChat.completeAssistantMessage(message.id)
+                    }}
+                    onStreamingProgress={() => {
+                      if (pinnedToBottomRef.current) scrollToLatest('auto')
+                    }}
+                  />
+                )
+              })}
               <PrometheusChatActivity
                 entries={persistentChat.streamActivity}
                 active={showingThinking}
@@ -769,6 +806,7 @@ export function PrometheusChat({
         {historyOpen ? (
           <PrometheusChatHistoryDrawer
             currentSessionId={persistentChat.currentSessionId}
+            projectId={projectId}
             isLoading={persistentChat.isHistoryLoading}
             sessions={persistentChat.sessions}
             onClose={closeHistory}
@@ -778,6 +816,7 @@ export function PrometheusChat({
             onSelectSession={persistentChat.selectSession}
             onDeleteSession={(sessionId) => void persistentChat.removeSession(sessionId)}
             onRenameSession={(sessionId, title) => void persistentChat.renameSession(sessionId, title)}
+            searchHistory={persistentChat.searchHistory}
           />
         ) : null}
       </AnimatePresence>
@@ -787,6 +826,7 @@ export function PrometheusChat({
 
 const PrometheusMessageBubble = React.memo(function PrometheusMessageBubble({
   message,
+  isOrphan = false,
   live,
   actionOutcome,
   isLatestAssistant = false,
@@ -801,6 +841,7 @@ const PrometheusMessageBubble = React.memo(function PrometheusMessageBubble({
   onStreamingProgress,
 }: {
   message: PrometheusChatMessage
+  isOrphan?: boolean
   live: boolean
   isLatestAssistant?: boolean
   onPrompt?: (text: string) => void
@@ -885,6 +926,15 @@ const PrometheusMessageBubble = React.memo(function PrometheusMessageBubble({
             />
           )}
         </div>
+        {isUser && isOrphan ? (
+          <div
+            data-orphan-message-indicator="true"
+            className="flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] text-amber-200/90 shadow-sm"
+          >
+            <AlertCircle className="size-3.5 shrink-0 text-amber-400" />
+            <span>No assistant reply recorded for this turn (generation did not return a response)</span>
+          </div>
+        ) : null}
 
         {!isUser && message.carousel ? (
           <ChatCarousel

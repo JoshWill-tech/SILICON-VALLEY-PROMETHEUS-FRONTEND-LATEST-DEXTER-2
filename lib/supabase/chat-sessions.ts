@@ -89,9 +89,20 @@ async function deleteRemoteChatSession(sessionId: string) {
   if (error) throw error;
 }
 
-function mergeSessions(remote: ChatSession[], local: ChatSession[], limit: number) {
+function mergeSessions(
+  remote: ChatSession[],
+  local: ChatSession[],
+  limit: number,
+  counts: Record<string, number> = {},
+) {
   const sessions = new Map<string, ChatSession>();
-  for (const session of [...remote, ...local]) sessions.set(session.id, session);
+  for (const session of [...remote, ...local]) {
+    const messageCount = session.message_count ?? counts[session.id] ?? 0;
+    sessions.set(session.id, {
+      ...session,
+      message_count: messageCount,
+    });
+  }
   return [...sessions.values()]
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
     .slice(0, limit);
@@ -111,27 +122,39 @@ function mirrorRemoteSessions(
 export async function getUserChatSessions(limit = 20) {
   const localHistory = await getScopedLocalChatHistoryStore();
   const local = localHistory.getSessions();
+  const counts = localHistory.getMessageCounts();
   try {
     const remote = await getRemoteUserChatSessions(limit);
     mirrorRemoteSessions(localHistory, remote);
-    return mergeSessions(remote, local, limit);
+    return mergeSessions(remote, local, limit, counts);
   } catch (error) {
     console.warn("[chat-sessions] remote history unavailable; using local history", error);
-    return local.slice(0, limit);
+    return mergeSessions([], local, limit, counts);
   }
 }
 
 export async function getProjectChatSessions(projectId: string, limit = 20) {
   const localHistory = await getScopedLocalChatHistoryStore();
   const local = localHistory.getProjectSessions(projectId);
+  const counts = localHistory.getMessageCounts();
   try {
     const remote = await getRemoteProjectChatSessions(projectId, limit);
     mirrorRemoteSessions(localHistory, remote);
-    return mergeSessions(remote, local, limit);
+    return mergeSessions(remote, local, limit, counts);
   } catch (error) {
     console.warn("[chat-sessions] remote project history unavailable; using local history", error);
-    return local.slice(0, limit);
+    return mergeSessions([], local, limit, counts);
   }
+}
+
+export async function searchChatHistory(query: string, projectId?: string | null) {
+  const localHistory = await getScopedLocalChatHistoryStore();
+  return localHistory.searchSessions(query, projectId);
+}
+
+export async function getLocalSessionMessageCounts() {
+  const localHistory = await getScopedLocalChatHistoryStore();
+  return localHistory.getMessageCounts();
 }
 
 export async function getChatSession(sessionId: string) {

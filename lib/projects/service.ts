@@ -212,7 +212,7 @@ export const ProjectService = {
     }
 
     if (!data.source_asset_id) {
-      const savedSource = await resolveSavedProjectSource(supabase, {projectId: id, userId: user.id})
+      const savedSource = await resolveSavedProjectSource(supabase, {projectId: id, userId: data.user_id || user.id})
       if (savedSource) {
         data.source_asset_id = savedSource.id
       }
@@ -394,6 +394,7 @@ export const ProjectService = {
 function mapProjectFromDb(row: any): Project {
   return {
     id: row.id,
+    userId: row.user_id,
     title: row.name || 'Untitled project',
     status: row.status as ProjectStatus,
     createdAt: row.created_at,

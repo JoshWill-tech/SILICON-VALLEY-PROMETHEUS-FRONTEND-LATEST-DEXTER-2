@@ -76,11 +76,11 @@ export async function GET(request: Request, {params}: RouteContext) {
   if (authError || !user) return NextResponse.json({error: 'Unauthorized'}, {status: 401})
 
   let {data: project, error: projectError} = await supabase.from('projects')
-    .select('id, source_asset_id, editor_state, source_profile').eq('id', projectId).eq('user_id', user.id).maybeSingle()
+    .select('id, source_asset_id, editor_state, source_profile, user_id').eq('id', projectId).eq('user_id', user.id).maybeSingle()
 
   if (!project) {
     const {data: sharedProject} = await supabase.from('projects')
-      .select('id, source_asset_id, editor_state, source_profile').eq('id', projectId).maybeSingle()
+      .select('id, source_asset_id, editor_state, source_profile, user_id').eq('id', projectId).maybeSingle()
     if (sharedProject) {
       project = sharedProject
       projectError = null
@@ -104,7 +104,8 @@ export async function GET(request: Request, {params}: RouteContext) {
   let asset: SavedProjectSource | null = null
   let assetError: unknown = null
   try {
-    asset = await resolveSavedProjectSource(supabase, {projectId, userId: user.id, sourceAssetId: project.source_asset_id})
+    const userIds = Array.from(new Set([user.id, (project as any)?.user_id].filter(Boolean))) as string[]
+    asset = await resolveSavedProjectSource(supabase, {projectId, userId: userIds, sourceAssetId: project.source_asset_id})
   } catch (error) {
     assetError = error
   }
@@ -210,11 +211,11 @@ export async function POST(request: Request, {params}: RouteContext) {
   }
 
   let {data: project, error: projectError} = await supabase.from('projects')
-    .select('id, source_asset_id, editor_state, source_profile').eq('id', projectId).eq('user_id', user.id).maybeSingle()
+    .select('id, source_asset_id, editor_state, source_profile, user_id').eq('id', projectId).eq('user_id', user.id).maybeSingle()
 
   if (!project) {
     const {data: sharedProject} = await supabase.from('projects')
-      .select('id, source_asset_id, editor_state, source_profile').eq('id', projectId).maybeSingle()
+      .select('id, source_asset_id, editor_state, source_profile, user_id').eq('id', projectId).maybeSingle()
     if (sharedProject) {
       project = sharedProject
       projectError = null
@@ -246,7 +247,8 @@ export async function POST(request: Request, {params}: RouteContext) {
 
   let asset: SavedProjectSource | null = null
   try {
-    asset = await resolveSavedProjectSource(supabase, {projectId, userId: user.id, sourceAssetId: project.source_asset_id})
+    const userIds = Array.from(new Set([user.id, (project as any)?.user_id].filter(Boolean))) as string[]
+    asset = await resolveSavedProjectSource(supabase, {projectId, userId: userIds, sourceAssetId: project.source_asset_id})
   } catch {
     return NextResponse.json({error: 'The saved source video could not be checked. Try checking again.', code: 'SOURCE_CHECK_UNCONFIRMED'}, {status: 503})
   }
@@ -309,7 +311,7 @@ export async function POST(request: Request, {params}: RouteContext) {
             ? (editorState as any).cues
             : undefined
 
-    const directives = extractExportDirectives(editorState)
+    const directives = typeof extractExportDirectives === 'function' ? extractExportDirectives(editorState) : {}
     const dispatched = await dispatchMiniRunRender({
       request: {
         projectId,

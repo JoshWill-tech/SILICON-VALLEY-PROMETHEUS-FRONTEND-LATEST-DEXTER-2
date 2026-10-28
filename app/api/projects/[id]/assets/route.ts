@@ -54,22 +54,32 @@ export async function GET(
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     let asset: any = null
+    const projectOwnerId = (project as any).userId || (project as any).user_id
     if (project.sourceAssetId) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('source_assets')
         .select('*')
         .eq('id', project.sourceAssetId)
-        .eq('user_id', user.id)
-        .maybeSingle()
+      if (user?.id) {
+        query = projectOwnerId && projectOwnerId !== user.id
+          ? query.in('user_id', [user.id, projectOwnerId])
+          : query.eq('user_id', user.id)
+      }
+      const { data, error } = await query.maybeSingle()
       if (data && !error) asset = data
     }
 
     if (!asset) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('source_assets')
         .select('*')
         .eq('project_id', projectId)
-        .eq('user_id', user.id)
+      if (user?.id) {
+        query = projectOwnerId && projectOwnerId !== user.id
+          ? query.in('user_id', [user.id, projectOwnerId])
+          : query.eq('user_id', user.id)
+      }
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()

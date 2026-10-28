@@ -101,7 +101,7 @@ function exportRoute({user = {id: 'user-1'}, projectSource = 'source-1'} = {}) {
       findActiveProjectExport: async () => null,
       createProjectExport: async (_id, options) => ({id: 'export-1', metadata: options.metadata}),
     }},
-    '@/lib/server/mini-run-dispatch': {dispatchMiniRunRender: async (input) => {dispatches.push(input); return {jobId: 'job-1', status: 'queued'}}},
+    '@/lib/server/mini-run-dispatch': {dispatchMiniRunRender: async (input) => {dispatches.push(input); return {jobId: 'job-1', status: 'queued'}}, extractExportDirectives: () => ({})},
     '@/lib/server/mini-run-proxy': {resolveMiniRunConfig: () => ({})},
   })
   return {dispatches, submit: (body) => POST({json: async () => body}, {params: Promise.resolve({id: 'project-1'})})}

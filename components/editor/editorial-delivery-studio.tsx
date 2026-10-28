@@ -415,7 +415,7 @@ export function EditorialDeliveryStudio({
                 <p role="alert" className="shrink-0 border-b border-rose-400/15 bg-rose-400/5 px-5 py-2 text-xs text-rose-200">{error ?? historyError ?? `Editor timeline sync failed: ${editorial.error || 'Unable to confirm the save.'}`}</p>
               ) : null}
 
-              <p className="px-4 pt-3 text-[11px] text-white/50 sm:px-6">Source Mini-Run MP4s composite original footage with speech-synced typography, project text layers, chosen soundtrack, and autonomous B-roll orchestration.</p>
+              <p className="px-4 pt-3 text-[11px] text-white/50 sm:px-6">Source Mini-Run MP4s composite original footage with speech-synced typography, project text layers, chosen soundtrack, and autonomous B-roll orchestration; editor timeline layers are not included.</p>
               <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-y-auto p-3 sm:grid-cols-2 sm:p-5">
                 <figure className="relative flex aspect-video min-h-0 min-w-0 flex-col overflow-hidden rounded-xl bg-black sm:aspect-auto">
                   {sourceUrl ? <video key={sourceUrl} ref={comparisonSourceRef} crossOrigin="anonymous" src={sourceUrl} controls playsInline preload="metadata" className="absolute inset-0 size-full object-contain" aria-label="Original video" /> : <div className="grid h-full place-items-center text-xs text-white/40">Source video unavailable</div>}
@@ -449,7 +449,7 @@ export function EditorialDeliveryStudio({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[radial-gradient(circle_at_15%_0%,rgba(157,246,90,.13),transparent_35%)] px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg border border-[#9df65a]/20 bg-[#9df65a]/10 text-[#b4fb60]"><Film className="size-4" /></span>
-          <div><h2 className="text-sm font-semibold text-white">MP4 exports</h2><p className="text-[11px] text-white/45">Source Mini-Run: 9:16 portrait MP4 with speech-synced typography, project text layers, chosen soundtrack, and autonomous B-roll orchestration.</p></div>
+          <div><h2 className="text-sm font-semibold text-white">MP4 exports</h2><p className="text-[11px] text-white/45">Source Mini-Run: 9:16 portrait MP4 with speech-synced typography, project text layers, chosen soundtrack, and autonomous B-roll orchestration. Editor timeline layers are not included.</p></div>
         </div>
         <div className="flex items-center gap-2">
           <VideoReviewDownloadButton />

@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Plus, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { groupChatSessions } from "@/lib/prometheus-assistant/chat-history";
 import type { ChatSession } from "@/lib/supabase/chat-sessions";
@@ -11,6 +11,7 @@ import { PrometheusChatHistoryRow } from "./prometheus-chat-history-row";
 
 export function PrometheusChatHistoryDrawer({
   currentSessionId,
+  projectId,
   isLoading,
   onClose,
   onDeleteSession,
@@ -18,8 +19,10 @@ export function PrometheusChatHistoryDrawer({
   onRenameSession,
   onSelectSession,
   sessions,
+  searchHistory,
 }: {
   currentSessionId: string | null;
+  projectId?: string | null;
   isLoading: boolean;
   onClose: () => void;
   onDeleteSession: (sessionId: string) => void;
@@ -27,12 +30,14 @@ export function PrometheusChatHistoryDrawer({
   onRenameSession: (sessionId: string, title: string) => void;
   onSelectSession: (sessionId: string) => void;
   sessions: ChatSession[];
+  searchHistory?: (query: string) => Promise<Array<{ session: ChatSession; matchSnippet?: string; messageCount: number }>>;
 }) {
   const reduceMotion = useReducedMotion();
   const asideRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ChatSession | null>(null);
-  const groupedSessions = groupChatSessions(sessions);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ session: ChatSession; matchSnippet?: string; messageCount: number }> | null>(null);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -65,6 +70,47 @@ export function PrometheusChatHistoryDrawer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults(null);
+      return;
+    }
+
+    let active = true;
+    if (searchHistory) {
+      void searchHistory(trimmed).then((res) => {
+        if (active) setSearchResults(res);
+      });
+    } else {
+      // Fallback local title filter
+      const lower = trimmed.toLowerCase();
+      const filtered = sessions
+        .filter((s) => s.title.toLowerCase().includes(lower))
+        .map((s) => ({ session: s, messageCount: s.message_count ?? 0 }));
+      setSearchResults(filtered);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [searchQuery, searchHistory, sessions]);
+
+  const activeSessions = useMemo(() => {
+    if (searchResults !== null) {
+      return searchResults.map((r) => ({
+        ...r.session,
+        message_count: r.messageCount ?? r.session.message_count,
+        matchSnippet: r.matchSnippet,
+      }));
+    }
+    return sessions;
+  }, [searchResults, sessions]);
+
+  const groupedSessions = useMemo(() => {
+    return groupChatSessions(activeSessions);
+  }, [activeSessions]);
+
   return (
     <motion.div
       className="absolute inset-0 z-40"
@@ -85,7 +131,7 @@ export function PrometheusChatHistoryDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="chat-history-title"
-        className="absolute inset-y-0 left-0 flex w-[min(90vw,360px)] flex-col border-r border-white/[0.08] bg-[#111113]/96 shadow-[28px_0_80px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
+        className="absolute inset-y-0 left-0 flex w-[min(90vw,380px)] flex-col border-r border-white/[0.08] bg-[#111113]/96 shadow-[28px_0_80px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
         initial={reduceMotion ? false : { x: -28, opacity: 0.8 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: -28, opacity: 0 }}
@@ -95,12 +141,17 @@ export function PrometheusChatHistoryDrawer({
         }}
       >
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/[0.06] px-4">
-          <h2
-            id="chat-history-title"
-            className="mr-auto text-sm font-semibold tracking-[-0.01em] text-white"
-          >
-            History
-          </h2>
+          <div className="mr-auto">
+            <h2
+              id="chat-history-title"
+              className="text-sm font-semibold tracking-[-0.01em] text-white"
+            >
+              History
+            </h2>
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
+              {projectId ? "Project Conversations" : "All Conversations"}
+            </p>
+          </div>
           <button
             type="button"
             disabled={isLoading}
@@ -120,6 +171,32 @@ export function PrometheusChatHistoryDrawer({
             <X className="size-4" aria-hidden="true" />
           </button>
         </header>
+
+        {/* Full-text search across session titles and message contents */}
+        <div className="border-b border-white/[0.06] px-3 py-2.5">
+          <div className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-3 size-3.5 text-white/40" />
+            <input
+              data-history-search="true"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search conversations by message or title…"
+              aria-label="Search conversation history"
+              className="h-9 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-8 text-xs text-white placeholder:text-white/35 outline-none transition-colors focus:border-white/25 focus:bg-white/[0.06]"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 text-white/40 hover:text-white"
+                aria-label="Clear search"
+              >
+                <X className="size-3.5" />
+              </button>
+            ) : null}
+          </div>
+        </div>
 
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-color:rgba(255,255,255,0.16)_transparent] [scrollbar-width:thin]"
@@ -153,6 +230,7 @@ export function PrometheusChatHistoryDrawer({
                       const sessionIndex = sessions.findIndex(
                         (entry) => entry.id === session.id,
                       );
+                      const matchSnippet = (session as any).matchSnippet;
                       return (
                         <PrometheusChatHistoryRow
                           key={session.id}
@@ -160,6 +238,8 @@ export function PrometheusChatHistoryDrawer({
                           disabled={isLoading}
                           index={sessionIndex}
                           session={session}
+                          currentProjectId={projectId}
+                          matchSnippet={matchSnippet}
                           onSelect={(selectedSession) => {
                             onSelectSession(selectedSession.id);
                             onClose();
@@ -175,9 +255,11 @@ export function PrometheusChatHistoryDrawer({
             </div>
           ) : (
             <div className="px-5 py-14 text-center">
-              <p className="text-sm text-white/55">No saved chats yet.</p>
+              <p className="text-sm text-white/55">
+                {searchQuery ? "No conversations match your search." : "No saved chats yet."}
+              </p>
               <p className="mt-2 text-xs leading-5 text-white/32">
-                Your first message will create one.
+                {searchQuery ? "Try searching for a different keyword or prompt." : "Your first message will create one."}
               </p>
             </div>
           )}

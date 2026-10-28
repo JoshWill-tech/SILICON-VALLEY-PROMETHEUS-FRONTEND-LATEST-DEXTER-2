@@ -16,6 +16,8 @@ export function PrometheusChatHistoryRow({
   onRename,
   onSelect,
   session,
+  currentProjectId,
+  matchSnippet,
 }: {
   active: boolean;
   disabled?: boolean;
@@ -24,11 +26,15 @@ export function PrometheusChatHistoryRow({
   onRename: (sessionId: string, title: string) => void;
   onSelect: (session: ChatSession) => void;
   session: ChatSession;
+  currentProjectId?: string | null;
+  matchSnippet?: string;
 }) {
   const reduceMotion = useReducedMotion();
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(session.title);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const isCurrentProject = currentProjectId && session.project_id === currentProjectId;
+  const messageCount = session.message_count ?? 0;
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -94,16 +100,38 @@ export function PrometheusChatHistoryRow({
           className="min-w-0 flex-1 text-left disabled:cursor-wait"
         >
           <span className="sr-only">{session.title}</span>
-          <span
-            className="block truncate text-sm font-medium text-white"
-            title={session.title}
-            aria-hidden="true"
-          >
-            {session.title}
-          </span>
-          <span className="mt-1 block text-xs text-white/38">
-            {formatSessionTimestamp(session.updated_at)}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="block truncate text-sm font-medium text-white"
+              title={session.title}
+              aria-hidden="true"
+            >
+              {session.title}
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <span
+              data-session-project={session.project_id || 'account'}
+              className="rounded bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-medium text-white/70"
+            >
+              {isCurrentProject ? 'This Project' : session.project_title || (session.project_id ? `Project ${session.project_id.slice(0, 8)}` : 'Account Scope')}
+            </span>
+            <span
+              data-session-message-count={messageCount}
+              className="text-[11px] text-white/45"
+            >
+              {messageCount} {messageCount === 1 ? 'message' : 'messages'}
+            </span>
+            <span className="text-white/20">•</span>
+            <span className="text-[11px] text-white/38">
+              {formatSessionTimestamp(session.updated_at)}
+            </span>
+          </div>
+          {matchSnippet ? (
+            <p className="mt-1 line-clamp-1 text-[11px] text-cyan-300/80">
+              Match: &quot;{matchSnippet}&quot;
+            </p>
+          ) : null}
         </button>
       )}
 

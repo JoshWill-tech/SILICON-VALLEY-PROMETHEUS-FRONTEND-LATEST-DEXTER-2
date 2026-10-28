@@ -9,10 +9,12 @@ export function ConversationExportButton({
   turns,
   filename,
   className,
+  disabled,
 }: {
   turns: ConversationLogTurn[];
   filename?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const hasTurns = turns.some((turn) => turn.text.trim().length > 0);
 
@@ -20,7 +22,7 @@ export function ConversationExportButton({
     <button
       type="button"
       onClick={() => downloadConversationLog(turns, filename)}
-      disabled={!hasTurns}
+      disabled={disabled ?? !hasTurns}
       aria-label="Download conversation log"
       title="Download conversation log"
       className={cn(

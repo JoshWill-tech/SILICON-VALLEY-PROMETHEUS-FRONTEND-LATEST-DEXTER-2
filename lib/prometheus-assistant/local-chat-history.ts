@@ -5,6 +5,8 @@ export type ChatSessionRecord = {
   title: string;
   created_at: string;
   updated_at: string;
+  message_count?: number;
+  project_title?: string | null;
 };
 
 export type ChatMessageRole = "user" | "assistant" | "system";
@@ -230,16 +232,83 @@ export function createLocalChatHistoryStore(
     write({ ...state, messages: state.messages.filter((message) => message.session_id !== sessionId) });
   };
 
+  const getMessageCount = (sessionId: string) =>
+    read().messages.filter((message) => message.session_id === sessionId).length;
+
+  const getMessageCounts = () => {
+    const counts: Record<string, number> = {};
+    for (const message of read().messages) {
+      counts[message.session_id] = (counts[message.session_id] ?? 0) + 1;
+    }
+    return counts;
+  };
+
+  const searchSessions = (query: string, projectId?: string | null) => {
+    const cleanQuery = query.trim().toLowerCase();
+    if (!cleanQuery) {
+      return (projectId ? getProjectSessions(projectId) : getSessions()).map((session) => ({
+        session: {
+          ...session,
+          message_count: getMessageCount(session.id),
+        },
+        messageCount: getMessageCount(session.id),
+        matchSnippet: undefined as string | undefined,
+      }));
+    }
+
+    const state = read();
+    const candidateSessions = projectId
+      ? state.sessions.filter((s) => s.project_id === projectId)
+      : state.sessions;
+
+    const results: Array<{ session: ChatSessionRecord; matchSnippet?: string; messageCount: number }> = [];
+
+    for (const rawSession of candidateSessions) {
+      const sessionMessages = state.messages.filter((m) => m.session_id === rawSession.id);
+      const messageCount = sessionMessages.length;
+      const session: ChatSessionRecord = {
+        ...rawSession,
+        message_count: messageCount,
+      };
+      const titleMatch = session.title.toLowerCase().includes(cleanQuery);
+
+      let matchingMessageSnippet: string | undefined;
+      for (const m of sessionMessages) {
+        const lower = m.content.toLowerCase();
+        const index = lower.indexOf(cleanQuery);
+        if (index !== -1) {
+          const start = Math.max(0, index - 20);
+          const end = Math.min(m.content.length, index + cleanQuery.length + 40);
+          matchingMessageSnippet = `${start > 0 ? '…' : ''}${m.content.slice(start, end).trim()}${end < m.content.length ? '…' : ''}`;
+          break;
+        }
+      }
+
+      if (titleMatch || matchingMessageSnippet) {
+        results.push({
+          session,
+          matchSnippet: matchingMessageSnippet,
+          messageCount,
+        });
+      }
+    }
+
+    return results.sort((left, right) => right.session.updated_at.localeCompare(left.session.updated_at));
+  };
+
   return {
     createSession,
     deleteMessages,
     deleteSession,
+    getMessageCount,
+    getMessageCounts,
     getMessages,
     getProjectSessions,
     getSession,
     getSessions,
     insertMessage,
     insertMessages,
+    searchSessions,
     upsertMessages,
     upsertSessions,
     updateSessionTitle,
